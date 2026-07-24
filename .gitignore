@@ -1,0 +1,44 @@
+HELP.md
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+/src/main/resources/application.yml
+/src/main/resources/application.yaml
+/src/main/resources/application-*.yml
+/src/main/resources/application-*.yaml
+
+!/src/main/resources/application.example.yml
+!/src/main/resources/application.example.yaml
+
+!application.example.yml
+
+# Gradle
+.gradle/
+build/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
