@@ -27,7 +27,7 @@ public interface AccountMapper {
   //최초 계좌 개설 신청
   int insertApplication(AccountDTO accountDTO);
 
-  //반려 후 재신청 : 수정 건수가 0이면 현재 상태가 반려가 아님
+  //재신청
   int reapply(AccountDTO accountDTO);
 
   //신청 승인
