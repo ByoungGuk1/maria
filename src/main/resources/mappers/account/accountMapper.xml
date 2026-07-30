@@ -61,7 +61,11 @@
         SET status = 'APPLIED',
         limit_amount = #{limitAmount}
         WHERE account_id = #{accountId}
-        AND status = 'REJECTED'
+        AND (
+            status = 'REJECTED'
+            OR
+            status = 'APPLIED'
+            )
         AND account_no IS NULL
         AND opened_at IS NULL
     </update>
