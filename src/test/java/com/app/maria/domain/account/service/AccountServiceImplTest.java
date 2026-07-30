@@ -1,6 +1,7 @@
 package com.app.maria.domain.account.service;
 
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.dto.request.AccountRequestDTO;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
@@ -31,26 +32,43 @@ class AccountServiceImplTest {
 
   @Test
   void applyAccount(){
-    String result = accountService.applyAccount(newAccountDTO).toString();
+    //계좌 계설
+    AccountDTO foundAccountDTO = newAccountDTO;
+    AccountRequestDTO reqDTO = AccountRequestDTO.builder()
+        .accountId(foundAccountDTO.getAccountId()).customerId(foundAccountDTO.getCustomerId()).status(foundAccountDTO.getStatus()).accountNo(foundAccountDTO.getAccountNo()).limitAmount(foundAccountDTO.getLimitAmount()).amount(foundAccountDTO.getLimitAmount()).build();
+    String result = accountService.applyAccount(reqDTO).toString();
     log.info(result);
   }
 
   @Test
   void openAccount(){
     AccountDTO foundAccountDTO = accountMapper.selectByCustomerId(1L).get();
-    log.info(accountService.openAccount(foundAccountDTO).toString());
+    log.info(accountService.openAccount(foundAccountDTO.getAccountId()).toString());
   }
 
   @Test
   void rejectAccount(){
     AccountDTO foundAccountDTO = accountMapper.selectByCustomerId(1L).get();
-    log.info(accountService.rejectAccount(foundAccountDTO).toString());
+    log.info(accountService.rejectAccount(foundAccountDTO.getAccountId()).toString());
   }
 
   @Test
   void reapplyAccount(){
     AccountDTO foundAccountDTO = accountMapper.selectByCustomerId(1L).get();
-    log.info(accountService.reapplyAccount(foundAccountDTO).toString());
+    AccountRequestDTO reqDTO = AccountRequestDTO.builder()
+        .accountId(foundAccountDTO.getAccountId()).customerId(foundAccountDTO.getCustomerId()).status(foundAccountDTO.getStatus()).accountNo(foundAccountDTO.getAccountNo()).limitAmount(foundAccountDTO.getLimitAmount()).amount(foundAccountDTO.getLimitAmount()).build();
+    log.info(accountService.reapplyAccount(foundAccountDTO.getAccountId(), reqDTO).toString());
   }
 
+  @Test
+  void getAccount(){
+    AccountDTO foundAccountDTO = accountMapper.selectByCustomerId(1L).get();
+    log.info(accountService.getAccount(foundAccountDTO.getAccountId()).toString());
+  }
+
+  @Test
+  void getAccountStatus(){
+    AccountDTO foundAccountDTO = accountMapper.selectByCustomerId(1L).get();
+    log.info(accountService.getStatusLogList(foundAccountDTO.getAccountId()).toString());
+  }
 }
