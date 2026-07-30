@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.app.maria.domain.sellorder.mapper.SellOrderMapper">
+
+    <insert id="insertSellOrder" parameterType="SellOrderResponseDTO" useGeneratedKeys="true" keyProperty="orderId" keyColumn="ORDER_ID">
+        INSERT INTO sell_order (inbound_detail_id, sell_qty, base_price, purchase_fx_rate, status, processed_at)
+        VALUES (#{inboundDetailId}, #{sellQty}, #{basePrice}, #{purchaseFxRate}, #{status}, #{processedAt})
+    </insert>
+
+    <select id="selectSellOrderById" parameterType="Long" resultType="SellOrderResponseDTO">
+        SELECT order_id, inbound_detail_id, sell_qty, base_price, purchase_fx_rate, status, processed_at
+        FROM sell_order
+        WHERE order_id = #{orderId}
+    </select>
+
+</mapper>
