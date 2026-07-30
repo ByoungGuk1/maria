@@ -1,7 +1,7 @@
 package com.app.maria.domain.sellorder.type;
 
 public enum SellOrderStatus {
-    접수,
-    체결,
-    거부
+    RECEIVED,  // 접수
+    EXECUTED,  // 체결
+    REJECTED   // 거부
 }
