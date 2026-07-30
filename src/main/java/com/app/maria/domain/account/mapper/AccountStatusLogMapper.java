@@ -1,0 +1,23 @@
+package com.app.maria.domain.account.mapper;
+
+import com.app.maria.domain.account.dto.AccountStatusLogDTO;
+import org.apache.ibatis.annotations.Mapper;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@Mapper
+public interface AccountStatusLogMapper {
+  //로그 생성
+  int insertLog(AccountStatusLogDTO accountStatusLogDTO);
+
+  //계좌별 상태 이력 조회: 오래된 순
+  List<AccountStatusLogDTO> selectByAccountId(Long accountId);
+
+  //가장 최근 상태 이력 조회
+  Optional<AccountStatusLogDTO> selectLatestByAccountId(Long accountId);
+
+  //반려 후 재신청 구조에서 현재 신청일 조회
+  LocalDateTime selectLatestApplicationAt(Long accountId);
+}

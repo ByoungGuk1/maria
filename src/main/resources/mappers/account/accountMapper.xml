@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.app.maria.domain.account.mapper.AccountMapper">
+    <select id="existsCustomerById" resultType="boolean" parameterType="Long">
+        SELECT EXISTS (
+            SELECT 1
+            FROM customer
+            WHERE customer_id = #{customerId}
+        )
+    </select>
+    <select id="selectByAccountId" resultType="AccountDTO" parameterType="Long">
+        SELECT
+        *
+        FROM account
+        WHERE account_id = #{accountId}
+    </select>
+    <select id="selectByCustomerId" resultType="AccountDTO" parameterType="Long">
+        SELECT
+        *
+        FROM account
+        WHERE customer_id = #{customerId}
+    </select>
+    <select id="existsByCustomerId" resultType="boolean" parameterType="Long">
+        SELECT EXISTS (
+            SELECT 1
+            FROM account
+            WHERE customer_id = #{customerId}
+        )
+    </select>
+    <select id="existsByAccountNo" resultType="boolean" parameterType="java.math.BigDecimal">
+        SELECT EXISTS (
+            SELECT 1
+            FROM account
+            WHERE account_no = #{accountNo}
+        )
+    </select>
+    <insert id="insertApplication" parameterType="AccountDTO">
+        INSERT INTO account (
+            customer_id,
+            account_no,
+            status,
+            opened_at,
+            created_at,
+            limit_amount,
+            amount
+        ) VALUES (
+            #{customerId},
+            NULL,
+            'APPLIED',
+            NULL,
+            #{createdAt},
+            #{limitAmount},
+            0
+        )
+    </insert>
+    <update id="reapply" parameterType="AccountDTO">
+        UPDATE account
+        SET status = 'APPLIED',
+        limit_amount = #{limitAmount}
+        WHERE account_id = #{accountId}
+        AND status = 'REJECTED'
+        AND account_no IS NULL
+        AND opened_at IS NULL
+    </update>
+    <update id="approve" parameterType="AccountDTO">
+        UPDATE account
+        SET status = 'OPENED',
+        account_no = #{accountNo},
+        opened_at = #{openedAt}
+        WHERE account_id = #{accountId}
+        AND status = 'APPLIED'
+        AND account_no IS NULL
+        AND opened_at IS NULL
+    </update>
+    <update id="reject" parameterType="AccountDTO">
+        UPDATE account
+        SET status = 'REJECTED'
+        WHERE account_id = #{accountId}
+        AND status = 'APPLIED'
+        AND account_no IS NULL
+        AND opened_at IS NULL
+    </update>
+    <select id="selectAllAccount" resultType="accountDTO">
+        SELECT
+        *
+        FROM account
+        ORDER BY status DESC
+    </select>
+</mapper>
