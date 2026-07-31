@@ -42,4 +42,7 @@ public interface AccountMapper {
 
   //상태별 계좌 목록
   List<AccountDTO> selectAllAccount();
+
+  //관리자 반려 판정 오버라이드
+  int overrideToOpened(AccountDTO accountDTO);
 }

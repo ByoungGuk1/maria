@@ -1,6 +1,7 @@
 package com.app.maria.domain.account.api;
 
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.request.ReasonRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.service.AccountService;
 import com.app.maria.global.response.ApiResponseDTO;
@@ -32,8 +33,8 @@ public class AccountApi {
     }
 
     @PostMapping("/{accountId}/reject")
-    public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> reject(@PathVariable Long accountId, @RequestBody String reason) {
-        return ResponseEntity.status(HttpStatus.OK).body(ApiResponseDTO.of("계좌 반려", accountService.rejectAccount(accountId, reason)));
+    public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> reject(@PathVariable Long accountId, @RequestBody ReasonRequestDTO reasonRequestDTO) {
+        return ResponseEntity.status(HttpStatus.OK).body(ApiResponseDTO.of("계좌 반려", accountService.rejectAccount(accountId, reasonRequestDTO.getReason())));
     }
 
     @PostMapping("/{accountId}/reapply")
@@ -49,5 +50,10 @@ public class AccountApi {
     @GetMapping("/{accountId}/status-logs")
     public ResponseEntity<?> getStatusLogs(@PathVariable Long accountId) {
         return ResponseEntity.ok(ApiResponseDTO.of("계좌 상태 이력 조회", accountService.getStatusLogsByAccountId(accountId)));
+    }
+
+    @PostMapping("/{accountId}/override")
+    public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> override(@PathVariable Long accountId, @RequestBody ReasonRequestDTO reasonRequestDTO) {
+        return ResponseEntity.ok(ApiResponseDTO.of("계좌 상태 오버라이드", accountService.overrideAccount(accountId, reasonRequestDTO.getReason())));
     }
 }

@@ -93,4 +93,14 @@
         FROM account
         ORDER BY status DESC
     </select>
+    <update id="overrideToOpened" parameterType="AccountDTO">
+        UPDATE account
+        SET status = 'OPENED',
+        account_no = #{accountNo},
+        opened_at = #{openedAt}
+        WHERE account_id = #{accountId}
+        AND status = 'REJECTED'
+        AND account_no IS NULL
+        AND opened_at IS NULL
+    </update>
 </mapper>

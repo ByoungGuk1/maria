@@ -85,10 +85,7 @@ public class AccountServiceImpl implements AccountService {
     AccountDTO foundAccount = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
     LocalDateTime TIME_TABLE_NOW =  LocalDateTime.now();
     LocalDateTime openedAt = LocalDateTime.parse(TIME_TABLE_NOW.toString());
-    BigDecimal accountNo = BigDecimal.valueOf(1000000000L + (long)(Math.random() * 9000000000L));
-    while(accountMapper.existsByAccountNo(accountNo)){
-      accountNo = BigDecimal.valueOf(1000000000L + (long)(Math.random() * 9000000000L));
-    }
+    BigDecimal accountNo = makeAccountNo();
     foundAccount.setAccountNo(accountNo);
 
     AccountStatusLogDTO accountStatusLogDTO = AccountStatusLogDTO.builder()
@@ -116,15 +113,9 @@ public class AccountServiceImpl implements AccountService {
   @Override
   @Transactional(rollbackFor = Exception.class)
   public AccountResponseDTO rejectAccount(Long accountId, String reason){
-    if (reason == null || reason.isBlank()) {
-      throw new InvalidAccountRequestException("계좌 반려 사유를 입력해야 합니다.");
-    }
-    String normalizedReason = reason.trim();
-    if (normalizedReason.length() > 200) {
-      throw new InvalidAccountRequestException("계좌 반려 사유는 200자 이하로 입력해야 합니다.");
-    }
     AccountDTO foundAccount = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
     LocalDateTime TIME_TABLE_NOW =  LocalDateTime.now();
+    String normalizedReason = checkReason(reason, "계좌 반려 사유를 입력해야 합니다.");
     AccountStatusLogDTO accountStatusLogDTO = AccountStatusLogDTO.builder().accountId(foundAccount.getAccountId()).prevStatus(foundAccount.getStatus()).changedAt(TIME_TABLE_NOW).reason(normalizedReason).build();
 
     if(accountMapper.reject(foundAccount) < 1){
@@ -184,6 +175,34 @@ public class AccountServiceImpl implements AccountService {
     return accountStatusLogMapper.selectByAccountId(accountId).stream().map(AccountLogResponseDTO::new).toList();
   }
 
+  @Override
+  @Transactional(rollbackFor = Exception.class)
+  public AccountResponseDTO overrideAccount(Long accountId, String reason){
+    String normalizedReason = checkReason(reason, "관리자 오버라이드 사유를 입력해야 합니다.");
+    AccountDTO foundAccount = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
+    if (foundAccount.getStatus() != Status.REJECTED) {
+      throw new InvalidAccountRequestException("반려 상태의 계좌만 오버라이드할 수 있습니다.");
+    }
+    LocalDateTime now = LocalDateTime.now();
+    foundAccount.setAccountNo(makeAccountNo());
+    foundAccount.setOpenedAt(now);
+    AccountStatusLogDTO logDTO = AccountStatusLogDTO.builder()
+            .accountId(foundAccount.getAccountId())
+            .prevStatus(foundAccount.getStatus())
+            .changedAt(now)
+            .reason(normalizedReason)
+            .build();
+    if(accountMapper.overrideToOpened(foundAccount) < 1) {
+      throw new InvalidAccountRequestException("계좌 오버라이드 실패");
+    }
+    AccountDTO result = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountException("계좌 오버라이드 후 재조회 실패"));
+    if (result.getStatus() != Status.OPENED) {
+      throw new AccountException("계좌 오버라이드 상태 변경 실패");
+    }
+    matchLog(result, logDTO);
+    return new AccountResponseDTO(result);
+  }
+
   private void matchLog(AccountDTO accountDTO, AccountStatusLogDTO logDTO){
     logDTO.setNewStatus(accountDTO.getStatus());
     if(accountStatusLogMapper.insertLog(logDTO) < 1){
@@ -196,5 +215,24 @@ public class AccountServiceImpl implements AccountService {
     },()->{
       throw new AccountException("상태 변경 후 로그 재조회 실패");
     });
+  }
+
+  private BigDecimal makeAccountNo(){
+    BigDecimal accountNo = BigDecimal.valueOf(1000000000L + (long)(Math.random() * 9000000000L));
+    while(accountMapper.existsByAccountNo(accountNo)){
+      accountNo = BigDecimal.valueOf(1000000000L + (long)(Math.random() * 9000000000L));
+    }
+    return accountNo;
+  }
+
+  private String checkReason(String reason, String InvalidMessage){
+    if (reason == null || reason.isBlank()) {
+      throw new InvalidAccountRequestException(InvalidMessage);
+    }
+    String normalizedReason = reason.trim();
+    if (normalizedReason.length() > 200) {
+      throw new InvalidAccountRequestException("사유는 200자 이하로 입력해야 합니다.");
+    }
+    return normalizedReason;
   }
 }

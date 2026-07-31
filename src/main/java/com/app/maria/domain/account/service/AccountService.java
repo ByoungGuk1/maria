@@ -17,4 +17,5 @@ public interface AccountService {
   AccountResponseDTO reapplyAccountByAccountId(Long accountId, AccountRequestDTO requestDTO);
   AccountResponseDTO getAccountByAccountId(Long accountId);
   List<AccountLogResponseDTO> getStatusLogsByAccountId(Long accountId);
+  AccountResponseDTO overrideAccount(Long accountId, String reason);
 }
