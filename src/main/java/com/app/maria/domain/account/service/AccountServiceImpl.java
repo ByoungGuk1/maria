@@ -80,7 +80,7 @@ public class AccountServiceImpl implements AccountService {
     if(accountStatusLogMapper.insertLog(accountStatusLogDTO) < 1){
       throw new AccountException("로그 등록 실패");
     }
-    return new AccountResponseDTO(result);
+    return autoApproveAccount(result);
   }
 
   @Override
@@ -186,11 +186,11 @@ public class AccountServiceImpl implements AccountService {
     LocalDateTime now = LocalDateTime.now();
     foundAccount.setOpenedAt(now);
     AccountStatusLogDTO logDTO = AccountStatusLogDTO.builder()
-            .accountId(foundAccount.getAccountId())
-            .prevStatus(foundAccount.getStatus())
-            .changedAt(now)
-            .reason(normalizedReason)
-            .build();
+        .accountId(foundAccount.getAccountId())
+        .prevStatus(foundAccount.getStatus())
+        .changedAt(now)
+        .reason(normalizedReason)
+        .build();
     overrideWithAccountNoRetry(foundAccount);
     AccountDTO result = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountException("계좌 오버라이드 후 재조회 실패"));
     if (result.getStatus() != Status.OPENED) {
@@ -212,6 +212,26 @@ public class AccountServiceImpl implements AccountService {
     },()->{
       throw new AccountException("상태 변경 후 로그 재조회 실패");
     });
+  }
+  private AccountResponseDTO autoApproveAccount(AccountDTO appliedAccount) {
+    if (appliedAccount.getStatus() != Status.APPLIED) {
+      throw new AccountException("자동 판정할 수 없는 계좌 상태입니다.");
+    }
+    LocalDateTime openedAt = LocalDateTime.now();
+    AccountStatusLogDTO logDTO = AccountStatusLogDTO.builder()
+        .accountId(appliedAccount.getAccountId())
+        .prevStatus(Status.APPLIED)
+        .changedAt(openedAt)
+        .reason("자동 판정 승인")
+        .build();
+    appliedAccount.setOpenedAt(openedAt);
+    approveWithAccountNoRetry(appliedAccount);
+    AccountDTO openedAccount = accountMapper.selectByAccountId(appliedAccount.getAccountId()).orElseThrow(() -> new AccountException("자동 승인 후 계좌 재조회 실패"));
+    if (openedAccount.getStatus() != Status.OPENED) {
+      throw new AccountException("자동 승인 상태 변경 실패");
+    }
+    matchLog(openedAccount, logDTO);
+    return new AccountResponseDTO(openedAccount);
   }
 
   private void approveWithAccountNoRetry(AccountDTO accountDTO) {

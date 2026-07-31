@@ -24,7 +24,7 @@ public class AccountApi {
 
     @PostMapping("/applications")
     public ResponseEntity<?> apply(@RequestBody AccountRequestDTO requestDTO) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponseDTO.of("계좌 개설 신청", accountService.applyAccount(requestDTO.getCustomerId(), requestDTO)));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponseDTO.of("계좌 개설 완료", accountService.applyAccount(requestDTO.getCustomerId(), requestDTO)));
     }
 
     @PostMapping("/{accountId}/approve")
