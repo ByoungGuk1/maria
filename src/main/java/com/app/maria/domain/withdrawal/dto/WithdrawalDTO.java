@@ -17,6 +17,5 @@ public class WithdrawalDTO {
     private BigDecimal requestedAmount;
     private WithdrawalType type;
     private Date processedAt;
-    private String destinationBank;
     private String destinationAccount_no;
 }
