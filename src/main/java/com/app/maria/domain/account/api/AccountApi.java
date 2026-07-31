@@ -1,5 +1,6 @@
 package com.app.maria.domain.account.api;
 
+import com.app.maria.domain.account.dto.request.AccountRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.service.AccountService;
 import com.app.maria.global.response.ApiResponseDTO;
@@ -20,14 +21,33 @@ public class AccountApi {
         return ResponseEntity.ok(ApiResponseDTO.of("계좌 정보 전체 조회", accountService.findAll()));
     }
 
+    @PostMapping("/applications")
+    public ResponseEntity<?> apply(@RequestBody AccountRequestDTO requestDTO) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponseDTO.of("계좌 개설 신청", accountService.applyAccount(requestDTO.getCustomerId(), requestDTO)));
+    }
 
     @PostMapping("/{accountId}/approve")
     public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> approve(@PathVariable Long accountId){
-        return ResponseEntity.status(HttpStatus.OK).body(ApiResponseDTO.of("계좌 승인", accountService.openAccount(accountId)));
+        return ResponseEntity.status(HttpStatus.OK).body(ApiResponseDTO.of("계좌 승인", accountService.approveAccount(accountId)));
     }
 
     @PostMapping("/{accountId}/reject")
     public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> reject(@PathVariable Long accountId) {
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponseDTO.of("계좌 거절", accountService.rejectAccount(accountId)));
+    }
+
+    @PostMapping("/{accountId}/reapply")
+    public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> reapply(@PathVariable Long accountId, @RequestBody AccountRequestDTO accountRequestDTO) {
+        return ResponseEntity.ok(ApiResponseDTO.of("계좌 재신청", accountService.reapplyAccountByAccountId(accountId, accountRequestDTO)));
+    }
+
+    @GetMapping("/{accountId}")
+    public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> getAccount(@PathVariable Long accountId) {
+        return ResponseEntity.ok(ApiResponseDTO.of("계좌 조회", accountService.getAccountByAccountId(accountId)));
+    }
+
+    @GetMapping("/{accountId}/status-logs")
+    public ResponseEntity<?> getStatusLogs(@PathVariable Long accountId) {
+        return ResponseEntity.ok(ApiResponseDTO.of("계좌 상태 이력 조회", accountService.getStatusLogsByAccountId(accountId)));
     }
 }

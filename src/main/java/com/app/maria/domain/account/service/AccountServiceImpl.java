@@ -37,9 +37,9 @@ public class AccountServiceImpl implements AccountService {
 
   @Override
   @Transactional(rollbackFor = Exception.class)
-  public AccountResponseDTO applyAccount(AccountRequestDTO accountRequestDTO){
+  public AccountResponseDTO applyAccount(Long customerId, AccountRequestDTO accountRequestDTO){
     AccountDTO accountDTO = new AccountDTO(accountRequestDTO);
-    Long customerId = accountDTO.getCustomerId();
+    accountDTO.setCustomerId(customerId);
     BigDecimal limitAmount = accountDTO.getLimitAmount();
 
     if(customerId == null || customerId <= 0L){
@@ -81,7 +81,7 @@ public class AccountServiceImpl implements AccountService {
 
   @Override
   @Transactional(rollbackFor = Exception.class)
-  public AccountResponseDTO openAccount(Long accountId) {
+  public AccountResponseDTO approveAccount(Long accountId) {
     AccountDTO foundAccount = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
     LocalDateTime TIME_TABLE_NOW =  LocalDateTime.now();
     LocalDateTime openedAt = LocalDateTime.parse(TIME_TABLE_NOW.toString());
@@ -136,7 +136,7 @@ public class AccountServiceImpl implements AccountService {
 
   @Override
   @Transactional(rollbackFor = Exception.class)
-  public AccountResponseDTO reapplyAccount(Long accountId, AccountRequestDTO accountRequestDTO) {
+  public AccountResponseDTO reapplyAccountByAccountId(Long accountId, AccountRequestDTO accountRequestDTO) {
     AccountDTO accountDTO = new AccountDTO(accountRequestDTO);
     accountDTO.setAccountId(accountId);
     AccountDTO foundAccount = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
@@ -165,13 +165,13 @@ public class AccountServiceImpl implements AccountService {
   }
 
   @Override
-  public AccountResponseDTO getAccount(Long accountId) {
+  public AccountResponseDTO getAccountByAccountId(Long accountId) {
     AccountDTO accountDTO = accountMapper.selectByAccountId(accountId).orElseThrow(()->new AccountNotFoundException("계좌 조회 실패"));
     return new AccountResponseDTO(accountDTO);
   }
 
   @Override
-  public List<AccountLogResponseDTO> getStatusLogList(Long accountId) {
+  public List<AccountLogResponseDTO> getStatusLogsByAccountId(Long accountId) {
     accountMapper.selectByAccountId(accountId)
         .orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
     return accountStatusLogMapper.selectByAccountId(accountId).stream().map(AccountLogResponseDTO::new).toList();

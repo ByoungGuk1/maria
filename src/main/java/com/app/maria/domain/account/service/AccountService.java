@@ -7,11 +7,14 @@ import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import java.util.List;
 
 public interface AccountService {
+  // 관리자 목록 조회
   List<AccountResponseDTO> findAll();
-  AccountResponseDTO applyAccount(AccountRequestDTO accountRequestDTO);
-  AccountResponseDTO openAccount(Long accountId);
+  // 관리자 대리 신청과 사용자 본인 신청이 공통으로 사용
+  AccountResponseDTO applyAccount(Long customerId, AccountRequestDTO requestDTO);
+  // 관리자 기능
+  AccountResponseDTO approveAccount(Long accountId);
   AccountResponseDTO rejectAccount(Long accountId);
-  AccountResponseDTO reapplyAccount(Long accountId, AccountRequestDTO accountRequestDTO);
-  AccountResponseDTO getAccount(Long accountId);
-  List<AccountLogResponseDTO> getStatusLogList(Long accountId);
+  AccountResponseDTO reapplyAccountByAccountId(Long accountId, AccountRequestDTO requestDTO);
+  AccountResponseDTO getAccountByAccountId(Long accountId);
+  List<AccountLogResponseDTO> getStatusLogsByAccountId(Long accountId);
 }
