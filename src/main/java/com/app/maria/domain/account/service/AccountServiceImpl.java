@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +30,9 @@ public class AccountServiceImpl implements AccountService {
 
   //TIME_TABLE_NOW 추후 수정
   private final BigDecimal MAX_LIMIT_AMOUNT = BigDecimal.valueOf(50_000_000L);
+  private static final int ACCOUNT_NO_RETRY_LIMIT = 5;
+  private static final long ACCOUNT_NO_MIN = 1_000_000_000L;
+  private static final long ACCOUNT_NO_MAX_EXCLUSIVE = 10_000_000_000L;
 
   @Override
   public List<AccountResponseDTO> findAll(){
@@ -85,8 +89,6 @@ public class AccountServiceImpl implements AccountService {
     AccountDTO foundAccount = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
     LocalDateTime TIME_TABLE_NOW =  LocalDateTime.now();
     LocalDateTime openedAt = LocalDateTime.parse(TIME_TABLE_NOW.toString());
-    BigDecimal accountNo = makeAccountNo();
-    foundAccount.setAccountNo(accountNo);
 
     AccountStatusLogDTO accountStatusLogDTO = AccountStatusLogDTO.builder()
         .accountId(foundAccount.getAccountId())
@@ -96,9 +98,7 @@ public class AccountServiceImpl implements AccountService {
         .build();
 
     foundAccount.setOpenedAt(openedAt);
-    if(accountMapper.approve(foundAccount) < 1){
-      throw new InvalidAccountRequestException("사용자 계좌 신청 승인 실패");
-    }
+    approveWithAccountNoRetry(foundAccount);
 
     AccountDTO result = accountMapper.selectByAccountId(foundAccount.getAccountId()).orElseThrow(()->new AccountException("계좌 개설 후 재조회 실패"));
     if(result.getStatus() != Status.OPENED){
@@ -184,7 +184,6 @@ public class AccountServiceImpl implements AccountService {
       throw new InvalidAccountRequestException("반려 상태의 계좌만 오버라이드할 수 있습니다.");
     }
     LocalDateTime now = LocalDateTime.now();
-    foundAccount.setAccountNo(makeAccountNo());
     foundAccount.setOpenedAt(now);
     AccountStatusLogDTO logDTO = AccountStatusLogDTO.builder()
             .accountId(foundAccount.getAccountId())
@@ -192,9 +191,7 @@ public class AccountServiceImpl implements AccountService {
             .changedAt(now)
             .reason(normalizedReason)
             .build();
-    if(accountMapper.overrideToOpened(foundAccount) < 1) {
-      throw new InvalidAccountRequestException("계좌 오버라이드 실패");
-    }
+    overrideWithAccountNoRetry(foundAccount);
     AccountDTO result = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountException("계좌 오버라이드 후 재조회 실패"));
     if (result.getStatus() != Status.OPENED) {
       throw new AccountException("계좌 오버라이드 상태 변경 실패");
@@ -217,12 +214,41 @@ public class AccountServiceImpl implements AccountService {
     });
   }
 
-  private BigDecimal makeAccountNo(){
-    BigDecimal accountNo = BigDecimal.valueOf(1000000000L + (long)(Math.random() * 9000000000L));
-    while(accountMapper.existsByAccountNo(accountNo)){
-      accountNo = BigDecimal.valueOf(1000000000L + (long)(Math.random() * 9000000000L));
+  private void approveWithAccountNoRetry(AccountDTO accountDTO) {
+    for (int attempt = 1; attempt <= ACCOUNT_NO_RETRY_LIMIT; attempt++) {
+      accountDTO.setAccountNo(makeAccountNo());
+      try {
+        if (accountMapper.approve(accountDTO) < 1) {
+          throw new InvalidAccountRequestException("사용자 계좌 신청 승인 실패");
+        }
+        return;
+      } catch (DuplicateKeyException e) {
+        if (attempt == ACCOUNT_NO_RETRY_LIMIT) {
+          throw new AccountException("고유한 계좌번호 생성에 실패했습니다.");
+        }
+      }
     }
-    return accountNo;
+  }
+
+  private void overrideWithAccountNoRetry(AccountDTO accountDTO) {
+    for (int attempt = 1; attempt <= ACCOUNT_NO_RETRY_LIMIT; attempt++) {
+      accountDTO.setAccountNo(makeAccountNo());
+      try {
+        if (accountMapper.overrideToOpened(accountDTO) < 1) {
+          throw new InvalidAccountRequestException("계좌 오버라이드 실패");
+        }
+        return;
+      } catch (DuplicateKeyException e) {
+        if (attempt == ACCOUNT_NO_RETRY_LIMIT) {
+          throw new AccountException("고유한 계좌번호 생성에 실패했습니다.");
+        }
+      }
+    }
+  }
+
+  private BigDecimal makeAccountNo(){
+    long accountNo = ThreadLocalRandom.current().nextLong(ACCOUNT_NO_MIN, ACCOUNT_NO_MAX_EXCLUSIVE);
+    return BigDecimal.valueOf(accountNo);
   }
 
   private String checkReason(String reason, String InvalidMessage){
