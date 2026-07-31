@@ -10,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/account")
@@ -20,6 +22,11 @@ public class AccountApi {
     @GetMapping("/list")
     public ResponseEntity<?> getAccountList(){
         return ResponseEntity.ok(ApiResponseDTO.of("계좌 정보 전체 조회", accountService.findAll()));
+    }
+
+    @GetMapping("/available-limit")
+    public ResponseEntity<ApiResponseDTO<BigDecimal>> getAvailableLimit(@RequestParam Long customerId) {
+        return ResponseEntity.ok(ApiResponseDTO.of("RIA 설정 가능 최대 한도 조회", accountService.getAvailableLimit(customerId)));
     }
 
     @PostMapping("/applications")
