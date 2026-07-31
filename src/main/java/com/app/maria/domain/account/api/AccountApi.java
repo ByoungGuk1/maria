@@ -32,8 +32,8 @@ public class AccountApi {
     }
 
     @PostMapping("/{accountId}/reject")
-    public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> reject(@PathVariable Long accountId) {
-        return ResponseEntity.status(HttpStatus.OK).body(ApiResponseDTO.of("계좌 거절", accountService.rejectAccount(accountId)));
+    public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> reject(@PathVariable Long accountId, @RequestBody String reason) {
+        return ResponseEntity.status(HttpStatus.OK).body(ApiResponseDTO.of("계좌 반려", accountService.rejectAccount(accountId, reason)));
     }
 
     @PostMapping("/{accountId}/reapply")

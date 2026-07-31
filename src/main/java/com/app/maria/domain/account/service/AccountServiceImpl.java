@@ -115,10 +115,17 @@ public class AccountServiceImpl implements AccountService {
 
   @Override
   @Transactional(rollbackFor = Exception.class)
-  public AccountResponseDTO rejectAccount(Long accountId){
+  public AccountResponseDTO rejectAccount(Long accountId, String reason){
+    if (reason == null || reason.isBlank()) {
+      throw new InvalidAccountRequestException("계좌 반려 사유를 입력해야 합니다.");
+    }
+    String normalizedReason = reason.trim();
+    if (normalizedReason.length() > 200) {
+      throw new InvalidAccountRequestException("계좌 반려 사유는 200자 이하로 입력해야 합니다.");
+    }
     AccountDTO foundAccount = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
     LocalDateTime TIME_TABLE_NOW =  LocalDateTime.now();
-    AccountStatusLogDTO accountStatusLogDTO = AccountStatusLogDTO.builder().accountId(foundAccount.getAccountId()).prevStatus(foundAccount.getStatus()).changedAt(TIME_TABLE_NOW).reason("사용자 계좌 개설 거부").build();
+    AccountStatusLogDTO accountStatusLogDTO = AccountStatusLogDTO.builder().accountId(foundAccount.getAccountId()).prevStatus(foundAccount.getStatus()).changedAt(TIME_TABLE_NOW).reason(normalizedReason).build();
 
     if(accountMapper.reject(foundAccount) < 1){
       throw new InvalidAccountRequestException("사용자 계좌 신청 반려 실패");

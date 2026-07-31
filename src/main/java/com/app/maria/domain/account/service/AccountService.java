@@ -13,7 +13,7 @@ public interface AccountService {
   AccountResponseDTO applyAccount(Long customerId, AccountRequestDTO requestDTO);
   // 관리자 기능
   AccountResponseDTO approveAccount(Long accountId);
-  AccountResponseDTO rejectAccount(Long accountId);
+  AccountResponseDTO rejectAccount(Long accountId, String reason);
   AccountResponseDTO reapplyAccountByAccountId(Long accountId, AccountRequestDTO requestDTO);
   AccountResponseDTO getAccountByAccountId(Long accountId);
   List<AccountLogResponseDTO> getStatusLogsByAccountId(Long accountId);
