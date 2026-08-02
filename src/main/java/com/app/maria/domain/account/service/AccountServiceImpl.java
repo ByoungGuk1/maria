@@ -358,6 +358,7 @@ public class AccountServiceImpl implements AccountService {
           String message = override ? "계좌 오버라이드 실패" : "사용자 계좌 신청 승인 실패";
           throw new InvalidAccountRequestException(message);
         }
+        return;
       } catch (DuplicateKeyException e) {
         if (attempt == ACCOUNT_NO_RETRY_LIMIT) {
           throw new AccountException("고유한 계좌번호 생성에 실패했습니다.");
