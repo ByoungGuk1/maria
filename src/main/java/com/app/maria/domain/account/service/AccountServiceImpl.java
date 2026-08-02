@@ -30,7 +30,7 @@ public class AccountServiceImpl implements AccountService {
   private final AccountStatusLogMapper accountStatusLogMapper;
 
   private static final BigDecimal MAX_LIMIT_AMOUNT = BigDecimal.valueOf(50_000_000L);
-  private static final BigDecimal MIN_LIMIT_AMOUNT = BigDecimal.ZERO;
+  private static final BigDecimal MIN_LIMIT_AMOUNT = BigDecimal.ONE;
   private static final LocalDate RIA_APPLICATION_START_DATE = LocalDate.of(2026, 3, 23);
   private static final LocalDate RIA_APPLICATION_END_DATE = LocalDate.of(2026, 12, 31);
   private static final int ACCOUNT_NO_RETRY_LIMIT = 5;
@@ -221,6 +221,9 @@ public class AccountServiceImpl implements AccountService {
   }
 
   private void validateRequestedLimit(BigDecimal requestedLimit, BigDecimal availableLimit) {
+    if (availableLimit.compareTo(MIN_LIMIT_AMOUNT) < 0) {
+      throw new InvalidAccountRequestException("설정 가능한 RIA 납입한도가 없어 계좌를 개설할 수 없습니다.");
+    }
     if (requestedLimit == null) {
       throw new InvalidAccountRequestException("계좌 한도 입력이 필요합니다.");
     }
