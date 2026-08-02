@@ -1,7 +1,7 @@
 package com.app.maria.domain.account.dto;
 
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
-import com.app.maria.domain.account.dto.response.AccountResponseDTO;
+import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
 import lombok.*;
 
@@ -24,6 +24,7 @@ public class AccountDTO {
   private BigDecimal accountNo;
   private BigDecimal limitAmount;
   private BigDecimal amount;
+  private BenefitType benefit;
 
   public AccountDTO(AccountRequestDTO accountRequestDTO) {
       this.accountId = accountRequestDTO.getAccountId() != null? accountRequestDTO.getAccountId(): null;
@@ -34,5 +35,6 @@ public class AccountDTO {
       this.accountNo = accountRequestDTO.getAccountNo() != null? accountRequestDTO.getAccountNo(): null;
       this.limitAmount = accountRequestDTO.getLimitAmount() != null? accountRequestDTO.getLimitAmount(): null;
       this.amount = accountRequestDTO.getAmount() != null? accountRequestDTO.getAmount(): null;
+      this.benefit = null;
   }
 }

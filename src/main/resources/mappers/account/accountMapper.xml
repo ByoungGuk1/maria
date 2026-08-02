@@ -30,13 +30,6 @@
             WHERE customer_id = #{customerId}
         )
     </select>
-    <select id="existsByAccountNo" resultType="boolean" parameterType="java.math.BigDecimal">
-        SELECT EXISTS (
-            SELECT 1
-            FROM account
-            WHERE account_no = #{accountNo}
-        )
-    </select>
     <insert id="insertApplication" parameterType="AccountDTO">
         INSERT INTO account (
             customer_id,
@@ -45,7 +38,8 @@
             opened_at,
             created_at,
             limit_amount,
-            amount
+            amount,
+            benefit
         ) VALUES (
             #{customerId},
             NULL,
@@ -53,7 +47,8 @@
             NULL,
             #{createdAt},
             #{limitAmount},
-            0
+            0,
+            NULL
         )
     </insert>
     <update id="reapply" parameterType="AccountDTO">

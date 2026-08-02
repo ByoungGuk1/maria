@@ -3,7 +3,6 @@ package com.app.maria.domain.account.mapper;
 import com.app.maria.domain.account.dto.AccountDTO;
 import org.apache.ibatis.annotations.Mapper;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,9 +19,6 @@ public interface AccountMapper {
 
   //customer_id 기준 계좌 존재 여부
   boolean existsByCustomerId(Long customerId);
-
-  //계좌번호 중복 사전 확인
-  boolean existsByAccountNo(BigDecimal accountNo);
 
   //최초 계좌 개설 신청
   int insertApplication(AccountDTO accountDTO);

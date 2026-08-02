@@ -1,6 +1,7 @@
 package com.app.maria.domain.account.dto.response;
 
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
 import lombok.*;
 
@@ -24,6 +25,7 @@ public class AccountResponseDTO implements Serializable {
   private BigDecimal accountNo;
   private BigDecimal limitAmount;
   private BigDecimal amount;
+  private BenefitType benefit;
 
   public AccountResponseDTO(AccountDTO accountDTO) {
     this.accountId = accountDTO.getAccountId();
@@ -34,5 +36,6 @@ public class AccountResponseDTO implements Serializable {
     this.accountNo = accountDTO.getAccountNo();
     this.limitAmount = accountDTO.getLimitAmount();
     this.amount = accountDTO.getAmount();
+    this.benefit = accountDTO.getBenefit();
   }
 }
