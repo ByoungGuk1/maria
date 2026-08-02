@@ -10,17 +10,22 @@ import com.app.maria.domain.account.exception.DuplicateAccountException;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.mapper.AccountStatusLogMapper;
+import com.app.maria.domain.account.type.AutomaticRejectionReason;
 import com.app.maria.domain.account.type.Status;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
 
@@ -29,10 +34,12 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -52,6 +59,7 @@ class AccountServiceImplTest {
   @Mock
   private AccountStatusLogMapper accountStatusLogMapper;
 
+  @Spy
   @InjectMocks
   private AccountServiceImpl accountService;
 
@@ -109,6 +117,47 @@ class AccountServiceImplTest {
     assertThat(logs.get(1).getPrevStatus()).isEqualTo(Status.APPLIED);
     assertThat(logs.get(1).getNewStatus()).isEqualTo(Status.OPENED);
     assertThat(logs.get(1).getReason()).isEqualTo("자동 판정 승인");
+  }
+
+  @ParameterizedTest
+  @EnumSource(AutomaticRejectionReason.class)
+  @DisplayName("자동 판정 사유가 있으면 신청 계좌를 REJECTED 처리하고 이력을 저장한다")
+  void applyAccountAutomaticallyRejectsAccount(AutomaticRejectionReason rejectionReason) {
+    AccountDTO appliedAccount = account(Status.APPLIED);
+    AccountDTO rejectedAccount = account(Status.REJECTED);
+
+    when(accountMapper.existsCustomerById(CUSTOMER_ID)).thenReturn(true);
+    when(accountMapper.existsByCustomerId(CUSTOMER_ID)).thenReturn(false);
+    doReturn(Optional.of(rejectionReason))
+        .when(accountService)
+        .findAutomaticRejectionReason(CUSTOMER_ID);
+    when(accountMapper.insertApplication(any(AccountDTO.class))).thenReturn(1);
+    when(accountMapper.selectByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(appliedAccount));
+    when(accountMapper.reject(appliedAccount)).thenReturn(1);
+    when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(rejectedAccount));
+    when(accountStatusLogMapper.insertLog(any(AccountStatusLogDTO.class))).thenReturn(1);
+    when(accountStatusLogMapper.selectLatestByAccountId(ACCOUNT_ID))
+        .thenReturn(Optional.of(statusLog(
+            Status.APPLIED,
+            Status.REJECTED,
+            rejectionReason.toLogReason()
+        )));
+
+    try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
+      AccountResponseDTO result = accountService.applyAccount(CUSTOMER_ID, request(LIMIT_AMOUNT));
+
+      assertThat(result.getStatus()).isEqualTo(Status.REJECTED);
+      assertThat(result.getAccountNo()).isNull();
+      assertThat(result.getOpenedAt()).isNull();
+    }
+
+    ArgumentCaptor<AccountStatusLogDTO> logCaptor = ArgumentCaptor.forClass(AccountStatusLogDTO.class);
+    verify(accountStatusLogMapper, Mockito.times(2)).insertLog(logCaptor.capture());
+    assertThat(logCaptor.getAllValues().get(1).getPrevStatus()).isEqualTo(Status.APPLIED);
+    assertThat(logCaptor.getAllValues().get(1).getNewStatus()).isEqualTo(Status.REJECTED);
+    assertThat(logCaptor.getAllValues().get(1).getReason())
+        .isEqualTo(rejectionReason.toLogReason());
+    verify(accountMapper, never()).approve(any(AccountDTO.class));
   }
 
   @Test
@@ -356,6 +405,57 @@ class AccountServiceImplTest {
     assertThat(result.get(0).getNewStatus()).isEqualTo(Status.APPLIED);
     assertThat(result.get(1).getPrevStatus()).isEqualTo(Status.APPLIED);
     assertThat(result.get(1).getNewStatus()).isEqualTo(Status.OPENED);
+  }
+
+  @Test
+  @DisplayName("모든 자동 심사 자료가 정상이면 반려 사유가 없다")
+  void determineAutomaticRejectionReasonReturnsEmptyWhenAllChecksPass() {
+    Optional<AutomaticRejectionReason> result =
+        AccountServiceImpl.determineAutomaticRejectionReason(true, true, true);
+
+    assertThat(result).isEmpty();
+  }
+
+  @ParameterizedTest
+  @MethodSource("automaticRejectionCases")
+  @DisplayName("자동 심사 자료가 불일치하면 우선순위에 맞는 반려 사유를 반환한다")
+  void determineAutomaticRejectionReasonReturnsExpectedReason(
+      boolean residencyVerified,
+      boolean identityDataMatched,
+      boolean externalLimitDataMatched,
+      AutomaticRejectionReason expectedReason
+  ) {
+    Optional<AutomaticRejectionReason> result =
+        AccountServiceImpl.determineAutomaticRejectionReason(
+            residencyVerified,
+            identityDataMatched,
+            externalLimitDataMatched
+        );
+
+    assertThat(result).contains(expectedReason);
+  }
+
+  private static Stream<Arguments> automaticRejectionCases() {
+    return Stream.of(
+        Arguments.of(
+            false,
+            true,
+            true,
+            AutomaticRejectionReason.RESIDENCY_UNVERIFIED
+        ),
+        Arguments.of(
+            true,
+            false,
+            true,
+            AutomaticRejectionReason.IDENTITY_DATA_MISMATCH
+        ),
+        Arguments.of(
+            true,
+            true,
+            false,
+            AutomaticRejectionReason.EXTERNAL_LIMIT_DATA_MISMATCH
+        )
+    );
   }
 
   private MockedStatic<LocalDateTime> mockCurrentDateTime() {
