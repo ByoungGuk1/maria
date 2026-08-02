@@ -1,74 +1,395 @@
-//package com.app.maria.domain.account.service;
-//
-//import com.app.maria.domain.account.dto.AccountDTO;
-//import com.app.maria.domain.account.dto.request.AccountRequestDTO;
-//import com.app.maria.domain.account.mapper.AccountMapper;
-//import lombok.extern.slf4j.Slf4j;
-//import org.junit.jupiter.api.Test;
-//import org.springframework.beans.factory.annotation.Autowired;
-//import org.springframework.boot.test.context.SpringBootTest;
-//import org.springframework.test.annotation.Commit;
-//
-//import java.math.BigDecimal;
-//import java.time.LocalDateTime;
-//
-//@SpringBootTest
-//@Slf4j
-//@Commit
-//class AccountServiceImplTest {
-//  @Autowired
-//  AccountMapper accountMapper;
-//  @Autowired
-//  private AccountService accountService;
-//
-//  private final LocalDateTime NOW = LocalDateTime.now();
-//
-//  private final AccountDTO newAccountDTO = AccountDTO.builder().customerId(1L).createdAt(NOW).limitAmount(BigDecimal.valueOf(50_000_000)).build();
-//
-//  @Test
-//  void findAll() {
-//    log.info(accountService.findAll().toString());
-//  }
-//
-//  @Test
-//  void applyAccount(){
-//    //계좌 계설
-//    AccountDTO foundAccountDTO = newAccountDTO;
-//    AccountRequestDTO reqDTO = AccountRequestDTO.builder()
-//        .accountId(foundAccountDTO.getAccountId()).customerId(foundAccountDTO.getCustomerId()).status(foundAccountDTO.getStatus()).accountNo(foundAccountDTO.getAccountNo()).limitAmount(foundAccountDTO.getLimitAmount()).amount(foundAccountDTO.getLimitAmount()).build();
-//    String result = accountService.applyAccount(reqDTO.getCustomerId(), reqDTO).toString();
-//    log.info(result);
-//  }
-//
-//  @Test
-//  void openAccount(){
-//    AccountDTO foundAccountDTO = accountMapper.selectByCustomerId(1L).get();
-//    log.info(accountService.applyAccount(foundAccountDTO.getAccountId(),).toString());
-//  }
-//
-//  @Test
-//  void rejectAccount(){
-//    AccountDTO foundAccountDTO = accountMapper.selectByCustomerId(1L).get();
-//    log.info(accountService.rejectAccount(foundAccountDTO.getAccountId()).toString());
-//  }
-//
-//  @Test
-//  void reapplyAccount(){
-//    AccountDTO foundAccountDTO = accountMapper.selectByCustomerId(1L).get();
-//    AccountRequestDTO reqDTO = AccountRequestDTO.builder()
-//        .accountId(foundAccountDTO.getAccountId()).customerId(foundAccountDTO.getCustomerId()).status(foundAccountDTO.getStatus()).accountNo(foundAccountDTO.getAccountNo()).limitAmount(foundAccountDTO.getLimitAmount()).amount(foundAccountDTO.getLimitAmount()).build();
-//    log.info(accountService.reapplyAccount(foundAccountDTO.getAccountId(), reqDTO).toString());
-//  }
-//
-//  @Test
-//  void getAccount(){
-//    AccountDTO foundAccountDTO = accountMapper.selectByCustomerId(1L).get();
-//    log.info(accountService.getAccount(foundAccountDTO.getAccountId()).toString());
-//  }
-//
-//  @Test
-//  void getAccountStatus(){
-//    AccountDTO foundAccountDTO = accountMapper.selectByCustomerId(1L).get();
-//    log.info(accountService.getStatusLogList(foundAccountDTO.getAccountId()).toString());
-//  }
-//}
+package com.app.maria.domain.account.service;
+
+import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.dto.AccountStatusLogDTO;
+import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
+import com.app.maria.domain.account.dto.response.AccountResponseDTO;
+import com.app.maria.domain.account.exception.AccountException;
+import com.app.maria.domain.account.exception.DuplicateAccountException;
+import com.app.maria.domain.account.exception.InvalidAccountRequestException;
+import com.app.maria.domain.account.mapper.AccountMapper;
+import com.app.maria.domain.account.mapper.AccountStatusLogMapper;
+import com.app.maria.domain.account.type.Status;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DuplicateKeyException;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class AccountServiceImplTest {
+
+  private static final Long CUSTOMER_ID = 1L;
+  private static final Long ACCOUNT_ID = 10L;
+  private static final BigDecimal LIMIT_AMOUNT = BigDecimal.valueOf(30_000_000L);
+  private static final BigDecimal MAX_LIMIT_AMOUNT = BigDecimal.valueOf(50_000_000L);
+  private static final LocalDateTime FIXED_NOW = LocalDateTime.of(2026, 8, 2, 10, 30);
+
+  @Mock
+  private AccountMapper accountMapper;
+
+  @Mock
+  private AccountStatusLogMapper accountStatusLogMapper;
+
+  @InjectMocks
+  private AccountServiceImpl accountService;
+
+  @Test
+  @DisplayName("타 금융회사 한도가 없으면 설정 가능 최대 한도는 5천만원이다")
+  void getAvailableLimitReturnsFiftyMillion() {
+    when(accountMapper.existsCustomerById(CUSTOMER_ID)).thenReturn(true);
+
+    try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
+      BigDecimal result = accountService.getAvailableLimit(CUSTOMER_ID);
+
+      assertThat(result).isEqualByComparingTo(MAX_LIMIT_AMOUNT);
+    }
+  }
+
+  @Test
+  @DisplayName("정상 계좌 신청은 APPLIED 이력 생성 후 자동으로 OPENED 처리된다")
+  void applyAccountAutomaticallyOpensAccount() {
+    AccountDTO appliedAccount = account(Status.APPLIED);
+    AccountDTO openedAccount = account(Status.OPENED);
+
+    when(accountMapper.existsCustomerById(CUSTOMER_ID)).thenReturn(true);
+    when(accountMapper.existsByCustomerId(CUSTOMER_ID)).thenReturn(false);
+    when(accountMapper.insertApplication(any(AccountDTO.class))).thenReturn(1);
+    when(accountMapper.selectByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(appliedAccount));
+    when(accountMapper.approve(any(AccountDTO.class))).thenAnswer(invocation -> {
+      AccountDTO approvingAccount = invocation.getArgument(0, AccountDTO.class);
+      openedAccount.setAccountNo(approvingAccount.getAccountNo());
+      openedAccount.setOpenedAt(approvingAccount.getOpenedAt());
+      return 1;
+    });
+    when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(openedAccount));
+    when(accountStatusLogMapper.insertLog(any(AccountStatusLogDTO.class))).thenReturn(1);
+    when(accountStatusLogMapper.selectLatestByAccountId(ACCOUNT_ID))
+        .thenReturn(Optional.of(statusLog(Status.APPLIED, Status.OPENED, "자동 판정 승인")));
+
+    try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
+      AccountResponseDTO result = accountService.applyAccount(CUSTOMER_ID, request(LIMIT_AMOUNT));
+
+      assertThat(result.getStatus()).isEqualTo(Status.OPENED);
+      assertThat(result.getOpenedAt()).isEqualTo(FIXED_NOW);
+      assertThat(result.getAccountNo()).isBetween(
+          BigDecimal.valueOf(1_000_000_000L),
+          BigDecimal.valueOf(9_999_999_999L)
+      );
+    }
+
+    ArgumentCaptor<AccountStatusLogDTO> logCaptor = ArgumentCaptor.forClass(AccountStatusLogDTO.class);
+    verify(accountStatusLogMapper, Mockito.times(2)).insertLog(logCaptor.capture());
+
+    List<AccountStatusLogDTO> logs = logCaptor.getAllValues();
+    assertThat(logs.get(0).getPrevStatus()).isNull();
+    assertThat(logs.get(0).getNewStatus()).isEqualTo(Status.APPLIED);
+    assertThat(logs.get(0).getReason()).isEqualTo("최초 개설 신청");
+    assertThat(logs.get(1).getPrevStatus()).isEqualTo(Status.APPLIED);
+    assertThat(logs.get(1).getNewStatus()).isEqualTo(Status.OPENED);
+    assertThat(logs.get(1).getReason()).isEqualTo("자동 판정 승인");
+  }
+
+  @Test
+  @DisplayName("이미 계좌가 있는 고객의 신청은 중복 계좌 예외로 차단한다")
+  void applyAccountRejectsDuplicateCustomerAccount() {
+    when(accountMapper.existsCustomerById(CUSTOMER_ID)).thenReturn(true);
+    when(accountMapper.existsByCustomerId(CUSTOMER_ID)).thenReturn(true);
+
+    try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
+      assertThatThrownBy(() -> accountService.applyAccount(CUSTOMER_ID, request(LIMIT_AMOUNT)))
+          .isInstanceOf(DuplicateAccountException.class)
+          .hasMessage("사용자의 기존 계좌 정보가 있습니다.");
+    }
+
+    verify(accountMapper, never()).insertApplication(any(AccountDTO.class));
+  }
+
+  @Test
+  @DisplayName("동시 신청으로 발생한 DB 중복 오류를 중복 계좌 예외로 변환한다")
+  void applyAccountConvertsDuplicateKeyException() {
+    when(accountMapper.existsCustomerById(CUSTOMER_ID)).thenReturn(true);
+    when(accountMapper.existsByCustomerId(CUSTOMER_ID)).thenReturn(false);
+    when(accountMapper.insertApplication(any(AccountDTO.class)))
+        .thenThrow(new DuplicateKeyException("uk_account_customer"));
+
+    try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
+      assertThatThrownBy(() -> accountService.applyAccount(CUSTOMER_ID, request(LIMIT_AMOUNT)))
+          .isInstanceOf(DuplicateAccountException.class)
+          .hasMessage("사용자의 기존 계좌 정보가 있습니다.");
+    }
+  }
+
+  @ParameterizedTest(name = "한도 {0}원은 신청할 수 없다")
+  @ValueSource(strings = {"0", "50000001", "1.5"})
+  @DisplayName("계좌 한도는 1원 이상 5천만원 이하의 원 단위 금액이어야 한다")
+  void applyAccountRejectsInvalidLimit(String limit) {
+    when(accountMapper.existsCustomerById(CUSTOMER_ID)).thenReturn(true);
+    when(accountMapper.existsByCustomerId(CUSTOMER_ID)).thenReturn(false);
+
+    try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
+      assertThatThrownBy(() -> accountService.applyAccount(
+          CUSTOMER_ID,
+          request(new BigDecimal(limit))
+      )).isInstanceOf(InvalidAccountRequestException.class);
+    }
+
+    verify(accountMapper, never()).insertApplication(any(AccountDTO.class));
+  }
+
+  @Test
+  @DisplayName("계좌번호 unique 충돌이 발생하면 새 계좌번호로 승인 처리를 재시도한다")
+  void approveAccountRetriesAccountNumberCollision() {
+    AccountDTO appliedAccount = account(Status.APPLIED);
+    AccountDTO openedAccount = account(Status.OPENED);
+    List<BigDecimal> generatedAccountNumbers = new ArrayList<>();
+
+    when(accountMapper.selectByAccountId(ACCOUNT_ID))
+        .thenReturn(Optional.of(appliedAccount))
+        .thenReturn(Optional.of(openedAccount));
+    when(accountMapper.approve(any(AccountDTO.class))).thenAnswer(invocation -> {
+      AccountDTO approvingAccount = invocation.getArgument(0, AccountDTO.class);
+      generatedAccountNumbers.add(approvingAccount.getAccountNo());
+      if (generatedAccountNumbers.size() == 1) {
+        throw new DuplicateKeyException("uk_account_no");
+      }
+      openedAccount.setAccountNo(approvingAccount.getAccountNo());
+      openedAccount.setOpenedAt(approvingAccount.getOpenedAt());
+      return 1;
+    });
+    when(accountStatusLogMapper.insertLog(any(AccountStatusLogDTO.class))).thenReturn(1);
+    when(accountStatusLogMapper.selectLatestByAccountId(ACCOUNT_ID))
+        .thenReturn(Optional.of(statusLog(Status.APPLIED, Status.OPENED, "사용자 계좌 개설")));
+
+    try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
+      AccountResponseDTO result = accountService.approveAccount(ACCOUNT_ID);
+
+      assertThat(result.getStatus()).isEqualTo(Status.OPENED);
+      assertThat(generatedAccountNumbers).hasSize(2);
+      assertThat(generatedAccountNumbers).allSatisfy(accountNo ->
+          assertThat(accountNo).isBetween(
+              BigDecimal.valueOf(1_000_000_000L),
+              BigDecimal.valueOf(9_999_999_999L)
+          )
+      );
+    }
+  }
+
+  @Test
+  @DisplayName("계좌번호 충돌이 5회 발생하면 내부 처리 예외를 반환한다")
+  void approveAccountFailsAfterFiveAccountNumberCollisions() {
+    when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(account(Status.APPLIED)));
+    when(accountMapper.approve(any(AccountDTO.class)))
+        .thenThrow(new DuplicateKeyException("uk_account_no"));
+
+    try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
+      assertThatThrownBy(() -> accountService.approveAccount(ACCOUNT_ID))
+          .isInstanceOf(AccountException.class)
+          .hasMessage("고유한 계좌번호 생성에 실패했습니다.");
+    }
+
+    verify(accountMapper, Mockito.times(5)).approve(any(AccountDTO.class));
+    verify(accountStatusLogMapper, never()).insertLog(any(AccountStatusLogDTO.class));
+  }
+
+  @Test
+  @DisplayName("관리자가 입력한 반려 사유를 정리해 REJECTED 상태 이력에 저장한다")
+  void rejectAccountRecordsReason() {
+    AccountDTO appliedAccount = account(Status.APPLIED);
+    AccountDTO rejectedAccount = account(Status.REJECTED);
+
+    when(accountMapper.selectByAccountId(ACCOUNT_ID))
+        .thenReturn(Optional.of(appliedAccount))
+        .thenReturn(Optional.of(rejectedAccount));
+    when(accountMapper.reject(appliedAccount)).thenReturn(1);
+    when(accountStatusLogMapper.insertLog(any(AccountStatusLogDTO.class))).thenReturn(1);
+    when(accountStatusLogMapper.selectLatestByAccountId(ACCOUNT_ID))
+        .thenReturn(Optional.of(statusLog(Status.APPLIED, Status.REJECTED, "서류 확인 필요")));
+
+    try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
+      AccountResponseDTO result = accountService.rejectAccount(ACCOUNT_ID, "  서류 확인 필요  ");
+
+      assertThat(result.getStatus()).isEqualTo(Status.REJECTED);
+    }
+
+    ArgumentCaptor<AccountStatusLogDTO> logCaptor = ArgumentCaptor.forClass(AccountStatusLogDTO.class);
+    verify(accountStatusLogMapper).insertLog(logCaptor.capture());
+    assertThat(logCaptor.getValue().getPrevStatus()).isEqualTo(Status.APPLIED);
+    assertThat(logCaptor.getValue().getNewStatus()).isEqualTo(Status.REJECTED);
+    assertThat(logCaptor.getValue().getReason()).isEqualTo("서류 확인 필요");
+    assertThat(logCaptor.getValue().getChangedAt()).isEqualTo(FIXED_NOW);
+  }
+
+  @Test
+  @DisplayName("반려 사유가 공백이면 상태를 변경하지 않는다")
+  void rejectAccountRejectsBlankReason() {
+    when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(account(Status.APPLIED)));
+
+    try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
+      assertThatThrownBy(() -> accountService.rejectAccount(ACCOUNT_ID, "   "))
+          .isInstanceOf(InvalidAccountRequestException.class)
+          .hasMessage("계좌 반려 사유를 입력해야 합니다.");
+    }
+
+    verify(accountMapper, never()).reject(any(AccountDTO.class));
+  }
+
+  @Test
+  @DisplayName("반려 계좌는 관리자 사유와 함께 OPENED 상태로 오버라이드할 수 있다")
+  void overrideRejectedAccountOpensAccount() {
+    AccountDTO rejectedAccount = account(Status.REJECTED);
+    AccountDTO openedAccount = account(Status.OPENED);
+
+    when(accountMapper.selectByAccountId(ACCOUNT_ID))
+        .thenReturn(Optional.of(rejectedAccount))
+        .thenReturn(Optional.of(openedAccount));
+    when(accountMapper.overrideToOpened(any(AccountDTO.class))).thenAnswer(invocation -> {
+      AccountDTO overridingAccount = invocation.getArgument(0, AccountDTO.class);
+      openedAccount.setAccountNo(overridingAccount.getAccountNo());
+      openedAccount.setOpenedAt(overridingAccount.getOpenedAt());
+      return 1;
+    });
+    when(accountStatusLogMapper.insertLog(any(AccountStatusLogDTO.class))).thenReturn(1);
+    when(accountStatusLogMapper.selectLatestByAccountId(ACCOUNT_ID))
+        .thenReturn(Optional.of(statusLog(Status.REJECTED, Status.OPENED, "관리자 확인 완료")));
+
+    try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
+      AccountResponseDTO result = accountService.overrideAccount(ACCOUNT_ID, " 관리자 확인 완료 ");
+
+      assertThat(result.getStatus()).isEqualTo(Status.OPENED);
+      assertThat(result.getOpenedAt()).isEqualTo(FIXED_NOW);
+      assertThat(result.getAccountNo()).isNotNull();
+    }
+
+    ArgumentCaptor<AccountStatusLogDTO> logCaptor = ArgumentCaptor.forClass(AccountStatusLogDTO.class);
+    verify(accountStatusLogMapper).insertLog(logCaptor.capture());
+    assertThat(logCaptor.getValue().getPrevStatus()).isEqualTo(Status.REJECTED);
+    assertThat(logCaptor.getValue().getNewStatus()).isEqualTo(Status.OPENED);
+    assertThat(logCaptor.getValue().getReason()).isEqualTo("관리자 확인 완료");
+  }
+
+  @Test
+  @DisplayName("반려 상태가 아닌 계좌는 관리자 오버라이드를 차단한다")
+  void overrideAccountRejectsNonRejectedStatus() {
+    when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(account(Status.OPENED)));
+
+    assertThatThrownBy(() -> accountService.overrideAccount(ACCOUNT_ID, "관리자 확인 완료"))
+        .isInstanceOf(InvalidAccountRequestException.class)
+        .hasMessage("반려 상태의 계좌만 오버라이드할 수 있습니다.");
+
+    verify(accountMapper, never()).overrideToOpened(any(AccountDTO.class));
+  }
+
+  @Test
+  @DisplayName("반려 계좌를 새 한도로 재신청하면 APPLIED 상태와 이력을 저장한다")
+  void reapplyRejectedAccountChangesLimitAndStatus() {
+    AccountDTO rejectedAccount = account(Status.REJECTED);
+    AccountDTO reappliedAccount = account(Status.APPLIED);
+    BigDecimal changedLimit = BigDecimal.valueOf(20_000_000L);
+    reappliedAccount.setLimitAmount(changedLimit);
+
+    when(accountMapper.selectByAccountId(ACCOUNT_ID))
+        .thenReturn(Optional.of(rejectedAccount))
+        .thenReturn(Optional.of(reappliedAccount));
+    when(accountMapper.reapply(any(AccountDTO.class))).thenReturn(1);
+    when(accountStatusLogMapper.insertLog(any(AccountStatusLogDTO.class))).thenReturn(1);
+    when(accountStatusLogMapper.selectLatestByAccountId(ACCOUNT_ID))
+        .thenReturn(Optional.of(statusLog(Status.REJECTED, Status.APPLIED, "사용자 계좌 개설 재신청")));
+
+    try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
+      AccountResponseDTO result = accountService.reapplyAccountByAccountId(
+          ACCOUNT_ID,
+          request(changedLimit)
+      );
+
+      assertThat(result.getStatus()).isEqualTo(Status.APPLIED);
+      assertThat(result.getLimitAmount()).isEqualByComparingTo(changedLimit);
+    }
+
+    ArgumentCaptor<AccountDTO> accountCaptor = ArgumentCaptor.forClass(AccountDTO.class);
+    verify(accountMapper).reapply(accountCaptor.capture());
+    assertThat(accountCaptor.getValue().getAccountId()).isEqualTo(ACCOUNT_ID);
+    assertThat(accountCaptor.getValue().getLimitAmount()).isEqualByComparingTo(changedLimit);
+
+    ArgumentCaptor<AccountStatusLogDTO> logCaptor = ArgumentCaptor.forClass(AccountStatusLogDTO.class);
+    verify(accountStatusLogMapper).insertLog(logCaptor.capture());
+    assertThat(logCaptor.getValue().getPrevStatus()).isEqualTo(Status.REJECTED);
+    assertThat(logCaptor.getValue().getNewStatus()).isEqualTo(Status.APPLIED);
+  }
+
+  @Test
+  @DisplayName("계좌 상태 이력을 오래된 순서대로 응답 DTO로 반환한다")
+  void getStatusLogsReturnsMappedHistory() {
+    List<AccountStatusLogDTO> logs = List.of(
+        statusLog(null, Status.APPLIED, "최초 개설 신청"),
+        statusLog(Status.APPLIED, Status.OPENED, "자동 판정 승인")
+    );
+
+    when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(account(Status.OPENED)));
+    when(accountStatusLogMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(logs);
+
+    List<AccountLogResponseDTO> result = accountService.getStatusLogsByAccountId(ACCOUNT_ID);
+
+    assertThat(result).hasSize(2);
+    assertThat(result.get(0).getPrevStatus()).isNull();
+    assertThat(result.get(0).getNewStatus()).isEqualTo(Status.APPLIED);
+    assertThat(result.get(1).getPrevStatus()).isEqualTo(Status.APPLIED);
+    assertThat(result.get(1).getNewStatus()).isEqualTo(Status.OPENED);
+  }
+
+  private MockedStatic<LocalDateTime> mockCurrentDateTime() {
+    MockedStatic<LocalDateTime> mockedDateTime = Mockito.mockStatic(LocalDateTime.class);
+    mockedDateTime.when(LocalDateTime::now).thenReturn(FIXED_NOW);
+    return mockedDateTime;
+  }
+
+  private AccountRequestDTO request(BigDecimal limitAmount) {
+    return AccountRequestDTO.builder()
+        .customerId(CUSTOMER_ID)
+        .limitAmount(limitAmount)
+        .build();
+  }
+
+  private AccountDTO account(Status status) {
+    return AccountDTO.builder()
+        .accountId(ACCOUNT_ID)
+        .customerId(CUSTOMER_ID)
+        .status(status)
+        .createdAt(FIXED_NOW)
+        .limitAmount(LIMIT_AMOUNT)
+        .amount(BigDecimal.ZERO)
+        .build();
+  }
+
+  private AccountStatusLogDTO statusLog(Status prevStatus, Status newStatus, String reason) {
+    return AccountStatusLogDTO.builder()
+        .logId(1L)
+        .accountId(ACCOUNT_ID)
+        .prevStatus(prevStatus)
+        .newStatus(newStatus)
+        .changedAt(FIXED_NOW)
+        .reason(reason)
+        .build();
+  }
+}
