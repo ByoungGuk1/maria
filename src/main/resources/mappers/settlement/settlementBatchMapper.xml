@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.app.maria.domain.settlement.mapper.SettlementBatchMapper">
+
+    <insert id="insertBatch" parameterType="SettlementBatchDTO"
+            useGeneratedKeys="true" keyProperty="batchId" keyColumn="batch_id">
+        INSERT INTO settlement_batch (
+            executed_at,
+            status,
+            run_id
+        ) VALUES (
+            #{executedAt},
+            #{status},
+            #{runId}
+        )
+    </insert>
+
+    <select id="selectBatchByRunId" parameterType="String" resultType="SettlementBatchDTO">
+        SELECT
+            batch_id,
+            executed_at,
+            status,
+            run_id
+        FROM settlement_batch
+        WHERE run_id = #{runId}
+    </select>
+
+    <update id="updateBatchStatus" parameterType="SettlementBatchDTO">
+        UPDATE settlement_batch
+        SET status = #{status}
+        WHERE batch_id = #{batchId}
+          AND status = 'RUNNING'
+          AND #{status} IN ('COMPLETED', 'FAILED')
+    </update>
+
+</mapper>
