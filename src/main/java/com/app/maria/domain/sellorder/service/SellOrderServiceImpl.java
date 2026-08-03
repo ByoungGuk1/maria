@@ -27,15 +27,13 @@ public class SellOrderServiceImpl implements SellOrderService{
             throw new SellOrderException("매도 수량은 0보다 커야 합니다.");
         }
 
-        SellOrderDTO dto = SellOrderDTO.builder()
-                .inboundDetailId(request.getInboundDetailId())
-                .sellQty(request.getSellQty())
-                .status(SellOrderStatus.RECEIVED)
-                .basePrice(null)  // C2 연동 후 계산값으로 대체
-                .purchaseFxRate(null) // C2 연동 후 계산값으로 대체
-                .processedAt(null)  // system_clock 기반 clock 컴포넌트 연동
-                .build();
+        SellOrderDTO dto = new SellOrderDTO();
+        dto.setInboundDetailId(request.getInboundDetailId());
+        dto.setSellQty(request.getSellQty());
+        dto.setStatus(SellOrderStatus.RECEIVED);
+        // basePrice/purchaseFxRate는 C2 연동 전까지 null, processedAt은 system_clock 연동 전까지 null
         sellOrderMapper.insertSellOrder(dto);
+
         return new SellOrderResponseDTO(dto);
     }
 

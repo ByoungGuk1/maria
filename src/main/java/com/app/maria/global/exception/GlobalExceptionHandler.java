@@ -7,6 +7,7 @@ import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.global.response.ApiResponseDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -20,6 +21,13 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ApiResponseDTO<Void>>handleMemberNotFound(MemberNotFoundException e) {
     return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
   }
+  @ExceptionHandler(MethodArgumentNotValidException.class)
+  public ResponseEntity<ApiResponseDTO<String>> handleValidationException(MethodArgumentNotValidException e) {
+    String message = e.getBindingResult().getFieldError() != null
+            ? e.getBindingResult().getFieldError().getDefaultMessage()
+            : "요청 값이 올바르지 않습니다.";
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(message));
+  }
   @ExceptionHandler(SellOrderException.class)
   public ResponseEntity<ApiResponseDTO<Void>> handleSellOrderException(SellOrderException e) {
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
@@ -28,4 +36,5 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ApiResponseDTO<Void>> handleSellOrderNotFound(SellOrderNotFoundException e) {
     return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
   }
+
 }

@@ -19,7 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -64,17 +64,49 @@ class SellOrderApiTest {
     void 매도주문접수_서비스에서_예외발생시_400을_반환한다() throws Exception {
         SellOrderRequestDTO request = SellOrderRequestDTO.builder()
                 .inboundDetailId(1L)
-                .sellQty(BigDecimal.ZERO)
+                .sellQty(new BigDecimal("10"))
                 .build();
 
         when(sellOrderService.placeSellOrder(any()))
-                .thenThrow(new SellOrderException("매도 수량은 0보다 커야 합니다."));
+                .thenThrow(new SellOrderException("한도를 초과했습니다."));
+
+        mockMvc.perform(post("/api/sell-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("한도를 초과했습니다."));
+    }
+
+    @Test
+    void 매도주문접수_수량이_0이면_검증실패로_400을_반환하고_서비스는_호출되지않는다() throws Exception {
+        SellOrderRequestDTO request = SellOrderRequestDTO.builder()
+                .inboundDetailId(1L)
+                .sellQty(BigDecimal.ZERO)
+                .build();
 
         mockMvc.perform(post("/api/sell-orders")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("매도 수량은 0보다 커야 합니다."));
+
+        verify(sellOrderService, never()).placeSellOrder(any());
+    }
+
+    @Test
+    void 매도주문접수_출고상세ID가_없으면_검증실패로_400을_반환하고_서비스는_호출되지않는다() throws Exception {
+        SellOrderRequestDTO request = SellOrderRequestDTO.builder()
+                .inboundDetailId(null)
+                .sellQty(new BigDecimal("10"))
+                .build();
+
+        mockMvc.perform(post("/api/sell-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("출고 상세 ID를 입력하세요."));
+
+        verify(sellOrderService, never()).placeSellOrder(any());
     }
 
     @Test
