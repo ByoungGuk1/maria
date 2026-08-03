@@ -1,5 +1,6 @@
 package com.app.maria.domain.sellorder.service;
 
+import com.app.maria.domain.sellorder.dto.SellOrderDTO;
 import com.app.maria.domain.sellorder.dto.request.SellOrderRequestDTO;
 import com.app.maria.domain.sellorder.dto.response.SellOrderResponseDTO;
 import com.app.maria.domain.sellorder.exception.SellOrderException;
@@ -26,7 +27,7 @@ public class SellOrderServiceImpl implements SellOrderService{
             throw new SellOrderException("매도 수량은 0보다 커야 합니다.");
         }
 
-        SellOrderResponseDTO dto = SellOrderResponseDTO.builder()
+        SellOrderDTO dto = SellOrderDTO.builder()
                 .inboundDetailId(request.getInboundDetailId())
                 .sellQty(request.getSellQty())
                 .status(SellOrderStatus.RECEIVED)
@@ -35,13 +36,14 @@ public class SellOrderServiceImpl implements SellOrderService{
                 .processedAt(null)  // system_clock 기반 clock 컴포넌트 연동
                 .build();
         sellOrderMapper.insertSellOrder(dto);
-        return dto;
+        return dto.toResponseDTO();
     }
 
     @Override
     @Transactional(readOnly = true)
     public SellOrderResponseDTO getSellOrder(Long orderId) {
-        return sellOrderMapper.selectSellOrderById(orderId).orElseThrow(() -> new SellOrderNotFoundException("매도 주문 조회 실패"));
+        SellOrderDTO dto =  sellOrderMapper.selectSellOrderById(orderId).orElseThrow(() -> new SellOrderNotFoundException("매도 주문 조회 실패"));
+        return dto.toResponseDTO();
     }
 
 }
