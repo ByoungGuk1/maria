@@ -56,13 +56,17 @@
         SET status = 'APPLIED',
         limit_amount = #{limitAmount}
         WHERE account_id = #{accountId}
-        AND (
-            status = 'REJECTED'
-            OR
-            status = 'APPLIED'
-            )
+        AND status = 'REJECTED'
         AND account_no IS NULL
         AND opened_at IS NULL
+    </update>
+    <update id="updateLimit">
+        UPDATE account
+        SET limit_amount = #{newLimitAmount}
+        WHERE account_id = #{accountId}
+        AND status = #{status}
+        AND status IN ('APPLIED', 'OPENED')
+        AND limit_amount = #{expectedCurrentLimit}
     </update>
     <update id="approve" parameterType="AccountDTO">
         UPDATE account

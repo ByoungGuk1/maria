@@ -1,8 +1,10 @@
 package com.app.maria.domain.account.mapper;
 
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.type.Status;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,6 +27,9 @@ public interface AccountMapper {
 
   //재신청
   int reapply(AccountDTO accountDTO);
+
+  //APPLIED 또는 OPENED 계좌의 설정한도 변경
+  int updateLimit(Long accountId, Status status, BigDecimal expectedCurrentLimit, BigDecimal newLimitAmount);
 
   //신청 승인
   // - 계좌번호는 승인 시점에 최초 1회 발급

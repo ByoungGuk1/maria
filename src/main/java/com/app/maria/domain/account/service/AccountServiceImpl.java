@@ -35,6 +35,7 @@ public class AccountServiceImpl implements AccountService {
   private static final int ACCOUNT_NO_RETRY_LIMIT = 5;
   private static final long ACCOUNT_NO_MIN = 1_000_000_000L;
   private static final long ACCOUNT_NO_MAX_EXCLUSIVE = 10_000_000_000L;
+  private static final String LIMIT_CHANGE_REASON_PREFIX = "LIMIT_CHANGE_V1|source=MYPAGE|from=";
 
   private final AccountMapper accountMapper;
   private final AccountStatusLogMapper accountStatusLogMapper;
@@ -46,9 +47,52 @@ public class AccountServiceImpl implements AccountService {
 
   @Override
   public BigDecimal getAvailableLimit(Long customerId) {
-    getApplicationTime();
     validateCustomer(customerId);
     return calculateAvailableLimit(customerId);
+  }
+
+  @Override
+  @Transactional(rollbackFor = Exception.class)
+  public AccountResponseDTO updateAccountLimit(Long customerId, BigDecimal expectedCurrentLimit, BigDecimal newLimitAmount) {
+    validateCustomer(customerId);
+    if (expectedCurrentLimit == null) {
+      throw new InvalidAccountRequestException("현재 계좌 한도 입력이 필요합니다.");
+    }
+
+    AccountDTO account = accountMapper.selectByCustomerId(customerId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
+    if (account.getStatus() != Status.APPLIED && account.getStatus() != Status.OPENED) {
+      throw new InvalidAccountRequestException("신청 또는 개설 상태의 계좌만 한도를 변경할 수 있습니다.");
+    }
+    if (account.getLimitAmount().compareTo(expectedCurrentLimit) != 0) {
+      throw new InvalidAccountRequestException("계좌 한도가 변경되었습니다. 다시 조회 후 시도해주세요.");
+    }
+
+    validateRequestedLimit(newLimitAmount, calculateAvailableLimit(customerId));
+    if (account.getLimitAmount().compareTo(newLimitAmount) == 0) {
+      throw new InvalidAccountRequestException("기존 한도와 다른 금액을 입력해야 합니다.");
+    }
+
+    if (accountMapper.updateLimit(account.getAccountId(), account.getStatus(), expectedCurrentLimit, newLimitAmount) != 1) {
+      throw new InvalidAccountRequestException("계좌 한도 변경 중 상태 또는 한도가 변경되었습니다.");
+    }
+
+    AccountStatusLogDTO limitChangeLog = AccountStatusLogDTO.builder()
+        .accountId(account.getAccountId())
+        .prevStatus(account.getStatus())
+        .newStatus(account.getStatus())
+        .changedAt(getCurrentDateTime())
+        .reason(buildLimitChangeReason(account.getLimitAmount(), newLimitAmount))
+        .build();
+
+    if (accountStatusLogMapper.insertLog(limitChangeLog) != 1) {
+      throw new AccountException("계좌 한도 변경 로그 생성 실패");
+    }
+
+    AccountDTO updatedAccount = accountMapper.selectByAccountId(account.getAccountId()).orElseThrow(() -> new AccountException("계좌 한도 변경 후 재조회 실패"));
+    if (updatedAccount.getLimitAmount().compareTo(newLimitAmount) != 0) {
+      throw new AccountException("계좌 한도 변경 결과 불일치");
+    }
+    return new AccountResponseDTO(updatedAccount);
   }
 
   @Override
@@ -376,5 +420,12 @@ public class AccountServiceImpl implements AccountService {
       throw new InvalidAccountRequestException("사유는 200자 이하로 입력해야 합니다.");
     }
     return normalizedReason;
+  }
+
+  private String buildLimitChangeReason(BigDecimal previousLimit, BigDecimal newLimit) {
+    return LIMIT_CHANGE_REASON_PREFIX
+        + previousLimit.stripTrailingZeros().toPlainString()
+        + "|to="
+        + newLimit.stripTrailingZeros().toPlainString();
   }
 }

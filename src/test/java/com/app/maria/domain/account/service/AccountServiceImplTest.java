@@ -207,6 +207,98 @@ class AccountServiceImplTest {
     verify(accountMapper, never()).insertApplication(any(AccountDTO.class));
   }
 
+  @ParameterizedTest
+  @EnumSource(value = Status.class, names = {"APPLIED", "OPENED"})
+  @DisplayName("APPLIED 또는 OPENED 계좌는 마이페이지에서 한도를 변경하고 동일 상태 이력을 저장한다")
+  void updateAccountLimitAllowsAppliedAndOpenedStatuses(Status status) {
+    BigDecimal changedLimit = BigDecimal.valueOf(40_000_000L);
+    AccountDTO currentAccount = account(status);
+    AccountDTO updatedAccount = account(status);
+    updatedAccount.setLimitAmount(changedLimit);
+
+    when(accountMapper.existsCustomerById(CUSTOMER_ID)).thenReturn(true);
+    when(accountMapper.selectByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(currentAccount));
+    when(accountMapper.updateLimit(ACCOUNT_ID, status, LIMIT_AMOUNT, changedLimit)).thenReturn(1);
+    when(accountStatusLogMapper.insertLog(any(AccountStatusLogDTO.class))).thenReturn(1);
+    when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(updatedAccount));
+
+    try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
+      AccountResponseDTO result = accountService.updateAccountLimit(
+          CUSTOMER_ID,
+          LIMIT_AMOUNT,
+          changedLimit
+      );
+
+      assertThat(result.getStatus()).isEqualTo(status);
+      assertThat(result.getLimitAmount()).isEqualByComparingTo(changedLimit);
+    }
+
+    ArgumentCaptor<AccountStatusLogDTO> logCaptor = ArgumentCaptor.forClass(AccountStatusLogDTO.class);
+    verify(accountStatusLogMapper).insertLog(logCaptor.capture());
+    AccountStatusLogDTO savedLog = logCaptor.getValue();
+    assertThat(savedLog.getPrevStatus()).isEqualTo(status);
+    assertThat(savedLog.getNewStatus()).isEqualTo(status);
+    assertThat(savedLog.getChangedAt()).isEqualTo(FIXED_NOW);
+    assertThat(savedLog.getReason()).isEqualTo(
+        "LIMIT_CHANGE_V1|source=MYPAGE|from=30000000|to=40000000"
+    );
+  }
+
+  @ParameterizedTest
+  @EnumSource(value = Status.class, names = {"REJECTED", "CLOSURE_REQUESTED", "CLOSED"})
+  @DisplayName("REJECTED, CLOSURE_REQUESTED, CLOSED 계좌는 마이페이지 한도 변경을 차단한다")
+  void updateAccountLimitRejectsDisallowedStatuses(Status status) {
+    when(accountMapper.existsCustomerById(CUSTOMER_ID)).thenReturn(true);
+    when(accountMapper.selectByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(account(status)));
+
+    assertThatThrownBy(() -> accountService.updateAccountLimit(
+        CUSTOMER_ID,
+        LIMIT_AMOUNT,
+        BigDecimal.valueOf(40_000_000L)
+    )).isInstanceOf(InvalidAccountRequestException.class)
+        .hasMessage("신청 또는 개설 상태의 계좌만 한도를 변경할 수 있습니다.");
+
+    verify(accountMapper, never()).updateLimit(any(), any(), any(), any());
+    verify(accountStatusLogMapper, never()).insertLog(any(AccountStatusLogDTO.class));
+  }
+
+  @Test
+  @DisplayName("화면이 조회한 기존 한도와 현재 DB 한도가 다르면 stale 한도 변경을 차단한다")
+  void updateAccountLimitRejectsStaleExpectedLimit() {
+    when(accountMapper.existsCustomerById(CUSTOMER_ID)).thenReturn(true);
+    when(accountMapper.selectByCustomerId(CUSTOMER_ID))
+        .thenReturn(Optional.of(account(Status.OPENED)));
+
+    assertThatThrownBy(() -> accountService.updateAccountLimit(
+        CUSTOMER_ID,
+        BigDecimal.valueOf(20_000_000L),
+        BigDecimal.valueOf(40_000_000L)
+    )).isInstanceOf(InvalidAccountRequestException.class)
+        .hasMessage("계좌 한도가 변경되었습니다. 다시 조회 후 시도해주세요.");
+
+    verify(accountMapper, never()).updateLimit(any(), any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("조건부 한도 UPDATE가 실패하면 한도 변경 이력을 저장하지 않는다")
+  void updateAccountLimitDoesNotLogConditionalUpdateConflict() {
+    BigDecimal changedLimit = BigDecimal.valueOf(40_000_000L);
+    when(accountMapper.existsCustomerById(CUSTOMER_ID)).thenReturn(true);
+    when(accountMapper.selectByCustomerId(CUSTOMER_ID))
+        .thenReturn(Optional.of(account(Status.OPENED)));
+    when(accountMapper.updateLimit(ACCOUNT_ID, Status.OPENED, LIMIT_AMOUNT, changedLimit))
+        .thenReturn(0);
+
+    assertThatThrownBy(() -> accountService.updateAccountLimit(
+        CUSTOMER_ID,
+        LIMIT_AMOUNT,
+        changedLimit
+    )).isInstanceOf(InvalidAccountRequestException.class)
+        .hasMessage("계좌 한도 변경 중 상태 또는 한도가 변경되었습니다.");
+
+    verify(accountStatusLogMapper, never()).insertLog(any(AccountStatusLogDTO.class));
+  }
+
   @Test
   @DisplayName("계좌번호 unique 충돌이 발생하면 새 계좌번호로 승인 처리를 재시도한다")
   void approveAccountRetriesAccountNumberCollision() {

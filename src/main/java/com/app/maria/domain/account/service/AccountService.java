@@ -14,6 +14,9 @@ public interface AccountService {
   // 고객의 전 금융회사 RIA 납입한도를 반영한 현재 설정 가능 최대 한도
   BigDecimal getAvailableLimit(Long customerId);
 
+  // 고객 마이페이지용 한도 변경: APPLIED, OPENED 상태에서만 허용
+  AccountResponseDTO updateAccountLimit(Long customerId, BigDecimal expectedCurrentLimit, BigDecimal newLimitAmount);
+
   // 관리자 대리 신청과 사용자 본인 신청이 공통으로 사용
   AccountResponseDTO applyAccount(Long customerId, AccountRequestDTO requestDTO);
 

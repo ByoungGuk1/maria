@@ -177,6 +177,63 @@ class AccountMapperTest {
   }
 
   @Test
+  @DisplayName("APPLIED 계좌의 한도 변경은 재신청 Mapper로 처리하지 않는다")
+  void reapplyDoesNotUpdateAppliedAccount() {
+    Long accountId = insertApplication(1L, DEFAULT_LIMIT);
+    AccountDTO reapplication = AccountDTO.builder()
+        .accountId(accountId)
+        .limitAmount(BigDecimal.valueOf(20_000_000L))
+        .build();
+
+    assertThat(accountMapper.reapply(reapplication)).isZero();
+    assertThat(accountMapper.selectByAccountId(accountId).orElseThrow().getLimitAmount())
+        .isEqualByComparingTo(DEFAULT_LIMIT);
+  }
+
+  @Test
+  @DisplayName("한도 조건부 UPDATE는 APPLIED와 OPENED 상태에서 현재 한도가 일치할 때만 성공한다")
+  void updateLimitUpdatesOnlyAllowedStatusWithExpectedValue() {
+    Long appliedAccountId = insertApplication(1L, DEFAULT_LIMIT);
+    Long openedAccountId = insertApplication(2L, DEFAULT_LIMIT);
+    Long rejectedAccountId = insertApplication(3L, DEFAULT_LIMIT);
+    openAccount(openedAccountId, BigDecimal.valueOf(1_234_567_890L));
+    accountMapper.reject(AccountDTO.builder().accountId(rejectedAccountId).build());
+    BigDecimal changedLimit = BigDecimal.valueOf(40_000_000L);
+
+    assertThat(accountMapper.updateLimit(
+        appliedAccountId,
+        Status.APPLIED,
+        DEFAULT_LIMIT,
+        changedLimit
+    )).isOne();
+    assertThat(accountMapper.updateLimit(
+        openedAccountId,
+        Status.OPENED,
+        DEFAULT_LIMIT,
+        changedLimit
+    )).isOne();
+    assertThat(accountMapper.updateLimit(
+        rejectedAccountId,
+        Status.REJECTED,
+        DEFAULT_LIMIT,
+        changedLimit
+    )).isZero();
+    assertThat(accountMapper.updateLimit(
+        appliedAccountId,
+        Status.APPLIED,
+        DEFAULT_LIMIT,
+        BigDecimal.valueOf(45_000_000L)
+    )).isZero();
+
+    assertThat(accountMapper.selectByAccountId(appliedAccountId).orElseThrow().getLimitAmount())
+        .isEqualByComparingTo(changedLimit);
+    assertThat(accountMapper.selectByAccountId(openedAccountId).orElseThrow().getLimitAmount())
+        .isEqualByComparingTo(changedLimit);
+    assertThat(accountMapper.selectByAccountId(rejectedAccountId).orElseThrow().getLimitAmount())
+        .isEqualByComparingTo(DEFAULT_LIMIT);
+  }
+
+  @Test
   @DisplayName("관리자 오버라이드는 REJECTED 계좌만 OPENED로 변경한다")
   void overrideOpensOnlyRejectedAccount() {
     Long rejectedAccountId = insertApplication(1L, DEFAULT_LIMIT);
@@ -258,6 +315,14 @@ class AccountMapperTest {
     assertThat(accountStatusLogMapper.insertLog(statusLog(
         accountId, Status.REJECTED, Status.APPLIED, reappliedAt, "사용자 계좌 개설 재신청"
     ))).isOne();
+    LocalDateTime limitChangedAt = CREATED_AT.plusMinutes(3);
+    assertThat(accountStatusLogMapper.insertLog(statusLog(
+        accountId,
+        Status.APPLIED,
+        Status.APPLIED,
+        limitChangedAt,
+        "LIMIT_CHANGE_V1|source=MYPAGE|from=30000000|to=40000000"
+    ))).isOne();
 
     List<AccountStatusLogDTO> logs = accountStatusLogMapper.selectByAccountId(accountId);
 
@@ -275,6 +340,15 @@ class AccountMapperTest {
     assertThat(latestLog.getChangedAt()).isEqualTo(reappliedAt);
     assertThat(accountStatusLogMapper.selectLatestApplicationAt(accountId))
         .isEqualTo(reappliedAt);
+
+    List<AccountStatusLogDTO> limitChanges =
+        accountStatusLogMapper.selectLimitChangesByAccountId(accountId);
+    assertThat(limitChanges).hasSize(1);
+    assertThat(limitChanges.get(0).getPrevStatus()).isEqualTo(Status.APPLIED);
+    assertThat(limitChanges.get(0).getNewStatus()).isEqualTo(Status.APPLIED);
+    assertThat(limitChanges.get(0).getChangedAt()).isEqualTo(limitChangedAt);
+    assertThat(limitChanges.get(0).getReason())
+        .isEqualTo("LIMIT_CHANGE_V1|source=MYPAGE|from=30000000|to=40000000");
   }
 
   private void resetSchema() throws SQLException {

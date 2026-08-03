@@ -18,6 +18,9 @@ public interface AccountStatusLogMapper {
   //가장 최근 상태 이력 조회
   Optional<AccountStatusLogDTO> selectLatestByAccountId(Long accountId);
 
+  //같은 상태로 기록된 마이페이지 한도 변경 이력 조회
+  List<AccountStatusLogDTO> selectLimitChangesByAccountId(Long accountId);
+
   //반려 후 재신청 구조에서 현재 신청일 조회
   LocalDateTime selectLatestApplicationAt(Long accountId);
 }
