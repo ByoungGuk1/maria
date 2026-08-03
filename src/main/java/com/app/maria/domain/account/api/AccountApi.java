@@ -5,6 +5,7 @@ import com.app.maria.domain.account.dto.request.ReasonRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.service.AccountService;
 import com.app.maria.global.response.ApiResponseDTO;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,8 +31,8 @@ public class AccountApi {
     }
 
     @PostMapping("/applications")
-    public ResponseEntity<?> apply(@RequestBody AccountRequestDTO requestDTO) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponseDTO.of("계좌 개설 신청 처리 완료", accountService.applyAccount(requestDTO.getCustomerId(), requestDTO)));
+    public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> apply(@Valid @RequestBody AccountRequestDTO requestDTO) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponseDTO.of("계좌 개설 신청 처리 완료", accountService.applyAccount(requestDTO)));
     }
 
     @PostMapping("/{accountId}/approve")

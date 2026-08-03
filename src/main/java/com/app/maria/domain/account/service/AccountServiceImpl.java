@@ -35,7 +35,7 @@ public class AccountServiceImpl implements AccountService {
   private static final int ACCOUNT_NO_RETRY_LIMIT = 5;
   private static final long ACCOUNT_NO_MIN = 1_000_000_000L;
   private static final long ACCOUNT_NO_MAX_EXCLUSIVE = 10_000_000_000L;
-  private static final String LIMIT_CHANGE_REASON_PREFIX = "LIMIT_CHANGE_V1|source=MYPAGE|from=";
+  private static final String LIMIT_CHANGE_REASON_PREFIX = "LIMIT_CHANGE|from=";
 
   private final AccountMapper accountMapper;
   private final AccountStatusLogMapper accountStatusLogMapper;
@@ -97,16 +97,20 @@ public class AccountServiceImpl implements AccountService {
 
   @Override
   @Transactional(rollbackFor = Exception.class)
-  public AccountResponseDTO applyAccount(Long customerId, AccountRequestDTO requestDTO) {
-    LocalDateTime appliedAt = getApplicationTime();
+  public AccountResponseDTO applyAccount(AccountRequestDTO requestDTO) {
+    if (requestDTO == null) {
+      throw new InvalidAccountRequestException("계좌 개설 요청 정보가 없습니다.");
+    }
+
+    Long customerId = requestDTO.getCustomerId();
     validateCustomer(customerId);
+    LocalDateTime appliedAt = getApplicationTime();
 
     if (accountMapper.existsByCustomerId(customerId)) {
       throw new DuplicateAccountException("사용자의 기존 계좌 정보가 있습니다.");
     }
 
-    AccountDTO account = new AccountDTO(requestDTO);
-    account.setCustomerId(customerId);
+    AccountDTO account = requestDTO.toAccountDTO();
     account.setCreatedAt(appliedAt);
 
     validateRequestedLimit(account.getLimitAmount(), calculateAvailableLimit(customerId));
@@ -192,7 +196,7 @@ public class AccountServiceImpl implements AccountService {
     AccountDTO foundAccount = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
     LocalDateTime appliedAt = getApplicationTime();
 
-    AccountDTO reapplication = new AccountDTO(requestDTO);
+    AccountDTO reapplication = requestDTO.toAccountDTO();
     reapplication.setAccountId(accountId);
 
     if (reapplication.getLimitAmount() == null) {

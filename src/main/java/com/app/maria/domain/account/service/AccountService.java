@@ -18,7 +18,7 @@ public interface AccountService {
   AccountResponseDTO updateAccountLimit(Long customerId, BigDecimal expectedCurrentLimit, BigDecimal newLimitAmount);
 
   // 관리자 대리 신청과 사용자 본인 신청이 공통으로 사용
-  AccountResponseDTO applyAccount(Long customerId, AccountRequestDTO requestDTO);
+  AccountResponseDTO applyAccount(AccountRequestDTO requestDTO);
 
   // 관리자 기능
   AccountResponseDTO approveAccount(Long accountId);
