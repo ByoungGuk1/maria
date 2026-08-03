@@ -76,6 +76,16 @@ class AccountServiceImplTest {
   }
 
   @Test
+  @DisplayName("계좌 개설 요청 정보가 없으면 명확한 요청 예외를 반환한다")
+  void applyAccountRejectsNullRequest() {
+    assertThatThrownBy(() -> accountService.applyAccount(null))
+        .isInstanceOf(InvalidAccountRequestException.class)
+        .hasMessage("계좌 개설 요청 정보가 없습니다.");
+
+    verify(accountMapper, never()).existsCustomerById(any());
+  }
+
+  @Test
   @DisplayName("정상 계좌 신청은 APPLIED 이력 생성 후 자동으로 OPENED 처리된다")
   void applyAccountAutomaticallyOpensAccount() {
     AccountDTO appliedAccount = account(Status.APPLIED);
@@ -97,7 +107,7 @@ class AccountServiceImplTest {
         .thenReturn(Optional.of(statusLog(Status.APPLIED, Status.OPENED, "자동 판정 승인")));
 
     try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
-      AccountResponseDTO result = accountService.applyAccount(CUSTOMER_ID, request(LIMIT_AMOUNT));
+      AccountResponseDTO result = accountService.applyAccount(request(LIMIT_AMOUNT));
 
       assertThat(result.getStatus()).isEqualTo(Status.OPENED);
       assertThat(result.getOpenedAt()).isEqualTo(FIXED_NOW);
@@ -144,7 +154,7 @@ class AccountServiceImplTest {
         )));
 
     try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
-      AccountResponseDTO result = accountService.applyAccount(CUSTOMER_ID, request(LIMIT_AMOUNT));
+      AccountResponseDTO result = accountService.applyAccount(request(LIMIT_AMOUNT));
 
       assertThat(result.getStatus()).isEqualTo(Status.REJECTED);
       assertThat(result.getAccountNo()).isNull();
@@ -167,7 +177,7 @@ class AccountServiceImplTest {
     when(accountMapper.existsByCustomerId(CUSTOMER_ID)).thenReturn(true);
 
     try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
-      assertThatThrownBy(() -> accountService.applyAccount(CUSTOMER_ID, request(LIMIT_AMOUNT)))
+      assertThatThrownBy(() -> accountService.applyAccount(request(LIMIT_AMOUNT)))
           .isInstanceOf(DuplicateAccountException.class)
           .hasMessage("사용자의 기존 계좌 정보가 있습니다.");
     }
@@ -184,7 +194,7 @@ class AccountServiceImplTest {
         .thenThrow(new DuplicateKeyException("uk_account_customer"));
 
     try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
-      assertThatThrownBy(() -> accountService.applyAccount(CUSTOMER_ID, request(LIMIT_AMOUNT)))
+      assertThatThrownBy(() -> accountService.applyAccount(request(LIMIT_AMOUNT)))
           .isInstanceOf(DuplicateAccountException.class)
           .hasMessage("사용자의 기존 계좌 정보가 있습니다.");
     }
@@ -198,10 +208,8 @@ class AccountServiceImplTest {
     when(accountMapper.existsByCustomerId(CUSTOMER_ID)).thenReturn(false);
 
     try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
-      assertThatThrownBy(() -> accountService.applyAccount(
-          CUSTOMER_ID,
-          request(new BigDecimal(limit))
-      )).isInstanceOf(InvalidAccountRequestException.class);
+      assertThatThrownBy(() -> accountService.applyAccount(request(new BigDecimal(limit))))
+          .isInstanceOf(InvalidAccountRequestException.class);
     }
 
     verify(accountMapper, never()).insertApplication(any(AccountDTO.class));
@@ -240,7 +248,7 @@ class AccountServiceImplTest {
     assertThat(savedLog.getNewStatus()).isEqualTo(status);
     assertThat(savedLog.getChangedAt()).isEqualTo(FIXED_NOW);
     assertThat(savedLog.getReason()).isEqualTo(
-        "LIMIT_CHANGE_V1|source=MYPAGE|from=30000000|to=40000000"
+        "LIMIT_CHANGE|from=30000000|to=40000000"
     );
   }
 
