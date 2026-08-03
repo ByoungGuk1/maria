@@ -398,7 +398,7 @@ public class AccountServiceImpl implements AccountService {
 
     for (int attempt = 1; attempt <= ACCOUNT_NO_RETRY_LIMIT; attempt++) {
       long accountNo = ThreadLocalRandom.current().nextLong(ACCOUNT_NO_MIN, ACCOUNT_NO_MAX_EXCLUSIVE);
-      account.setAccountNo(BigDecimal.valueOf(accountNo));
+      account.setAccountNo(Long.toString(accountNo));
 
       try {
         int updatedRows = override ? accountMapper.overrideToOpened(account) : accountMapper.approve(account);

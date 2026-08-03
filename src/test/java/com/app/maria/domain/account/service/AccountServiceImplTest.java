@@ -111,10 +111,7 @@ class AccountServiceImplTest {
 
       assertThat(result.getStatus()).isEqualTo(Status.OPENED);
       assertThat(result.getOpenedAt()).isEqualTo(FIXED_NOW);
-      assertThat(result.getAccountNo()).isBetween(
-          BigDecimal.valueOf(1_000_000_000L),
-          BigDecimal.valueOf(9_999_999_999L)
-      );
+      assertThat(result.getAccountNo()).matches("[0-9]{10}");
     }
 
     ArgumentCaptor<AccountStatusLogDTO> logCaptor = ArgumentCaptor.forClass(AccountStatusLogDTO.class);
@@ -312,7 +309,7 @@ class AccountServiceImplTest {
   void approveAccountRetriesAccountNumberCollision() {
     AccountDTO appliedAccount = account(Status.APPLIED);
     AccountDTO openedAccount = account(Status.OPENED);
-    List<BigDecimal> generatedAccountNumbers = new ArrayList<>();
+    List<String> generatedAccountNumbers = new ArrayList<>();
 
     when(accountMapper.selectByAccountId(ACCOUNT_ID))
         .thenReturn(Optional.of(appliedAccount))
@@ -337,10 +334,7 @@ class AccountServiceImplTest {
       assertThat(result.getStatus()).isEqualTo(Status.OPENED);
       assertThat(generatedAccountNumbers).hasSize(2);
       assertThat(generatedAccountNumbers).allSatisfy(accountNo ->
-          assertThat(accountNo).isBetween(
-              BigDecimal.valueOf(1_000_000_000L),
-              BigDecimal.valueOf(9_999_999_999L)
-          )
+          assertThat(accountNo).matches("[0-9]{10}")
       );
     }
   }
