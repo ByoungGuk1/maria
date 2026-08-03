@@ -36,14 +36,14 @@ public class SellOrderServiceImpl implements SellOrderService{
                 .processedAt(null)  // system_clock 기반 clock 컴포넌트 연동
                 .build();
         sellOrderMapper.insertSellOrder(dto);
-        return dto.toResponseDTO();
+        return new SellOrderResponseDTO(dto);
     }
 
     @Override
     @Transactional(readOnly = true)
     public SellOrderResponseDTO getSellOrder(Long orderId) {
         SellOrderDTO dto =  sellOrderMapper.selectSellOrderById(orderId).orElseThrow(() -> new SellOrderNotFoundException("매도 주문 조회 실패"));
-        return dto.toResponseDTO();
+        return new SellOrderResponseDTO(dto);
     }
 
 }
