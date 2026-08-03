@@ -1,6 +1,5 @@
 package com.app.maria.domain.sellorder.dto;
 
-import com.app.maria.domain.sellorder.dto.response.SellOrderResponseDTO;
 import com.app.maria.domain.sellorder.type.SellOrderStatus;
 import lombok.*;
 
@@ -23,17 +22,5 @@ public class SellOrderDTO {
     private BigDecimal purchaseFxRate;
     private SellOrderStatus status;
     private LocalDateTime processedAt;
-
-    public SellOrderResponseDTO toResponseDTO() {
-        return SellOrderResponseDTO.builder()
-                .orderId(orderId)
-                .inboundDetailId(inboundDetailId)
-                .sellQty(sellQty)
-                .basePrice(basePrice)
-                .purchaseFxRate(purchaseFxRate)
-                .status(status)
-                .processedAt(processedAt)
-                .build();
-    }
 
 }
