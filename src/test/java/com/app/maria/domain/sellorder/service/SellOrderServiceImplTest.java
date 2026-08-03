@@ -1,5 +1,6 @@
 package com.app.maria.domain.sellorder.service;
 
+import com.app.maria.domain.sellorder.dto.SellOrderDTO;
 import com.app.maria.domain.sellorder.dto.request.SellOrderRequestDTO;
 import com.app.maria.domain.sellorder.dto.response.SellOrderResponseDTO;
 import com.app.maria.domain.sellorder.exception.SellOrderException;
@@ -8,6 +9,7 @@ import com.app.maria.domain.sellorder.mapper.SellOrderMapper;
 import com.app.maria.domain.sellorder.type.SellOrderStatus;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -43,7 +45,13 @@ class SellOrderServiceImplTest {
         assertThat(result.getBasePrice()).isNull();
         assertThat(result.getPurchaseFxRate()).isNull();
         assertThat(result.getProcessedAt()).isNull();
-        verify(sellOrderMapper, times(1)).insertSellOrder(result);
+
+        ArgumentCaptor<SellOrderDTO> captor = ArgumentCaptor.forClass(SellOrderDTO.class);
+        verify(sellOrderMapper, times(1)).insertSellOrder(captor.capture());
+        SellOrderDTO saved = captor.getValue();
+        assertThat(saved.getInboundDetailId()).isEqualTo(1L);
+        assertThat(saved.getSellQty()).isEqualByComparingTo("10");
+        assertThat(saved.getStatus()).isEqualTo(SellOrderStatus.RECEIVED);
     }
 
     @Test
@@ -84,7 +92,7 @@ class SellOrderServiceImplTest {
 
     @Test
     void getSellOrder_존재하면_조회결과를_반환한다() {
-        SellOrderResponseDTO saved = SellOrderResponseDTO.builder()
+        SellOrderDTO saved = SellOrderDTO.builder()
                 .orderId(100L)
                 .inboundDetailId(1L)
                 .sellQty(new BigDecimal("10"))
@@ -95,6 +103,8 @@ class SellOrderServiceImplTest {
         SellOrderResponseDTO result = sellOrderService.getSellOrder(100L);
 
         assertThat(result.getOrderId()).isEqualTo(100L);
+        assertThat(result.getInboundDetailId()).isEqualTo(1L);
+        assertThat(result.getStatus()).isEqualTo(SellOrderStatus.RECEIVED);
     }
 
     @Test
