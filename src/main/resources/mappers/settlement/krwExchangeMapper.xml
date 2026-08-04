@@ -53,9 +53,9 @@
           AND settlement_status = 'PROVISIONAL'
     </update>
 
-    <update id="increaseAccountAmount" parameterType="KrwExchangeDTO">
+    <update id="replaceAccountAmount" parameterType="KrwExchangeDTO">
         UPDATE account
-        SET amount = amount + #{finalAmount}
+        SET amount = amount - #{provisionalAmount} + #{finalAmount}
         WHERE account_id = #{accountId}
           AND status IN ('OPENED', 'CLOSURE_REQUESTED')
     </update>

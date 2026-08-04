@@ -17,7 +17,7 @@ public interface KrwExchangeMapper {
 
   int finalizeExchange(KrwExchangeDTO krwExchangeDTO);
 
-  int increaseAccountAmount(KrwExchangeDTO krwExchangeDTO);
+  int replaceAccountAmount(KrwExchangeDTO krwExchangeDTO);
 
   int insertLeftAmount(KrwExchangeDTO krwExchangeDTO);
 }
