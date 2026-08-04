@@ -3,25 +3,36 @@ package com.app.maria.domain.settlement.provider;
 import com.app.maria.domain.settlement.exception.InvalidSettlementException;
 import com.app.maria.global.client.exchange.ExchangeRateClient;
 import com.app.maria.global.exception.ExchangeRateNotFoundException;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Component
-@RequiredArgsConstructor
 public class ExchangeRateProviderImpl implements ExchangeRateProvider {
+
   private final ExchangeRateClient exchangeRateClient;
+
+  public ExchangeRateProviderImpl(@Qualifier("settlementExchangeRateClient")ExchangeRateClient exchangeRateClient) {
+    this.exchangeRateClient = exchangeRateClient;
+  }
 
   @Override
   public BigDecimal getFinalRate(String currency, LocalDate searchDate) {
     validateCurrency(currency);
     validateSearchDate(searchDate);
 
-    BigDecimal finalRate = exchangeRateClient.getBaseRate(currency, searchDate);
-
-    return validateFinalRate(finalRate);
+    try {
+      BigDecimal finalRate = exchangeRateClient.getBaseRate(currency, searchDate);
+      return validateFinalRate(finalRate);
+    } catch (ResourceAccessException e) {
+      throw new ExchangeRateNotFoundException("환율 API 연결 또는 응답 시간 초과", e);
+    } catch (RestClientException e) {
+      throw new ExchangeRateNotFoundException("환율 API 호출 실패", e);
+    }
   }
 
   private void validateCurrency(String currency) {
