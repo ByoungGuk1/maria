@@ -10,6 +10,8 @@ import com.app.maria.domain.sellorder.exception.SellOrderException;
 import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.domain.settlement.exception.*;
 import com.app.maria.global.response.ApiResponseDTO;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,10 +24,19 @@ public class GlobalExceptionHandler {
 
     // 1. DTO Valid 검증 예외
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleValidationException(MethodArgumentNotValidException e) {
+    public ResponseEntity<ApiResponseDTO<Void>> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
         String message = e.getBindingResult().getFieldErrors().stream()
                 .findFirst()
                 .map(DefaultMessageSourceResolvable::getDefaultMessage)
+                .orElse("요청값이 올바르지 않습니다.");
+        return ResponseEntity.badRequest().body(ApiResponseDTO.of(message));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleConstraintViolationException(ConstraintViolationException e) {
+        String message = e.getConstraintViolations().stream()
+                .findFirst()
+                .map(ConstraintViolation::getMessage)
                 .orElse("요청값이 올바르지 않습니다.");
         return ResponseEntity.badRequest().body(ApiResponseDTO.of(message));
     }
@@ -96,7 +107,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(SettlementCalculationException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleSettlementCalculationException(SettlementCalculationException e) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(SettlementStateConflictException.class)
