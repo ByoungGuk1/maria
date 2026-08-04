@@ -10,6 +10,7 @@ import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
 import com.app.maria.domain.settlement.mapper.SettlementJoinMapper;
 import com.app.maria.domain.settlement.provider.ExchangeRateProvider;
 import com.app.maria.domain.settlement.type.BatchStatus;
+import com.app.maria.global.exception.ExchangeRateNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,7 +32,9 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -103,12 +106,76 @@ class SettlementBatchTaskletTest {
     verify(settlementBatchMapper).updateBatchStatus(any());
   }
 
+  @Test
+  void cachesRateForSameCurrencyAndDateWithinPage() {
+    SettlementBatchDTO batch = batch();
+    SettlementItemDTO first = SettlementItemDTO.builder().itemId(10L).batchId(1L).build();
+    SettlementItemDTO second = SettlementItemDTO.builder().itemId(11L).batchId(1L).build();
+    SettlementJoinDTO firstTarget = target(10L);
+    SettlementJoinDTO secondTarget = target(11L);
+    when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch));
+    when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of(first, second));
+    when(settlementJoinMapper.selectTargetByItemId(any()))
+        .thenReturn(Optional.of(firstTarget), Optional.of(secondTarget));
+    when(exchangeRateProvider.getFinalRate("USD", batch.getExecutedAt().toLocalDate()))
+        .thenReturn(new BigDecimal("1400"));
+
+    tasklet.execute(contribution, new ChunkContext(new StepContext(stepExecution)));
+
+    verify(exchangeRateProvider, times(1))
+        .getFinalRate("USD", batch.getExecutedAt().toLocalDate());
+    verify(settlementTransactionExecutor).execute(firstTarget, new BigDecimal("1400"));
+    verify(settlementTransactionExecutor).execute(secondTarget, new BigDecimal("1400"));
+  }
+
+  @Test
+  void recordsFailureAndContinuesWhenOneItemFails() {
+    SettlementBatchDTO batch = batch();
+    SettlementItemDTO item = SettlementItemDTO.builder().itemId(10L).batchId(1L).build();
+    when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch));
+    when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of(item));
+    when(settlementJoinMapper.selectTargetByItemId(any()))
+        .thenReturn(Optional.of(target(10L)));
+    when(exchangeRateProvider.getFinalRate(eq("USD"), any()))
+        .thenThrow(new ExchangeRateNotFoundException("환율 없음"));
+
+    RepeatStatus status = tasklet.execute(contribution,
+        new ChunkContext(new StepContext(stepExecution)));
+
+    assertThat(status).isEqualTo(RepeatStatus.CONTINUABLE);
+    verify(settlementFailureRecorder).markFailed(10L);
+    verify(settlementTransactionExecutor, never()).execute(any(), any());
+  }
+
+  @Test
+  void marksBatchFailedWhenCompletedPageContainsFailedItems() {
+    when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch()));
+    when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of());
+    when(settlementItemMapper.countFailedItems(1L)).thenReturn(1);
+    when(settlementBatchMapper.updateBatchStatus(any())).thenReturn(1);
+
+    tasklet.execute(contribution, new ChunkContext(new StepContext(stepExecution)));
+
+    org.mockito.ArgumentCaptor<SettlementBatchDTO> captor =
+        org.mockito.ArgumentCaptor.forClass(SettlementBatchDTO.class);
+    verify(settlementBatchMapper).updateBatchStatus(captor.capture());
+    assertThat(captor.getValue().getStatus()).isEqualTo(BatchStatus.FAILED);
+  }
+
   private SettlementBatchDTO batch() {
     return SettlementBatchDTO.builder()
         .batchId(1L)
         .runId("run-1")
         .status(BatchStatus.RUNNING)
         .executedAt(LocalDateTime.of(2026, 8, 4, 9, 0))
+        .build();
+  }
+
+  private SettlementJoinDTO target(Long itemId) {
+    return SettlementJoinDTO.builder()
+        .itemId(itemId)
+        .batchId(1L)
+        .purchaseCurrency("USD")
         .build();
   }
 }

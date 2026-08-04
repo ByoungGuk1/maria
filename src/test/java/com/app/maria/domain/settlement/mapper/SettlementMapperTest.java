@@ -119,7 +119,8 @@ class SettlementMapperTest {
     assertThat(settlementBatchMapper.countRunningBatch(dateCondition)).isOne();
 
     LocalDate businessDate = CUTOFF.toLocalDate();
-    assertThat(settlementBatchGuardMapper.ensureGuard(businessDate)).isPositive();
+    settlementBatchGuardMapper.ensureGuard(businessDate);
+    settlementBatchGuardMapper.ensureGuard(businessDate);
     assertThat(settlementBatchGuardMapper.selectGuardForUpdate(businessDate))
         .contains(businessDate);
     assertThat(settlementBatchMapper.selectRunningBatchByBusinessDate(businessDate))
