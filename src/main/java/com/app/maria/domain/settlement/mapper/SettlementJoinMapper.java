@@ -7,5 +7,8 @@ import java.util.Optional;
 
 @Mapper
 public interface SettlementJoinMapper {
+
   Optional<SettlementJoinDTO> selectTargetByItemId(SettlementJoinDTO settlementJoinDTO);
+
+  Optional<SettlementJoinDTO> selectItemDetail(SettlementJoinDTO settlementJoinDTO);
 }

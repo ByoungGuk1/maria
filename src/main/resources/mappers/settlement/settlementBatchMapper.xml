@@ -5,6 +5,26 @@
 
 <mapper namespace="com.app.maria.domain.settlement.mapper.SettlementBatchMapper">
 
+    <select id="selectBatches" resultType="SettlementBatchDTO">
+        SELECT
+            batch_id,
+            executed_at,
+            status,
+            run_id
+        FROM settlement_batch
+        ORDER BY batch_id DESC
+    </select>
+
+    <select id="selectBatchById" parameterType="Long" resultType="SettlementBatchDTO">
+        SELECT
+            batch_id,
+            executed_at,
+            status,
+            run_id
+        FROM settlement_batch
+        WHERE batch_id = #{batchId}
+    </select>
+
     <insert id="insertBatch" parameterType="SettlementBatchDTO"
             useGeneratedKeys="true" keyProperty="batchId" keyColumn="batch_id">
         INSERT INTO settlement_batch (
@@ -26,6 +46,14 @@
             run_id
         FROM settlement_batch
         WHERE run_id = #{runId}
+    </select>
+
+    <select id="countRunningBatch" parameterType="SettlementBatchDTO" resultType="int">
+        SELECT COUNT(*)
+        FROM settlement_batch
+        WHERE status = 'RUNNING'
+          AND executed_at &gt;= CAST(#{executedAt} AS DATE)
+          AND executed_at &lt; CAST(#{executedAt} AS DATE) + INTERVAL '1' DAY
     </select>
 
     <update id="updateBatchStatus" parameterType="SettlementBatchDTO">

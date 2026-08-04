@@ -9,6 +9,8 @@ import java.util.Optional;
 @Mapper
 public interface KrwExchangeMapper {
 
+  Optional<KrwExchangeDTO> selectExchangeById(Long exchangeId);
+
   Optional<KrwExchangeDTO> selectExchangeByIdForUpdate(Long exchangeId);
 
   Optional<BigDecimal> selectAccountAmountForUpdate(Long accountId);
