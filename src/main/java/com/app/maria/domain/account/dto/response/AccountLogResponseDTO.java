@@ -22,11 +22,11 @@ public class AccountLogResponseDTO{
   private String reason;
 
   public AccountLogResponseDTO(AccountStatusLogDTO logDTO) {
-    this.logId = logDTO.getLogId()!=null?logDTO.getLogId():null;
-    this.accountId =  logDTO.getAccountId()!=null?logDTO.getAccountId():null;
-    this.prevStatus = logDTO.getPrevStatus()!=null?logDTO.getPrevStatus():null;
-    this.newStatus = logDTO.getNewStatus()!=null?logDTO.getNewStatus():null;
-    this.changedAt = logDTO.getChangedAt()!=null?logDTO.getChangedAt():null;
-    this.reason = logDTO.getReason()!=null?logDTO.getReason():null;
+    this.logId = logDTO.getLogId();
+    this.accountId =  logDTO.getAccountId();
+    this.prevStatus = logDTO.getPrevStatus();
+    this.newStatus = logDTO.getNewStatus();
+    this.changedAt = logDTO.getChangedAt();
+    this.reason = logDTO.getReason();
   }
 }
