@@ -4,6 +4,7 @@ import com.app.maria.domain.settlement.dto.KrwExchangeDTO;
 import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
 import com.app.maria.domain.settlement.dto.SettlementItemDTO;
 import com.app.maria.domain.settlement.dto.SettlementJoinDTO;
+import com.app.maria.domain.settlement.batch.SettlementBatchLauncher;
 import com.app.maria.domain.settlement.exception.KrwExchangeNotFoundException;
 import com.app.maria.domain.settlement.exception.SettlementBatchNotFoundException;
 import com.app.maria.domain.settlement.exception.SettlementItemNotFoundException;
@@ -66,6 +67,9 @@ class SettlementServiceImplTest {
   @Mock
   private TransactionStatus transactionStatus;
 
+  @Mock
+  private SettlementBatchLauncher settlementBatchLauncher;
+
   @InjectMocks
   private SettlementServiceImpl settlementService;
 
@@ -93,6 +97,7 @@ class SettlementServiceImplTest {
     verify(settlementBatchMapper).selectRunningBatchByBusinessDate(businessDate);
     verify(settlementItemMapper).insertItemsForTargets(result);
     verify(transactionManager).commit(transactionStatus);
+    verify(settlementBatchLauncher).launch(result);
   }
 
   @Test
@@ -111,6 +116,7 @@ class SettlementServiceImplTest {
     verify(settlementBatchMapper, never()).insertBatch(any());
     verify(settlementItemMapper, never()).insertItemsForTargets(any());
     verify(transactionManager).rollback(transactionStatus);
+    verify(settlementBatchLauncher, never()).launch(any());
   }
 
   @Test

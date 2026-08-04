@@ -4,6 +4,7 @@ import com.app.maria.domain.settlement.dto.KrwExchangeDTO;
 import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
 import com.app.maria.domain.settlement.dto.SettlementItemDTO;
 import com.app.maria.domain.settlement.dto.SettlementJoinDTO;
+import com.app.maria.domain.settlement.batch.SettlementBatchLauncher;
 import com.app.maria.domain.settlement.exception.*;
 import com.app.maria.domain.settlement.mapper.KrwExchangeMapper;
 import com.app.maria.domain.settlement.mapper.SettlementBatchMapper;
@@ -31,6 +32,7 @@ public class SettlementServiceImpl implements SettlementService {
   private final SettlementJoinMapper settlementJoinMapper;
   private final SettlementBatchGuardMapper settlementBatchGuardMapper;
   private final PlatformTransactionManager transactionManager;
+  private final SettlementBatchLauncher settlementBatchLauncher;
 
   @Override
   public SettlementBatchDTO executeSettlementBatch() {
@@ -65,6 +67,7 @@ public class SettlementServiceImpl implements SettlementService {
     if (batch == null) {
       throw new SettlementStateConflictException("확정산 Batch 트랜잭션 처리에 실패했습니다.");
     }
+    settlementBatchLauncher.launch(batch);
     return batch;
   }
 

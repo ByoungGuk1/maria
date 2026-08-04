@@ -56,8 +56,7 @@
             run_id
         FROM settlement_batch
         WHERE status = 'RUNNING'
-          AND executed_at &gt;= #{businessDate}
-          AND executed_at &lt; DATE_ADD(#{businessDate}, INTERVAL 1 DAY)
+          AND CAST(executed_at AS DATE) = CAST(#{businessDate} AS DATE)
         ORDER BY batch_id
         LIMIT 1
     </select>
@@ -66,8 +65,7 @@
         SELECT COUNT(*)
         FROM settlement_batch
         WHERE status = 'RUNNING'
-          AND executed_at &gt;= CAST(#{executedAt} AS DATE)
-          AND executed_at &lt; CAST(#{executedAt} AS DATE) + INTERVAL 1 DAY
+          AND CAST(executed_at AS DATE) = CAST(#{executedAt} AS DATE)
     </select>
 
     <update id="updateBatchStatus" parameterType="SettlementBatchDTO">

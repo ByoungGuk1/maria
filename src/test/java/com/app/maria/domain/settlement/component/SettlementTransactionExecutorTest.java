@@ -104,6 +104,8 @@ class SettlementTransactionExecutorTest {
     SettlementJoinDTO target = target();
     when(krwExchangeMapper.selectExchangeByIdForUpdate(10L))
         .thenReturn(Optional.of(exchange(SettlementStatus.PROVISIONAL)));
+    when(krwExchangeMapper.selectAccountAmountForUpdate(20L))
+        .thenReturn(Optional.of(new BigDecimal("2700000.00")));
     when(settlementCalculator.calculateFinalAmount(any(), any(), any()))
         .thenReturn(new BigDecimal("2800000.00"));
     when(krwExchangeMapper.finalizeExchange(any())).thenReturn(0);
@@ -111,7 +113,7 @@ class SettlementTransactionExecutorTest {
     assertThatThrownBy(() -> executor.execute(target, new BigDecimal("1400")))
         .isInstanceOf(SettlementStateConflictException.class);
 
-    verify(krwExchangeMapper, never()).selectAccountAmountForUpdate(any());
+    verify(krwExchangeMapper).selectAccountAmountForUpdate(20L);
     verify(settlementItemMapper, never()).updateItemResult(any());
   }
 
