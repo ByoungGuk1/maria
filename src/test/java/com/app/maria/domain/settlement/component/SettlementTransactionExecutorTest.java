@@ -1,0 +1,137 @@
+package com.app.maria.domain.settlement.component;
+
+import com.app.maria.domain.sellorder.type.SellOrderStatus;
+import com.app.maria.domain.settlement.dto.KrwExchangeDTO;
+import com.app.maria.domain.settlement.dto.SettlementJoinDTO;
+import com.app.maria.domain.settlement.exception.SettlementStateConflictException;
+import com.app.maria.domain.settlement.mapper.KrwExchangeMapper;
+import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
+import com.app.maria.domain.settlement.type.SettlementStatus;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class SettlementTransactionExecutorTest {
+
+  @Mock
+  private KrwExchangeMapper krwExchangeMapper;
+
+  @Mock
+  private SettlementItemMapper settlementItemMapper;
+
+  @Mock
+  private SettlementCalculator settlementCalculator;
+
+  private SettlementTransactionExecutor executor;
+
+  @BeforeEach
+  void setUp() {
+    executor = new SettlementTransactionExecutor(
+        krwExchangeMapper,
+        settlementItemMapper,
+        settlementCalculator
+    );
+  }
+
+  @Test
+  void executesSettlementInExchangeAccountAndItemOrder() {
+    SettlementJoinDTO target = target();
+    KrwExchangeDTO exchange = exchange(SettlementStatus.PROVISIONAL);
+    when(krwExchangeMapper.selectExchangeByIdForUpdate(10L)).thenReturn(Optional.of(exchange));
+    when(settlementCalculator.calculateFinalAmount(
+        new BigDecimal("2700000"),
+        new BigDecimal("1350"),
+        new BigDecimal("1400")
+    )).thenReturn(new BigDecimal("2800000.00"));
+    when(krwExchangeMapper.finalizeExchange(any(KrwExchangeDTO.class))).thenReturn(1);
+    when(krwExchangeMapper.selectAccountAmountForUpdate(20L))
+        .thenReturn(Optional.of(new BigDecimal("100")));
+    when(krwExchangeMapper.replaceAccountAmount(any(KrwExchangeDTO.class))).thenReturn(1);
+    when(krwExchangeMapper.insertLeftAmount(any(KrwExchangeDTO.class))).thenReturn(1);
+    when(settlementItemMapper.updateItemResult(any())).thenReturn(1);
+
+    executor.execute(target, new BigDecimal("1400"));
+
+    InOrder order = inOrder(krwExchangeMapper, settlementItemMapper);
+    order.verify(krwExchangeMapper).selectExchangeByIdForUpdate(10L);
+    order.verify(krwExchangeMapper).selectAccountAmountForUpdate(20L);
+    order.verify(krwExchangeMapper).finalizeExchange(exchange);
+    order.verify(krwExchangeMapper).replaceAccountAmount(exchange);
+    order.verify(krwExchangeMapper).insertLeftAmount(exchange);
+    order.verify(settlementItemMapper).updateItemResult(any());
+
+    ArgumentCaptor<KrwExchangeDTO> exchangeCaptor = ArgumentCaptor.forClass(KrwExchangeDTO.class);
+    verify(krwExchangeMapper).replaceAccountAmount(exchangeCaptor.capture());
+    org.assertj.core.api.Assertions.assertThat(exchangeCaptor.getValue().getProvisionalAmount())
+        .isEqualByComparingTo("2700000");
+    org.assertj.core.api.Assertions.assertThat(exchangeCaptor.getValue().getFinalAmount())
+        .isEqualByComparingTo("2800000.00");
+  }
+
+  @Test
+  void finalizedExchangeDoesNotIncreaseBalanceOrCreateLeftAmount() {
+    SettlementJoinDTO target = target();
+    KrwExchangeDTO exchange = exchange(SettlementStatus.FINALIZED);
+    when(krwExchangeMapper.selectExchangeByIdForUpdate(10L)).thenReturn(Optional.of(exchange));
+    when(settlementItemMapper.updateItemResult(any())).thenReturn(1);
+
+    executor.execute(target, new BigDecimal("1400"));
+
+    verify(settlementItemMapper).updateItemResult(any());
+    verify(krwExchangeMapper, never()).finalizeExchange(any());
+    verify(krwExchangeMapper, never()).selectAccountAmountForUpdate(any());
+    verify(krwExchangeMapper, never()).replaceAccountAmount(any());
+    verify(krwExchangeMapper, never()).insertLeftAmount(any());
+  }
+
+  @Test
+  void rejectsWhenExchangeUpdateDoesNotAffectOneRow() {
+    SettlementJoinDTO target = target();
+    when(krwExchangeMapper.selectExchangeByIdForUpdate(10L))
+        .thenReturn(Optional.of(exchange(SettlementStatus.PROVISIONAL)));
+    when(settlementCalculator.calculateFinalAmount(any(), any(), any()))
+        .thenReturn(new BigDecimal("2800000.00"));
+    when(krwExchangeMapper.finalizeExchange(any())).thenReturn(0);
+
+    assertThatThrownBy(() -> executor.execute(target, new BigDecimal("1400")))
+        .isInstanceOf(SettlementStateConflictException.class);
+
+    verify(krwExchangeMapper, never()).selectAccountAmountForUpdate(any());
+    verify(settlementItemMapper, never()).updateItemResult(any());
+  }
+
+  private SettlementJoinDTO target() {
+    return SettlementJoinDTO.builder()
+        .itemId(30L)
+        .batchId(40L)
+        .exchangeId(10L)
+        .accountId(20L)
+        .purchaseFxRate(new BigDecimal("1350"))
+        .sellOrderStatus(SellOrderStatus.EXECUTED)
+        .build();
+  }
+
+  private KrwExchangeDTO exchange(SettlementStatus status) {
+    return KrwExchangeDTO.builder()
+        .exchangeId(10L)
+        .accountId(20L)
+        .provisionalAmount(new BigDecimal("2700000"))
+        .settlementStatus(status)
+        .build();
+  }
+}
