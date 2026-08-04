@@ -8,6 +8,7 @@ import com.app.maria.domain.settlement.service.SettlementService;
 import com.app.maria.global.response.ApiResponseDTO;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -50,7 +51,7 @@ public class SettlementApi {
 
   @GetMapping("/batches/run/{runId}")
   //runId 조회
-  public ResponseEntity<ApiResponseDTO<SettlementBatchDTO>> getSettlementBatchByRunId(@PathVariable String runId) {
+  public ResponseEntity<ApiResponseDTO<SettlementBatchDTO>> getSettlementBatchByRunId(@PathVariable @NotBlank(message = "runId는 필수입니다.") String runId) {
     return ResponseEntity.ok(ApiResponseDTO.of("확정산 배치 실행 ID 조회", settlementService.getSettlementBatchByRunId(runId)));
   }
 

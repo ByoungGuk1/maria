@@ -37,16 +37,12 @@ public class SettlementServiceImpl implements SettlementService {
   @Override
   @Transactional(readOnly = true)
   public SettlementBatchDTO getSettlementBatch(Long batchId) {
-    validateLongPositive(batchId,"batchId");
     return settlementBatchMapper.selectBatchById(batchId).orElseThrow(()->new SettlementBatchNotFoundException("batch id로 배치 조회 실패"));
   }
 
   @Override
   @Transactional(readOnly = true)
   public SettlementBatchDTO getSettlementBatchByRunId(String runId) {
-    if(runId == null || runId.isBlank()){
-      throw new InvalidSettlementException("runId - 요청 값 오류");
-    }
     return settlementBatchMapper.selectBatchByRunId(runId).orElseThrow(()->new SettlementBatchNotFoundException("run id로 배치 조회 실패"));
   }
 
@@ -54,10 +50,6 @@ public class SettlementServiceImpl implements SettlementService {
   @Transactional(readOnly = true)
   public List<SettlementItemDTO> getPendingSettlementItems(Long batchId, Long lastItemId) {
     getSettlementBatch(batchId);
-    lastItemId = lastItemId == null ? 0 : lastItemId;
-    if(lastItemId < 0){
-      throw new InvalidSettlementException("lastItemId - 요청 값 오류");
-    }
     SettlementItemDTO cursor = SettlementItemDTO.builder()
         .batchId(batchId)
         .itemId(lastItemId)
@@ -68,7 +60,6 @@ public class SettlementServiceImpl implements SettlementService {
   @Override
   @Transactional(readOnly = true)
   public SettlementJoinDTO getSettlementItem(Long batchId, Long itemId) {
-    validateLongPositive(itemId, "itemId");
     getSettlementBatch(batchId);
     SettlementJoinDTO cursor = SettlementJoinDTO.builder()
         .batchId(batchId)
@@ -80,16 +71,6 @@ public class SettlementServiceImpl implements SettlementService {
   @Override
   @Transactional(readOnly = true)
   public KrwExchangeDTO getKrwExchange(Long exchangeId) {
-    validateLongPositive(exchangeId, "exchangeId");
     return krwExchangeMapper.selectExchangeById(exchangeId).orElseThrow(()->new KrwExchangeNotFoundException("환전 조회 실패"));
-  }
-
-  private void validateLongPositive(Long value, String fieldName) {
-    if (value == null) {
-      throw new InvalidSettlementException(fieldName + " - 요청 값 오류");
-    }
-    if (value.compareTo(0L) <= 0) {
-      throw new InvalidSettlementException(fieldName + "은 0보다 커야 합니다.");
-    }
   }
 }
