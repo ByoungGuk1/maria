@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -29,10 +30,11 @@ public class ExchangeRateClient {
     }
 
     public BigDecimal getBaseRate(String currencyUnit, LocalDate searchDate) {
-        String url = exchangeApiProperties.getUrl()
-                + "authkey=" + exchangeApiProperties.getApiKey()
-                + "&searchdate=" + searchDate.format(DATE_FORMAT)
-                + "&data=AP01";
+        String url = UriComponentsBuilder.fromHttpUrl(exchangeApiProperties.getUrl())
+                .queryParam("authkey", exchangeApiProperties.getApiKey())
+                .queryParam("searchdate", searchDate.format(DATE_FORMAT))
+                .queryParam("data", "AP01")
+                .toUriString();
 
         JsonNode response = restTemplate.getForObject(url, JsonNode.class);
 
