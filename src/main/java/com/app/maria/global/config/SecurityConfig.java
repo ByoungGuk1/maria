@@ -25,8 +25,7 @@ public class SecurityConfig {
       "/images/**",
 
       // JWT 인증 API
-      "/api/auth/login",
-      "/api/auth/refresh",
+      "/api/auth/admin/login",
 
       // Swagger
       "/swagger-ui/**",
