@@ -62,6 +62,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponseDTO<Void>> handleSellOrderNotFound(SellOrderNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
+    @ExceptionHandler({ExchangeRateNotFoundException.class, KisTokenIssueException.class, KisPriceNotFoundException.class})
+    public ResponseEntity<ApiResponseDTO<String>> handleExternalApiException(RuntimeException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
+    }
 
     // 4. Account 예외
     @ExceptionHandler(AccountException.class)
