@@ -4,17 +4,28 @@ import com.app.maria.domain.settlement.dto.KrwExchangeDTO;
 import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
 import com.app.maria.domain.settlement.dto.SettlementItemDTO;
 import com.app.maria.domain.settlement.dto.SettlementJoinDTO;
+import com.app.maria.domain.settlement.exception.InvalidSettlementException;
+import com.app.maria.domain.settlement.exception.KrwExchangeNotFoundException;
+import com.app.maria.domain.settlement.exception.SettlementBatchNotFoundException;
+import com.app.maria.domain.settlement.exception.SettlementCalculationException;
+import com.app.maria.domain.settlement.exception.SettlementItemNotFoundException;
+import com.app.maria.domain.settlement.exception.SettlementStateConflictException;
 import com.app.maria.domain.settlement.service.SettlementService;
 import com.app.maria.domain.settlement.type.BatchStatus;
 import com.app.maria.domain.settlement.type.SettlementStatus;
-import org.junit.jupiter.api.BeforeEach;
+import com.app.maria.global.config.SecurityConfig;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.List;
 
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -22,18 +33,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+@WebMvcTest(SettlementApi.class)
+@Import(SecurityConfig.class)
 class SettlementApiTest {
 
-  private SettlementService settlementService;
+  @Autowired
   private MockMvc mockMvc;
 
-  @BeforeEach
-  void setUp() {
-    settlementService = mock(SettlementService.class);
-    mockMvc = MockMvcBuilders
-        .standaloneSetup(new SettlementApi(settlementService))
-        .build();
-  }
+  @MockitoBean
+  private SettlementService settlementService;
 
   @Test
   void executeSettlementBatchReturnsAcceptedBatch() throws Exception {
@@ -108,6 +116,88 @@ class SettlementApiTest {
         .andExpect(jsonPath("$.data.settlementStatus").value("PROVISIONAL"));
 
     verify(settlementService).getKrwExchange(100L);
+  }
+
+  @ParameterizedTest
+  @ValueSource(longs = {0L, -1L})
+  void getSettlementBatchRejectsNonPositiveBatchId(long batchId) throws Exception {
+    mockMvc.perform(get("/api/settlement/batches/{batchId}", batchId))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").isNotEmpty())
+        .andExpect(jsonPath("$.status").doesNotExist());
+
+    verify(settlementService, never()).getSettlementBatch(batchId);
+  }
+
+  @Test
+  void getPendingSettlementItemsRejectsNegativeCursor() throws Exception {
+    mockMvc.perform(get("/api/settlement/batches/{batchId}/items/pending", 1L)
+            .queryParam("lastItemId", "-1"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").isNotEmpty())
+        .andExpect(jsonPath("$.status").doesNotExist());
+
+    verify(settlementService, never()).getPendingSettlementItems(1L, -1L);
+  }
+
+  @Test
+  void invalidSettlementExceptionReturnsBadRequest() throws Exception {
+    when(settlementService.getSettlementBatch(1L))
+        .thenThrow(new InvalidSettlementException("batchId - 요청 값 오류"));
+
+    mockMvc.perform(get("/api/settlement/batches/{batchId}", 1L))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("batchId - 요청 값 오류"));
+  }
+
+  @Test
+  void settlementBatchNotFoundExceptionReturnsNotFound() throws Exception {
+    when(settlementService.getSettlementBatch(999L))
+        .thenThrow(new SettlementBatchNotFoundException("batch id로 배치 조회 실패"));
+
+    mockMvc.perform(get("/api/settlement/batches/{batchId}", 999L))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.message").value("batch id로 배치 조회 실패"));
+  }
+
+  @Test
+  void settlementItemNotFoundExceptionReturnsNotFound() throws Exception {
+    when(settlementService.getSettlementItem(1L, 999L))
+        .thenThrow(new SettlementItemNotFoundException("item detail 조회 실패"));
+
+    mockMvc.perform(get("/api/settlement/batches/{batchId}/items/{itemId}", 1L, 999L))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.message").value("item detail 조회 실패"));
+  }
+
+  @Test
+  void krwExchangeNotFoundExceptionReturnsNotFound() throws Exception {
+    when(settlementService.getKrwExchange(999L))
+        .thenThrow(new KrwExchangeNotFoundException("환전 조회 실패"));
+
+    mockMvc.perform(get("/api/settlement/exchanges/{exchangeId}", 999L))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.message").value("환전 조회 실패"));
+  }
+
+  @Test
+  void settlementCalculationExceptionReturnsBadRequest() throws Exception {
+    when(settlementService.executeSettlementBatch())
+        .thenThrow(new SettlementCalculationException("확정산 금액 계산 실패"));
+
+    mockMvc.perform(post("/api/settlement/jobs"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("확정산 금액 계산 실패"));
+  }
+
+  @Test
+  void settlementStateConflictExceptionReturnsConflict() throws Exception {
+    when(settlementService.executeSettlementBatch())
+        .thenThrow(new SettlementStateConflictException("확정산 Batch가 이미 실행 중입니다."));
+
+    mockMvc.perform(post("/api/settlement/jobs"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message").value("확정산 Batch가 이미 실행 중입니다."));
   }
 
   private SettlementBatchDTO batch() {
