@@ -9,10 +9,17 @@ import com.app.maria.domain.settlement.mapper.KrwExchangeMapper;
 import com.app.maria.domain.settlement.mapper.SettlementBatchMapper;
 import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
 import com.app.maria.domain.settlement.mapper.SettlementJoinMapper;
+import com.app.maria.domain.settlement.mapper.SettlementBatchGuardMapper;
+import com.app.maria.domain.settlement.type.BatchStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.UUID;
 import java.util.List;
 
 @Service
@@ -22,10 +29,43 @@ public class SettlementServiceImpl implements SettlementService {
   private final SettlementItemMapper settlementItemMapper;
   private final SettlementBatchMapper settlementBatchMapper;
   private final SettlementJoinMapper settlementJoinMapper;
+  private final SettlementBatchGuardMapper settlementBatchGuardMapper;
+  private final PlatformTransactionManager transactionManager;
 
   @Override
   public SettlementBatchDTO executeSettlementBatch() {
-    return null;
+    LocalDateTime executedAt = LocalDateTime.now();
+    LocalDate businessDate = executedAt.toLocalDate();
+
+    SettlementBatchDTO batch = new TransactionTemplate(transactionManager).execute(status -> {
+      settlementBatchGuardMapper.ensureGuard(businessDate);
+
+      if (settlementBatchGuardMapper.selectGuardForUpdate(businessDate).isEmpty()) {
+        throw new SettlementBatchLockException("확정산 Batch 업무일 잠금 획득 실패");
+      }
+
+      if (settlementBatchMapper.selectRunningBatchByBusinessDate(businessDate).isPresent()) {
+        throw new SettlementBatchAlreadyRunningException("동일 업무일의 확정산 Batch가 이미 실행 중");
+      }
+
+      SettlementBatchDTO newBatch = SettlementBatchDTO.builder()
+          .executedAt(executedAt)
+          .status(BatchStatus.RUNNING)
+          .runId(UUID.randomUUID().toString())
+          .build();
+
+      if (settlementBatchMapper.insertBatch(newBatch) != 1 || newBatch.getBatchId() == null) {
+        throw new SettlementStateConflictException("확정산 Batch 생성에 실패했습니다.");
+      }
+
+      settlementItemMapper.insertItemsForTargets(newBatch);
+      return newBatch;
+    });
+
+    if (batch == null) {
+      throw new SettlementStateConflictException("확정산 Batch 트랜잭션 처리에 실패했습니다.");
+    }
+    return batch;
   }
 
   @Override

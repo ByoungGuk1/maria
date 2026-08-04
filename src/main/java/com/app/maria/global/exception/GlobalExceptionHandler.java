@@ -119,6 +119,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
     }
 
+    @ExceptionHandler(SettlementBatchAlreadyRunningException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleSettlementBatchAlreadyRunningException(
+            SettlementBatchAlreadyRunningException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
     @ExceptionHandler(KrwExchangeNotFoundException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleKrwExchangeNotFoundException(KrwExchangeNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));

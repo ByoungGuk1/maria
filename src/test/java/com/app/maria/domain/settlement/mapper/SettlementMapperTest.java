@@ -28,6 +28,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,6 +43,7 @@ class SettlementMapperTest {
   private SqlSession sqlSession;
   private KrwExchangeMapper krwExchangeMapper;
   private SettlementBatchMapper settlementBatchMapper;
+  private SettlementBatchGuardMapper settlementBatchGuardMapper;
   private SettlementItemMapper settlementItemMapper;
   private SettlementJoinMapper settlementJoinMapper;
 
@@ -62,6 +64,7 @@ class SettlementMapperTest {
     sqlSession = sqlSessionFactory.openSession(false);
     krwExchangeMapper = sqlSession.getMapper(KrwExchangeMapper.class);
     settlementBatchMapper = sqlSession.getMapper(SettlementBatchMapper.class);
+    settlementBatchGuardMapper = sqlSession.getMapper(SettlementBatchGuardMapper.class);
     settlementItemMapper = sqlSession.getMapper(SettlementItemMapper.class);
     settlementJoinMapper = sqlSession.getMapper(SettlementJoinMapper.class);
   }
@@ -114,6 +117,15 @@ class SettlementMapperTest {
         .executedAt(CUTOFF.plusHours(12))
         .build();
     assertThat(settlementBatchMapper.countRunningBatch(dateCondition)).isOne();
+
+    LocalDate businessDate = CUTOFF.toLocalDate();
+    assertThat(settlementBatchGuardMapper.ensureGuard(businessDate)).isPositive();
+    assertThat(settlementBatchGuardMapper.selectGuardForUpdate(businessDate))
+        .contains(businessDate);
+    assertThat(settlementBatchMapper.selectRunningBatchByBusinessDate(businessDate))
+        .contains(currentRunning);
+    assertThat(settlementBatchMapper.selectRunningBatchByBusinessDate(businessDate.plusDays(1)))
+        .isEmpty();
   }
 
   @Test
@@ -318,6 +330,12 @@ class SettlementMapperTest {
               executed_at DATETIME NOT NULL,
               status VARCHAR(20) NOT NULL,
               run_id VARCHAR(50) NOT NULL UNIQUE
+          )
+          """);
+      statement.execute("""
+          CREATE TABLE settlement_batch_guard (
+              business_date DATE PRIMARY KEY,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
           )
           """);
       statement.execute("""

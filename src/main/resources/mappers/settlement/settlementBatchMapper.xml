@@ -48,12 +48,26 @@
         WHERE run_id = #{runId}
     </select>
 
+    <select id="selectRunningBatchByBusinessDate" parameterType="java.time.LocalDate" resultType="SettlementBatchDTO">
+        SELECT
+            batch_id,
+            executed_at,
+            status,
+            run_id
+        FROM settlement_batch
+        WHERE status = 'RUNNING'
+          AND executed_at &gt;= #{businessDate}
+          AND executed_at &lt; DATE_ADD(#{businessDate}, INTERVAL 1 DAY)
+        ORDER BY batch_id
+        LIMIT 1
+    </select>
+
     <select id="countRunningBatch" parameterType="SettlementBatchDTO" resultType="int">
         SELECT COUNT(*)
         FROM settlement_batch
         WHERE status = 'RUNNING'
           AND executed_at &gt;= CAST(#{executedAt} AS DATE)
-          AND executed_at &lt; CAST(#{executedAt} AS DATE) + INTERVAL '1' DAY
+          AND executed_at &lt; CAST(#{executedAt} AS DATE) + INTERVAL 1 DAY
     </select>
 
     <update id="updateBatchStatus" parameterType="SettlementBatchDTO">

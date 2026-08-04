@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDate;
 
 @Mapper
 public interface SettlementBatchMapper {
@@ -16,6 +17,8 @@ public interface SettlementBatchMapper {
   int insertBatch(SettlementBatchDTO batch);
 
   Optional<SettlementBatchDTO> selectBatchByRunId(String runId);
+
+  Optional<SettlementBatchDTO> selectRunningBatchByBusinessDate(LocalDate businessDate);
 
   int countRunningBatch(SettlementBatchDTO batch);
 

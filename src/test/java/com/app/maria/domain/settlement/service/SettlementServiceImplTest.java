@@ -11,6 +11,8 @@ import com.app.maria.domain.settlement.mapper.KrwExchangeMapper;
 import com.app.maria.domain.settlement.mapper.SettlementBatchMapper;
 import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
 import com.app.maria.domain.settlement.mapper.SettlementJoinMapper;
+import com.app.maria.domain.settlement.mapper.SettlementBatchGuardMapper;
+import com.app.maria.domain.settlement.exception.SettlementBatchAlreadyRunningException;
 import com.app.maria.domain.settlement.type.BatchStatus;
 import com.app.maria.domain.settlement.type.SettlementStatus;
 import org.junit.jupiter.api.DisplayName;
@@ -20,14 +22,18 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -51,8 +57,61 @@ class SettlementServiceImplTest {
   @Mock
   private SettlementJoinMapper settlementJoinMapper;
 
+  @Mock
+  private SettlementBatchGuardMapper settlementBatchGuardMapper;
+
+  @Mock
+  private PlatformTransactionManager transactionManager;
+
+  @Mock
+  private TransactionStatus transactionStatus;
+
   @InjectMocks
   private SettlementServiceImpl settlementService;
+
+  @Test
+  @DisplayName("Guard 잠금 후 Batch와 Snapshot을 같은 트랜잭션에서 생성한다")
+  void executeSettlementBatchCreatesBatchAfterGuardLock() {
+    LocalDate businessDate = LocalDate.now();
+    when(transactionManager.getTransaction(any())).thenReturn(transactionStatus);
+    when(settlementBatchGuardMapper.selectGuardForUpdate(businessDate))
+        .thenReturn(Optional.of(businessDate));
+    when(settlementBatchMapper.selectRunningBatchByBusinessDate(businessDate))
+        .thenReturn(Optional.empty());
+    doAnswer(invocation -> {
+      SettlementBatchDTO batch = invocation.getArgument(0);
+      batch.setBatchId(BATCH_ID);
+      return 1;
+    }).when(settlementBatchMapper).insertBatch(any(SettlementBatchDTO.class));
+
+    SettlementBatchDTO result = settlementService.executeSettlementBatch();
+
+    assertThat(result.getBatchId()).isEqualTo(BATCH_ID);
+    assertThat(result.getStatus()).isEqualTo(BatchStatus.RUNNING);
+    verify(settlementBatchGuardMapper).ensureGuard(businessDate);
+    verify(settlementBatchGuardMapper).selectGuardForUpdate(businessDate);
+    verify(settlementBatchMapper).selectRunningBatchByBusinessDate(businessDate);
+    verify(settlementItemMapper).insertItemsForTargets(result);
+    verify(transactionManager).commit(transactionStatus);
+  }
+
+  @Test
+  @DisplayName("동일 업무일 RUNNING Batch가 있으면 신규 Batch를 생성하지 않는다")
+  void executeSettlementBatchRejectsDuplicateRunningBatch() {
+    LocalDate businessDate = LocalDate.now();
+    when(transactionManager.getTransaction(any())).thenReturn(transactionStatus);
+    when(settlementBatchGuardMapper.selectGuardForUpdate(businessDate))
+        .thenReturn(Optional.of(businessDate));
+    when(settlementBatchMapper.selectRunningBatchByBusinessDate(businessDate))
+        .thenReturn(Optional.of(batch()));
+
+    assertThatThrownBy(() -> settlementService.executeSettlementBatch())
+        .isInstanceOf(SettlementBatchAlreadyRunningException.class);
+
+    verify(settlementBatchMapper, never()).insertBatch(any());
+    verify(settlementItemMapper, never()).insertItemsForTargets(any());
+    verify(transactionManager).rollback(transactionStatus);
+  }
 
   @Test
   @DisplayName("확정산 Batch 목록을 Mapper 조회 결과 그대로 반환한다")

@@ -27,6 +27,7 @@
     <mappers>
         <mapper resource="mappers/settlement/krwExchangeMapper.xml"/>
         <mapper resource="mappers/settlement/settlementBatchMapper.xml"/>
+        <mapper resource="mappers/settlement/settlementBatchGuardMapper.xml"/>
         <mapper resource="mappers/settlement/settlementItemMapper.xml"/>
         <mapper resource="mappers/settlement/settlementJoinMapper.xml"/>
     </mappers>
