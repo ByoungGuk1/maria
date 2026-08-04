@@ -30,6 +30,10 @@ public class AdminServiceImpl implements AdminService {
             throw new AdminException("아이디 또는 비밀번호가 일치하지 않습니다.");
         }
 
+        if (admin.getRole() == null) {
+            throw new AdminException("역할이 배정되지 않은 계정입니다. 관리자에게 문의하세요.");
+        }
+
         String accessToken = jwtTokenProvider.createAccessToken(admin.getAdminId(), admin.getLoginId(), admin.getRole());
         String refreshToken = jwtTokenProvider.createRefreshToken(admin.getAdminId());
 
