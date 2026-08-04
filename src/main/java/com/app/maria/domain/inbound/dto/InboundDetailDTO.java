@@ -20,4 +20,5 @@ public class InboundDetailDTO {
     private BigDecimal purchasePrice;
     private String purchaseCurrency;
     private BigDecimal purchaseFxRate;
+    private Long sourceGeneralAccountId;
 }

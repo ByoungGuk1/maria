@@ -2,6 +2,8 @@ package com.app.maria.domain.inbound.dto;
 
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter @Setter @ToString @Builder
@@ -9,7 +11,7 @@ import lombok.*;
 public class InboundMinDTO {
     private Long inboundMinId;
     private Long inboundDetailId;
-    private Long requestedQty;
-    private Long approvedQty;
-    private Long snapshotQty;
+    private BigDecimal requestedQty;
+    private BigDecimal approvedQty;
+    private BigDecimal snapshotQty;
 }
