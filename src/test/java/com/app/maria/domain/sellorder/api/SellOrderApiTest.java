@@ -36,12 +36,18 @@ class SellOrderApiTest {
     @MockitoBean
     SellOrderService sellOrderService;
 
-    @Test
-    void 매도주문접수_성공시_201과_결과를_반환한다() throws Exception {
-        SellOrderRequestDTO request = SellOrderRequestDTO.builder()
+    private SellOrderRequestDTO.SellOrderRequestDTOBuilder validRequestBuilder() {
+        return SellOrderRequestDTO.builder()
                 .inboundDetailId(1L)
                 .sellQty(new BigDecimal("10"))
-                .build();
+                .exchangeCode("NAS")
+                .ticker("AAPL")
+                .currencyUnit("USD");
+    }
+
+    @Test
+    void 매도주문접수_성공시_201과_결과를_반환한다() throws Exception {
+        SellOrderRequestDTO request = validRequestBuilder().build();
 
         SellOrderResponseDTO response = SellOrderResponseDTO.builder()
                 .orderId(100L)
@@ -62,10 +68,7 @@ class SellOrderApiTest {
 
     @Test
     void 매도주문접수_서비스에서_예외발생시_400을_반환한다() throws Exception {
-        SellOrderRequestDTO request = SellOrderRequestDTO.builder()
-                .inboundDetailId(1L)
-                .sellQty(new BigDecimal("10"))
-                .build();
+        SellOrderRequestDTO request = validRequestBuilder().build();
 
         when(sellOrderService.placeSellOrder(any()))
                 .thenThrow(new SellOrderException("한도를 초과했습니다."));
@@ -79,10 +82,7 @@ class SellOrderApiTest {
 
     @Test
     void 매도주문접수_수량이_0이면_검증실패로_400을_반환하고_서비스는_호출되지않는다() throws Exception {
-        SellOrderRequestDTO request = SellOrderRequestDTO.builder()
-                .inboundDetailId(1L)
-                .sellQty(BigDecimal.ZERO)
-                .build();
+        SellOrderRequestDTO request = validRequestBuilder().sellQty(BigDecimal.ZERO).build();
 
         mockMvc.perform(post("/api/sell-orders")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -95,16 +95,52 @@ class SellOrderApiTest {
 
     @Test
     void 매도주문접수_출고상세ID가_없으면_검증실패로_400을_반환하고_서비스는_호출되지않는다() throws Exception {
-        SellOrderRequestDTO request = SellOrderRequestDTO.builder()
-                .inboundDetailId(null)
-                .sellQty(new BigDecimal("10"))
-                .build();
+        SellOrderRequestDTO request = validRequestBuilder().inboundDetailId(null).build();
 
         mockMvc.perform(post("/api/sell-orders")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("출고 상세 ID를 입력하세요."));
+
+        verify(sellOrderService, never()).placeSellOrder(any());
+    }
+
+    @Test
+    void 매도주문접수_거래소코드가_없으면_검증실패로_400을_반환하고_서비스는_호출되지않는다() throws Exception {
+        SellOrderRequestDTO request = validRequestBuilder().exchangeCode(null).build();
+
+        mockMvc.perform(post("/api/sell-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("거래소 코드는 필수입니다."));
+
+        verify(sellOrderService, never()).placeSellOrder(any());
+    }
+
+    @Test
+    void 매도주문접수_종목코드가_없으면_검증실패로_400을_반환하고_서비스는_호출되지않는다() throws Exception {
+        SellOrderRequestDTO request = validRequestBuilder().ticker(null).build();
+
+        mockMvc.perform(post("/api/sell-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("종목 코드는 필수입니다."));
+
+        verify(sellOrderService, never()).placeSellOrder(any());
+    }
+
+    @Test
+    void 매도주문접수_통화단위가_없으면_검증실패로_400을_반환하고_서비스는_호출되지않는다() throws Exception {
+        SellOrderRequestDTO request = validRequestBuilder().currencyUnit(null).build();
+
+        mockMvc.perform(post("/api/sell-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("통화 단위는 필수입니다."));
 
         verify(sellOrderService, never()).placeSellOrder(any());
     }
