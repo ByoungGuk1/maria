@@ -171,7 +171,7 @@ class SettlementMapperTest {
     assertThat(krwExchangeMapper.selectExchangeByIdForUpdate(1L)).contains(exchange);
     assertThat(exchange.getSettlementStatus()).isEqualTo(SettlementStatus.PROVISIONAL);
     assertThat(krwExchangeMapper.selectAccountAmountForUpdate(1L).orElseThrow())
-        .isEqualByComparingTo(BigDecimal.ZERO);
+        .isEqualByComparingTo(new BigDecimal("2700000.00"));
 
     LocalDateTime finalizedAt = LocalDateTime.of(2026, 8, 3, 9, 0);
     BigDecimal finalRate = new BigDecimal("1400.000000");
@@ -188,7 +188,7 @@ class SettlementMapperTest {
     SettlementJoinDTO finalizedTarget = settlementJoinMapper.selectTargetByItemId(targetQuery)
         .orElseThrow();
     assertThat(finalizedTarget.getSettlementStatus()).isEqualTo(SettlementStatus.FINALIZED);
-    assertThat(krwExchangeMapper.increaseAccountAmount(exchange)).isOne();
+    assertThat(krwExchangeMapper.replaceAccountAmount(exchange)).isOne();
     assertThat(krwExchangeMapper.insertLeftAmount(exchange)).isOne();
     item.setResult(SettlementItemResult.SUCCESS);
     item.setProcessedAt(finalizedAt);
@@ -341,7 +341,7 @@ class SettlementMapperTest {
 
       statement.execute("""
           INSERT INTO account (account_id, status, amount)
-          VALUES (1, 'OPENED', 0)
+          VALUES (1, 'OPENED', 2700000.00)
           """);
       statement.execute("""
           INSERT INTO inbound_detail (inbound_detail_id, purchase_currency)
