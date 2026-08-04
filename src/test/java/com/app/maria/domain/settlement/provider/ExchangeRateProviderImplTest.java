@@ -19,6 +19,8 @@ import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -105,7 +107,7 @@ class ExchangeRateProviderImplTest {
   void getFinalRatePropagatesClientException() {
     ExchangeRateNotFoundException clientException =
         new ExchangeRateNotFoundException("환율 API 응답 오류");
-    when(exchangeRateClient.getBaseRate("USD", SEARCH_DATE))
+    when(exchangeRateClient.getBaseRate(eq("USD"), any(LocalDate.class)))
         .thenThrow(clientException);
 
     assertThatThrownBy(() -> exchangeRateProvider.getFinalRate("USD", SEARCH_DATE))
@@ -117,7 +119,7 @@ class ExchangeRateProviderImplTest {
   void getFinalRateConvertsResourceAccessException() {
     ResourceAccessException timeoutException =
         new ResourceAccessException("Read timed out");
-    when(exchangeRateClient.getBaseRate("USD", SEARCH_DATE))
+    when(exchangeRateClient.getBaseRate(eq("USD"), any(LocalDate.class)))
         .thenThrow(timeoutException);
 
     assertThatThrownBy(() -> exchangeRateProvider.getFinalRate("USD", SEARCH_DATE))
@@ -131,12 +133,28 @@ class ExchangeRateProviderImplTest {
   void getFinalRateConvertsRestClientException() {
     RestClientException clientException = new RestClientException("HTTP 호출 실패") {
     };
-    when(exchangeRateClient.getBaseRate("USD", SEARCH_DATE))
+    when(exchangeRateClient.getBaseRate(eq("USD"), any(LocalDate.class)))
         .thenThrow(clientException);
 
     assertThatThrownBy(() -> exchangeRateProvider.getFinalRate("USD", SEARCH_DATE))
         .isInstanceOf(ExchangeRateNotFoundException.class)
         .hasMessage("환율 API 호출 실패")
         .hasCause(clientException);
+  }
+
+  @Test
+  @DisplayName("기준일 환율이 없으면 Settlement Provider에서 이전 날짜를 재조회한다")
+  void getFinalRateRetriesPreviousDates() {
+    LocalDate previousDate = SEARCH_DATE.minusDays(1);
+    when(exchangeRateClient.getBaseRate("USD", SEARCH_DATE))
+        .thenThrow(new ExchangeRateNotFoundException("당일 환율 없음"));
+    when(exchangeRateClient.getBaseRate("USD", previousDate))
+        .thenReturn(new BigDecimal("1420.50"));
+
+    BigDecimal result = exchangeRateProvider.getFinalRate("USD", SEARCH_DATE);
+
+    assertThat(result).isEqualByComparingTo("1420.50");
+    verify(exchangeRateClient).getBaseRate("USD", SEARCH_DATE);
+    verify(exchangeRateClient).getBaseRate("USD", previousDate);
   }
 }
