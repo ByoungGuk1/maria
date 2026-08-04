@@ -11,6 +11,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -108,5 +110,33 @@ class ExchangeRateProviderImplTest {
 
     assertThatThrownBy(() -> exchangeRateProvider.getFinalRate("USD", SEARCH_DATE))
         .isSameAs(clientException);
+  }
+
+  @Test
+  @DisplayName("외부 환율 Client의 연결 또는 응답 시간 초과를 환율 조회 예외로 변환한다")
+  void getFinalRateConvertsResourceAccessException() {
+    ResourceAccessException timeoutException =
+        new ResourceAccessException("Read timed out");
+    when(exchangeRateClient.getBaseRate("USD", SEARCH_DATE))
+        .thenThrow(timeoutException);
+
+    assertThatThrownBy(() -> exchangeRateProvider.getFinalRate("USD", SEARCH_DATE))
+        .isInstanceOf(ExchangeRateNotFoundException.class)
+        .hasMessage("환율 API 연결 또는 응답 시간 초과")
+        .hasCause(timeoutException);
+  }
+
+  @Test
+  @DisplayName("외부 환율 Client의 일반 HTTP 호출 실패를 환율 조회 예외로 변환한다")
+  void getFinalRateConvertsRestClientException() {
+    RestClientException clientException = new RestClientException("HTTP 호출 실패") {
+    };
+    when(exchangeRateClient.getBaseRate("USD", SEARCH_DATE))
+        .thenThrow(clientException);
+
+    assertThatThrownBy(() -> exchangeRateProvider.getFinalRate("USD", SEARCH_DATE))
+        .isInstanceOf(ExchangeRateNotFoundException.class)
+        .hasMessage("환율 API 호출 실패")
+        .hasCause(clientException);
   }
 }
