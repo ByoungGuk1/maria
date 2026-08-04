@@ -14,6 +14,8 @@ import java.time.LocalDate;
 @Component
 public class ExchangeRateProviderImpl implements ExchangeRateProvider {
 
+  private static final int MAX_LOOKBACK_DAYS = 7;
+
   private final ExchangeRateClient exchangeRateClient;
 
   public ExchangeRateProviderImpl(@Qualifier("settlementExchangeRateClient")ExchangeRateClient exchangeRateClient) {
@@ -25,14 +27,26 @@ public class ExchangeRateProviderImpl implements ExchangeRateProvider {
     validateCurrency(currency);
     validateSearchDate(searchDate);
 
-    try {
-      BigDecimal finalRate = exchangeRateClient.getBaseRate(currency, searchDate);
+    ExchangeRateNotFoundException lastNotFound = null;
+    LocalDate lookupDate = searchDate;
+
+    for (int elapsedDays = 0; elapsedDays <= MAX_LOOKBACK_DAYS; elapsedDays++) {
+      BigDecimal finalRate;
+      try {
+        finalRate = exchangeRateClient.getBaseRate(currency, lookupDate);
+      } catch (ExchangeRateNotFoundException e) {
+        lastNotFound = e;
+        lookupDate = lookupDate.minusDays(1);
+        continue;
+      } catch (ResourceAccessException e) {
+        throw new ExchangeRateNotFoundException("환율 API 연결 또는 응답 시간 초과", e);
+      } catch (RestClientException e) {
+        throw new ExchangeRateNotFoundException("환율 API 호출 실패", e);
+      }
       return validateFinalRate(finalRate);
-    } catch (ResourceAccessException e) {
-      throw new ExchangeRateNotFoundException("환율 API 연결 또는 응답 시간 초과", e);
-    } catch (RestClientException e) {
-      throw new ExchangeRateNotFoundException("환율 API 호출 실패", e);
     }
+
+    throw lastNotFound;
   }
 
   private void validateCurrency(String currency) {
