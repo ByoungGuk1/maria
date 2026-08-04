@@ -1,8 +1,10 @@
 package com.app.maria.domain.withdrawal.dto;
 
+import com.app.maria.domain.withdrawal.type.WithdrawalType;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -13,6 +15,8 @@ import java.math.BigDecimal;
 public class WithdrawalAllocationDTO {
     private Long allocationId;
     private Long withdrawalId;
-    private Long exchangeId;
+    private Long leftAmountId;
     private BigDecimal allocatedAmount;
+    private LocalDateTime withdrawalAt;
+    private WithdrawalType type;
 }
