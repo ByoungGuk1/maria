@@ -4,7 +4,6 @@ import com.app.maria.domain.settlement.dto.KrwExchangeDTO;
 import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
 import com.app.maria.domain.settlement.dto.SettlementItemDTO;
 import com.app.maria.domain.settlement.dto.SettlementJoinDTO;
-import com.app.maria.domain.settlement.exception.InvalidSettlementException;
 import com.app.maria.domain.settlement.exception.KrwExchangeNotFoundException;
 import com.app.maria.domain.settlement.exception.SettlementBatchNotFoundException;
 import com.app.maria.domain.settlement.exception.SettlementItemNotFoundException;
@@ -17,11 +16,6 @@ import com.app.maria.domain.settlement.type.SettlementStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.NullSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -29,14 +23,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -85,17 +77,6 @@ class SettlementServiceImplTest {
     assertThat(result).isSameAs(batch);
   }
 
-  @ParameterizedTest
-  @MethodSource("invalidPositiveValues")
-  @DisplayName("batchId가 null 또는 양수가 아니면 조회를 차단한다")
-  void getSettlementBatchRejectsInvalidBatchId(Long batchId, String messageSuffix) {
-    assertThatThrownBy(() -> settlementService.getSettlementBatch(batchId))
-        .isInstanceOf(InvalidSettlementException.class)
-        .hasMessage("batchId" + messageSuffix);
-
-    verifyNoInteractions(settlementBatchMapper);
-  }
-
   @Test
   @DisplayName("batchId에 해당하는 Batch가 없으면 NotFound 예외를 반환한다")
   void getSettlementBatchThrowsWhenBatchDoesNotExist() {
@@ -117,18 +98,6 @@ class SettlementServiceImplTest {
     assertThat(result).isSameAs(batch);
   }
 
-  @ParameterizedTest
-  @NullSource
-  @ValueSource(strings = {"", " ", "\t"})
-  @DisplayName("runId가 null 또는 blank이면 조회를 차단한다")
-  void getSettlementBatchByRunIdRejectsInvalidRunId(String runId) {
-    assertThatThrownBy(() -> settlementService.getSettlementBatchByRunId(runId))
-        .isInstanceOf(InvalidSettlementException.class)
-        .hasMessage("runId - 요청 값 오류");
-
-    verifyNoInteractions(settlementBatchMapper);
-  }
-
   @Test
   @DisplayName("runId에 해당하는 Batch가 없으면 NotFound 예외를 반환한다")
   void getSettlementBatchByRunIdThrowsWhenBatchDoesNotExist() {
@@ -140,15 +109,15 @@ class SettlementServiceImplTest {
   }
 
   @Test
-  @DisplayName("대기 Item 조회 cursor가 null이면 itemId 0으로 조회한다")
-  void getPendingSettlementItemsUsesZeroWhenCursorIsNull() {
+  @DisplayName("대기 Item 조회 cursor를 Mapper에 전달한다")
+  void getPendingSettlementItemsPassesCursorToMapper() {
     SettlementBatchDTO batch = batch();
     List<SettlementItemDTO> items = List.of(item());
     when(settlementBatchMapper.selectBatchById(BATCH_ID)).thenReturn(Optional.of(batch));
     when(settlementItemMapper.selectPendingItems(any(SettlementItemDTO.class)))
         .thenReturn(items);
 
-    List<SettlementItemDTO> result = settlementService.getPendingSettlementItems(BATCH_ID, null);
+    List<SettlementItemDTO> result = settlementService.getPendingSettlementItems(BATCH_ID, 0L);
 
     assertThat(result).isSameAs(items);
     ArgumentCaptor<SettlementItemDTO> cursorCaptor =
@@ -156,18 +125,6 @@ class SettlementServiceImplTest {
     verify(settlementItemMapper).selectPendingItems(cursorCaptor.capture());
     assertThat(cursorCaptor.getValue().getBatchId()).isEqualTo(BATCH_ID);
     assertThat(cursorCaptor.getValue().getItemId()).isZero();
-  }
-
-  @Test
-  @DisplayName("대기 Item 조회 cursor가 음수이면 Item Mapper를 호출하지 않는다")
-  void getPendingSettlementItemsRejectsNegativeCursor() {
-    when(settlementBatchMapper.selectBatchById(BATCH_ID)).thenReturn(Optional.of(batch()));
-
-    assertThatThrownBy(() -> settlementService.getPendingSettlementItems(BATCH_ID, -1L))
-        .isInstanceOf(InvalidSettlementException.class)
-        .hasMessage("lastItemId - 요청 값 오류");
-
-    verify(settlementItemMapper, never()).selectPendingItems(any());
   }
 
   @Test
@@ -197,17 +154,6 @@ class SettlementServiceImplTest {
     verify(settlementJoinMapper).selectItemDetail(queryCaptor.capture());
     assertThat(queryCaptor.getValue().getBatchId()).isEqualTo(BATCH_ID);
     assertThat(queryCaptor.getValue().getItemId()).isEqualTo(ITEM_ID);
-  }
-
-  @ParameterizedTest
-  @MethodSource("invalidPositiveValues")
-  @DisplayName("itemId가 null 또는 양수가 아니면 상세 조회를 차단한다")
-  void getSettlementItemRejectsInvalidItemId(Long itemId, String messageSuffix) {
-    assertThatThrownBy(() -> settlementService.getSettlementItem(BATCH_ID, itemId))
-        .isInstanceOf(InvalidSettlementException.class)
-        .hasMessage("itemId" + messageSuffix);
-
-    verifyNoInteractions(settlementBatchMapper, settlementJoinMapper);
   }
 
   @Test
@@ -242,17 +188,6 @@ class SettlementServiceImplTest {
     KrwExchangeDTO result = settlementService.getKrwExchange(EXCHANGE_ID);
 
     assertThat(result).isSameAs(exchange);
-  }
-
-  @ParameterizedTest
-  @MethodSource("invalidPositiveValues")
-  @DisplayName("exchangeId가 null 또는 양수가 아니면 환전 조회를 차단한다")
-  void getKrwExchangeRejectsInvalidExchangeId(Long exchangeId, String messageSuffix) {
-    assertThatThrownBy(() -> settlementService.getKrwExchange(exchangeId))
-        .isInstanceOf(InvalidSettlementException.class)
-        .hasMessage("exchangeId" + messageSuffix);
-
-    verifyNoInteractions(krwExchangeMapper);
   }
 
   @Test
@@ -297,11 +232,4 @@ class SettlementServiceImplTest {
         .build();
   }
 
-  private static Stream<Arguments> invalidPositiveValues() {
-    return Stream.of(
-        Arguments.of(null, " - 요청 값 오류"),
-        Arguments.of(0L, "은 0보다 커야 합니다."),
-        Arguments.of(-1L, "은 0보다 커야 합니다.")
-    );
-  }
 }

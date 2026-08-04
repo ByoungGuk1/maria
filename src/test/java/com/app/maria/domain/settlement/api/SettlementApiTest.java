@@ -76,6 +76,15 @@ class SettlementApiTest {
   }
 
   @Test
+  void getSettlementBatchByRunIdRejectsBlankRunId() throws Exception {
+    mockMvc.perform(get("/api/settlement/batches/run/{runId}", " "))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("runId는 필수입니다."));
+
+    verify(settlementService, never()).getSettlementBatchByRunId(" ");
+  }
+
+  @Test
   void getSettlementItemEndpointsUseBatchAndCursor() throws Exception {
     SettlementItemDTO item = SettlementItemDTO.builder()
         .itemId(10L)
