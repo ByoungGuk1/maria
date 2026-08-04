@@ -82,6 +82,41 @@ class SettlementMapperTest {
   }
 
   @Test
+  @DisplayName("Batch 목록과 단건을 조회하고 같은 날짜의 RUNNING Batch를 집계한다")
+  void selectsBatchesAndCountsRunningBatchForDate() {
+    SettlementBatchDTO currentRunning = insertBatch(
+        "settlement-20260803-list-001",
+        CUTOFF.plusHours(9)
+    );
+    SettlementBatchDTO previousRunning = insertBatch(
+        "settlement-20260802-list-001",
+        CUTOFF.minusDays(1).plusHours(9)
+    );
+    SettlementBatchDTO currentCompleted = insertBatch(
+        "settlement-20260803-list-002",
+        CUTOFF.plusHours(10)
+    );
+    currentCompleted.setStatus(BatchStatus.COMPLETED);
+    assertThat(settlementBatchMapper.updateBatchStatus(currentCompleted)).isOne();
+
+    assertThat(settlementBatchMapper.selectBatches())
+        .extracting(SettlementBatchDTO::getBatchId)
+        .containsExactly(
+            currentCompleted.getBatchId(),
+            previousRunning.getBatchId(),
+            currentRunning.getBatchId()
+        );
+    assertThat(settlementBatchMapper.selectBatchById(currentRunning.getBatchId()))
+        .contains(currentRunning);
+    assertThat(settlementBatchMapper.selectBatchById(999L)).isEmpty();
+
+    SettlementBatchDTO dateCondition = SettlementBatchDTO.builder()
+        .executedAt(CUTOFF.plusHours(12))
+        .build();
+    assertThat(settlementBatchMapper.countRunningBatch(dateCondition)).isOne();
+  }
+
+  @Test
   @DisplayName("확정산 Batch와 대상 Item Snapshot을 생성하고 DTO cursor로 조인 대상을 조회한다")
   void createsBatchSnapshotAndSelectsTarget() {
     SettlementBatchDTO batch = insertRunningBatch("settlement-20260803-001");
@@ -109,6 +144,12 @@ class SettlementMapperTest {
     assertThat(target.getPurchaseFxRate()).isEqualByComparingTo("1350.0000");
     assertThat(target.getSellOrderStatus()).isEqualTo(SellOrderStatus.EXECUTED);
     assertThat(target.getPurchaseCurrency()).isEqualTo("USD");
+    assertThat(settlementJoinMapper.selectItemDetail(targetQuery)).contains(target);
+    SettlementJoinDTO mismatchedQuery = SettlementJoinDTO.builder()
+        .batchId(batch.getBatchId() + 1L)
+        .itemId(items.get(0).getItemId())
+        .build();
+    assertThat(settlementJoinMapper.selectItemDetail(mismatchedQuery)).isEmpty();
     assertThat(settlementItemMapper.selectPendingItems(
         pendingCursor(batch.getBatchId(), items.get(0).getItemId())
     )).isEmpty();
@@ -125,7 +166,9 @@ class SettlementMapperTest {
         pendingCursor(batch.getBatchId(), 0L)
     ).get(0);
 
-    KrwExchangeDTO exchange = krwExchangeMapper.selectExchangeByIdForUpdate(1L).orElseThrow();
+    KrwExchangeDTO exchange = krwExchangeMapper.selectExchangeById(1L).orElseThrow();
+    assertThat(krwExchangeMapper.selectExchangeById(999L)).isEmpty();
+    assertThat(krwExchangeMapper.selectExchangeByIdForUpdate(1L)).contains(exchange);
     assertThat(exchange.getSettlementStatus()).isEqualTo(SettlementStatus.PROVISIONAL);
     assertThat(krwExchangeMapper.selectAccountAmountForUpdate(1L).orElseThrow())
         .isEqualByComparingTo(BigDecimal.ZERO);
@@ -138,11 +181,23 @@ class SettlementMapperTest {
     exchange.setFinalAt(finalizedAt);
 
     assertThat(krwExchangeMapper.finalizeExchange(exchange)).isOne();
+    SettlementJoinDTO targetQuery = SettlementJoinDTO.builder()
+        .batchId(batch.getBatchId())
+        .itemId(item.getItemId())
+        .build();
+    SettlementJoinDTO finalizedTarget = settlementJoinMapper.selectTargetByItemId(targetQuery)
+        .orElseThrow();
+    assertThat(finalizedTarget.getSettlementStatus()).isEqualTo(SettlementStatus.FINALIZED);
     assertThat(krwExchangeMapper.increaseAccountAmount(exchange)).isOne();
     assertThat(krwExchangeMapper.insertLeftAmount(exchange)).isOne();
     item.setResult(SettlementItemResult.SUCCESS);
     item.setProcessedAt(finalizedAt);
     assertThat(settlementItemMapper.updateItemResult(item)).isOne();
+    assertThat(settlementJoinMapper.selectTargetByItemId(targetQuery)).isEmpty();
+    assertThat(settlementJoinMapper.selectItemDetail(targetQuery))
+        .get()
+        .extracting(SettlementJoinDTO::getSettlementStatus)
+        .isEqualTo(SettlementStatus.FINALIZED);
 
     assertThat(settlementItemMapper.countPendingItems(batch.getBatchId())).isZero();
     assertThat(settlementItemMapper.countFailedItems(batch.getBatchId())).isZero();
@@ -182,6 +237,12 @@ class SettlementMapperTest {
     item.setResult(SettlementItemResult.SUCCESS);
     item.setProcessedAt(processedAt.plusMinutes(1));
     assertThat(settlementItemMapper.updateItemResult(item)).isZero();
+    SettlementJoinDTO detailQuery = SettlementJoinDTO.builder()
+        .batchId(batch.getBatchId())
+        .itemId(item.getItemId())
+        .build();
+    assertThat(settlementJoinMapper.selectTargetByItemId(detailQuery)).isEmpty();
+    assertThat(settlementJoinMapper.selectItemDetail(detailQuery)).isPresent();
     assertThat(settlementItemMapper.countPendingItems(batch.getBatchId())).isZero();
     assertThat(settlementItemMapper.countFailedItems(batch.getBatchId())).isOne();
     assertThat(settlementBatchMapper.updateBatchStatus(batch)).isZero();
@@ -190,8 +251,12 @@ class SettlementMapperTest {
   }
 
   private SettlementBatchDTO insertRunningBatch(String runId) {
+    return insertBatch(runId, CUTOFF.plusHours(9));
+  }
+
+  private SettlementBatchDTO insertBatch(String runId, LocalDateTime executedAt) {
     SettlementBatchDTO batch = SettlementBatchDTO.builder()
-        .executedAt(CUTOFF.plusHours(9))
+        .executedAt(executedAt)
         .status(BatchStatus.RUNNING)
         .runId(runId)
         .build();
