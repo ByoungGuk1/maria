@@ -18,6 +18,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
@@ -27,6 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -83,13 +86,12 @@ class SettlementServiceImplTest {
   }
 
   @ParameterizedTest
-  @NullSource
-  @ValueSource(longs = {0L, -1L})
+  @MethodSource("invalidPositiveValues")
   @DisplayName("batchId가 null 또는 양수가 아니면 조회를 차단한다")
-  void getSettlementBatchRejectsInvalidBatchId(Long batchId) {
+  void getSettlementBatchRejectsInvalidBatchId(Long batchId, String messageSuffix) {
     assertThatThrownBy(() -> settlementService.getSettlementBatch(batchId))
         .isInstanceOf(InvalidSettlementException.class)
-        .hasMessage("batchId - 요청 값 오류");
+        .hasMessage("batchId" + messageSuffix);
 
     verifyNoInteractions(settlementBatchMapper);
   }
@@ -198,13 +200,12 @@ class SettlementServiceImplTest {
   }
 
   @ParameterizedTest
-  @NullSource
-  @ValueSource(longs = {0L, -1L})
+  @MethodSource("invalidPositiveValues")
   @DisplayName("itemId가 null 또는 양수가 아니면 상세 조회를 차단한다")
-  void getSettlementItemRejectsInvalidItemId(Long itemId) {
+  void getSettlementItemRejectsInvalidItemId(Long itemId, String messageSuffix) {
     assertThatThrownBy(() -> settlementService.getSettlementItem(BATCH_ID, itemId))
         .isInstanceOf(InvalidSettlementException.class)
-        .hasMessage("itemId - 요청 값 오류");
+        .hasMessage("itemId" + messageSuffix);
 
     verifyNoInteractions(settlementBatchMapper, settlementJoinMapper);
   }
@@ -244,13 +245,12 @@ class SettlementServiceImplTest {
   }
 
   @ParameterizedTest
-  @NullSource
-  @ValueSource(longs = {0L, -1L})
+  @MethodSource("invalidPositiveValues")
   @DisplayName("exchangeId가 null 또는 양수가 아니면 환전 조회를 차단한다")
-  void getKrwExchangeRejectsInvalidExchangeId(Long exchangeId) {
+  void getKrwExchangeRejectsInvalidExchangeId(Long exchangeId, String messageSuffix) {
     assertThatThrownBy(() -> settlementService.getKrwExchange(exchangeId))
         .isInstanceOf(InvalidSettlementException.class)
-        .hasMessage("exchangeId - 요청 값 오류");
+        .hasMessage("exchangeId" + messageSuffix);
 
     verifyNoInteractions(krwExchangeMapper);
   }
@@ -295,5 +295,13 @@ class SettlementServiceImplTest {
         .accountId(1L)
         .settlementStatus(SettlementStatus.PROVISIONAL)
         .build();
+  }
+
+  private static Stream<Arguments> invalidPositiveValues() {
+    return Stream.of(
+        Arguments.of(null, " - 요청 값 오류"),
+        Arguments.of(0L, "은 0보다 커야 합니다."),
+        Arguments.of(-1L, "은 0보다 커야 합니다.")
+    );
   }
 }
