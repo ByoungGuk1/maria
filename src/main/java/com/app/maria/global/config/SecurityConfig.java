@@ -64,7 +64,7 @@ public class SecurityConfig {
 
             // 화면 전환은 SPA가 담당하고 실제 데이터 접근은 API에서 검증한다.
             .anyRequest()
-            .permitAll()
+            .authenticated()
         )
 
         .exceptionHandling(exception -> exception
