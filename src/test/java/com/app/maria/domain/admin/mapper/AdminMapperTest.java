@@ -67,7 +67,7 @@ class AdminMapperTest {
     @Test
     @DisplayName("존재하는 로그인 아이디로 조회하면 관리자 정보를 반환한다")
     void selectAdminByLoginIdReturnsAdminWhenExists() throws SQLException {
-        insertAdmin(1L, "reviewer1", "encoded-password", "REVIEWER");
+        insertAdmin(1L, "reviewer1", "리뷰어1", "encoded-password", "REVIEWER");
 
         Optional<AdminUserDTO> result = adminMapper.selectAdminByLoginId("reviewer1");
 
@@ -87,29 +87,35 @@ class AdminMapperTest {
     }
 
     @Test
-    @DisplayName("role이 null인 계정도 조회할 수 있다")
-    void selectAdminByLoginIdReturnsAdminWithNullRole() throws SQLException {
-        insertAdmin(1L, "newbie", "encoded-password", null);
+    @DisplayName("role을 지정하지 않고 생성하면 기본값 VIEWER로 저장된다")
+    void insertAdminWithoutRoleDefaultsToViewer() throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    INSERT INTO admin_user (admin_id, login_id, name, password_hash)
+                    VALUES (1, 'newbie', '신입 관리자', 'encoded-password')
+                    """);
+        }
 
         Optional<AdminUserDTO> result = adminMapper.selectAdminByLoginId("newbie");
 
         assertThat(result).isPresent();
-        assertThat(result.get().getRole()).isNull();
+        assertThat(result.get().getRole()).isEqualTo(AdminRole.VIEWER);
     }
 
     @Test
     @DisplayName("정의되지 않은 role 값은 CHECK 제약조건으로 저장 자체가 막힌다")
     void invalidRoleValueIsRejectedByCheckConstraint() {
-        assertThatThrownBy(() -> insertAdmin(1L, "reviewer1", "encoded-password", "SUPERUSER"))
+        assertThatThrownBy(() -> insertAdmin(1L, "reviewer1", "리뷰어1", "encoded-password", "SUPERUSER"))
                 .isInstanceOf(SQLException.class);
     }
 
     @Test
     @DisplayName("같은 로그인 아이디는 두 번 저장할 수 없다")
     void loginIdMustBeUnique() throws SQLException {
-        insertAdmin(1L, "reviewer1", "encoded-password", "REVIEWER");
+        insertAdmin(1L, "reviewer1", "리뷰어1", "encoded-password", "REVIEWER");
 
-        assertThatThrownBy(() -> insertAdmin(2L, "reviewer1", "another-password", "VIEWER"))
+        assertThatThrownBy(() -> insertAdmin(2L, "reviewer1", "리뷰어1(다른 계정)", "another-password", "VIEWER"))
                 .isInstanceOf(SQLException.class);
     }
 
@@ -121,25 +127,25 @@ class AdminMapperTest {
                     CREATE TABLE admin_user (
                         admin_id BIGINT PRIMARY KEY AUTO_INCREMENT,
                         login_id VARCHAR(50) NOT NULL,
+                        name VARCHAR(50) NOT NULL,
                         password_hash VARCHAR(255) NOT NULL,
-                        role VARCHAR(20),
+                        role VARCHAR(20) NOT NULL DEFAULT 'VIEWER',
                         CONSTRAINT uq_admin_user_login_id UNIQUE (login_id),
                         CONSTRAINT chk_admin_user_role CHECK (
-                            role IS NULL OR role IN ('VIEWER', 'REVIEWER', 'SETTLEMENT', 'ADMIN')
+                            role IN ('VIEWER', 'REVIEWER', 'SETTLEMENT', 'ADMIN')
                         )
                     )
                     """);
         }
     }
 
-    private void insertAdmin(Long adminId, String loginId, String passwordHash, String role) throws SQLException {
+    private void insertAdmin(Long adminId, String loginId, String name, String passwordHash, String role) throws SQLException {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement()) {
-            String roleValue = role == null ? "NULL" : "'" + role + "'";
             statement.execute("""
-                    INSERT INTO admin_user (admin_id, login_id, password_hash, role)
-                    VALUES (%d, '%s', '%s', %s)
-                    """.formatted(adminId, loginId, passwordHash, roleValue));
+                    INSERT INTO admin_user (admin_id, login_id, name, password_hash, role)
+                    VALUES (%d, '%s', '%s', '%s', '%s')
+                    """.formatted(adminId, loginId, name, passwordHash, role));
         }
     }
 }

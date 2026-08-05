@@ -106,31 +106,6 @@ class AdminServiceImplTest {
     }
 
     @Test
-    @DisplayName("역할이 배정되지 않은 계정이면 예외를 던지고 토큰을 발급하지 않는다")
-    void loginThrowsWhenRoleNotAssigned() {
-        AdminUserDTO adminWithoutRole = AdminUserDTO.builder()
-                .adminId(1L)
-                .loginId("reviewer1")
-                .passwordHash("encoded-password")
-                .role(null)
-                .build();
-
-        AdminLoginRequestDTO request = AdminLoginRequestDTO.builder()
-                .loginId("reviewer1")
-                .password("raw-password")
-                .build();
-
-        when(adminMapper.selectAdminByLoginId("reviewer1")).thenReturn(Optional.of(adminWithoutRole));
-        when(passwordEncoder.matches("raw-password", "encoded-password")).thenReturn(true);
-
-        assertThatThrownBy(() -> adminService.login(request))
-                .isInstanceOf(AdminException.class)
-                .hasMessage("역할이 배정되지 않은 계정입니다. 관리자에게 문의하세요.");
-
-        verifyNoInteractions(jwtTokenProvider);
-    }
-
-    @Test
     @DisplayName("아이디 없음과 비밀번호 틀림의 에러 메시지가 동일하다")
     void loginReturnsSameMessageForMissingIdAndWrongPassword() {
         AdminLoginRequestDTO noSuchUser = AdminLoginRequestDTO.builder()
@@ -225,27 +200,6 @@ class AdminServiceImplTest {
         assertThatThrownBy(() -> adminService.refresh("valid-refresh-token"))
                 .isInstanceOf(AdminNotFoundException.class)
                 .hasMessage("대상 관리자가 없습니다.");
-
-        verify(jwtTokenProvider, never()).createAccessToken(any(), any(), any());
-    }
-
-    @Test
-    @DisplayName("대상 관리자에게 역할이 없으면 예외를 던지고 accessToken을 발급하지 않는다")
-    void refreshThrowsAdminExceptionWhenRoleNotAssigned() {
-        AdminUserDTO adminWithoutRole = AdminUserDTO.builder()
-                .adminId(1L)
-                .loginId("reviewer1")
-                .passwordHash("encoded-password")
-                .role(null)
-                .build();
-
-        when(jwtTokenProvider.parseClaims("valid-refresh-token")).thenReturn(claims);
-        when(claims.getSubject()).thenReturn("1");
-        when(adminMapper.selectAdminByAdminId(1L)).thenReturn(Optional.of(adminWithoutRole));
-
-        assertThatThrownBy(() -> adminService.refresh("valid-refresh-token"))
-                .isInstanceOf(AdminException.class)
-                .hasMessage("역할이 배정되지 않은 계정입니다. 관리자에게 문의하세요.");
 
         verify(jwtTokenProvider, never()).createAccessToken(any(), any(), any());
     }
