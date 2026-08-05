@@ -4,6 +4,8 @@ import com.app.maria.domain.account.exception.AccountException;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.exception.DuplicateAccountException;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
+import com.app.maria.domain.inbound.exception.InboundException;
+import com.app.maria.domain.inbound.exception.InboundNotFoundException;
 import com.app.maria.domain.member.exception.MemberException;
 import com.app.maria.domain.member.exception.MemberNotFoundException;
 import com.app.maria.domain.sellorder.exception.SellOrderException;
@@ -61,6 +63,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponseDTO<Void>> handleSellOrderNotFound(SellOrderNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
+
     @ExceptionHandler({ExchangeRateNotFoundException.class, KisTokenIssueException.class, KisPriceNotFoundException.class})
     public ResponseEntity<ApiResponseDTO<String>> handleExternalApiException(RuntimeException e) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
@@ -85,5 +88,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidAccountRequestException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleInvalidAccountRequestException(InvalidAccountRequestException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    // 5. Inbound 예외
+    @ExceptionHandler(InboundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleInboundException(InboundException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(InboundNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleInboundNotFoundException(InboundNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 }
