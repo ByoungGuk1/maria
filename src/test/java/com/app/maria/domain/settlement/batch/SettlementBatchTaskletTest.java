@@ -5,6 +5,7 @@ import com.app.maria.domain.settlement.component.SettlementTransactionExecutor;
 import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
 import com.app.maria.domain.settlement.dto.SettlementItemDTO;
 import com.app.maria.domain.settlement.dto.SettlementJoinDTO;
+import com.app.maria.domain.settlement.exception.SettlementStateConflictException;
 import com.app.maria.domain.settlement.mapper.SettlementBatchMapper;
 import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
 import com.app.maria.domain.settlement.mapper.SettlementJoinMapper;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -96,6 +98,7 @@ class SettlementBatchTaskletTest {
   void completesBatchWhenNoPendingItemsRemain() {
     when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch()));
     when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of());
+    when(settlementItemMapper.countPendingItems(1L)).thenReturn(0);
     when(settlementItemMapper.countFailedItems(1L)).thenReturn(0);
     when(settlementBatchMapper.updateBatchStatus(any())).thenReturn(1);
 
@@ -151,6 +154,7 @@ class SettlementBatchTaskletTest {
   void marksBatchFailedWhenCompletedPageContainsFailedItems() {
     when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch()));
     when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of());
+    when(settlementItemMapper.countPendingItems(1L)).thenReturn(0);
     when(settlementItemMapper.countFailedItems(1L)).thenReturn(1);
     when(settlementBatchMapper.updateBatchStatus(any())).thenReturn(1);
 
@@ -160,6 +164,20 @@ class SettlementBatchTaskletTest {
         org.mockito.ArgumentCaptor.forClass(SettlementBatchDTO.class);
     verify(settlementBatchMapper).updateBatchStatus(captor.capture());
     assertThat(captor.getValue().getStatus()).isEqualTo(BatchStatus.FAILED);
+  }
+
+  @Test
+  void doesNotCompleteBatchWhenPendingItemsRemain() {
+    when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch()));
+    when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of());
+    when(settlementItemMapper.countPendingItems(1L)).thenReturn(1);
+
+    assertThatThrownBy(() ->
+        tasklet.execute(contribution, new ChunkContext(new StepContext(stepExecution))))
+        .isInstanceOf(SettlementStateConflictException.class);
+
+    verify(settlementItemMapper, never()).countFailedItems(1L);
+    verify(settlementBatchMapper, never()).updateBatchStatus(any());
   }
 
   private SettlementBatchDTO batch() {

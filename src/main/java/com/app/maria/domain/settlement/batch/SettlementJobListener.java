@@ -1,6 +1,6 @@
 package com.app.maria.domain.settlement.batch;
 
-import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
+import com.app.maria.domain.settlement.exception.SettlementStateConflictException;
 import com.app.maria.domain.settlement.mapper.SettlementBatchMapper;
 import com.app.maria.domain.settlement.type.BatchStatus;
 import lombok.RequiredArgsConstructor;
@@ -19,8 +19,7 @@ public class SettlementJobListener implements JobExecutionListener {
   @Override
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void afterJob(JobExecution jobExecution) {
-    if (jobExecution.getStatus()
-        == org.springframework.batch.core.BatchStatus.COMPLETED) {
+    if (jobExecution.getStatus() == org.springframework.batch.core.BatchStatus.COMPLETED) {
       return;
     }
 
@@ -32,7 +31,10 @@ public class SettlementJobListener implements JobExecutionListener {
     settlementBatchMapper.selectBatchById(batchId).ifPresent(batch -> {
       if (batch.getStatus() == BatchStatus.RUNNING) {
         batch.setStatus(BatchStatus.FAILED);
-        settlementBatchMapper.updateBatchStatus(batch);
+        int result = settlementBatchMapper.updateBatchStatus(batch);
+        if(result != 1){
+          throw new SettlementStateConflictException("Batch 실패 상태 변경 실패");
+        }
       }
     });
   }

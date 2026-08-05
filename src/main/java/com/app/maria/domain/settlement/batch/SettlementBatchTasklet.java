@@ -43,25 +43,19 @@ public class SettlementBatchTasklet implements Tasklet {
   @Override
   public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
     Object batchParameter = chunkContext.getStepContext().getJobParameters().get("batchId");
-    Long batchId = batchParameter instanceof Number
-        ? ((Number) batchParameter).longValue()
-        : null;
+    Long batchId = batchParameter instanceof Number ? ((Number) batchParameter).longValue() : null;
     Object runParameter = chunkContext.getStepContext().getJobParameters().get("runId");
     String runId = runParameter instanceof String ? (String) runParameter : null;
     if (batchId == null || runId == null || runId.isBlank()) {
       throw new SettlementStateConflictException("확정산 Job Parameter가 올바르지 않습니다.");
     }
 
-    SettlementBatchDTO batch = settlementBatchMapper.selectBatchById(batchId)
-        .orElseThrow(() -> new SettlementBatchNotFoundException(
-            "Batch를 찾을 수 없습니다. batchId=" + batchId));
+    SettlementBatchDTO batch = settlementBatchMapper.selectBatchById(batchId).orElseThrow(() -> new SettlementBatchNotFoundException("Batch를 찾을 수 없습니다. batchId=" + batchId));
     if (!runId.equals(batch.getRunId()) || batch.getStatus() != BatchStatus.RUNNING) {
-      throw new SettlementStateConflictException(
-          "확정산 Batch 상태가 실행 가능하지 않습니다. batchId=" + batchId);
+      throw new SettlementStateConflictException("확정산 Batch 상태가 실행 가능하지 않습니다. batchId=" + batchId);
     }
 
-    var executionContext = chunkContext.getStepContext()
-        .getStepExecution().getExecutionContext();
+    var executionContext = chunkContext.getStepContext().getStepExecution().getExecutionContext();
     long lastItemId = executionContext.getLong(LAST_ITEM_ID, INITIAL_ITEM_ID);
     SettlementItemDTO cursor = SettlementItemDTO.builder()
         .batchId(batchId)
@@ -84,12 +78,7 @@ public class SettlementBatchTasklet implements Tasklet {
     return RepeatStatus.CONTINUABLE;
   }
 
-  private void processItem(
-      Long batchId,
-      SettlementItemDTO item,
-      LocalDate rateDate,
-      Map<String, BigDecimal> rateCache
-  ) {
+  private void processItem(Long batchId, SettlementItemDTO item, LocalDate rateDate, Map<String, BigDecimal> rateCache) {
     try {
       SettlementJoinDTO query = SettlementJoinDTO.builder()
           .batchId(batchId)
@@ -97,15 +86,12 @@ public class SettlementBatchTasklet implements Tasklet {
           .build();
       Optional<SettlementJoinDTO> target = settlementJoinMapper.selectTargetByItemId(query);
       if (target.isEmpty()) {
-        throw new SettlementStateConflictException(
-            "확정산 대상을 찾을 수 없습니다. itemId=" + item.getItemId());
+        throw new SettlementStateConflictException("확정산 대상을 찾을 수 없습니다. itemId=" + item.getItemId());
       }
 
       SettlementJoinDTO value = target.get();
       String rateKey = value.getPurchaseCurrency() + ":" + rateDate;
-      BigDecimal finalRate = rateCache.computeIfAbsent(
-          rateKey,
-          ignored -> exchangeRateProvider.getFinalRate(value.getPurchaseCurrency(), rateDate));
+      BigDecimal finalRate = rateCache.computeIfAbsent(rateKey, ignored -> exchangeRateProvider.getFinalRate(value.getPurchaseCurrency(), rateDate));
       settlementTransactionExecutor.execute(value, finalRate);
     } catch (Exception e) {
       settlementFailureRecorder.markFailed(item.getItemId());
@@ -113,15 +99,19 @@ public class SettlementBatchTasklet implements Tasklet {
   }
 
   private void finalizeBatch(Long batchId) {
+    int pendingCount = settlementItemMapper.countPendingItems(batchId);
+    if (pendingCount > 0) {
+      throw new SettlementStateConflictException(
+          "미처리 Item이 남아 있어 Batch를 종료할 수 없습니다. batchId="
+              + batchId + ", pending=" + pendingCount);
+    }
+
     SettlementBatchDTO result = SettlementBatchDTO.builder()
         .batchId(batchId)
-        .status(settlementItemMapper.countFailedItems(batchId) == 0
-            ? BatchStatus.COMPLETED
-            : BatchStatus.FAILED)
+        .status(settlementItemMapper.countFailedItems(batchId) == 0 ? BatchStatus.COMPLETED : BatchStatus.FAILED)
         .build();
     if (settlementBatchMapper.updateBatchStatus(result) != 1) {
-      throw new SettlementStateConflictException(
-          "확정산 Batch 최종 상태 변경에 실패했습니다. batchId=" + batchId);
+      throw new SettlementStateConflictException("확정산 Batch 최종 상태 변경에 실패했습니다. batchId=" + batchId);
     }
   }
 }
