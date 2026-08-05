@@ -46,7 +46,7 @@ class SettlementCalculatorTest {
         new BigDecimal("2")
     );
 
-    assertThat(result).isEqualByComparingTo("66.67");
+    assertThat(result).isEqualByComparingTo("67.34");
     assertThat(result.scale()).isEqualTo(2);
   }
 
@@ -59,7 +59,7 @@ class SettlementCalculatorTest {
         BigDecimal.ONE
     );
 
-    assertThat(result).isEqualByComparingTo("1.01");
+    assertThat(result).isEqualByComparingTo("1.02");
     assertThat(result.scale()).isEqualTo(2);
   }
 
@@ -100,9 +100,9 @@ class SettlementCalculatorTest {
 
   private static Stream<Arguments> exchangeRateScenarios() {
     return Stream.of(
-        Arguments.of("확정환율 상승", "2700000.00", "1350.0000", "1400.000000", "2800000.00"),
-        Arguments.of("확정환율 하락", "2700000.00", "1350.0000", "1300.000000", "2600000.00"),
-        Arguments.of("확정환율 동일", "2700000.00", "1350.0000", "1350.000000", "2700000.00")
+        Arguments.of("확정환율 상승", "2700000.00", "1350.0000", "1400.000000", "2828282.83"),
+        Arguments.of("확정환율 하락", "2700000.00", "1350.0000", "1300.000000", "2626262.63"),
+        Arguments.of("확정환율 동일", "2700000.00", "1350.0000", "1350.000000", "2727272.73")
     );
   }
 

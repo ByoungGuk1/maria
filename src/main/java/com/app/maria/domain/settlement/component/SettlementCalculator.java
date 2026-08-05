@@ -17,7 +17,9 @@ public class SettlementCalculator {
     validatePositive(purchaseFxRate, "purchaseFxRate");
     validatePositive(finalRate, "finalRate");
 
-    BigDecimal foreignAmount = provisionalAmount.divide(purchaseFxRate, FOREIGN_SCALE, ROUNDING_MODE);
+    BigDecimal provisionalRate = purchaseFxRate.multiply(new BigDecimal("0.99"));
+
+    BigDecimal foreignAmount = provisionalAmount.divide(provisionalRate, FOREIGN_SCALE, ROUNDING_MODE);
 
     return foreignAmount.multiply(finalRate).setScale(KRW_SCALE, ROUNDING_MODE);
   }
