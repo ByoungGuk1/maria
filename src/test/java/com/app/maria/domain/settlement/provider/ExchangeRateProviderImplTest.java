@@ -13,6 +13,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -23,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -126,6 +130,83 @@ class ExchangeRateProviderImplTest {
         .isInstanceOf(ExchangeRateNotFoundException.class)
         .hasMessage("환율 API 연결 또는 응답 시간 초과")
         .hasCause(timeoutException);
+
+    verify(exchangeRateClient, times(3)).getBaseRate("USD", SEARCH_DATE);
+  }
+
+  @Test
+  @DisplayName("timeout 이후 같은 날짜 환율 조회를 재시도해 성공하면 환율을 반환한다")
+  void getFinalRateRetriesTransientTimeout() {
+    ResourceAccessException timeoutException =
+        new ResourceAccessException("Read timed out");
+    when(exchangeRateClient.getBaseRate("USD", SEARCH_DATE))
+        .thenThrow(timeoutException)
+        .thenReturn(new BigDecimal("1433.60"));
+
+    BigDecimal result = exchangeRateProvider.getFinalRate("USD", SEARCH_DATE);
+
+    assertThat(result).isEqualByComparingTo("1433.60");
+    verify(exchangeRateClient, times(2)).getBaseRate("USD", SEARCH_DATE);
+  }
+
+  @Test
+  @DisplayName("HTTP 5xx 응답은 재시도 후 성공하면 환율을 반환한다")
+  void getFinalRateRetriesServerError() {
+    HttpServerErrorException serverException =
+        HttpServerErrorException.create(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "Service Unavailable",
+            null,
+            null,
+            null
+        );
+    when(exchangeRateClient.getBaseRate("USD", SEARCH_DATE))
+        .thenThrow(serverException)
+        .thenReturn(new BigDecimal("1433.60"));
+
+    BigDecimal result = exchangeRateProvider.getFinalRate("USD", SEARCH_DATE);
+
+    assertThat(result).isEqualByComparingTo("1433.60");
+    verify(exchangeRateClient, times(2)).getBaseRate("USD", SEARCH_DATE);
+  }
+
+  @Test
+  @DisplayName("HTTP 4xx 응답은 재시도하지 않는다")
+  void getFinalRateDoesNotRetryClientError() {
+    HttpClientErrorException clientException =
+        HttpClientErrorException.create(
+            HttpStatus.BAD_REQUEST,
+            "Bad Request",
+            null,
+            null,
+            null
+        );
+    when(exchangeRateClient.getBaseRate("USD", SEARCH_DATE))
+        .thenThrow(clientException);
+
+    assertThatThrownBy(() -> exchangeRateProvider.getFinalRate("USD", SEARCH_DATE))
+        .isInstanceOf(ExchangeRateNotFoundException.class)
+        .hasMessage("환율 API 호출 실패");
+
+    verify(exchangeRateClient).getBaseRate("USD", SEARCH_DATE);
+  }
+
+  @Test
+  @DisplayName("재시도 대기 중 interrupt는 환율 데이터 없음으로 처리하지 않는다")
+  void getFinalRateRejectsInterruptedRetry() {
+    ResourceAccessException timeoutException =
+        new ResourceAccessException("Read timed out");
+    when(exchangeRateClient.getBaseRate("USD", SEARCH_DATE))
+        .thenThrow(timeoutException);
+
+    Thread.currentThread().interrupt();
+    try {
+      assertThatThrownBy(() -> exchangeRateProvider.getFinalRate("USD", SEARCH_DATE))
+          .isInstanceOf(ExchangeRateNotFoundException.class)
+          .hasMessage("환율 API 재시도 대기 중단");
+    } finally {
+      Thread.interrupted();
+    }
   }
 
   @Test
