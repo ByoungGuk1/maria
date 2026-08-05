@@ -3,6 +3,7 @@ package com.app.maria.domain.admin.service;
 import com.app.maria.domain.admin.dto.AdminUserDTO;
 import com.app.maria.domain.admin.dto.request.AdminLoginRequestDTO;
 import com.app.maria.domain.admin.dto.response.AdminLoginResponseDTO;
+import com.app.maria.domain.admin.dto.response.AdminSummaryResponseDTO;
 import com.app.maria.domain.admin.exception.AdminException;
 import com.app.maria.domain.admin.exception.AdminNotFoundException;
 import com.app.maria.domain.admin.mapper.AdminMapper;
@@ -14,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -84,6 +87,19 @@ public class AdminServiceImpl implements AdminService {
                 .accessToken(newAccessToken)
                 .refreshToken(refreshToken)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AdminSummaryResponseDTO> getAllAdmins() {
+        List<AdminUserDTO> admins = adminMapper.selectAllAdmins();
+        return admins.stream()
+                .map(admin -> AdminSummaryResponseDTO.builder()
+                        .adminId(admin.getAdminId())
+                        .loginId(admin.getLoginId())
+                        .role(admin.getRole())
+                        .build())
+                .toList();
     }
 
 }

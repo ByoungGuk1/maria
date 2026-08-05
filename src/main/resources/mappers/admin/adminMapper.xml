@@ -23,4 +23,9 @@
         WHERE admin_id = #{adminId}
     </update>
 
+    <select id="selectAllAdmins" resultType="AdminUserDTO">
+        SELECT admin_id, login_id, password_hash, role
+        FROM admin_user
+    </select>
+
 </mapper>
