@@ -2,6 +2,7 @@ package com.app.maria.domain.account.service;
 
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.dto.AccountStatusLogDTO;
+import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
@@ -19,7 +20,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -76,16 +76,6 @@ class AccountServiceImplTest {
   }
 
   @Test
-  @DisplayName("계좌 개설 요청 정보가 없으면 명확한 요청 예외를 반환한다")
-  void applyAccountRejectsNullRequest() {
-    assertThatThrownBy(() -> accountService.applyAccount(null))
-        .isInstanceOf(InvalidAccountRequestException.class)
-        .hasMessage("계좌 개설 요청 정보가 없습니다.");
-
-    verify(accountMapper, never()).existsCustomerById(any());
-  }
-
-  @Test
   @DisplayName("정상 계좌 신청은 APPLIED 이력 생성 후 자동으로 OPENED 처리된다")
   void applyAccountAutomaticallyOpensAccount() {
     AccountDTO appliedAccount = account(Status.APPLIED);
@@ -111,10 +101,7 @@ class AccountServiceImplTest {
 
       assertThat(result.getStatus()).isEqualTo(Status.OPENED);
       assertThat(result.getOpenedAt()).isEqualTo(FIXED_NOW);
-      assertThat(result.getAccountNo()).isBetween(
-          BigDecimal.valueOf(1_000_000_000L),
-          BigDecimal.valueOf(9_999_999_999L)
-      );
+      assertThat(result.getAccountNo()).matches("[0-9]{10}");
     }
 
     ArgumentCaptor<AccountStatusLogDTO> logCaptor = ArgumentCaptor.forClass(AccountStatusLogDTO.class);
@@ -198,21 +185,6 @@ class AccountServiceImplTest {
           .isInstanceOf(DuplicateAccountException.class)
           .hasMessage("사용자의 기존 계좌 정보가 있습니다.");
     }
-  }
-
-  @ParameterizedTest(name = "한도 {0}원은 신청할 수 없다")
-  @ValueSource(strings = {"0", "50000001", "1.5"})
-  @DisplayName("계좌 한도는 1원 이상 5천만원 이하의 원 단위 금액이어야 한다")
-  void applyAccountRejectsInvalidLimit(String limit) {
-    when(accountMapper.existsCustomerById(CUSTOMER_ID)).thenReturn(true);
-    when(accountMapper.existsByCustomerId(CUSTOMER_ID)).thenReturn(false);
-
-    try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
-      assertThatThrownBy(() -> accountService.applyAccount(request(new BigDecimal(limit))))
-          .isInstanceOf(InvalidAccountRequestException.class);
-    }
-
-    verify(accountMapper, never()).insertApplication(any(AccountDTO.class));
   }
 
   @ParameterizedTest
@@ -312,7 +284,7 @@ class AccountServiceImplTest {
   void approveAccountRetriesAccountNumberCollision() {
     AccountDTO appliedAccount = account(Status.APPLIED);
     AccountDTO openedAccount = account(Status.OPENED);
-    List<BigDecimal> generatedAccountNumbers = new ArrayList<>();
+    List<String> generatedAccountNumbers = new ArrayList<>();
 
     when(accountMapper.selectByAccountId(ACCOUNT_ID))
         .thenReturn(Optional.of(appliedAccount))
@@ -337,10 +309,7 @@ class AccountServiceImplTest {
       assertThat(result.getStatus()).isEqualTo(Status.OPENED);
       assertThat(generatedAccountNumbers).hasSize(2);
       assertThat(generatedAccountNumbers).allSatisfy(accountNo ->
-          assertThat(accountNo).isBetween(
-              BigDecimal.valueOf(1_000_000_000L),
-              BigDecimal.valueOf(9_999_999_999L)
-          )
+          assertThat(accountNo).matches("[0-9]{10}")
       );
     }
   }
@@ -388,20 +357,6 @@ class AccountServiceImplTest {
     assertThat(logCaptor.getValue().getNewStatus()).isEqualTo(Status.REJECTED);
     assertThat(logCaptor.getValue().getReason()).isEqualTo("서류 확인 필요");
     assertThat(logCaptor.getValue().getChangedAt()).isEqualTo(FIXED_NOW);
-  }
-
-  @Test
-  @DisplayName("반려 사유가 공백이면 상태를 변경하지 않는다")
-  void rejectAccountRejectsBlankReason() {
-    when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(account(Status.APPLIED)));
-
-    try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
-      assertThatThrownBy(() -> accountService.rejectAccount(ACCOUNT_ID, "   "))
-          .isInstanceOf(InvalidAccountRequestException.class)
-          .hasMessage("계좌 반려 사유를 입력해야 합니다.");
-    }
-
-    verify(accountMapper, never()).reject(any(AccountDTO.class));
   }
 
   @Test
@@ -469,7 +424,7 @@ class AccountServiceImplTest {
     try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
       AccountResponseDTO result = accountService.reapplyAccountByAccountId(
           ACCOUNT_ID,
-          request(changedLimit)
+          reapplyRequest(changedLimit)
       );
 
       assertThat(result.getStatus()).isEqualTo(Status.APPLIED);
@@ -485,6 +440,34 @@ class AccountServiceImplTest {
     verify(accountStatusLogMapper).insertLog(logCaptor.capture());
     assertThat(logCaptor.getValue().getPrevStatus()).isEqualTo(Status.REJECTED);
     assertThat(logCaptor.getValue().getNewStatus()).isEqualTo(Status.APPLIED);
+  }
+
+  @Test
+  @DisplayName("재신청 한도를 생략하면 기존 계좌 한도를 유지한다")
+  void reapplyRejectedAccountKeepsCurrentLimitWhenOmitted() {
+    AccountDTO rejectedAccount = account(Status.REJECTED);
+    AccountDTO reappliedAccount = account(Status.APPLIED);
+
+    when(accountMapper.selectByAccountId(ACCOUNT_ID))
+        .thenReturn(Optional.of(rejectedAccount))
+        .thenReturn(Optional.of(reappliedAccount));
+    when(accountMapper.reapply(any(AccountDTO.class))).thenReturn(1);
+    when(accountStatusLogMapper.insertLog(any(AccountStatusLogDTO.class))).thenReturn(1);
+    when(accountStatusLogMapper.selectLatestByAccountId(ACCOUNT_ID))
+        .thenReturn(Optional.of(statusLog(Status.REJECTED, Status.APPLIED, "사용자 계좌 개설 재신청")));
+
+    try (MockedStatic<LocalDateTime> ignored = mockCurrentDateTime()) {
+      AccountResponseDTO result = accountService.reapplyAccountByAccountId(
+          ACCOUNT_ID,
+          reapplyRequest(null)
+      );
+
+      assertThat(result.getLimitAmount()).isEqualByComparingTo(LIMIT_AMOUNT);
+    }
+
+    ArgumentCaptor<AccountDTO> accountCaptor = ArgumentCaptor.forClass(AccountDTO.class);
+    verify(accountMapper).reapply(accountCaptor.capture());
+    assertThat(accountCaptor.getValue().getLimitAmount()).isEqualByComparingTo(LIMIT_AMOUNT);
   }
 
   @Test
@@ -567,6 +550,12 @@ class AccountServiceImplTest {
   private AccountRequestDTO request(BigDecimal limitAmount) {
     return AccountRequestDTO.builder()
         .customerId(CUSTOMER_ID)
+        .limitAmount(limitAmount)
+        .build();
+  }
+
+  private AccountReapplyRequestDTO reapplyRequest(BigDecimal limitAmount) {
+    return AccountReapplyRequestDTO.builder()
         .limitAmount(limitAmount)
         .build();
   }

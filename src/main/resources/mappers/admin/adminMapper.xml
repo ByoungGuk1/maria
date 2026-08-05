@@ -11,4 +11,16 @@
         WHERE login_id = #{loginId}
     </select>
 
+    <select id="selectAdminByAdminId" parameterType="Long" resultType="AdminUserDTO">
+        SELECT admin_id, login_id, password_hash, role
+        FROM admin_user
+        WHERE admin_id = #{adminId}
+    </select>
+
+    <update id="updateRole">
+        UPDATE admin_user
+        SET role = #{role}
+        WHERE admin_id = #{adminId}
+    </update>
+
 </mapper>
