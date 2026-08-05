@@ -118,7 +118,7 @@ class AccountMapperTest {
   void approveUpdatesOnlyAppliedAccount() {
     Long accountId = insertApplication(1L, DEFAULT_LIMIT);
     LocalDateTime openedAt = CREATED_AT.plusMinutes(1);
-    BigDecimal accountNo = BigDecimal.valueOf(1_234_567_890L);
+    String accountNo = "1234567890";
     AccountDTO approval = AccountDTO.builder()
         .accountId(accountId)
         .accountNo(accountNo)
@@ -130,7 +130,7 @@ class AccountMapperTest {
 
     AccountDTO openedAccount = accountMapper.selectByAccountId(accountId).orElseThrow();
     assertThat(openedAccount.getStatus()).isEqualTo(Status.OPENED);
-    assertThat(openedAccount.getAccountNo()).isEqualByComparingTo(accountNo);
+    assertThat(openedAccount.getAccountNo()).isEqualTo(accountNo);
     assertThat(openedAccount.getOpenedAt()).isEqualTo(openedAt);
   }
 
@@ -164,7 +164,7 @@ class AccountMapperTest {
   @DisplayName("이미 OPENED인 계좌는 재신청할 수 없다")
   void reapplyDoesNotUpdateOpenedAccount() {
     Long accountId = insertApplication(1L, DEFAULT_LIMIT);
-    openAccount(accountId, BigDecimal.valueOf(1_234_567_890L));
+    openAccount(accountId, "1234567890");
 
     AccountDTO reapplication = AccountDTO.builder()
         .accountId(accountId)
@@ -196,7 +196,7 @@ class AccountMapperTest {
     Long appliedAccountId = insertApplication(1L, DEFAULT_LIMIT);
     Long openedAccountId = insertApplication(2L, DEFAULT_LIMIT);
     Long rejectedAccountId = insertApplication(3L, DEFAULT_LIMIT);
-    openAccount(openedAccountId, BigDecimal.valueOf(1_234_567_890L));
+    openAccount(openedAccountId, "1234567890");
     accountMapper.reject(AccountDTO.builder().accountId(rejectedAccountId).build());
     BigDecimal changedLimit = BigDecimal.valueOf(40_000_000L);
 
@@ -243,12 +243,12 @@ class AccountMapperTest {
     LocalDateTime openedAt = CREATED_AT.plusMinutes(5);
     AccountDTO rejectedOverride = AccountDTO.builder()
         .accountId(rejectedAccountId)
-        .accountNo(BigDecimal.valueOf(2_345_678_901L))
+        .accountNo("2345678901")
         .openedAt(openedAt)
         .build();
     AccountDTO appliedOverride = AccountDTO.builder()
         .accountId(appliedAccountId)
-        .accountNo(BigDecimal.valueOf(3_456_789_012L))
+        .accountNo("3456789012")
         .openedAt(openedAt)
         .build();
 
@@ -257,7 +257,7 @@ class AccountMapperTest {
 
     AccountDTO openedAccount = accountMapper.selectByAccountId(rejectedAccountId).orElseThrow();
     assertThat(openedAccount.getStatus()).isEqualTo(Status.OPENED);
-    assertThat(openedAccount.getAccountNo()).isEqualByComparingTo(rejectedOverride.getAccountNo());
+    assertThat(openedAccount.getAccountNo()).isEqualTo(rejectedOverride.getAccountNo());
     assertThat(openedAccount.getOpenedAt()).isEqualTo(openedAt);
     assertThat(accountMapper.selectByAccountId(appliedAccountId).orElseThrow().getStatus())
         .isEqualTo(Status.APPLIED);
@@ -268,7 +268,7 @@ class AccountMapperTest {
   void approveRejectsDuplicateAccountNumber() {
     Long firstAccountId = insertApplication(1L, DEFAULT_LIMIT);
     Long secondAccountId = insertApplication(2L, DEFAULT_LIMIT);
-    BigDecimal duplicatedAccountNo = BigDecimal.valueOf(1_234_567_890L);
+    String duplicatedAccountNo = "1234567890";
 
     openAccount(firstAccountId, duplicatedAccountNo);
 
@@ -288,7 +288,7 @@ class AccountMapperTest {
     Long openedAccountId = insertApplication(1L, DEFAULT_LIMIT);
     Long rejectedAccountId = insertApplication(2L, DEFAULT_LIMIT);
     insertApplication(3L, DEFAULT_LIMIT);
-    openAccount(openedAccountId, BigDecimal.valueOf(1_234_567_890L));
+    openAccount(openedAccountId, "1234567890");
     accountMapper.reject(AccountDTO.builder().accountId(rejectedAccountId).build());
 
     List<AccountDTO> result = accountMapper.selectAllAccount();
@@ -370,7 +370,7 @@ class AccountMapperTest {
           CREATE TABLE account (
               account_id BIGINT PRIMARY KEY AUTO_INCREMENT,
               customer_id BIGINT NOT NULL,
-              account_no DECIMAL(10, 0),
+              account_no VARCHAR(10),
               status VARCHAR(20) NOT NULL,
               opened_at DATETIME,
               created_at DATETIME NOT NULL,
@@ -425,7 +425,7 @@ class AccountMapperTest {
         .build();
   }
 
-  private void openAccount(Long accountId, BigDecimal accountNo) {
+  private void openAccount(Long accountId, String accountNo) {
     AccountDTO approval = AccountDTO.builder()
         .accountId(accountId)
         .accountNo(accountNo)
