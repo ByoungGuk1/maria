@@ -5,6 +5,7 @@ import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.exception.DuplicateAccountException;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.admin.exception.AdminException;
+import com.app.maria.domain.admin.exception.AdminNotFoundException;
 import com.app.maria.domain.member.exception.MemberException;
 import com.app.maria.domain.member.exception.MemberNotFoundException;
 import com.app.maria.domain.sellorder.exception.SellOrderException;
@@ -81,6 +82,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AdminException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleAdminException(AdminException e) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponseDTO.of(e.getMessage()));
+    }
+    @ExceptionHandler(AdminNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleAdminNotFoundException(AdminNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 
 }

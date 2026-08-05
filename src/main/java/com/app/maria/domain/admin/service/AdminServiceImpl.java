@@ -4,7 +4,9 @@ import com.app.maria.domain.admin.dto.AdminUserDTO;
 import com.app.maria.domain.admin.dto.request.AdminLoginRequestDTO;
 import com.app.maria.domain.admin.dto.response.AdminLoginResponseDTO;
 import com.app.maria.domain.admin.exception.AdminException;
+import com.app.maria.domain.admin.exception.AdminNotFoundException;
 import com.app.maria.domain.admin.mapper.AdminMapper;
+import com.app.maria.domain.admin.type.AdminRole;
 import com.app.maria.global.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -41,6 +43,14 @@ public class AdminServiceImpl implements AdminService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .build();
+    }
+
+    @Override
+    public void updateRole(Long adminId, AdminRole newRole) {
+        AdminUserDTO admin = adminMapper.selectAdminByAdminId(adminId)
+                .orElseThrow(() -> new AdminNotFoundException("대상 관리자가 없습니다."));
+
+        adminMapper.updateRole(adminId, newRole);
     }
 
 }

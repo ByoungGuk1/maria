@@ -4,6 +4,7 @@ import com.app.maria.domain.admin.dto.AdminUserDTO;
 import com.app.maria.domain.admin.dto.request.AdminLoginRequestDTO;
 import com.app.maria.domain.admin.dto.response.AdminLoginResponseDTO;
 import com.app.maria.domain.admin.exception.AdminException;
+import com.app.maria.domain.admin.exception.AdminNotFoundException;
 import com.app.maria.domain.admin.mapper.AdminMapper;
 import com.app.maria.domain.admin.type.AdminRole;
 import com.app.maria.global.jwt.JwtTokenProvider;
@@ -144,6 +145,28 @@ class AdminServiceImplTest {
         String messageForWrongPassword = catchAdminExceptionMessage(() -> adminService.login(wrongPassword));
 
         assertThat(messageForMissingUser).isEqualTo(messageForWrongPassword);
+    }
+
+    @Test
+    @DisplayName("대상 관리자가 존재하면 역할을 변경한다")
+    void updateRoleUpdatesRoleWhenAdminExists() {
+        when(adminMapper.selectAdminByAdminId(1L)).thenReturn(Optional.of(admin()));
+
+        adminService.updateRole(1L, AdminRole.ADMIN);
+
+        verify(adminMapper).updateRole(1L, AdminRole.ADMIN);
+    }
+
+    @Test
+    @DisplayName("대상 관리자가 없으면 예외를 던지고 역할을 변경하지 않는다")
+    void updateRoleThrowsAdminNotFoundExceptionWhenAdminDoesNotExist() {
+        when(adminMapper.selectAdminByAdminId(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> adminService.updateRole(1L, AdminRole.ADMIN))
+                .isInstanceOf(AdminNotFoundException.class)
+                .hasMessage("대상 관리자가 없습니다.");
+
+        verify(adminMapper, never()).updateRole(anyLong(), any());
     }
 
     private String catchAdminExceptionMessage(Runnable action) {

@@ -1,10 +1,14 @@
 package com.app.maria.domain.admin.api;
 
 import com.app.maria.domain.admin.dto.request.AdminLoginRequestDTO;
+import com.app.maria.domain.admin.dto.request.AdminRoleUpdateRequestDTO;
 import com.app.maria.domain.admin.dto.response.AdminLoginResponseDTO;
 import com.app.maria.domain.admin.exception.AdminException;
+import com.app.maria.domain.admin.exception.AdminNotFoundException;
 import com.app.maria.domain.admin.service.AdminService;
+import com.app.maria.domain.admin.type.AdminRole;
 import com.app.maria.global.config.SecurityConfig;
+import com.app.maria.global.jwt.JwtTokenProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -33,10 +38,19 @@ class AdminApiTest {
     @MockitoBean
     AdminService adminService;
 
+    @MockitoBean
+    JwtTokenProvider jwtTokenProvider;
+
     private AdminLoginRequestDTO loginRequest(String loginId, String password) {
         return AdminLoginRequestDTO.builder()
                 .loginId(loginId)
                 .password(password)
+                .build();
+    }
+
+    private AdminRoleUpdateRequestDTO roleUpdateRequest(AdminRole role) {
+        return AdminRoleUpdateRequestDTO.builder()
+                .role(role)
                 .build();
     }
 
@@ -98,5 +112,77 @@ class AdminApiTest {
                 .andExpect(status().isBadRequest());
 
         verify(adminService, never()).login(any());
+    }
+
+    @Test
+    @DisplayName("ADMIN 권한이면 역할 변경에 성공하고 200을 반환한다")
+    @WithMockUser(roles = "ADMIN")
+    void updateRoleReturns200WhenCallerIsAdmin() throws Exception {
+        AdminRoleUpdateRequestDTO request = roleUpdateRequest(AdminRole.REVIEWER);
+
+        mockMvc.perform(patch("/api/auth/admin/{adminId}/role", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("역할이 변경되었습니다."));
+
+        verify(adminService).updateRole(1L, AdminRole.REVIEWER);
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 요청이면 401을 반환하고 서비스는 호출되지 않는다")
+    void updateRoleReturns401WhenNotAuthenticated() throws Exception {
+        AdminRoleUpdateRequestDTO request = roleUpdateRequest(AdminRole.REVIEWER);
+
+        mockMvc.perform(patch("/api/auth/admin/{adminId}/role", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+
+        verify(adminService, never()).updateRole(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("ADMIN이 아니면 403을 반환하고 서비스는 호출되지 않는다")
+    @WithMockUser(roles = "VIEWER")
+    void updateRoleReturns403WhenCallerIsNotAdmin() throws Exception {
+        AdminRoleUpdateRequestDTO request = roleUpdateRequest(AdminRole.REVIEWER);
+
+        mockMvc.perform(patch("/api/auth/admin/{adminId}/role", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        verify(adminService, never()).updateRole(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("role이 없으면 400을 반환하고 서비스는 호출되지 않는다")
+    @WithMockUser(roles = "ADMIN")
+    void updateRoleReturns400WhenRoleMissing() throws Exception {
+        AdminRoleUpdateRequestDTO request = roleUpdateRequest(null);
+
+        mockMvc.perform(patch("/api/auth/admin/{adminId}/role", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+
+        verify(adminService, never()).updateRole(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("대상 관리자가 없으면 404를 반환한다")
+    @WithMockUser(roles = "ADMIN")
+    void updateRoleReturns404WhenAdminNotFound() throws Exception {
+        AdminRoleUpdateRequestDTO request = roleUpdateRequest(AdminRole.REVIEWER);
+
+        doThrow(new AdminNotFoundException("대상 관리자가 없습니다."))
+                .when(adminService).updateRole(1L, AdminRole.REVIEWER);
+
+        mockMvc.perform(patch("/api/auth/admin/{adminId}/role", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("대상 관리자가 없습니다."));
     }
 }
