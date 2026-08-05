@@ -59,7 +59,7 @@ public class SellOrderServiceImpl implements SellOrderService{
         dto.setSellQty(request.getSellQty());
         dto.setStatus(SellOrderStatus.RECEIVED);
         dto.setBasePrice(basePrice);
-        dto.setPurchaseFxRate(exchangeRate);
+        dto.setSettlementFxRate(exchangeRate);
         sellOrderMapper.insertSellOrder(dto);
 
         return new SellOrderResponseDTO(dto);
