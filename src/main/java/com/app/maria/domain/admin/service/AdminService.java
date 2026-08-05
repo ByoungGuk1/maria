@@ -8,5 +8,6 @@ public interface AdminService {
 
     AdminLoginResponseDTO login(AdminLoginRequestDTO request);
     void updateRole(Long adminId, AdminRole newRole);
+    AdminLoginResponseDTO refresh(String refreshToken);
 
 }

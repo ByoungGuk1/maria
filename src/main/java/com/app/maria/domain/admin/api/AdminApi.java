@@ -1,6 +1,7 @@
 package com.app.maria.domain.admin.api;
 
 import com.app.maria.domain.admin.dto.request.AdminLoginRequestDTO;
+import com.app.maria.domain.admin.dto.request.AdminRefreshRequestDTO;
 import com.app.maria.domain.admin.dto.request.AdminRoleUpdateRequestDTO;
 import com.app.maria.domain.admin.dto.response.AdminLoginResponseDTO;
 import com.app.maria.domain.admin.service.AdminService;
@@ -22,6 +23,12 @@ public class AdminApi {
     public ResponseEntity<ApiResponseDTO<AdminLoginResponseDTO>> login(@Valid @RequestBody AdminLoginRequestDTO request) {
         AdminLoginResponseDTO response = adminService.login(request);
         return ResponseEntity.ok(ApiResponseDTO.of("로그인 성공", response));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponseDTO<AdminLoginResponseDTO>> refresh(@Valid @RequestBody AdminRefreshRequestDTO request) {
+        AdminLoginResponseDTO response = adminService.refresh(request.getRefreshToken());
+        return ResponseEntity.ok(ApiResponseDTO.of("토큰이 재발급되었습니다.", response));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
