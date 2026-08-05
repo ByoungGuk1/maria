@@ -128,10 +128,21 @@ CREATE TABLE account_benefit_log (
 -- ---------------------------------------------------------------------
 -- [SEED] data-generator가 채우는 테이블. 컬럼 추가/삭제 시 생성기 INSERT(컬럼목록+값)도 수정 후 재생성 필요 (seed.sql 직접 편집 금지).
 CREATE TABLE system_clock (
-    clock_id         BIGINT   NOT NULL AUTO_INCREMENT,
-    current_datetime DATETIME NOT NULL COMMENT '시스템이 지금으로 간주하는 시각. 항상 1행, UPDATE로만 갱신',
-    PRIMARY KEY (clock_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='주입 Clock 원천(1행)';
+    clock_id         BIGINT   NOT NULL ,
+    current_datetime DATETIME NOT NULL COMMENT '관리자가 설정한 MARIA 업무 기준시각',
+    reference_real_datetime DATETIME NOT NULL
+          DEFAULT CURRENT_TIMESTAMP
+          COMMENT '업무 기준시각을 설정한 실제 DB 시각',
+    PRIMARY KEY (clock_id),
+    CONSTRAINT chk_system_clock_singleton
+        CHECK (clock_id = 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='MARIA 업무시각 계산 기준값(단일 행)';
+
+CREATE TRIGGER trg_system_clock_prevent_delete
+    BEFORE DELETE ON system_clock
+    FOR EACH ROW
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'SYSTEM_CLOCK 행은 삭제할 수 없습니다.';
 
 -- ---------------------------------------------------------------------
 -- 시세 마스터
