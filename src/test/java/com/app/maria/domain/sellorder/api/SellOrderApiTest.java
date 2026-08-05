@@ -7,12 +7,15 @@ import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.domain.sellorder.service.SellOrderService;
 import com.app.maria.domain.sellorder.type.SellOrderStatus;
 import com.app.maria.global.config.SecurityConfig;
+import com.app.maria.global.jwt.JwtTokenProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -20,8 +23,10 @@ import java.math.BigDecimal;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(SellOrderApi.class)
 @Import(SecurityConfig.class)
@@ -36,6 +41,9 @@ class SellOrderApiTest {
     @MockitoBean
     SellOrderService sellOrderService;
 
+    @MockitoBean
+    JwtTokenProvider jwtTokenProvider;
+
     private SellOrderRequestDTO.SellOrderRequestDTOBuilder validRequestBuilder() {
         return SellOrderRequestDTO.builder()
                 .inboundDetailId(1L)
@@ -46,7 +54,9 @@ class SellOrderApiTest {
     }
 
     @Test
-    void 매도주문접수_성공시_201과_결과를_반환한다() throws Exception {
+    @DisplayName("매도 주문 접수 성공 시 201과 결과를 반환한다")
+    @WithMockUser(roles = "SETTLEMENT")
+    void placeSellOrderReturns201WithResultOnSuccess() throws Exception {
         SellOrderRequestDTO request = validRequestBuilder().build();
 
         SellOrderResponseDTO response = SellOrderResponseDTO.builder()
@@ -67,7 +77,9 @@ class SellOrderApiTest {
     }
 
     @Test
-    void 매도주문접수_서비스에서_예외발생시_400을_반환한다() throws Exception {
+    @DisplayName("매도 주문 접수 시 서비스에서 예외가 발생하면 400을 반환한다")
+    @WithMockUser(roles = "SETTLEMENT")
+    void placeSellOrderReturns400WhenServiceThrowsException() throws Exception {
         SellOrderRequestDTO request = validRequestBuilder().build();
 
         when(sellOrderService.placeSellOrder(any()))
@@ -81,7 +93,9 @@ class SellOrderApiTest {
     }
 
     @Test
-    void 매도주문접수_수량이_0이면_검증실패로_400을_반환하고_서비스는_호출되지않는다() throws Exception {
+    @DisplayName("매도 주문 접수 시 수량이 0이면 검증 실패로 400을 반환하고 서비스는 호출되지 않는다")
+    @WithMockUser(roles = "SETTLEMENT")
+    void placeSellOrderReturns400WhenSellQtyIsZero() throws Exception {
         SellOrderRequestDTO request = validRequestBuilder().sellQty(BigDecimal.ZERO).build();
 
         mockMvc.perform(post("/api/sell-orders")
@@ -94,7 +108,9 @@ class SellOrderApiTest {
     }
 
     @Test
-    void 매도주문접수_출고상세ID가_없으면_검증실패로_400을_반환하고_서비스는_호출되지않는다() throws Exception {
+    @DisplayName("매도 주문 접수 시 출고 상세 ID가 없으면 검증 실패로 400을 반환하고 서비스는 호출되지 않는다")
+    @WithMockUser(roles = "SETTLEMENT")
+    void placeSellOrderReturns400WhenInboundDetailIdMissing() throws Exception {
         SellOrderRequestDTO request = validRequestBuilder().inboundDetailId(null).build();
 
         mockMvc.perform(post("/api/sell-orders")
@@ -107,7 +123,9 @@ class SellOrderApiTest {
     }
 
     @Test
-    void 매도주문접수_거래소코드가_없으면_검증실패로_400을_반환하고_서비스는_호출되지않는다() throws Exception {
+    @DisplayName("매도 주문 접수 시 거래소 코드가 없으면 검증 실패로 400을 반환하고 서비스는 호출되지 않는다")
+    @WithMockUser(roles = "SETTLEMENT")
+    void placeSellOrderReturns400WhenExchangeCodeMissing() throws Exception {
         SellOrderRequestDTO request = validRequestBuilder().exchangeCode(null).build();
 
         mockMvc.perform(post("/api/sell-orders")
@@ -120,7 +138,9 @@ class SellOrderApiTest {
     }
 
     @Test
-    void 매도주문접수_종목코드가_없으면_검증실패로_400을_반환하고_서비스는_호출되지않는다() throws Exception {
+    @DisplayName("매도 주문 접수 시 종목 코드가 없으면 검증 실패로 400을 반환하고 서비스는 호출되지 않는다")
+    @WithMockUser(roles = "SETTLEMENT")
+    void placeSellOrderReturns400WhenTickerMissing() throws Exception {
         SellOrderRequestDTO request = validRequestBuilder().ticker(null).build();
 
         mockMvc.perform(post("/api/sell-orders")
@@ -133,7 +153,9 @@ class SellOrderApiTest {
     }
 
     @Test
-    void 매도주문접수_통화단위가_없으면_검증실패로_400을_반환하고_서비스는_호출되지않는다() throws Exception {
+    @DisplayName("매도 주문 접수 시 통화 단위가 없으면 검증 실패로 400을 반환하고 서비스는 호출되지 않는다")
+    @WithMockUser(roles = "SETTLEMENT")
+    void placeSellOrderReturns400WhenCurrencyUnitMissing() throws Exception {
         SellOrderRequestDTO request = validRequestBuilder().currencyUnit(null).build();
 
         mockMvc.perform(post("/api/sell-orders")
@@ -146,7 +168,36 @@ class SellOrderApiTest {
     }
 
     @Test
-    void 매도주문조회_존재하면_200과_결과를_반환한다() throws Exception {
+    @DisplayName("매도 주문 접수 시 인증되지 않은 요청이면 401을 반환하고 서비스는 호출되지 않는다")
+    void placeSellOrderReturns401WhenNotAuthenticated() throws Exception {
+        SellOrderRequestDTO request = validRequestBuilder().build();
+
+        mockMvc.perform(post("/api/sell-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+
+        verify(sellOrderService, never()).placeSellOrder(any());
+    }
+
+    @Test
+    @DisplayName("매도 주문 접수 시 SETTLEMENT/ADMIN이 아니면 403을 반환하고 서비스는 호출되지 않는다")
+    @WithMockUser(roles = "VIEWER")
+    void placeSellOrderReturns403WhenCallerIsNotSettlementOrAdmin() throws Exception {
+        SellOrderRequestDTO request = validRequestBuilder().build();
+
+        mockMvc.perform(post("/api/sell-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        verify(sellOrderService, never()).placeSellOrder(any());
+    }
+
+    @Test
+    @DisplayName("매도 주문 조회 시 존재하면 200과 결과를 반환한다")
+    @WithMockUser(roles = "SETTLEMENT")
+    void getSellOrderReturns200WithResultWhenExists() throws Exception {
         SellOrderResponseDTO response = SellOrderResponseDTO.builder()
                 .orderId(100L)
                 .status(SellOrderStatus.RECEIVED)
@@ -160,7 +211,9 @@ class SellOrderApiTest {
     }
 
     @Test
-    void 매도주문조회_존재하지않으면_404를_반환한다() throws Exception {
+    @DisplayName("매도 주문 조회 시 존재하지 않으면 404를 반환한다")
+    @WithMockUser(roles = "SETTLEMENT")
+    void getSellOrderReturns404WhenNotFound() throws Exception {
         when(sellOrderService.getSellOrder(999L))
                 .thenThrow(new SellOrderNotFoundException("매도 주문 조회 실패"));
 
