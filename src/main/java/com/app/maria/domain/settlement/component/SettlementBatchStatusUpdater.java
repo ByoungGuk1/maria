@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SettlementBatchStatusUpdater {
   private final SettlementBatchMapper settlementBatchMapper;
 
-  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  @Transactional(transactionManager = "transactionManager", propagation = Propagation.REQUIRES_NEW)
   public void markFailed(Long batchId) {
     SettlementBatchDTO command = SettlementBatchDTO.builder()
             .batchId(batchId)

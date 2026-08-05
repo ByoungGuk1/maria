@@ -17,7 +17,7 @@ public class SettlementFailureRecorder {
 
   private final SettlementItemMapper settlementItemMapper;
 
-  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  @Transactional(transactionManager = "transactionManager", propagation = Propagation.REQUIRES_NEW)
   public void markFailed(Long itemId) {
     if (itemId == null) {
       throw new SettlementStateConflictException("기록 대상 Item 미확인");

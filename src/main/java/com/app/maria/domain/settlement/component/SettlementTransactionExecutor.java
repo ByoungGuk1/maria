@@ -31,7 +31,7 @@ public class SettlementTransactionExecutor {
   private final SettlementItemMapper settlementItemMapper;
   private final SettlementCalculator settlementCalculator;
 
-  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  @Transactional(transactionManager = "transactionManager", propagation = Propagation.REQUIRES_NEW)
   public void execute(SettlementJoinDTO target, BigDecimal finalRate) {
     validateTarget(target);
 
