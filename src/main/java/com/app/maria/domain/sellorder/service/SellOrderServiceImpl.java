@@ -1,5 +1,8 @@
 package com.app.maria.domain.sellorder.service;
 
+import com.app.maria.domain.inbound.dto.InboundDetailDTO;
+import com.app.maria.domain.inbound.exception.InboundNotFoundException;
+import com.app.maria.domain.inbound.mapper.InboundMapper;
 import com.app.maria.domain.sellorder.dto.SellOrderDTO;
 import com.app.maria.domain.sellorder.dto.request.SellOrderRequestDTO;
 import com.app.maria.domain.sellorder.dto.response.SellOrderResponseDTO;
@@ -14,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -23,12 +27,26 @@ public class SellOrderServiceImpl implements SellOrderService{
     private final SellOrderMapper sellOrderMapper;
     private final KisPriceClient kis;
     private final ExchangeRateClient exchange;
+    private final InboundMapper inboundMapper;
 
     @Override
     public SellOrderResponseDTO placeSellOrder(SellOrderRequestDTO request) {
 
         if (request.getSellQty() == null || request.getSellQty().compareTo(BigDecimal.ZERO) <= 0) {
             throw new SellOrderException("매도 수량은 0보다 커야 합니다.");
+        }
+
+        Optional<InboundDetailDTO> lot = inboundMapper.selectInboundDetailById(request.getInboundDetailId());
+        if (lot.isEmpty()) {
+            throw new InboundNotFoundException("입고 상세를 찾을 수 없습니다.");
+        }
+        if (request.getSellQty().compareTo(lot.get().getCurrentQty()) > 0) {
+            throw new SellOrderException("매도 가능 수량을 초과했습니다.");
+        }
+
+        int updateRows = inboundMapper.decreaseCurrentQty(request.getInboundDetailId(), request.getSellQty());
+        if (updateRows == 0) {
+            throw new SellOrderException("다른 요청이 먼저 처리되었습니다.");
         }
 
         BigDecimal previousClose = kis.getPreviousClose(request.getExchangeCode(), request.getTicker());
@@ -40,8 +58,7 @@ public class SellOrderServiceImpl implements SellOrderService{
         dto.setSellQty(request.getSellQty());
         dto.setStatus(SellOrderStatus.RECEIVED);
         dto.setBasePrice(basePrice);
-        // purchaseFxRate는 매수 시점 환율이라 inbound_detail 연동 전까지 null
-        // processedAt은 system_clock 연동 전까지 null
+        dto.setPurchaseFxRate(lot.get().getPurchaseFxRate());
         sellOrderMapper.insertSellOrder(dto);
 
         return new SellOrderResponseDTO(dto);

@@ -9,7 +9,7 @@ import java.util.Optional;
 @Mapper
 public interface SellOrderMapper {
 
-    public int insertSellOrder(SellOrderDTO dto);
-    public Optional<SellOrderDTO> selectSellOrderById(@Param("orderId") Long orderId);
+    int insertSellOrder(SellOrderDTO dto);
+    Optional<SellOrderDTO> selectSellOrderById(@Param("orderId") Long orderId);
 
 }

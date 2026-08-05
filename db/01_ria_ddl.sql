@@ -40,6 +40,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- ---------------------------------------------------------------------
 -- 고객 / 인증
 -- ---------------------------------------------------------------------
+-- [SEED] data-generator가 채우는 테이블. 컬럼 추가/삭제 시 생성기 INSERT(컬럼목록+값)도 수정 후 재생성 필요 (seed.sql 직접 편집 금지).
 CREATE TABLE customer (
     customer_id   BIGINT      NOT NULL AUTO_INCREMENT,
     name          VARCHAR(50) NOT NULL COMMENT '이름(표시/감사용, 해시 입력 아님)',
@@ -53,6 +54,7 @@ CREATE TABLE customer (
     CONSTRAINT chk_customer_investor_type CHECK (investor_type IN ('STABLE','CONSERVATIVE','NEUTRAL','ACTIVE','AGGRESSIVE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='RIA 고객';
 
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE customer_auth (
     auth_id       BIGINT      NOT NULL AUTO_INCREMENT,
     customer_id   BIGINT      NOT NULL,
@@ -63,6 +65,7 @@ CREATE TABLE customer_auth (
     CONSTRAINT chk_customer_auth_type CHECK (type IN ('LOCAL','GOOGLE','KAKAO','NAVER'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='고객 인증수단';
 
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE customer_auth_password (
     auth_password_id BIGINT       NOT NULL AUTO_INCREMENT,
     auth_id          BIGINT       NOT NULL,
@@ -74,6 +77,7 @@ CREATE TABLE customer_auth_password (
 -- ---------------------------------------------------------------------
 -- 계좌
 -- ---------------------------------------------------------------------
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE account (
     account_id   BIGINT        NOT NULL AUTO_INCREMENT,
     customer_id  BIGINT        NOT NULL COMMENT '1인 1계좌 - unique',
@@ -93,6 +97,7 @@ CREATE TABLE account (
     CONSTRAINT chk_account_no      CHECK (account_no IS NULL OR account_no REGEXP '^[0-9]{10}$')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='RIA 계좌';
 
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE account_status_log (
     log_id      BIGINT       NOT NULL AUTO_INCREMENT,
     account_id  BIGINT       NOT NULL,
@@ -105,6 +110,7 @@ CREATE TABLE account_status_log (
     CONSTRAINT chk_asl_new  CHECK (new_status  IN ('APPLIED','OPENED','REJECTED','CLOSURE_REQUESTED','CLOSED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='계좌 상태 변경 이력';
 
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE account_benefit_log (
     benefit_id  BIGINT       NOT NULL AUTO_INCREMENT,
     account_id  BIGINT       NOT NULL,
@@ -120,6 +126,7 @@ CREATE TABLE account_benefit_log (
 -- ---------------------------------------------------------------------
 -- 시스템 시계
 -- ---------------------------------------------------------------------
+-- [SEED] data-generator가 채우는 테이블. 컬럼 추가/삭제 시 생성기 INSERT(컬럼목록+값)도 수정 후 재생성 필요 (seed.sql 직접 편집 금지).
 CREATE TABLE system_clock (
     clock_id         BIGINT   NOT NULL AUTO_INCREMENT,
     current_datetime DATETIME NOT NULL COMMENT '시스템이 지금으로 간주하는 시각. 항상 1행, UPDATE로만 갱신',
@@ -129,6 +136,7 @@ CREATE TABLE system_clock (
 -- ---------------------------------------------------------------------
 -- 시세 마스터
 -- ---------------------------------------------------------------------
+-- [SEED] data-generator가 채우는 테이블. 컬럼 추가/삭제 시 생성기 INSERT(컬럼목록+값)도 수정 후 재생성 필요 (seed.sql 직접 편집 금지).
 CREATE TABLE foreign_product (
     foreign_product_id BIGINT       NOT NULL AUTO_INCREMENT,
     ticker             VARCHAR(20)  NOT NULL COMMENT '종목코드',
@@ -140,6 +148,7 @@ CREATE TABLE foreign_product (
     CONSTRAINT chk_foreign_product_type CHECK (type IN ('FOREIGN_STOCK','ETF','ETN'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='해외 종목 마스터';
 
+-- [SEED] data-generator가 채우는 테이블. 컬럼 추가/삭제 시 생성기 INSERT(컬럼목록+값)도 수정 후 재생성 필요 (seed.sql 직접 편집 금지).
 CREATE TABLE domestic_product (
     domestic_product_id BIGINT       NOT NULL AUTO_INCREMENT,
     ticker              VARCHAR(20)  NOT NULL COMMENT '종목코드',
@@ -155,6 +164,7 @@ CREATE TABLE domestic_product (
 -- ---------------------------------------------------------------------
 -- RIA 계좌 내 국내주식 잔고 (증권사 -> RIA 이동)
 -- ---------------------------------------------------------------------
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE domestic_stock_balance (
     domestic_stock_balance_id BIGINT        NOT NULL AUTO_INCREMENT,
     account_id                BIGINT        NOT NULL COMMENT 'RIA account (동일 시스템, FK 복구)',
@@ -170,6 +180,7 @@ CREATE TABLE domestic_stock_balance (
 -- ---------------------------------------------------------------------
 -- 입고 (3단 분리)
 -- ---------------------------------------------------------------------
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE inbound (
     inbound_id                 BIGINT        NOT NULL AUTO_INCREMENT,
     account_id                 BIGINT        NOT NULL,
@@ -180,6 +191,7 @@ CREATE TABLE inbound (
     PRIMARY KEY (inbound_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='입고 요청';
 
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE inbound_detail (
     inbound_detail_id         BIGINT        NOT NULL AUTO_INCREMENT,
     inbound_id                BIGINT        NOT NULL,
@@ -196,6 +208,7 @@ CREATE TABLE inbound_detail (
     PRIMARY KEY (inbound_detail_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='입고 상세(lot)';
 
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE inbound_min (
     inbound_min_id    BIGINT NOT NULL AUTO_INCREMENT,
     inbound_detail_id BIGINT NOT NULL COMMENT '결과 lot',
@@ -205,6 +218,7 @@ CREATE TABLE inbound_min (
     PRIMARY KEY (inbound_min_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='3-way Min 산식 근거';
 
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE outbound (
     outbound_id       BIGINT        NOT NULL AUTO_INCREMENT,
     inbound_detail_id BIGINT        NOT NULL,
@@ -217,6 +231,7 @@ CREATE TABLE outbound (
 -- ---------------------------------------------------------------------
 -- 매도 / 환전
 -- ---------------------------------------------------------------------
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE sell_order (
     order_id          BIGINT        NOT NULL AUTO_INCREMENT,
     inbound_detail_id BIGINT        NOT NULL COMMENT '1 lot당 1건',
@@ -230,6 +245,7 @@ CREATE TABLE sell_order (
     CONSTRAINT chk_sell_order_status CHECK (status IN ('RECEIVED','EXECUTED','REJECTED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='매도 주문';
 
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE krw_exchange (
     exchange_id        BIGINT        NOT NULL AUTO_INCREMENT,
     account_id         BIGINT        NOT NULL,
@@ -248,6 +264,7 @@ CREATE TABLE krw_exchange (
 -- ---------------------------------------------------------------------
 -- 인출
 -- ---------------------------------------------------------------------
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE left_amount (
     left_amount_id BIGINT        NOT NULL AUTO_INCREMENT,
     exchange_id    BIGINT        NOT NULL,
@@ -255,6 +272,7 @@ CREATE TABLE left_amount (
     PRIMARY KEY (left_amount_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='정산건별 잔여 원금(FIFO)';
 
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE withdrawal (
     withdrawal_id                  BIGINT        NOT NULL AUTO_INCREMENT,
     account_id                     BIGINT        NOT NULL,
@@ -267,6 +285,7 @@ CREATE TABLE withdrawal (
     CONSTRAINT chk_withdrawal_status CHECK (status IN ('REQUESTED','COMPLETED','CANCELLED','FAILED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='인출 요청';
 
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE withdrawal_allocation (
     allocation_id    BIGINT        NOT NULL AUTO_INCREMENT,
     withdrawal_id    BIGINT        NOT NULL,
@@ -281,6 +300,7 @@ CREATE TABLE withdrawal_allocation (
 -- ---------------------------------------------------------------------
 -- 세금 계산
 -- ---------------------------------------------------------------------
+-- [SEED] data-generator가 채우는 테이블. 컬럼 추가/삭제 시 생성기 INSERT(컬럼목록+값)도 수정 후 재생성 필요 (seed.sql 직접 편집 금지).
 CREATE TABLE tax_rule (
     rule_id    BIGINT        NOT NULL AUTO_INCREMENT,
     rule_type  VARCHAR(20)   NOT NULL COMMENT 'RELIEF_RATE/DEPOSIT_LIMIT/HOLDING_PERIOD',
@@ -293,6 +313,7 @@ CREATE TABLE tax_rule (
     CONSTRAINT chk_tax_rule_type CHECK (rule_type IN ('RELIEF_RATE','DEPOSIT_LIMIT','HOLDING_PERIOD'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='effective-dated 세금 규칙';
 
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE tax_calculation (
     calc_id       BIGINT        NOT NULL AUTO_INCREMENT,
     account_id    BIGINT        NOT NULL,
@@ -312,6 +333,7 @@ CREATE TABLE tax_calculation (
 -- ---------------------------------------------------------------------
 -- 정산 배치
 -- ---------------------------------------------------------------------
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE settlement_batch (
     batch_id    BIGINT      NOT NULL AUTO_INCREMENT,
     executed_at DATETIME    NOT NULL COMMENT '배치 실행일시(일단위=익일정산)',
@@ -321,6 +343,7 @@ CREATE TABLE settlement_batch (
     CONSTRAINT chk_settlement_batch_status CHECK (status IN ('RUNNING','COMPLETED','FAILED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='정산 배치';
 
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE settlement_item (
     item_id      BIGINT      NOT NULL AUTO_INCREMENT,
     batch_id     BIGINT      NOT NULL,
@@ -332,6 +355,7 @@ CREATE TABLE settlement_item (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='정산 배치 항목';
 
 -- 정산 배치 행 잠금 (같은 영업일 배치 중복 실행 방지: SELECT ... FOR UPDATE 대상)
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE settlement_batch_guard (
     business_date DATE     NOT NULL COMMENT '정산 대상 영업일(행 잠금 키)',
     updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -341,6 +365,7 @@ CREATE TABLE settlement_batch_guard (
 -- ---------------------------------------------------------------------
 -- 관리자
 -- ---------------------------------------------------------------------
+-- [SEED] data-generator가 채우는 테이블. 컬럼 추가/삭제 시 생성기 INSERT(컬럼목록+값)도 수정 후 재생성 필요 (seed.sql 직접 편집 금지).
 CREATE TABLE admin_user (
     admin_id      BIGINT       NOT NULL AUTO_INCREMENT,
     login_id      VARCHAR(50)  NOT NULL,
@@ -352,6 +377,7 @@ CREATE TABLE admin_user (
     CONSTRAINT chk_admin_role CHECK (role IN ('VIEWER','REVIEWER','SETTLEMENT','ADMIN'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='백오피스 관리자';
 
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE audit_log (
     audit_id     BIGINT      NOT NULL AUTO_INCREMENT,
     admin_id     BIGINT      NOT NULL,
