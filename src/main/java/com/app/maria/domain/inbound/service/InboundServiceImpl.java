@@ -46,7 +46,10 @@ public class InboundServiceImpl implements InboundService {
         RegistrableStockResponseDTO registrableStock = apiResponse.getData();
         BigDecimal snapshotQty = registrableStock.getHeldQty();
 
-        BigDecimal approvedQty = requestedQty.min(snapshotQty);
+        BigDecimal alreadyApprovedQty = inboundMapper.sumApprovedQtyByAccountAndProduct(accountId, foreignProductId);
+        BigDecimal availableQty = snapshotQty.subtract(alreadyApprovedQty).max(BigDecimal.ZERO);
+
+        BigDecimal approvedQty = requestedQty.min(availableQty);
         if (currentHoldingAtRequest != null) {
             approvedQty = approvedQty.min(currentHoldingAtRequest);
         }
