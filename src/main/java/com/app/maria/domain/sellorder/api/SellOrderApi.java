@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/sell-orders")
@@ -29,6 +31,12 @@ public class SellOrderApi {
     public ResponseEntity<ApiResponseDTO<SellOrderResponseDTO>> getSellOrder(@PathVariable Long orderId) {
         SellOrderResponseDTO responseDTO = sellOrderService.getSellOrder(orderId);
         return ResponseEntity.ok(ApiResponseDTO.of("매도 주문 조회에 성공하였습니다.", responseDTO));
+    }
+
+    @GetMapping
+    public ResponseEntity<ApiResponseDTO<List<SellOrderResponseDTO>>> getAllSellOrders(@RequestParam Long accountId) {
+        List<SellOrderResponseDTO> list = sellOrderService.getSellOrderByAccount(accountId);
+        return ResponseEntity.ok(ApiResponseDTO.of("계좌 매도 주문 조회에 성공하였습니다.", list));
     }
 
 

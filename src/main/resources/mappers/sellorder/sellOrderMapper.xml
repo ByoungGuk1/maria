@@ -16,4 +16,12 @@
         WHERE order_id = #{orderId}
     </select>
 
+    <select id="selectSellOrdersByAccountId" parameterType="Long" resultType="SellOrderDTO">
+        SELECT s.order_id, s.inbound_detail_id, s.sell_qty, s.base_price, s.purchase_fx_rate, s.status, s.processed_at
+        FROM sell_order s
+        JOIN inbound_detail id ON s.inbound_detail_id = id.inbound_detail_id
+        JOIN inbound i ON id.inbound_id = i.inbound_id
+        WHERE i.account_id = #{accountId}
+    </select>
+
 </mapper>
