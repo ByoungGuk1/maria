@@ -13,8 +13,7 @@ import java.time.Duration;
 @Configuration
 public class ExchangeRestTemplateConfig {
   @Bean("settlementRestTemplate")
-  public RestTemplate
-  settlementRestTemplate() {
+  public RestTemplate settlementRestTemplate() {
     SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
 
     requestFactory.setConnectTimeout(Duration.ofSeconds(3));
