@@ -22,6 +22,14 @@ java {
     }
 }
 
+// 맥/윈도우 혼용 환경 인코딩 고정 (윈도우 기본값 MS949로 컴파일·출력 깨짐 방지)
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+tasks.withType(Test).configureEach {
+    systemProperty 'file.encoding', 'UTF-8'
+}
+
 repositories {
     mavenCentral()
 }
