@@ -22,7 +22,7 @@ public class AccountResponseDTO implements Serializable {
   private Status status;
   private LocalDateTime openedAt;
   private LocalDateTime createdAt;
-  private BigDecimal accountNo;
+  private String accountNo;
   private BigDecimal limitAmount;
   private BigDecimal amount;
   private BenefitType benefit;

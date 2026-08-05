@@ -1,6 +1,7 @@
 package com.app.maria.domain.account.service;
 
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 
@@ -25,7 +26,7 @@ public interface AccountService {
 
   AccountResponseDTO rejectAccount(Long accountId, String reason);
 
-  AccountResponseDTO reapplyAccountByAccountId(Long accountId, AccountRequestDTO requestDTO);
+  AccountResponseDTO reapplyAccountByAccountId(Long accountId, AccountReapplyRequestDTO requestDTO);
 
   AccountResponseDTO getAccountByAccountId(Long accountId);
 

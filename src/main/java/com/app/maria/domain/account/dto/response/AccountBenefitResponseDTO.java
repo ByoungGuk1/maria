@@ -21,11 +21,11 @@ public class AccountBenefitResponseDTO {
   private String reason;
 
   public AccountBenefitResponseDTO(AccountBenefitLogDTO logDTO) {
-    this.benefitId = logDTO.getBenefitId()!=null?logDTO.getBenefitId():null;
-    this.accountId =  logDTO.getAccountId()!=null?logDTO.getAccountId():null;
-    this.prevStatus = logDTO.getPrevStatus()!=null?logDTO.getPrevStatus():null;
-    this.newStatus = logDTO.getNewStatus()!=null?logDTO.getNewStatus():null;
-    this.changedAt = logDTO.getChangedAt()!=null?logDTO.getChangedAt():null;
-    this.reason = logDTO.getReason()!=null?logDTO.getReason():null;
+    this.benefitId = logDTO.getBenefitId();
+    this.accountId =  logDTO.getAccountId();
+    this.prevStatus = logDTO.getPrevStatus();
+    this.newStatus = logDTO.getNewStatus();
+    this.changedAt = logDTO.getChangedAt();
+    this.reason = logDTO.getReason();
   }
 }
