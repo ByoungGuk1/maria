@@ -3,8 +3,8 @@ package com.app.maria.domain.inbound.service;
 import com.app.maria.domain.inbound.dto.InboundDTO;
 import com.app.maria.domain.inbound.dto.InboundDetailDTO;
 import com.app.maria.domain.inbound.dto.InboundMinDTO;
+import com.app.maria.domain.inbound.dto.request.InboundRequestDTO;
 import com.app.maria.domain.inbound.dto.response.InboundResponseDTO;
-import com.app.maria.domain.inbound.exception.InboundException;
 import com.app.maria.domain.inbound.exception.InboundNotFoundException;
 import com.app.maria.domain.inbound.mapper.InboundMapper;
 import com.app.maria.domain.registrablestock.dto.RegistrableStockResponseDTO;
@@ -26,21 +26,12 @@ public class InboundServiceImpl implements InboundService {
     private final RestClient restClient;
 
     @Override
-    public InboundResponseDTO processInbound(
-            Long accountId,
-            Long foreignProductId,
-            BigDecimal requestedQty,
-            BigDecimal currentHoldingAtRequest) {
+    public InboundResponseDTO processInbound(InboundRequestDTO request) {
 
-        if (accountId == null) {
-            throw new InboundException("accountId는 필수입니다.");
-        }
-        if (foreignProductId == null) {
-            throw new InboundException("foreignProductId는 필수입니다.");
-        }
-        if (requestedQty == null) {
-            throw new InboundException("requestedQty는 필수입니다.");
-        }
+        Long accountId = request.getAccountId();
+        Long foreignProductId = request.getForeignProductId();
+        BigDecimal requestedQty = request.getRequestedQty();
+        BigDecimal currentHoldingAtRequest = request.getCurrentHoldingAtRequest();
 
         ApiResponseDTO<RegistrableStockResponseDTO> apiResponse = restClient.get()
                 .uri("/api/registrable-stocks?generalAccountId={accountId}&foreignProductId={foreignProductId}", accountId, foreignProductId)
@@ -55,9 +46,10 @@ public class InboundServiceImpl implements InboundService {
         RegistrableStockResponseDTO registrableStock = apiResponse.getData();
         BigDecimal snapshotQty = registrableStock.getHeldQty();
 
-        BigDecimal approvedQty = requestedQty
-                .min(currentHoldingAtRequest)
-                .min(snapshotQty);
+        BigDecimal approvedQty = requestedQty.min(snapshotQty);
+        if (currentHoldingAtRequest != null) {
+            approvedQty = approvedQty.min(currentHoldingAtRequest);
+        }
 
         InboundDTO inboundDTO = InboundDTO.builder()
                 .accountId(accountId)
@@ -71,8 +63,8 @@ public class InboundServiceImpl implements InboundService {
         InboundDetailDTO inboundDetailDTO = InboundDetailDTO.builder()
                 .inboundId(inboundDTO.getInboundId())
                 .foreignProductId(foreignProductId)
-                .qty(approvedQty.longValue())
-                .currentQty(approvedQty.longValue())
+                .qty(approvedQty)
+                .currentQty(approvedQty)
                 .purchaseDate(registrableStock.getPurchaseDate())
                 .purchasePrice(registrableStock.getPurchasePrice())
                 .purchaseCurrency(registrableStock.getPurchaseCurrency())
@@ -82,21 +74,13 @@ public class InboundServiceImpl implements InboundService {
                 .build();
         inboundMapper.insertInboundDetail(inboundDetailDTO);
 
-        InboundMinDTO inboundMinDTO = InboundMinDTO.builder()
-                .inboundDetailId(inboundDetailDTO.getInboundDetailId())
-                .requestedQty(requestedQty)
-                .approvedQty(approvedQty)
-                .snapshotQty(snapshotQty)
-                .build();
+        InboundMinDTO inboundMinDTO = InboundMinDTO.of(
+                inboundDetailDTO.getInboundDetailId(),
+                requestedQty,
+                approvedQty,
+                snapshotQty);
         inboundMapper.insertInboundMin(inboundMinDTO);
 
-        return InboundResponseDTO.builder()
-                .inboundId(inboundDTO.getInboundId())
-                .requestedQty(requestedQty)
-                .snapshotQty(snapshotQty)
-                .currentHoldingAtRequest(currentHoldingAtRequest)
-                .approvedQty(approvedQty)
-                .processedAt(inboundDTO.getProcessedAt())
-                .build();
+        return InboundResponseDTO.of(inboundDTO, snapshotQty);
     }
 }

@@ -1,5 +1,6 @@
 package com.app.maria.domain.inbound.dto.response;
 
+import com.app.maria.domain.inbound.dto.InboundDTO;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -14,4 +15,17 @@ public class InboundResponseDTO {
     private BigDecimal currentHoldingAtRequest;
     private BigDecimal approvedQty;
     private LocalDateTime processedAt;
+
+    public static InboundResponseDTO of(
+            InboundDTO inboundDTO,
+            BigDecimal snapshotQty) {
+        return InboundResponseDTO.builder()
+                .inboundId(inboundDTO.getInboundId())
+                .requestedQty(inboundDTO.getRequestedQty())
+                .snapshotQty(snapshotQty)
+                .currentHoldingAtRequest(inboundDTO.getCurrentHoldingAtRequest())
+                .approvedQty(inboundDTO.getApprovedQty())
+                .processedAt(inboundDTO.getProcessedAt())
+                .build();
+    }
 }
