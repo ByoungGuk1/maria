@@ -1,6 +1,5 @@
 package com.app.maria.global.config;
 
-import com.app.maria.domain.admin.type.AdminRole;
 import com.app.maria.global.jwt.JwtAuthenticationFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +33,7 @@ public class SecurityConfig {
 
       // JWT 인증 API
       "/api/auth/admin/login",
+      "/api/auth/admin/refresh",
 
       // Swagger
       "/swagger-ui/**",
@@ -61,14 +61,6 @@ public class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(PUBLIC_URLS)
             .permitAll()
-
-            .requestMatchers("/api/admin/**")
-            .hasAnyRole(
-                    AdminRole.VIEWER.name(),
-                    AdminRole.REVIEWER.name(),
-                    AdminRole.SETTLEMENT.name(),
-                    AdminRole.ADMIN.name()
-            )
 
             // 화면 전환은 SPA가 담당하고 실제 데이터 접근은 API에서 검증한다.
             .anyRequest()

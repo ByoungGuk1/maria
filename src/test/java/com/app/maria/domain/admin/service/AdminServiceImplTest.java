@@ -8,6 +8,8 @@ import com.app.maria.domain.admin.exception.AdminNotFoundException;
 import com.app.maria.domain.admin.mapper.AdminMapper;
 import com.app.maria.domain.admin.type.AdminRole;
 import com.app.maria.global.jwt.JwtTokenProvider;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +35,9 @@ class AdminServiceImplTest {
 
     @Mock
     JwtTokenProvider jwtTokenProvider;
+
+    @Mock
+    Claims claims;
 
     @InjectMocks
     AdminServiceImpl adminService;
@@ -167,6 +172,82 @@ class AdminServiceImplTest {
                 .hasMessage("대상 관리자가 없습니다.");
 
         verify(adminMapper, never()).updateRole(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("유효한 refreshToken이면 최신 role로 새 accessToken을 발급한다")
+    void refreshIssuesNewAccessTokenUsingCurrentDatabaseRole() {
+        when(jwtTokenProvider.parseClaims("valid-refresh-token")).thenReturn(claims);
+        when(claims.getSubject()).thenReturn("1");
+        when(adminMapper.selectAdminByAdminId(1L)).thenReturn(Optional.of(admin()));
+        when(jwtTokenProvider.createAccessToken(1L, "reviewer1", AdminRole.REVIEWER)).thenReturn("new-access-token");
+
+        AdminLoginResponseDTO result = adminService.refresh("valid-refresh-token");
+
+        assertThat(result.getAccessToken()).isEqualTo("new-access-token");
+        assertThat(result.getRefreshToken()).isEqualTo("valid-refresh-token");
+        verify(adminMapper).selectAdminByAdminId(1L);
+        verify(jwtTokenProvider).createAccessToken(1L, "reviewer1", AdminRole.REVIEWER);
+    }
+
+    @Test
+    @DisplayName("토큰이 위조/만료되었으면 예외를 던지고 DB를 조회하지 않는다")
+    void refreshThrowsAdminExceptionWhenTokenInvalid() {
+        when(jwtTokenProvider.parseClaims("broken-token")).thenThrow(new JwtException("bad token"));
+
+        assertThatThrownBy(() -> adminService.refresh("broken-token"))
+                .isInstanceOf(AdminException.class)
+                .hasMessage("유효하지 않은 토큰입니다.");
+
+        verifyNoInteractions(adminMapper);
+    }
+
+    @Test
+    @DisplayName("subject가 숫자가 아니면 예외를 던지고 DB를 조회하지 않는다")
+    void refreshThrowsAdminExceptionWhenSubjectIsNotNumeric() {
+        when(jwtTokenProvider.parseClaims("weird-token")).thenReturn(claims);
+        when(claims.getSubject()).thenReturn("not-a-number");
+
+        assertThatThrownBy(() -> adminService.refresh("weird-token"))
+                .isInstanceOf(AdminException.class)
+                .hasMessage("유효하지 않은 토큰 정보입니다.");
+
+        verifyNoInteractions(adminMapper);
+    }
+
+    @Test
+    @DisplayName("토큰의 대상 관리자가 없으면 예외를 던지고 accessToken을 발급하지 않는다")
+    void refreshThrowsAdminNotFoundExceptionWhenAdminDoesNotExist() {
+        when(jwtTokenProvider.parseClaims("valid-refresh-token")).thenReturn(claims);
+        when(claims.getSubject()).thenReturn("1");
+        when(adminMapper.selectAdminByAdminId(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> adminService.refresh("valid-refresh-token"))
+                .isInstanceOf(AdminNotFoundException.class)
+                .hasMessage("대상 관리자가 없습니다.");
+
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("대상 관리자에게 역할이 없으면 예외를 던지고 accessToken을 발급하지 않는다")
+    void refreshThrowsAdminExceptionWhenRoleNotAssigned() {
+        AdminUserDTO adminWithoutRole = AdminUserDTO.builder()
+                .adminId(1L)
+                .loginId("reviewer1")
+                .passwordHash("encoded-password")
+                .role(null)
+                .build();
+
+        when(jwtTokenProvider.parseClaims("valid-refresh-token")).thenReturn(claims);
+        when(claims.getSubject()).thenReturn("1");
+        when(adminMapper.selectAdminByAdminId(1L)).thenReturn(Optional.of(adminWithoutRole));
+
+        assertThatThrownBy(() -> adminService.refresh("valid-refresh-token"))
+                .isInstanceOf(AdminException.class)
+                .hasMessage("역할이 배정되지 않은 계정입니다. 관리자에게 문의하세요.");
+
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(), any());
     }
 
     private String catchAdminExceptionMessage(Runnable action) {

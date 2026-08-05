@@ -8,6 +8,8 @@ import com.app.maria.domain.admin.exception.AdminNotFoundException;
 import com.app.maria.domain.admin.mapper.AdminMapper;
 import com.app.maria.domain.admin.type.AdminRole;
 import com.app.maria.global.jwt.JwtTokenProvider;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -51,6 +53,37 @@ public class AdminServiceImpl implements AdminService {
                 .orElseThrow(() -> new AdminNotFoundException("대상 관리자가 없습니다."));
 
         adminMapper.updateRole(adminId, newRole);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AdminLoginResponseDTO refresh(String refreshToken) {
+        Claims claims;
+        try {
+            claims = jwtTokenProvider.parseClaims(refreshToken);
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new AdminException("유효하지 않은 토큰입니다.");
+        }
+
+        Long adminId;
+        try {
+            adminId = Long.parseLong(claims.getSubject());
+        } catch (NumberFormatException e) {
+            throw new AdminException("유효하지 않은 토큰 정보입니다.");
+        }
+
+        AdminUserDTO admin = adminMapper.selectAdminByAdminId(adminId)
+                .orElseThrow(() -> new AdminNotFoundException("대상 관리자가 없습니다."));
+        if (admin.getRole() == null) {
+            throw new AdminException("역할이 배정되지 않은 계정입니다. 관리자에게 문의하세요.");
+        }
+
+        String newAccessToken = jwtTokenProvider.createAccessToken(admin.getAdminId(), admin.getLoginId(), admin.getRole());
+
+        return AdminLoginResponseDTO.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(refreshToken)
+                .build();
     }
 
 }

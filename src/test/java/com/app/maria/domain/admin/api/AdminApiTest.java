@@ -1,6 +1,7 @@
 package com.app.maria.domain.admin.api;
 
 import com.app.maria.domain.admin.dto.request.AdminLoginRequestDTO;
+import com.app.maria.domain.admin.dto.request.AdminRefreshRequestDTO;
 import com.app.maria.domain.admin.dto.request.AdminRoleUpdateRequestDTO;
 import com.app.maria.domain.admin.dto.response.AdminLoginResponseDTO;
 import com.app.maria.domain.admin.exception.AdminException;
@@ -51,6 +52,12 @@ class AdminApiTest {
     private AdminRoleUpdateRequestDTO roleUpdateRequest(AdminRole role) {
         return AdminRoleUpdateRequestDTO.builder()
                 .role(role)
+                .build();
+    }
+
+    private AdminRefreshRequestDTO refreshRequest(String refreshToken) {
+        return AdminRefreshRequestDTO.builder()
+                .refreshToken(refreshToken)
                 .build();
     }
 
@@ -180,6 +187,70 @@ class AdminApiTest {
                 .when(adminService).updateRole(1L, AdminRole.REVIEWER);
 
         mockMvc.perform(patch("/api/auth/admin/{adminId}/role", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("대상 관리자가 없습니다."));
+    }
+
+    @Test
+    @DisplayName("유효한 refreshToken을 보내면 새 accessToken을 받는다")
+    void refreshReturns200AndNewAccessTokenWhenTokenValid() throws Exception {
+        AdminRefreshRequestDTO request = refreshRequest("valid-refresh-token");
+        AdminLoginResponseDTO response = AdminLoginResponseDTO.builder()
+                .accessToken("new-access-token")
+                .refreshToken("valid-refresh-token")
+                .build();
+
+        when(adminService.refresh("valid-refresh-token")).thenReturn(response);
+
+        mockMvc.perform(post("/api/auth/admin/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").value("new-access-token"))
+                .andExpect(jsonPath("$.data.refreshToken").value("valid-refresh-token"));
+
+        verify(adminService).refresh("valid-refresh-token");
+    }
+
+    @Test
+    @DisplayName("refreshToken이 없으면 400을 반환하고 서비스는 호출되지 않는다")
+    void refreshReturns400WhenRefreshTokenMissing() throws Exception {
+        AdminRefreshRequestDTO request = refreshRequest(null);
+
+        mockMvc.perform(post("/api/auth/admin/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+
+        verify(adminService, never()).refresh(any());
+    }
+
+    @Test
+    @DisplayName("서비스에서 토큰 예외가 발생하면 401을 반환한다")
+    void refreshReturns401WhenTokenInvalid() throws Exception {
+        AdminRefreshRequestDTO request = refreshRequest("broken-token");
+
+        when(adminService.refresh("broken-token"))
+                .thenThrow(new AdminException("유효하지 않은 토큰입니다."));
+
+        mockMvc.perform(post("/api/auth/admin/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("유효하지 않은 토큰입니다."));
+    }
+
+    @Test
+    @DisplayName("토큰의 대상 관리자가 없으면 404를 반환한다")
+    void refreshReturns404WhenAdminNotFound() throws Exception {
+        AdminRefreshRequestDTO request = refreshRequest("valid-refresh-token");
+
+        when(adminService.refresh("valid-refresh-token"))
+                .thenThrow(new AdminNotFoundException("대상 관리자가 없습니다."));
+
+        mockMvc.perform(post("/api/auth/admin/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound())
