@@ -1,19 +1,26 @@
 package com.app.maria.global.config;
 
-import com.app.maria.domain.member.type.MemberRole;
+import com.app.maria.global.jwt.JwtAuthenticationFilter;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import java.io.IOException;
 
 @Configuration
+@RequiredArgsConstructor
+@EnableMethodSecurity
 public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
   private static final String[] PUBLIC_URLS = {
       "/",
@@ -25,8 +32,8 @@ public class SecurityConfig {
       "/images/**",
 
       // JWT 인증 API
-      "/api/auth/login",
-      "/api/auth/refresh",
+      "/api/auth/admin/login",
+      "/api/auth/admin/refresh",
 
       // Swagger
       "/swagger-ui/**",
@@ -55,21 +62,9 @@ public class SecurityConfig {
             .requestMatchers(PUBLIC_URLS)
             .permitAll()
 
-            .requestMatchers("/api/admin/**")
-            .hasRole(MemberRole.ADMIN.name())
-
-            .requestMatchers("/api/manager/**")
-            .hasAnyRole(
-                MemberRole.MANAGER.name(),
-                MemberRole.ADMIN.name()
-            )
-
-//            .requestMatchers("/api/**")
-//            .authenticated()
-
             // 화면 전환은 SPA가 담당하고 실제 데이터 접근은 API에서 검증한다.
             .anyRequest()
-            .permitAll()
+            .authenticated()
         )
 
         .exceptionHandling(exception -> exception
@@ -89,9 +84,8 @@ public class SecurityConfig {
                     "접근 권한이 없습니다."
                 )
             )
-        );
+        ).addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-    // JwtAuthenticationFilter 구현 후 UsernamePasswordAuthenticationFilter 앞에 등록한다.
     return http.build();
   }
 
