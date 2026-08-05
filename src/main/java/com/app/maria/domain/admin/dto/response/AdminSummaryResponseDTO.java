@@ -14,5 +14,6 @@ public class AdminSummaryResponseDTO {
     private Long adminId;
     private String loginId;
     private AdminRole role;
+    private String name;
 
 }

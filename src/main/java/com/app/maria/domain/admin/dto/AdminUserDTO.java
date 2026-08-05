@@ -16,5 +16,6 @@ public class AdminUserDTO {
     private String loginId;
     private String passwordHash;
     private AdminRole role;
+    private String name;
 
 }
