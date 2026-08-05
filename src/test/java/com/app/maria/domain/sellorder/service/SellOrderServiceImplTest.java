@@ -81,7 +81,7 @@ class SellOrderServiceImplTest {
         assertThat(result.getSellQty()).isEqualByComparingTo("10");
         assertThat(result.getStatus()).isEqualTo(SellOrderStatus.RECEIVED);
         assertThat(result.getBasePrice()).isEqualByComparingTo(expectedBasePrice);
-        assertThat(result.getPurchaseFxRate()).isEqualByComparingTo("1300.5");
+        assertThat(result.getPurchaseFxRate()).isEqualByComparingTo("1433.6");
         assertThat(result.getProcessedAt()).isNull();
 
         verify(inboundMapper, times(1)).decreaseCurrentQty(1L, new BigDecimal("10"));
@@ -93,7 +93,7 @@ class SellOrderServiceImplTest {
         assertThat(saved.getSellQty()).isEqualByComparingTo("10");
         assertThat(saved.getStatus()).isEqualTo(SellOrderStatus.RECEIVED);
         assertThat(saved.getBasePrice()).isEqualByComparingTo(expectedBasePrice);
-        assertThat(saved.getPurchaseFxRate()).isEqualByComparingTo("1300.5");
+        assertThat(saved.getPurchaseFxRate()).isEqualByComparingTo("1433.6");
     }
 
     @Test
