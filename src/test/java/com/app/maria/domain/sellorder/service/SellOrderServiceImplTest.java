@@ -10,6 +10,7 @@ import com.app.maria.domain.sellorder.type.SellOrderStatus;
 import com.app.maria.global.client.exchange.ExchangeRateClient;
 import com.app.maria.global.client.kis.KisPriceClient;
 import com.app.maria.global.exception.KisPriceNotFoundException;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -50,7 +51,8 @@ class SellOrderServiceImplTest {
     }
 
     @Test
-    void placeSellOrder_정상요청이면_전일종가와_환율을_곱해_RECEIVED상태로_저장한다() {
+    @DisplayName("정상 요청이면 전일종가와 환율을 곱해 RECEIVED 상태로 저장한다")
+    void placeSellOrderMultipliesPreviousCloseAndRateAndSavesAsReceivedOnValidRequest() {
         SellOrderRequestDTO request = validRequestBuilder().build();
 
         when(kisPriceClient.getPreviousClose("NAS", "AAPL")).thenReturn(new BigDecimal("308.91"));
@@ -76,7 +78,8 @@ class SellOrderServiceImplTest {
     }
 
     @Test
-    void placeSellOrder_전일종가조회에_실패하면_예외가_전파되고_환율조회와_저장은_하지않는다() {
+    @DisplayName("전일종가 조회에 실패하면 예외가 전파되고 환율 조회와 저장은 하지 않는다")
+    void placeSellOrderPropagatesExceptionAndSkipsRateAndSaveWhenPreviousCloseLookupFails() {
         SellOrderRequestDTO request = validRequestBuilder().build();
 
         when(kisPriceClient.getPreviousClose("NAS", "AAPL"))
@@ -90,7 +93,8 @@ class SellOrderServiceImplTest {
     }
 
     @Test
-    void placeSellOrder_수량이_null이면_예외를_던지고_외부API와_저장소는_호출하지않는다() {
+    @DisplayName("수량이 null이면 예외를 던지고 외부 API와 저장소는 호출하지 않는다")
+    void placeSellOrderThrowsAndSkipsExternalCallsWhenSellQtyIsNull() {
         SellOrderRequestDTO request = validRequestBuilder().sellQty(null).build();
 
         assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
@@ -100,7 +104,8 @@ class SellOrderServiceImplTest {
     }
 
     @Test
-    void placeSellOrder_수량이_0이면_예외를_던진다() {
+    @DisplayName("수량이 0이면 예외를 던진다")
+    void placeSellOrderThrowsWhenSellQtyIsZero() {
         SellOrderRequestDTO request = validRequestBuilder().sellQty(BigDecimal.ZERO).build();
 
         assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
@@ -110,7 +115,8 @@ class SellOrderServiceImplTest {
     }
 
     @Test
-    void placeSellOrder_수량이_음수이면_예외를_던진다() {
+    @DisplayName("수량이 음수이면 예외를 던진다")
+    void placeSellOrderThrowsWhenSellQtyIsNegative() {
         SellOrderRequestDTO request = validRequestBuilder().sellQty(new BigDecimal("-5")).build();
 
         assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
@@ -120,7 +126,8 @@ class SellOrderServiceImplTest {
     }
 
     @Test
-    void getSellOrder_존재하면_조회결과를_반환한다() {
+    @DisplayName("존재하면 조회 결과를 반환한다")
+    void getSellOrderReturnsResultWhenExists() {
         SellOrderDTO saved = SellOrderDTO.builder()
                 .orderId(100L)
                 .inboundDetailId(1L)
@@ -137,7 +144,8 @@ class SellOrderServiceImplTest {
     }
 
     @Test
-    void getSellOrder_존재하지않으면_SellOrderNotFoundException을_던진다() {
+    @DisplayName("존재하지 않으면 SellOrderNotFoundException을 던진다")
+    void getSellOrderThrowsSellOrderNotFoundExceptionWhenNotFound() {
         when(sellOrderMapper.selectSellOrderById(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> sellOrderService.getSellOrder(999L))

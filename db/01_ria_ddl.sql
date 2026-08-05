@@ -369,8 +369,9 @@ CREATE TABLE settlement_batch_guard (
 CREATE TABLE admin_user (
     admin_id      BIGINT       NOT NULL AUTO_INCREMENT,
     login_id      VARCHAR(50)  NOT NULL,
+    name          VARCHAR(50)  NOT NULL COMMENT '관리자 이름',
     password_hash VARCHAR(255) NOT NULL,
-    role          VARCHAR(20)  NOT NULL COMMENT 'VIEWER(조회전용)/REVIEWER(심사담당)/SETTLEMENT(정산담당)/ADMIN(최고관리자)',
+    role          VARCHAR(20)  NOT NULL DEFAULT 'VIEWER' COMMENT 'VIEWER(조회전용)/REVIEWER(심사담당)/SETTLEMENT(정산담당)/ADMIN(최고관리자). 계정 생성 시 기본 VIEWER, ADMIN이 추후 승격',
     PRIMARY KEY (admin_id),
     UNIQUE KEY uk_admin_login_id (login_id),
     CONSTRAINT chk_admin_role CHECK (role IN ('VIEWER','REVIEWER','SETTLEMENT','ADMIN'))

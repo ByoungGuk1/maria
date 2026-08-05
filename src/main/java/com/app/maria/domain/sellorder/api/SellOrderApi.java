@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -17,6 +18,7 @@ public class SellOrderApi {
 
     private final SellOrderService sellOrderService;
 
+    @PreAuthorize("hasAnyRole('SETTLEMENT', 'ADMIN')")
     @PostMapping
     public ResponseEntity<ApiResponseDTO<SellOrderResponseDTO>> placeSellOrder(@Valid @RequestBody SellOrderRequestDTO request) {
         SellOrderResponseDTO responseDTO = sellOrderService.placeSellOrder(request);
