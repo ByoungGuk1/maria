@@ -1,6 +1,6 @@
 package com.app.maria.domain.domestic.type;
 
-public enum Status {
+public enum DomesticStockStatus {
     HOLDING,         // 보유중
     PARTIALLY_SOLD,  // 일부매도
     FULLY_SOLD,      // 전량매도
