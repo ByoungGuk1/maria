@@ -27,10 +27,7 @@ import org.springframework.web.client.RestClient;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -324,11 +321,11 @@ public class AccountServiceImpl implements AccountService {
     Map<String, String> req = new HashMap<>();
     String ciHash = accountMapper.selectCiHashByCustomerId(customerId);
     req.put("ciHash", ciHash);
-    System.out.println(req.toString());
     MydataRiaAccountsResponseDTO response = restClient.post().uri(myDataUrl + "/api/mydata/ria-accounts")
         .contentType(MediaType.APPLICATION_JSON).body(req).retrieve()
         .body(MydataRiaAccountsResponseDTO.class);
-    BigDecimal sumRiaLimit = response.getData().stream()
+    BigDecimal sumRiaLimit = Objects.requireNonNull(response, "myData 호출에 실패했습니다.")
+        .getData().stream()
         .map(MydataRiaAccountsResponseDTO.MyDataAccountResponse::getRiaLimit)
         .reduce(BigDecimal.ZERO, BigDecimal::add);
     return MAX_LIMIT_AMOUNT.subtract(sumRiaLimit);
