@@ -26,6 +26,7 @@ public class OpenApiConfig {
                                         .scheme("bearer")
                                         .bearerFormat("JWT")
                         )
-                );
+                )
+                .addSecurityItem(new SecurityRequirement().addList(securitySchemeName));
     }
 }
