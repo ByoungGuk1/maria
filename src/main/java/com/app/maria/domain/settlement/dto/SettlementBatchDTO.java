@@ -1,0 +1,20 @@
+package com.app.maria.domain.settlement.dto;
+
+import com.app.maria.domain.settlement.type.BatchStatus;
+import lombok.*;
+
+import java.time.LocalDateTime;
+
+@NoArgsConstructor
+@AllArgsConstructor
+@Getter
+@Setter
+@ToString
+@Builder
+@EqualsAndHashCode(of = "batchId")
+public class SettlementBatchDTO {
+  private Long batchId;
+  private LocalDateTime executedAt;
+  private BatchStatus status;
+  private String runId;
+}

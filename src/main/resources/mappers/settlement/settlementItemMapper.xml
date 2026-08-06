@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.app.maria.domain.settlement.mapper.SettlementItemMapper">
+
+    <insert id="insertItemsForTargets" parameterType="SettlementBatchDTO">
+        INSERT INTO settlement_item (
+            batch_id,
+            exchange_id,
+            result,
+            processed_at
+        )
+        SELECT
+            #{batchId},
+            ke.exchange_id,
+            NULL,
+            NULL
+        FROM krw_exchange ke
+        INNER JOIN sell_order so
+            ON so.order_id = ke.order_id
+        WHERE ke.settlement_status = 'PROVISIONAL'
+          AND ke.provisional_at &lt; CAST(#{executedAt} AS DATE)
+          AND so.status = 'EXECUTED'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM settlement_item existing_item
+              WHERE existing_item.batch_id = #{batchId}
+                AND existing_item.exchange_id = ke.exchange_id
+          )
+        ORDER BY ke.exchange_id
+    </insert>
+
+    <select id="selectPendingItems" parameterType="SettlementItemDTO" resultType="SettlementItemDTO">
+        SELECT
+            item_id,
+            batch_id,
+            exchange_id,
+            result,
+            processed_at
+        FROM settlement_item
+        WHERE batch_id = #{batchId}
+          AND result IS NULL
+          AND item_id &gt; #{itemId}
+        ORDER BY item_id
+        LIMIT 100
+    </select>
+
+    <update id="updateItemResult" parameterType="SettlementItemDTO">
+        UPDATE settlement_item
+        SET result = #{result},
+            processed_at = #{processedAt}
+        WHERE item_id = #{itemId}
+          AND result IS NULL
+          AND processed_at IS NULL
+    </update>
+
+    <select id="countPendingItems" parameterType="Long" resultType="int">
+        SELECT COUNT(*)
+        FROM settlement_item
+        WHERE batch_id = #{batchId}
+          AND result IS NULL
+    </select>
+
+    <select id="countFailedItems" parameterType="Long" resultType="int">
+        SELECT COUNT(*)
+        FROM settlement_item
+        WHERE batch_id = #{batchId}
+          AND result = 'FAILED'
+    </select>
+
+</mapper>
