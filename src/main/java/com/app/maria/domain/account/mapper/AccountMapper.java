@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Mapper;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+
 @Mapper
 public interface AccountMapper {
   //고객 존재 여부 확인
@@ -14,9 +15,6 @@ public interface AccountMapper {
 
   //account_id 기준 단건 조회
   Optional<AccountDTO> selectByAccountId(Long accountId);
-
-  //account_id 기준 단건 조회 + 잠금
-  Optional<AccountDTO> selectByAccountIdForUpdate(Long accountId);
 
   //customer_id 기준 단건 조회
   Optional<AccountDTO> selectByCustomerId(Long customerId);
