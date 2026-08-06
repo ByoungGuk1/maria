@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -58,7 +59,7 @@ public class SellOrderServiceImpl implements SellOrderService{
         dto.setSellQty(request.getSellQty());
         dto.setStatus(SellOrderStatus.RECEIVED);
         dto.setBasePrice(basePrice);
-        dto.setPurchaseFxRate(lot.get().getPurchaseFxRate());
+        dto.setSettlementFxRate(exchangeRate);
         sellOrderMapper.insertSellOrder(dto);
 
         return new SellOrderResponseDTO(dto);
@@ -69,6 +70,15 @@ public class SellOrderServiceImpl implements SellOrderService{
     public SellOrderResponseDTO getSellOrder(Long orderId) {
         SellOrderDTO dto =  sellOrderMapper.selectSellOrderById(orderId).orElseThrow(() -> new SellOrderNotFoundException("매도 주문 조회 실패"));
         return new SellOrderResponseDTO(dto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SellOrderResponseDTO> getSellOrderByAccount(Long accountId) {
+        List<SellOrderDTO> orders = sellOrderMapper.selectSellOrdersByAccountId(accountId);
+        return orders.stream()
+                .map(SellOrderResponseDTO::new)
+                .toList();
     }
 
 }

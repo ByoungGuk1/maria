@@ -19,7 +19,7 @@ public class SellOrderDTO {
     private Long inboundDetailId;
     private BigDecimal sellQty;
     private BigDecimal basePrice;
-    private BigDecimal purchaseFxRate;
+    private BigDecimal settlementFxRate;
     private SellOrderStatus status;
     private LocalDateTime processedAt;
 

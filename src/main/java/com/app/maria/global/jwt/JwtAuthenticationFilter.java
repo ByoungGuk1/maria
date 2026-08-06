@@ -32,7 +32,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Claims claims = jwtTokenProvider.parseClaims(token);
                 setAuthentication(claims);
             } catch (JwtException | IllegalArgumentException e) {
-                // 토큰이 위조/만료 되었으면 일단 인증없이 통과 -> 401/403으로 걸러짐
                 SecurityContextHolder.clearContext();
             }
         }
