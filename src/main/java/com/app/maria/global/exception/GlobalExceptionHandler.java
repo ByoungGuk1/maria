@@ -167,4 +167,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponseDTO<Void>> handleKrwExchangeNotFoundException(KrwExchangeNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
+
+    // mydata 예외
+    @ExceptionHandler(MydataApiException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleMydataApiException(MydataApiException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
+    }
 }

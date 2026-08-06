@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.app.maria.domain.sellorder.mapper.SellLimitMapper">
+
+    <select id="selectAccountLimitForUpdate" parameterType="Long" resultType="BigDecimal">
+        SELECT limit_amount
+        FROM account
+        WHERE account_id = #{accountId}
+        FOR UPDATE
+    </select>
+
+
+    <select id="sumFinalizedExchangeAmount" parameterType="Long" resultType="BigDecimal">
+        SELECT COALESCE(SUM(final_amount), 0)
+        FROM krw_exchange
+        WHERE account_id = #{accountId}
+        AND settlement_status = 'FINALIZED'
+    </select>
+
+    <select id="selectCiHashByAccountId" parameterType="Long" resultType="String">
+        SELECT c.ci_hash
+        FROM customer c
+        JOIN account a ON a.customer_id = c.customer_id
+        WHERE a.account_id = #{accountId}
+    </select>
+
+</mapper>
