@@ -1,12 +1,14 @@
 package com.app.maria.global.client.mydata;
 
 import com.app.maria.global.config.properties.MydataApiProperties;
+import com.app.maria.global.exception.MydataApiException;
 import com.app.maria.global.response.ApiResponseDTO;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
@@ -16,11 +18,15 @@ import java.util.Objects;
 
 
 @Component
-@RequiredArgsConstructor
 public class MydataClient {
 
     private final RestTemplate restTemplate;
     private final MydataApiProperties mydataApiProperties;
+
+    public MydataClient(@Qualifier("mydataRestTemplate") RestTemplate restTemplate, MydataApiProperties mydataApiProperties) {
+        this.restTemplate = restTemplate;
+        this.mydataApiProperties = mydataApiProperties;
+    }
 
     public BigDecimal getExternalSellTotal(String ciHash) {
         String requestUrl = mydataApiProperties.getUrl() + "/api/mydata/ria-accounts";
@@ -41,6 +47,8 @@ public class MydataClient {
             return sum(accounts);
         } catch (HttpClientErrorException.NotFound e) {
             return BigDecimal.ZERO;
+        } catch (RestClientException e) {
+            throw new MydataApiException("myData 외부 순매수 조회 실패", e);
         }
     }
 
