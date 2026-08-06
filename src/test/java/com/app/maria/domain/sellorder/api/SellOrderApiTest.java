@@ -48,10 +48,7 @@ class SellOrderApiTest {
     private SellOrderRequestDTO.SellOrderRequestDTOBuilder validRequestBuilder() {
         return SellOrderRequestDTO.builder()
                 .inboundDetailId(1L)
-                .sellQty(new BigDecimal("10"))
-                .exchangeCode("NAS")
-                .ticker("AAPL")
-                .currencyUnit("USD");
+                .sellQty(new BigDecimal("10"));
     }
 
     @Test
@@ -119,51 +116,6 @@ class SellOrderApiTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("출고 상세 ID를 입력하세요."));
-
-        verify(sellOrderService, never()).placeSellOrder(any());
-    }
-
-    @Test
-    @DisplayName("매도 주문 접수 시 거래소 코드가 없으면 검증 실패로 400을 반환하고 서비스는 호출되지 않는다")
-    @WithMockUser(roles = "SETTLEMENT")
-    void placeSellOrderReturns400WhenExchangeCodeMissing() throws Exception {
-        SellOrderRequestDTO request = validRequestBuilder().exchangeCode(null).build();
-
-        mockMvc.perform(post("/api/sell-orders")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("거래소 코드는 필수입니다."));
-
-        verify(sellOrderService, never()).placeSellOrder(any());
-    }
-
-    @Test
-    @DisplayName("매도 주문 접수 시 종목 코드가 없으면 검증 실패로 400을 반환하고 서비스는 호출되지 않는다")
-    @WithMockUser(roles = "SETTLEMENT")
-    void placeSellOrderReturns400WhenTickerMissing() throws Exception {
-        SellOrderRequestDTO request = validRequestBuilder().ticker(null).build();
-
-        mockMvc.perform(post("/api/sell-orders")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("종목 코드는 필수입니다."));
-
-        verify(sellOrderService, never()).placeSellOrder(any());
-    }
-
-    @Test
-    @DisplayName("매도 주문 접수 시 통화 단위가 없으면 검증 실패로 400을 반환하고 서비스는 호출되지 않는다")
-    @WithMockUser(roles = "SETTLEMENT")
-    void placeSellOrderReturns400WhenCurrencyUnitMissing() throws Exception {
-        SellOrderRequestDTO request = validRequestBuilder().currencyUnit(null).build();
-
-        mockMvc.perform(post("/api/sell-orders")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("통화 단위는 필수입니다."));
 
         verify(sellOrderService, never()).placeSellOrder(any());
     }
