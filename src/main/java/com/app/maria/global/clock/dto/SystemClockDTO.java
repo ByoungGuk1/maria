@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @ToString
 public class SystemClockDTO {
     private Long clockId;
+    private LocalDateTime baseDatetime;
     private LocalDateTime currentDatetime;
     private LocalDateTime referenceRealDatetime;
 }
-

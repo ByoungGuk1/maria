@@ -10,6 +10,7 @@ import java.util.Optional;
 @Mapper
 public interface SystemClockMapper {
     public Optional<SystemClockDTO> selectSystemClock();
-    public int updateSystemClock(@Param("currentDatetime") LocalDateTime currentDatetime);
-
+    int updateSystemClock(@Param("newDatetime") LocalDateTime newDatetime,
+            @Param("expectedReferenceRealDatetime") LocalDateTime expectedReferenceRealDatetime
+    );
 }

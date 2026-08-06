@@ -4,6 +4,7 @@ import com.app.maria.global.audit.dto.AuditLogDTO;
 import com.app.maria.global.audit.exception.AuditLogInsertException;
 import com.app.maria.global.audit.mapper.AuditLogMapper;
 import com.app.maria.global.clock.dto.SystemClockDTO;
+import com.app.maria.global.clock.dto.request.SystemClockChangeRequestDTO;
 import com.app.maria.global.clock.exception.SystemClockNotInitializedException;
 import com.app.maria.global.clock.exception.SystemClockUpdateException;
 import com.app.maria.global.clock.mapper.SystemClockMapper;
@@ -24,25 +25,25 @@ public class SystemClockManagementServiceImpl implements SystemClockManagementSe
 
     @Transactional(rollbackFor = Exception.class)
     @Override
-    public void changeSystemTime(Long adminId,LocalDateTime newDatetime, String reasonCode){
-
-        if(newDatetime ==null){
-            throw new SystemClockUpdateException(
-                    "변경할 업무시각은 필수입니다."
-            );
-        }
+    public LocalDateTime changeSystemTime(
+            Long adminId,
+            SystemClockChangeRequestDTO requestDTO){
+        LocalDateTime newDatetime = requestDTO.getNewDatetime();
+        String reasonCode =  requestDTO.getReasonCode();
 
         SystemClockDTO currentClock = systemClockMapper.selectSystemClock()
                 .orElseThrow(() -> new SystemClockNotInitializedException("SYSTEM_CLOCK 데이터가 존재하지 않습니다."));
         if (currentClock.getCurrentDatetime().equals(newDatetime)){
-            return;
+            return currentClock.getCurrentDatetime();
         }
 
-        int updatedRows = systemClockMapper.updateSystemClock(newDatetime);
+        int updatedRows = systemClockMapper.updateSystemClock(
+                newDatetime,
+                currentClock.getReferenceRealDatetime());
 
         if(updatedRows !=1){
             throw new SystemClockUpdateException(
-                    "SYSTEM_CLOCK 변경에 실패했습니다."
+                    "다른 관리자가 업무시각을 먼저 변경했습니다. 다시 조회해 주세요."
             );
         }
 
@@ -53,7 +54,6 @@ public class SystemClockManagementServiceImpl implements SystemClockManagementSe
                 .beforeValue(currentClock.getCurrentDatetime().toString())
                 .afterValue(newDatetime.toString())
                 .reasonCode(reasonCode)
-                .processedAt(currentClock.getCurrentDatetime())
                 .build();
         int insertedRows = auditLogMapper.insertLog(auditLog);
 
@@ -63,7 +63,7 @@ public class SystemClockManagementServiceImpl implements SystemClockManagementSe
             );
         }
 
-
+    return newDatetime;
 
     }
 }

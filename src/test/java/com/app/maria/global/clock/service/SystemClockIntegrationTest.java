@@ -1,6 +1,8 @@
 package com.app.maria.global.clock.service;
 
 import com.app.maria.global.audit.mapper.AuditLogMapper;
+import com.app.maria.global.clock.dto.SystemClockDTO;
+import com.app.maria.global.clock.dto.request.SystemClockChangeRequestDTO;
 import com.app.maria.global.clock.mapper.SystemClockMapper;
 import org.apache.ibatis.builder.xml.XMLMapperBuilder;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
@@ -37,6 +39,7 @@ class SystemClockIntegrationTest {
     private static SqlSessionFactory sqlSessionFactory;
 
     private SqlSession sqlSession;
+    private SystemClockMapper systemClockMapper;
     private BusinessClockService businessClockService;
     private SystemClockManagementService systemClockManagementService;
 
@@ -71,12 +74,24 @@ class SystemClockIntegrationTest {
         resetSchema();
 
         sqlSession = sqlSessionFactory.openSession(true);
-        SystemClockMapper systemClockMapper = sqlSession.getMapper(SystemClockMapper.class);
+        systemClockMapper = sqlSession.getMapper(SystemClockMapper.class);
         AuditLogMapper auditLogMapper = sqlSession.getMapper(AuditLogMapper.class);
 
         businessClockService = new BusinessClockServiceImpl(systemClockMapper);
         systemClockManagementService =
                 new SystemClockManagementServiceImpl(systemClockMapper, auditLogMapper);
+    }
+
+    @Test
+    @DisplayName("SYSTEM_CLOCK 기준시각과 흐르는 현재 업무시각을 함께 조회한다")
+    void selectsBaseAndCurrentDatetimeSeparately() {
+        SystemClockDTO systemClock = systemClockMapper.selectSystemClock()
+                .orElseThrow();
+
+        assertThat(systemClock.getBaseDatetime()).isEqualTo(INITIAL_DATETIME);
+        assertThat(systemClock.getCurrentDatetime())
+                .isBetween(INITIAL_DATETIME, INITIAL_DATETIME.plusSeconds(2));
+        assertThat(systemClock.getReferenceRealDatetime()).isNotNull();
     }
 
     @AfterEach
@@ -105,11 +120,18 @@ class SystemClockIntegrationTest {
         assertThat(datetimeBeforeChange)
                 .isBetween(INITIAL_DATETIME, INITIAL_DATETIME.plusSeconds(2));
 
-        systemClockManagementService.changeSystemTime(
+        LocalDateTime actualTimeBeforeChange = LocalDateTime.now();
+
+        LocalDateTime changedDatetime = systemClockManagementService.changeSystemTime(
                 adminId,
-                requestedDatetime,
-                reasonCode
+                new SystemClockChangeRequestDTO(
+                        requestedDatetime,
+                        reasonCode)
         );
+
+        LocalDateTime actualTimeAfterChange = LocalDateTime.now();
+
+        assertThat(changedDatetime).isEqualTo(requestedDatetime);
 
         assertThat(businessClockService.now())
                 .isBetween(requestedDatetime, requestedDatetime.plusSeconds(2));
@@ -140,7 +162,9 @@ class SystemClockIntegrationTest {
                     .isEqualTo(requestedDatetime.toString());
             assertThat(resultSet.getString("reason_code")).isEqualTo(reasonCode);
             assertThat(resultSet.getObject("processed_at", LocalDateTime.class))
-                    .isEqualTo(beforeValue);
+                    .isBetween(
+                            actualTimeBeforeChange.minusSeconds(1),
+                            actualTimeAfterChange.plusSeconds(1));
             assertThat(resultSet.next()).isFalse();
         }
     }
@@ -198,7 +222,7 @@ class SystemClockIntegrationTest {
                         before_value TEXT,
                         after_value TEXT,
                         reason_code VARCHAR(30),
-                        processed_at DATETIME NOT NULL
+                        processed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
                     )
                     """);
             statement.execute("""

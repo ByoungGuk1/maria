@@ -1,6 +1,7 @@
 package com.app.maria.global.clock.api;
 
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.app.maria.global.clock.dto.request.SystemClockChangeRequestDTO;
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.clock.service.SystemClockManagementService;
 import com.app.maria.global.exception.GlobalExceptionHandler;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
@@ -26,6 +28,8 @@ import java.util.List;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -101,6 +105,14 @@ class SystemClockApiTest {
 
     @Test
     void MARIA_업무시각을_변경한다() throws Exception {
+        LocalDateTime changedDatetime =
+                LocalDateTime.of(2027, 8, 5, 9, 30);
+
+        when(systemClockManagementService.changeSystemTime(
+                eq(4L),
+                any(SystemClockChangeRequestDTO.class)
+        )).thenReturn(changedDatetime);
+
         mockMvc.perform(patch("/api/admin/system-clock")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -112,13 +124,22 @@ class SystemClockApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message")
                         .value("시스템 업무시각 변경 완료"))
-                .andExpect(jsonPath("$.data").isEmpty());
+                .andExpect(jsonPath("$.data")
+                        .value("2027-08-05T09:30:00"));
+
+        ArgumentCaptor<SystemClockChangeRequestDTO> requestCaptor =
+                ArgumentCaptor.forClass(SystemClockChangeRequestDTO.class);
 
         verify(systemClockManagementService).changeSystemTime(
-                4L,
-                LocalDateTime.of(2027, 8, 5, 9, 30),
-                "DEMO_TIME_CHANGE"
+                eq(4L),
+                requestCaptor.capture()
         );
+
+        SystemClockChangeRequestDTO requestDTO = requestCaptor.getValue();
+        org.assertj.core.api.Assertions.assertThat(requestDTO.getNewDatetime())
+                .isEqualTo(changedDatetime);
+        org.assertj.core.api.Assertions.assertThat(requestDTO.getReasonCode())
+                .isEqualTo("DEMO_TIME_CHANGE");
 
         verifyNoInteractions(businessClockService);
     }

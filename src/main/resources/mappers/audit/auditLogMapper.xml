@@ -11,8 +11,7 @@
         target_pk,
         before_value,
         after_value,
-        reason_code,
-        processed_at
+        reason_code
         )
         VALUES(
         #{adminId},
@@ -20,8 +19,7 @@
         #{targetPk},
         #{beforeValue},
         #{afterValue},
-        #{reasonCode},
-        #{processedAt}
+        #{reasonCode}
         )
     </insert>
 

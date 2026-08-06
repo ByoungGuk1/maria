@@ -5,7 +5,10 @@
 
 <mapper namespace="com.app.maria.global.clock.mapper.SystemClockMapper">
     <select id="selectSystemClock" resultType="com.app.maria.global.clock.dto.SystemClockDTO">
-        SELECT clock_id,
+        SELECT
+        clock_id,
+        current_datetime AS base_datetime,
+        reference_real_datetime,
         TIMESTAMPADD(
         SECOND,
         TIMESTAMPDIFF(
@@ -21,9 +24,10 @@
 
     <update id="updateSystemClock">
         UPDATE system_clock
-        SET current_datetime = #{currentDatetime},
+        SET current_datetime = #{newDatetime},
         reference_real_datetime = CURRENT_TIMESTAMP
         WHERE clock_id = 1
+        AND reference_real_datetime = #{expectedReferenceRealDatetime}
     </update>
 
 </mapper>

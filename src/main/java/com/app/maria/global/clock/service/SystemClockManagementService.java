@@ -1,10 +1,14 @@
 package com.app.maria.global.clock.service;
 
 
+import com.app.maria.global.clock.dto.request.SystemClockChangeRequestDTO;
+
 import java.time.LocalDateTime;
 
 public interface SystemClockManagementService {
 
 
-    void changeSystemTime(Long adminId, LocalDateTime newDatetime, String reasonCode);
+    LocalDateTime changeSystemTime(
+            Long adminId,
+            SystemClockChangeRequestDTO requestDTO);
 }

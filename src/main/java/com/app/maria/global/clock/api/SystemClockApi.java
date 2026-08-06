@@ -27,13 +27,12 @@ public class SystemClockApi {
             @AuthenticationPrincipal Long adminId,
             @Valid @RequestBody SystemClockChangeRequestDTO requestDTO
             ){
-        systemClockManagementService.changeSystemTime(
+        LocalDateTime changedDatetime = systemClockManagementService.changeSystemTime(
                 adminId,
-                requestDTO.getNewDatetime(),
-                requestDTO.getReasonCode()
+                requestDTO
                 );
         return ResponseEntity.ok(
-                ApiResponseDTO.of("시스템 업무시각 변경 완료", null));
+                ApiResponseDTO.of("시스템 업무시각 변경 완료", changedDatetime));
 
     }
 
