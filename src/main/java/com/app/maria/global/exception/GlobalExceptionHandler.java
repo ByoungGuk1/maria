@@ -6,6 +6,8 @@ import com.app.maria.domain.account.exception.DuplicateAccountException;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.admin.exception.AdminException;
 import com.app.maria.domain.admin.exception.AdminNotFoundException;
+import com.app.maria.domain.foreignproduct.exception.ForeignProductException;
+import com.app.maria.domain.foreignproduct.exception.ForeignProductNotFoundException;
 import com.app.maria.domain.inbound.exception.InboundException;
 import com.app.maria.domain.inbound.exception.InboundNotFoundException;
 import com.app.maria.domain.member.exception.MemberException;
@@ -100,6 +102,17 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(InboundNotFoundException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleInboundNotFoundException(InboundNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    // 7. ForeignProduct 예외
+    @ExceptionHandler(ForeignProductException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleForeignProductException(ForeignProductException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(ForeignProductNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleForeignProductNotFound(ForeignProductNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 }
