@@ -14,6 +14,7 @@ import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.mapper.AccountStatusLogMapper;
 import com.app.maria.domain.account.type.AutomaticRejectionReason;
 import com.app.maria.domain.account.type.Status;
+import com.app.maria.global.clock.service.BusinessClockService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -40,6 +41,7 @@ public class AccountServiceImpl implements AccountService {
 
   private final AccountMapper accountMapper;
   private final AccountStatusLogMapper accountStatusLogMapper;
+  private final BusinessClockService businessClockService;
 
   @Override
   public List<AccountResponseDTO> findAll() {
@@ -82,7 +84,7 @@ public class AccountServiceImpl implements AccountService {
         .accountId(account.getAccountId())
         .prevStatus(account.getStatus())
         .newStatus(account.getStatus())
-        .changedAt(getCurrentDateTime())
+        .changedAt(businessClockService.now())
         .reason(buildLimitChangeReason(account.getLimitAmount(), newLimitAmount))
         .build();
 
@@ -172,7 +174,7 @@ public class AccountServiceImpl implements AccountService {
     AccountStatusLogDTO log = AccountStatusLogDTO.builder()
         .accountId(account.getAccountId())
         .prevStatus(account.getStatus())
-        .changedAt(getCurrentDateTime())
+        .changedAt(businessClockService.now())
         .reason(normalizedReason)
         .build();
 
@@ -381,17 +383,12 @@ public class AccountServiceImpl implements AccountService {
   }
 
   private LocalDateTime getApplicationTime() {
-    LocalDateTime applicationTime = getCurrentDateTime();
+    LocalDateTime applicationTime = businessClockService.now();
     LocalDate today = applicationTime.toLocalDate();
     if (today.isBefore(RIA_APPLICATION_START_DATE) || today.isAfter(RIA_APPLICATION_END_DATE)) {
       throw new InvalidAccountRequestException("RIA 계좌 신청 가능 기간이 아닙니다.");
     }
     return applicationTime;
-  }
-
-  private LocalDateTime getCurrentDateTime() {
-    // TODO 타임 테이블 조회
-    return LocalDateTime.now();
   }
 
   private void openAccountWithRetry(AccountDTO account) {
