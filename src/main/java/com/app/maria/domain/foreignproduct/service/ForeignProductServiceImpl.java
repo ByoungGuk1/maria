@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -22,12 +21,16 @@ public class ForeignProductServiceImpl implements ForeignProductService {
     public List<ForeignProductResponseDTO> getAllForeignProducts() {
         List<ForeignProductDTO> products = foreignProductMapper.selectAll();
 
-        if (products.isEmpty()) {
-            throw new ForeignProductNotFoundException("등록된 종목이 없습니다.");
-        }
-
         return products.stream()
-                .map(ForeignProductResponseDTO::of)
-                .collect(Collectors.toList());
+                .map(ForeignProductResponseDTO::new)
+                .toList();
+    }
+
+    @Override
+    public ForeignProductResponseDTO getForeignProduct(Long foreignProductId) {
+        return foreignProductMapper.selectById(foreignProductId)
+                .map(ForeignProductResponseDTO::new)
+                .orElseThrow(() -> new ForeignProductNotFoundException(
+                        "존재하지 않는 종목입니다. foreignProductId=" + foreignProductId));
     }
 }
