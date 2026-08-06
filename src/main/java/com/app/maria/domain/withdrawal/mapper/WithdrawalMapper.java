@@ -1,5 +1,6 @@
 package com.app.maria.domain.withdrawal.mapper;
 
+import com.app.maria.domain.withdrawal.dto.LeftAmountDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalDTO;
 import com.app.maria.domain.withdrawal.type.WithdrawalStatus;
@@ -7,6 +8,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 
 @Mapper
@@ -28,5 +30,5 @@ public interface WithdrawalMapper {
     //인출 후 계좌 잔액 차감 기능
     public int deductAccountAmount(@Param("accountId") Long accountId, @Param("requestedAmount") BigDecimal requestedAmount);
 
-
+    List<LeftAmountDTO> selectAvailableLeftAmountsByAccountId(Long accountId);
 }

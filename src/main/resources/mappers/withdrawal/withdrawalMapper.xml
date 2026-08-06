@@ -56,4 +56,16 @@
 
     </update>
 
+    <select id="selectAvailableLeftAmountsByAccountId"
+            parameterType="Long"
+            resultType="com.app.maria.domain.withdrawal.dto.LeftAmountDTO">
+        SELECT la.left_amount_id, la.exchange_id, la.cur_amount, ke.final_at
+        FROM left_amount la JOIN krw_exchange ke on la.exchange_id=ke.exchange_id
+        WHERE ke.account_id = #{accountId}
+        AND ke.settlement_status = 'FINALIZED'
+        AND ke.final_at IS NOT NULL
+        AND la.cur_amount > 0
+        ORDER BY ke.final_at ASC, ke.exchange_id ASC
+    </select>
+
 </mapper>
