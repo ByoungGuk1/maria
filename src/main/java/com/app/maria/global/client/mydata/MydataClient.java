@@ -7,7 +7,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -41,8 +40,6 @@ public class MydataClient {
             );
             List<MydataRiaAccountDTO> accounts = response.getBody() != null ? response.getBody().getData() : null;
             return sum(accounts);
-        } catch (HttpClientErrorException.NotFound e) {
-            return BigDecimal.ZERO;
         } catch (RestClientException e) {
             throw new MydataApiException("myData 외부 순매수 조회 실패", e);
         }
