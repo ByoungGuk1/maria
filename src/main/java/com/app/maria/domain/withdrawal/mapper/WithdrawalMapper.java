@@ -30,5 +30,8 @@ public interface WithdrawalMapper {
     //인출 후 계좌 잔액 차감 기능
     public int deductAccountAmount(@Param("accountId") Long accountId, @Param("requestedAmount") BigDecimal requestedAmount);
 
-    List<LeftAmountDTO> selectAvailableLeftAmountsByAccountId(Long accountId);
+    //계좌 상태 검증
+    public List<LeftAmountDTO> selectAvailableLeftAmountsByAccountId(Long accountId);
+
+
 }
