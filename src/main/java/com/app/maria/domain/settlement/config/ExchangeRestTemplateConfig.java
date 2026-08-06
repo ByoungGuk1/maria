@@ -1,6 +1,7 @@
 package com.app.maria.domain.settlement.config;
 
 import com.app.maria.global.client.exchange.ExchangeRateClient;
+import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.config.properties.ExchangeApiProperties;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -23,7 +24,7 @@ public class ExchangeRestTemplateConfig {
   }
 
   @Bean("settlementExchangeRateClient")
-  public ExchangeRateClient settlementExchangeRateClient(@Qualifier("settlementRestTemplate") RestTemplate restTemplate, ExchangeApiProperties exchangeApiProperties) {
-    return new ExchangeRateClient(restTemplate, exchangeApiProperties);
+  public ExchangeRateClient settlementExchangeRateClient(@Qualifier("settlementRestTemplate") RestTemplate restTemplate, ExchangeApiProperties exchangeApiProperties, BusinessClockService businessClockService) {
+    return new ExchangeRateClient(restTemplate, exchangeApiProperties, businessClockService);
   }
 }

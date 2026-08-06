@@ -1,5 +1,6 @@
 package com.app.maria.global.client.exchange;
 
+import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.config.properties.ExchangeApiProperties;
 import com.app.maria.global.exception.ExchangeRateNotFoundException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -14,6 +15,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,6 +33,9 @@ class ExchangeRateClientTest {
     @Mock
     RestTemplate restTemplate;
 
+    @Mock
+    BusinessClockService businessClockService;
+
     ExchangeRateClient exchangeRateClient;
 
     @BeforeEach
@@ -38,7 +43,8 @@ class ExchangeRateClientTest {
         ExchangeApiProperties properties = new ExchangeApiProperties();
         properties.setUrl("https://oapi.koreaexim.go.kr/site/program/financial/exchangeJSON?");
         properties.setApiKey("test-auth-key");
-        exchangeRateClient = new ExchangeRateClient(restTemplate, properties);
+        exchangeRateClient = new ExchangeRateClient(restTemplate, properties, businessClockService);
+        lenient().when(businessClockService.now()).thenReturn(LocalDateTime.now());
     }
 
     private JsonNode json(String content) throws Exception {
