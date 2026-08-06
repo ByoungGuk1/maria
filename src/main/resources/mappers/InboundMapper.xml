@@ -24,4 +24,12 @@
         VALUES (#{inboundDetailId}, #{requestedQty}, #{approvedQty}, #{snapshotQty})
     </insert>
 
+    <select id="sumApprovedQtyByAccountAndProduct" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(id.qty), 0)
+        FROM inbound_detail id
+        JOIN inbound i ON i.inbound_id = id.inbound_id
+        WHERE i.account_id = #{accountId}
+        AND id.foreign_product_id = #{foreignProductId}
+    </select>
+
 </mapper>
