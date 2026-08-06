@@ -44,9 +44,21 @@ public class SettlementApi {
   }
 
   @GetMapping("/batches/{batchId}")
-  //Batch 상세 -> @Positive ==> 필드 값이 0보다 큰 양수인지 검사
+  //Batch 단건 -> @Positive ==> 필드 값이 0보다 큰 양수인지 검사
   public ResponseEntity<ApiResponseDTO<SettlementBatchDTO>> getSettlementBatch(@PathVariable @Positive Long batchId) {
-    return ResponseEntity.ok(ApiResponseDTO.of("확정산 배치 상세 조회",settlementService.getSettlementBatch(batchId)));
+    return ResponseEntity.ok(ApiResponseDTO.of("확정산 배치 단건 조회",settlementService.getSettlementBatch(batchId)));
+  }
+
+  @GetMapping("/batches/detail/{batchId}")
+  //Batch 건별 상세
+  public ResponseEntity<ApiResponseDTO<List<SettlementJoinDTO>>> getSettlementBatchDetail(@PathVariable @Positive Long batchId) {
+    return ResponseEntity.ok(ApiResponseDTO.of("확정산 배치 단건 상세 조회",settlementService.getSettlementBatchDetail(batchId)));
+  }
+
+  @GetMapping("/batches/detail/fail/{batchId}")
+  //Batch 실패 건 상세
+  public ResponseEntity<ApiResponseDTO<List<SettlementJoinDTO>>> getSettlementBatchFailDetail(@PathVariable @Positive Long batchId) {
+    return ResponseEntity.ok(ApiResponseDTO.of("확정산 배치 단건 조회",settlementService.getSettlementBatchFailDetail(batchId)));
   }
 
   @GetMapping("/batches/run/{runId}")

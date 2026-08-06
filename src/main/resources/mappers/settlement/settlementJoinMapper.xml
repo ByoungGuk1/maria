@@ -55,4 +55,51 @@
           AND si.item_id = #{itemId}
     </select>
 
+    <select id="selectSettlementBatchDetail" parameterType="Long" resultType="SettlementJoinDTO">
+        SELECT
+            si.item_id,
+            si.batch_id,
+            ke.exchange_id,
+            ke.account_id,
+            ke.order_id,
+            ke.provisional_amount,
+            ke.provisional_at,
+            ke.settlement_status,
+            so.purchase_fx_rate,
+            so.status AS sell_order_status,
+            ind.purchase_currency
+        FROM settlement_item si
+        JOIN krw_exchange ke
+            ON ke.exchange_id = si.exchange_id
+        JOIN sell_order so
+            ON so.order_id = ke.order_id
+        JOIN inbound_detail ind
+            ON ind.inbound_detail_id = so.inbound_detail_id
+        WHERE si.batch_id = #{batchId}
+    </select>
+
+    <select id="selectSettlementBatchFailDetail" parameterType="Long" resultType="SettlementJoinDTO">
+        SELECT
+            si.item_id,
+            si.batch_id,
+            ke.exchange_id,
+            ke.account_id,
+            ke.order_id,
+            ke.provisional_amount,
+            ke.provisional_at,
+            ke.settlement_status,
+            so.purchase_fx_rate,
+            so.status AS sell_order_status,
+            ind.purchase_currency
+        FROM settlement_item si
+        JOIN krw_exchange ke
+            ON ke.exchange_id = si.exchange_id
+        JOIN sell_order so
+            ON so.order_id = ke.order_id
+        JOIN inbound_detail ind
+            ON ind.inbound_detail_id = so.inbound_detail_id
+        WHERE si.batch_id = #{batchId}
+            AND si.result LIKE 'FAILED';
+    </select>
+
 </mapper>

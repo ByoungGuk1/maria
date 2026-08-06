@@ -15,6 +15,10 @@ public interface SettlementService {
 
   SettlementBatchDTO getSettlementBatch(Long batchId);
 
+  List<SettlementJoinDTO> getSettlementBatchDetail(Long batchId);
+
+  List<SettlementJoinDTO> getSettlementBatchFailDetail(Long batchId);
+
   SettlementBatchDTO getSettlementBatchByRunId(String runId);
 
   List<SettlementItemDTO> getPendingSettlementItems(Long batchId, Long lastItemId);

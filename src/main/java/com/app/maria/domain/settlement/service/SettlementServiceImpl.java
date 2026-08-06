@@ -85,6 +85,18 @@ public class SettlementServiceImpl implements SettlementService {
 
   @Override
   @Transactional(readOnly = true)
+  public List<SettlementJoinDTO> getSettlementBatchDetail(Long batchId){
+    return settlementJoinMapper.selectSettlementBatchDetail(batchId);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<SettlementJoinDTO> getSettlementBatchFailDetail(Long batchId){
+    return settlementJoinMapper.selectSettlementBatchFailDetail(batchId);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
   public SettlementBatchDTO getSettlementBatchByRunId(String runId) {
     return settlementBatchMapper.selectBatchByRunId(runId).orElseThrow(()->new SettlementBatchNotFoundException("run id로 배치 조회 실패"));
   }
