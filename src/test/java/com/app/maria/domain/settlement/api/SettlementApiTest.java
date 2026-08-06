@@ -4,30 +4,25 @@ import com.app.maria.domain.settlement.dto.KrwExchangeDTO;
 import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
 import com.app.maria.domain.settlement.dto.SettlementItemDTO;
 import com.app.maria.domain.settlement.dto.SettlementJoinDTO;
-import com.app.maria.domain.settlement.exception.InvalidSettlementException;
-import com.app.maria.domain.settlement.exception.KrwExchangeNotFoundException;
-import com.app.maria.domain.settlement.exception.SettlementBatchNotFoundException;
-import com.app.maria.domain.settlement.exception.SettlementCalculationException;
-import com.app.maria.domain.settlement.exception.SettlementItemNotFoundException;
-import com.app.maria.domain.settlement.exception.SettlementStateConflictException;
+import com.app.maria.domain.settlement.exception.*;
 import com.app.maria.domain.settlement.service.SettlementService;
 import com.app.maria.domain.settlement.type.BatchStatus;
 import com.app.maria.domain.settlement.type.SettlementStatus;
 import com.app.maria.global.config.SecurityConfig;
+import com.app.maria.global.jwt.JwtTokenProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -35,6 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(SettlementApi.class)
 @Import(SecurityConfig.class)
+@WithMockUser(roles = "ADMIN")
 class SettlementApiTest {
 
   @Autowired
@@ -42,6 +38,9 @@ class SettlementApiTest {
 
   @MockitoBean
   private SettlementService settlementService;
+
+  @MockitoBean
+  private JwtTokenProvider jwtTokenProvider;
 
   @Test
   void executeSettlementBatchReturnsAcceptedBatch() throws Exception {
