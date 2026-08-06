@@ -1,5 +1,8 @@
 package com.app.maria.domain.sellorder.service;
 
+import com.app.maria.domain.foreignproduct.dto.ForeignProductDTO;
+import com.app.maria.domain.foreignproduct.exception.ForeignProductNotFoundException;
+import com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper;
 import com.app.maria.domain.inbound.dto.InboundDetailDTO;
 import com.app.maria.domain.inbound.exception.InboundNotFoundException;
 import com.app.maria.domain.inbound.mapper.InboundMapper;
@@ -29,6 +32,7 @@ public class SellOrderServiceImpl implements SellOrderService{
     private final KisPriceClient kis;
     private final ExchangeRateClient exchange;
     private final InboundMapper inboundMapper;
+    private final ForeignProductMapper foreignProductMapper;
 
     @Override
     public SellOrderResponseDTO placeSellOrder(SellOrderRequestDTO request) {
@@ -37,31 +41,31 @@ public class SellOrderServiceImpl implements SellOrderService{
             throw new SellOrderException("매도 수량은 0보다 커야 합니다.");
         }
 
-        Optional<InboundDetailDTO> lot = inboundMapper.selectInboundDetailById(request.getInboundDetailId());
+        SellOrderDTO dto = request.toSellOrderDTO();
+        dto.setStatus(SellOrderStatus.RECEIVED);
+
+        Optional<InboundDetailDTO> lot = inboundMapper.selectInboundDetailById(dto.getInboundDetailId());
         if (lot.isEmpty()) {
             throw new InboundNotFoundException("입고 상세를 찾을 수 없습니다.");
         }
-        if (request.getSellQty().compareTo(lot.get().getCurrentQty()) > 0) {
+        if (dto.getSellQty().compareTo(lot.get().getCurrentQty()) > 0) {
             throw new SellOrderException("매도 가능 수량을 초과했습니다.");
         }
 
-        int updateRows = inboundMapper.decreaseCurrentQty(request.getInboundDetailId(), request.getSellQty());
+        ForeignProductDTO product = foreignProductMapper.selectById(lot.get().getForeignProductId())
+                .orElseThrow(() -> new ForeignProductNotFoundException("종목 정보를 찾을 수 없습니다."));
+
+        int updateRows = inboundMapper.decreaseCurrentQty(dto.getInboundDetailId(), dto.getSellQty());
         if (updateRows == 0) {
             throw new SellOrderException("다른 요청이 먼저 처리되었습니다.");
         }
 
-        BigDecimal previousClose = kis.getPreviousClose(request.getExchangeCode(), request.getTicker());
-        BigDecimal exchangeRate = exchange.getBaseRate(request.getCurrencyUnit());
-        BigDecimal basePrice = previousClose.multiply(exchangeRate);
-
-        SellOrderDTO dto = new SellOrderDTO();
-        dto.setInboundDetailId(request.getInboundDetailId());
-        dto.setSellQty(request.getSellQty());
-        dto.setStatus(SellOrderStatus.RECEIVED);
-        dto.setBasePrice(basePrice);
+        BigDecimal previousClose = kis.getPreviousClose(product.getMarket(), product.getTicker());
+        BigDecimal exchangeRate = exchange.getBaseRate(product.getCurrency());
+        dto.setBasePrice(previousClose.multiply(exchangeRate));
         dto.setSettlementFxRate(exchangeRate);
-        sellOrderMapper.insertSellOrder(dto);
 
+        sellOrderMapper.insertSellOrder(dto);
         return new SellOrderResponseDTO(dto);
     }
 
