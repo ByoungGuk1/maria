@@ -12,6 +12,7 @@ import com.app.maria.domain.member.exception.MemberException;
 import com.app.maria.domain.member.exception.MemberNotFoundException;
 import com.app.maria.domain.sellorder.exception.SellOrderException;
 import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
+import com.app.maria.domain.settlement.exception.*;
 import com.app.maria.global.response.ApiResponseDTO;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.http.HttpStatus;
@@ -101,5 +102,53 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InboundNotFoundException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleInboundNotFoundException(InboundNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    // 7. Settlement 예외
+    @ExceptionHandler(SettlementException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleSettlementException(SettlementException e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidSettlementException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleInvalidSettlementException(InvalidSettlementException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(SettlementBatchNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleSettlementBatchNotFoundException(SettlementBatchNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(SettlementItemNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleSettlementItemNotFoundException(SettlementItemNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(SettlementCalculationException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleSettlementCalculationException(SettlementCalculationException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(SettlementStateConflictException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleSettlementStateConflictException(SettlementStateConflictException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(SettlementBatchAlreadyRunningException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleSettlementBatchAlreadyRunningException(
+            SettlementBatchAlreadyRunningException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(KrwExchangeNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleKrwExchangeNotFoundException(KrwExchangeNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    // 8. mydata 예외
+    @ExceptionHandler(MydataApiException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleMydataApiException(MydataApiException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
     }
 }
