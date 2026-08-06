@@ -50,12 +50,40 @@ class ForeignProductApiTest {
     }
 
     @Test
-    void getAllForeignProductsReturnsNotFoundWhenNoProductsExist() throws Exception {
-        when(foreignProductService.getAllForeignProducts())
-                .thenThrow(new ForeignProductNotFoundException("등록된 종목이 없습니다."));
+    void getAllForeignProductsReturnsEmptyListWhenNoProductsExist() throws Exception {
+        when(foreignProductService.getAllForeignProducts()).thenReturn(List.of());
 
         mockMvc.perform(get("/api/foreign-products"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    void getForeignProductReturnsProductWhenProductExists() throws Exception {
+        ForeignProductResponseDTO response = ForeignProductResponseDTO.builder()
+                .foreignProductId(1L)
+                .ticker("AAPL")
+                .name("애플")
+                .market("NASDAQ")
+                .currency("USD")
+                .type("FOREIGN_STOCK")
+                .build();
+        when(foreignProductService.getForeignProduct(1L)).thenReturn(response);
+
+        mockMvc.perform(get("/api/foreign-products/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("종목 단건 조회 성공"))
+                .andExpect(jsonPath("$.data.ticker").value("AAPL"));
+    }
+
+    @Test
+    void getForeignProductReturnsNotFoundWhenProductDoesNotExist() throws Exception {
+        when(foreignProductService.getForeignProduct(999L))
+                .thenThrow(new ForeignProductNotFoundException("존재하지 않는 종목입니다. foreignProductId=999"));
+
+        mockMvc.perform(get("/api/foreign-products/999"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("등록된 종목이 없습니다."));
+                .andExpect(jsonPath("$.message").value("존재하지 않는 종목입니다. foreignProductId=999"));
     }
 }
