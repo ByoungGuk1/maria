@@ -10,4 +10,10 @@
         ORDER BY foreign_product_id
     </select>
 
+    <select id="selectById" parameterType="Long" resultType="ForeignProductDTO">
+        SELECT foreign_product_id, ticker, name, market, currency, type
+        FROM foreign_product
+        WHERE foreign_product_id = #{foreignProductId}
+    </select>
+
 </mapper>
