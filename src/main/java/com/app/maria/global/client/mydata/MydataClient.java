@@ -3,7 +3,7 @@ package com.app.maria.global.client.mydata;
 import com.app.maria.global.config.properties.MydataApiProperties;
 import com.app.maria.global.exception.MydataApiException;
 import com.app.maria.global.response.ApiResponseDTO;
-import org.springframework.beans.factory.annotation.Qualifier;
+import lombok.RequiredArgsConstructor;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
@@ -18,15 +18,11 @@ import java.util.Objects;
 
 
 @Component
+@RequiredArgsConstructor
 public class MydataClient {
 
     private final RestTemplate restTemplate;
     private final MydataApiProperties mydataApiProperties;
-
-    public MydataClient(@Qualifier("mydataRestTemplate") RestTemplate restTemplate, MydataApiProperties mydataApiProperties) {
-        this.restTemplate = restTemplate;
-        this.mydataApiProperties = mydataApiProperties;
-    }
 
     public BigDecimal getExternalSellTotal(String ciHash) {
         String requestUrl = mydataApiProperties.getUrl() + "/api/mydata/ria-accounts";
