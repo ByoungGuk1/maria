@@ -1,6 +1,7 @@
 package com.app.maria.domain.account.api;
 
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.service.AccountService;
 import com.app.maria.global.exception.GlobalExceptionHandler;
@@ -13,10 +14,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -69,6 +73,22 @@ class AccountApiTest {
     verify(accountService, never()).applyAccount(any());
   }
 
+  @Test
+  void applyRejectsNonPositiveCustomerId() throws Exception {
+    mockMvc.perform(post("/api/account/applications")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "customerId": 0,
+                  "limitAmount": 30000000
+                }
+                """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("사용자 ID는 0보다 커야 합니다."));
+
+    verify(accountService, never()).applyAccount(any());
+  }
+
   @ParameterizedTest
   @ValueSource(strings = {"0", "50000001", "1.5"})
   void applyRejectsInvalidLimit(String limitAmount) throws Exception {
@@ -98,5 +118,121 @@ class AccountApiTest {
         .andExpect(jsonPath("$.message").value("계좌 한도는 필수입니다."));
 
     verify(accountService, never()).applyAccount(any());
+  }
+
+  @Test
+  void getAvailableLimitRejectsNonPositiveCustomerId() throws Exception {
+    mockMvc.perform(get("/api/account/available-limit")
+            .param("customerId", "0"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("사용자 ID는 0보다 커야 합니다."));
+
+    verify(accountService, never()).getAvailableLimit(any());
+  }
+
+  @Test
+  void approveRejectsNonPositiveAccountId() throws Exception {
+    mockMvc.perform(post("/api/account/0/approve"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("계좌 ID는 0보다 커야 합니다."));
+
+    verify(accountService, never()).approveAccount(anyLong());
+  }
+
+  @Test
+  void rejectRejectsBlankReason() throws Exception {
+    mockMvc.perform(post("/api/account/1/reject")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "reason": "   "
+                }
+                """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("사유를 입력해야 합니다."));
+
+    verify(accountService, never()).rejectAccount(anyLong(), anyString());
+  }
+
+  @Test
+  void rejectRejectsReasonLongerThanTwoHundredCharacters() throws Exception {
+    String reason = "a".repeat(201);
+
+    mockMvc.perform(post("/api/account/1/reject")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "reason": "%s"
+                }
+                """.formatted(reason)))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("사유는 200자 이하로 입력해야 합니다."));
+
+    verify(accountService, never()).rejectAccount(anyLong(), anyString());
+  }
+
+  @Test
+  void reapplyAcceptsValidRequest() throws Exception {
+    AccountResponseDTO response = mock(AccountResponseDTO.class);
+    when(accountService.reapplyAccountByAccountId(anyLong(), any(AccountReapplyRequestDTO.class)))
+        .thenReturn(response);
+
+    mockMvc.perform(post("/api/account/1/reapply")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "limitAmount": 20000000
+                }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.message").value("계좌 재신청"));
+
+    verify(accountService).reapplyAccountByAccountId(anyLong(), any(AccountReapplyRequestDTO.class));
+  }
+
+  @Test
+  void reapplyAcceptsMissingLimitForCurrentLimitReuse() throws Exception {
+    AccountResponseDTO response = mock(AccountResponseDTO.class);
+    when(accountService.reapplyAccountByAccountId(anyLong(), any(AccountReapplyRequestDTO.class)))
+        .thenReturn(response);
+
+    mockMvc.perform(post("/api/account/1/reapply")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.message").value("계좌 재신청"));
+
+    verify(accountService).reapplyAccountByAccountId(anyLong(), any(AccountReapplyRequestDTO.class));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"0", "50000001", "1.5"})
+  void reapplyRejectsInvalidLimit(String limitAmount) throws Exception {
+    mockMvc.perform(post("/api/account/1/reapply")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "limitAmount": %s
+                }
+                """.formatted(limitAmount)))
+        .andExpect(status().isBadRequest());
+
+    verify(accountService, never())
+        .reapplyAccountByAccountId(anyLong(), any(AccountReapplyRequestDTO.class));
+  }
+
+  @Test
+  void overrideRejectsBlankReason() throws Exception {
+    mockMvc.perform(post("/api/account/1/override")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "reason": ""
+                }
+                """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("사유를 입력해야 합니다."));
+
+    verify(accountService, never()).overrideAccount(anyLong(), anyString());
   }
 }

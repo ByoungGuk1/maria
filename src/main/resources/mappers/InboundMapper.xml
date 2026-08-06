@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.app.maria.domain.inbound.mapper.InboundMapper">
+
+    <insert id="insertInbound" parameterType="InboundDTO"
+            useGeneratedKeys="true" keyProperty="inboundId">
+        INSERT INTO inbound (account_id, requested_qty, current_holding_at_request, approved_qty)
+        VALUES (#{accountId}, #{requestedQty}, #{currentHoldingAtRequest}, #{approvedQty})
+    </insert>
+
+    <insert id="insertInboundDetail" parameterType="InboundDetailDTO"
+            useGeneratedKeys="true" keyProperty="inboundDetailId">
+        INSERT INTO inbound_detail (inbound_id, foreign_product_id, source_broker, qty, current_qty,
+        purchase_date, purchase_price, purchase_currency, purchase_fx_rate,
+        source_general_account_id)
+        VALUES (#{inboundId}, #{foreignProductId}, #{sourceBroker}, #{qty}, #{currentQty},
+        #{purchaseDate}, #{purchasePrice}, #{purchaseCurrency}, #{purchaseFxRate},
+        #{sourceGeneralAccountId})
+    </insert>
+
+    <insert id="insertInboundMin" parameterType="InboundMinDTO"
+            useGeneratedKeys="true" keyProperty="inboundMinId">
+        INSERT INTO inbound_min (inbound_detail_id, requested_qty, approved_qty, snapshot_qty)
+        VALUES (#{inboundDetailId}, #{requestedQty}, #{approvedQty}, #{snapshotQty})
+    </insert>
+
+    <select id="sumApprovedQtyByAccountAndProduct" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(id.qty), 0)
+        FROM inbound_detail id
+        JOIN inbound i ON i.inbound_id = id.inbound_id
+        WHERE i.account_id = #{accountId}
+        AND id.foreign_product_id = #{foreignProductId}
+    </select>
+
+</mapper>

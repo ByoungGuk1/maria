@@ -3,6 +3,7 @@ package com.app.maria.domain.account.service;
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.dto.AccountStatusLogDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.exception.AccountException;
@@ -47,14 +48,14 @@ public class AccountServiceImpl implements AccountService {
 
   @Override
   public BigDecimal getAvailableLimit(Long customerId) {
-    validateCustomer(customerId);
+    validateCustomerExists(customerId);
     return calculateAvailableLimit(customerId);
   }
 
   @Override
   @Transactional(rollbackFor = Exception.class)
   public AccountResponseDTO updateAccountLimit(Long customerId, BigDecimal expectedCurrentLimit, BigDecimal newLimitAmount) {
-    validateCustomer(customerId);
+    validateCustomerExists(customerId);
     if (expectedCurrentLimit == null) {
       throw new InvalidAccountRequestException("현재 계좌 한도 입력이 필요합니다.");
     }
@@ -67,7 +68,8 @@ public class AccountServiceImpl implements AccountService {
       throw new InvalidAccountRequestException("계좌 한도가 변경되었습니다. 다시 조회 후 시도해주세요.");
     }
 
-    validateRequestedLimit(newLimitAmount, calculateAvailableLimit(customerId));
+    validateLimitInput(newLimitAmount);
+    validateLimitAvailability(newLimitAmount, calculateAvailableLimit(customerId));
     if (account.getLimitAmount().compareTo(newLimitAmount) == 0) {
       throw new InvalidAccountRequestException("기존 한도와 다른 금액을 입력해야 합니다.");
     }
@@ -98,12 +100,8 @@ public class AccountServiceImpl implements AccountService {
   @Override
   @Transactional(rollbackFor = Exception.class)
   public AccountResponseDTO applyAccount(AccountRequestDTO requestDTO) {
-    if (requestDTO == null) {
-      throw new InvalidAccountRequestException("계좌 개설 요청 정보가 없습니다.");
-    }
-
     Long customerId = requestDTO.getCustomerId();
-    validateCustomer(customerId);
+    validateCustomerExists(customerId);
     LocalDateTime appliedAt = getApplicationTime();
 
     if (accountMapper.existsByCustomerId(customerId)) {
@@ -113,7 +111,7 @@ public class AccountServiceImpl implements AccountService {
     AccountDTO account = requestDTO.toAccountDTO();
     account.setCreatedAt(appliedAt);
 
-    validateRequestedLimit(account.getLimitAmount(), calculateAvailableLimit(customerId));
+    validateLimitAvailability(account.getLimitAmount(), calculateAvailableLimit(customerId));
     Optional<AutomaticRejectionReason> rejectionReason = findAutomaticRejectionReason(customerId);
 
     try {
@@ -146,7 +144,7 @@ public class AccountServiceImpl implements AccountService {
     AccountDTO account = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
 
     LocalDateTime openedAt = getApplicationTime();
-    validateRequestedLimit(account.getLimitAmount(), calculateAvailableLimit(account.getCustomerId()));
+    validateLimitAvailability(account.getLimitAmount(), calculateAvailableLimit(account.getCustomerId()));
 
     AccountStatusLogDTO log = AccountStatusLogDTO.builder()
         .accountId(account.getAccountId())
@@ -169,7 +167,7 @@ public class AccountServiceImpl implements AccountService {
   @Transactional(rollbackFor = Exception.class)
   public AccountResponseDTO rejectAccount(Long accountId, String reason) {
     AccountDTO account = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
-    String normalizedReason = normalizeReason(reason, "계좌 반려 사유를 입력해야 합니다.");
+    String normalizedReason = normalizeReason(reason);
 
     AccountStatusLogDTO log = AccountStatusLogDTO.builder()
         .accountId(account.getAccountId())
@@ -192,7 +190,7 @@ public class AccountServiceImpl implements AccountService {
 
   @Override
   @Transactional(rollbackFor = Exception.class)
-  public AccountResponseDTO reapplyAccountByAccountId(Long accountId, AccountRequestDTO requestDTO) {
+  public AccountResponseDTO reapplyAccountByAccountId(Long accountId, AccountReapplyRequestDTO requestDTO) {
     AccountDTO foundAccount = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
     LocalDateTime appliedAt = getApplicationTime();
 
@@ -203,7 +201,7 @@ public class AccountServiceImpl implements AccountService {
       reapplication.setLimitAmount(foundAccount.getLimitAmount());
     }
 
-    validateRequestedLimit(reapplication.getLimitAmount(),calculateAvailableLimit(foundAccount.getCustomerId()));
+    validateLimitAvailability(reapplication.getLimitAmount(),calculateAvailableLimit(foundAccount.getCustomerId()));
 
     AccountStatusLogDTO log = AccountStatusLogDTO.builder()
         .accountId(accountId)
@@ -238,14 +236,14 @@ public class AccountServiceImpl implements AccountService {
   @Override
   @Transactional(rollbackFor = Exception.class)
   public AccountResponseDTO overrideAccount(Long accountId, String reason) {
-    String normalizedReason = normalizeReason(reason, "관리자 오버라이드 사유를 입력해야 합니다.");
+    String normalizedReason = normalizeReason(reason);
     AccountDTO account = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
     if (account.getStatus() != Status.REJECTED) {
       throw new InvalidAccountRequestException("반려 상태의 계좌만 오버라이드할 수 있습니다.");
     }
 
     LocalDateTime openedAt = getApplicationTime();
-    validateRequestedLimit(account.getLimitAmount(), calculateAvailableLimit(account.getCustomerId()));
+    validateLimitAvailability(account.getLimitAmount(), calculateAvailableLimit(account.getCustomerId()));
 
     AccountStatusLogDTO log = AccountStatusLogDTO.builder()
         .accountId(accountId)
@@ -348,10 +346,18 @@ public class AccountServiceImpl implements AccountService {
     return Optional.empty();
   }
 
-  private void validateRequestedLimit(BigDecimal requestedLimit, BigDecimal availableLimit) {
+  private void validateLimitAvailability(BigDecimal requestedLimit, BigDecimal availableLimit) {
     if (availableLimit.compareTo(MIN_LIMIT_AMOUNT) < 0) {
       throw new InvalidAccountRequestException("설정 가능한 RIA 납입한도가 없어 계좌를 개설할 수 없습니다.");
     }
+    if (requestedLimit.compareTo(availableLimit) > 0) {
+      throw new InvalidAccountRequestException(
+          "계좌의 한도는 " + MIN_LIMIT_AMOUNT + "부터 " + availableLimit + "이하 입니다."
+      );
+    }
+  }
+
+  private void validateLimitInput(BigDecimal requestedLimit) {
     if (requestedLimit == null) {
       throw new InvalidAccountRequestException("계좌 한도 입력이 필요합니다.");
     }
@@ -361,17 +367,12 @@ public class AccountServiceImpl implements AccountService {
     if (requestedLimit.stripTrailingZeros().scale() > 0) {
       throw new InvalidAccountRequestException("계좌의 한도는 원 단위로 입력해야 합니다.");
     }
-    if (requestedLimit.compareTo(availableLimit) > 0) {
-      throw new InvalidAccountRequestException(
-          "계좌의 한도는 " + MIN_LIMIT_AMOUNT + "부터 " + availableLimit + "이하 입니다."
-      );
+    if (requestedLimit.compareTo(MAX_LIMIT_AMOUNT) > 0) {
+      throw new InvalidAccountRequestException("계좌의 한도는 " + MAX_LIMIT_AMOUNT + "원 이하여야 합니다.");
     }
   }
 
-  private void validateCustomer(Long customerId) {
-    if (customerId == null || customerId <= 0L) {
-      throw new InvalidAccountRequestException("개설할 계좌의 사용자 정보가 없습니다.");
-    }
+  private void validateCustomerExists(Long customerId) {
     if (!accountMapper.existsCustomerById(customerId)) {
       // TODO customer 도메인 제작 완료 후 수정
       // 추후 CustomerNotFoundException으로 변경 예정
@@ -398,7 +399,7 @@ public class AccountServiceImpl implements AccountService {
 
     for (int attempt = 1; attempt <= ACCOUNT_NO_RETRY_LIMIT; attempt++) {
       long accountNo = ThreadLocalRandom.current().nextLong(ACCOUNT_NO_MIN, ACCOUNT_NO_MAX_EXCLUSIVE);
-      account.setAccountNo(BigDecimal.valueOf(accountNo));
+      account.setAccountNo(Long.toString(accountNo));
 
       try {
         int updatedRows = override ? accountMapper.overrideToOpened(account) : accountMapper.approve(account);
@@ -415,15 +416,8 @@ public class AccountServiceImpl implements AccountService {
     }
   }
 
-  private String normalizeReason(String reason, String invalidMessage) {
-    if (reason == null || reason.isBlank()) {
-      throw new InvalidAccountRequestException(invalidMessage);
-    }
-    String normalizedReason = reason.trim();
-    if (normalizedReason.length() > 200) {
-      throw new InvalidAccountRequestException("사유는 200자 이하로 입력해야 합니다.");
-    }
-    return normalizedReason;
+  private String normalizeReason(String reason) {
+    return reason.trim();
   }
 
   private String buildLimitChangeReason(BigDecimal previousLimit, BigDecimal newLimit) {

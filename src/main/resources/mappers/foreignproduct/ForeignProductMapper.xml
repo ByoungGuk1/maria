@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper">
+
+    <select id="selectAll" resultType="ForeignProductDTO">
+        SELECT foreign_product_id, ticker, name, market, currency, type
+        FROM foreign_product
+        ORDER BY foreign_product_id
+    </select>
+
+</mapper>
