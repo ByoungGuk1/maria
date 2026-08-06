@@ -6,6 +6,7 @@ import com.app.maria.domain.account.dto.request.AccountRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
+import com.app.maria.domain.account.dto.response.MydataRiaAccountsResponseDTO;
 import com.app.maria.domain.account.exception.AccountException;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.exception.DuplicateAccountException;
@@ -16,14 +17,19 @@ import com.app.maria.domain.account.type.AutomaticRejectionReason;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.global.clock.service.BusinessClockService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -42,6 +48,11 @@ public class AccountServiceImpl implements AccountService {
   private final AccountMapper accountMapper;
   private final AccountStatusLogMapper accountStatusLogMapper;
   private final BusinessClockService businessClockService;
+
+  private final RestClient restClient;
+
+  @Value("${custom.mydata.url}")
+  private String myDataUrl;
 
   @Override
   public List<AccountResponseDTO> findAll() {
@@ -310,9 +321,17 @@ public class AccountServiceImpl implements AccountService {
   }
 
   private BigDecimal calculateAvailableLimit(Long customerId) {
-    // TODO 타 금융회사의 RIA 납입한도 조회 API
-    BigDecimal otherFinancialCompanyLimitTotal = BigDecimal.ZERO;
-    return MAX_LIMIT_AMOUNT.subtract(otherFinancialCompanyLimitTotal);
+    Map<String, String> req = new HashMap<>();
+    String ciHash = accountMapper.selectCiHashByCustomerId(customerId);
+    req.put("ciHash", ciHash);
+    System.out.println(req.toString());
+    MydataRiaAccountsResponseDTO response = restClient.post().uri(myDataUrl + "/api/mydata/ria-accounts")
+        .contentType(MediaType.APPLICATION_JSON).body(req).retrieve()
+        .body(MydataRiaAccountsResponseDTO.class);
+    BigDecimal sumRiaLimit = response.getData().stream()
+        .map(MydataRiaAccountsResponseDTO.MyDataAccountResponse::getRiaLimit)
+        .reduce(BigDecimal.ZERO, BigDecimal::add);
+    return MAX_LIMIT_AMOUNT.subtract(sumRiaLimit);
   }
 
   Optional<AutomaticRejectionReason> findAutomaticRejectionReason(Long customerId) {
