@@ -1,6 +1,6 @@
 package com.app.maria.domain.domestic.dto;
 
-import com.app.maria.domain.domestic.type.Status;
+import com.app.maria.domain.domestic.type.DomesticStockStatus;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -14,7 +14,7 @@ public class DomesticStockBalanceDTO {
     private Long accountId;
     private Long domesticProductId;
     private BigDecimal qty;
-    private Status status;
+    private DomesticStockStatus status;
     private LocalDateTime lastPurchaseDate;
     private BigDecimal avgPurchasePrice;
 }
