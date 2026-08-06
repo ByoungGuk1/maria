@@ -1,5 +1,8 @@
 package com.app.maria.domain.sellorder.service;
 
+import com.app.maria.domain.foreignproduct.dto.ForeignProductDTO;
+import com.app.maria.domain.foreignproduct.exception.ForeignProductNotFoundException;
+import com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper;
 import com.app.maria.domain.inbound.dto.InboundDetailDTO;
 import com.app.maria.domain.inbound.exception.InboundNotFoundException;
 import com.app.maria.domain.inbound.mapper.InboundMapper;
@@ -44,23 +47,33 @@ class SellOrderServiceImplTest {
     @Mock
     InboundMapper inboundMapper;
 
+    @Mock
+    ForeignProductMapper foreignProductMapper;
+
     @InjectMocks
     SellOrderServiceImpl sellOrderService;
 
     private SellOrderRequestDTO.SellOrderRequestDTOBuilder validRequestBuilder() {
         return SellOrderRequestDTO.builder()
                 .inboundDetailId(1L)
-                .sellQty(new BigDecimal("10"))
-                .exchangeCode("NAS")
-                .ticker("AAPL")
-                .currencyUnit("USD");
+                .sellQty(new BigDecimal("10"));
     }
 
     private InboundDetailDTO validLot() {
         return InboundDetailDTO.builder()
                 .inboundDetailId(1L)
+                .foreignProductId(10L)
                 .currentQty(new BigDecimal("50"))
                 .purchaseFxRate(new BigDecimal("1300.5"))
+                .build();
+    }
+
+    private ForeignProductDTO validProduct() {
+        return ForeignProductDTO.builder()
+                .foreignProductId(10L)
+                .market("NAS")
+                .ticker("AAPL")
+                .currency("USD")
                 .build();
     }
 
@@ -71,6 +84,7 @@ class SellOrderServiceImplTest {
 
         when(inboundMapper.selectInboundDetailById(1L)).thenReturn(Optional.of(validLot()));
         when(inboundMapper.decreaseCurrentQty(1L, new BigDecimal("10"))).thenReturn(1);
+        when(foreignProductMapper.selectById(10L)).thenReturn(Optional.of(validProduct()));
         when(kisPriceClient.getPreviousClose("NAS", "AAPL")).thenReturn(new BigDecimal("308.91"));
         when(exchangeRateClient.getBaseRate("USD")).thenReturn(new BigDecimal("1433.6"));
         BigDecimal expectedBasePrice = new BigDecimal("308.91").multiply(new BigDecimal("1433.6"));
@@ -103,6 +117,7 @@ class SellOrderServiceImplTest {
 
         when(inboundMapper.selectInboundDetailById(1L)).thenReturn(Optional.of(validLot()));
         when(inboundMapper.decreaseCurrentQty(1L, new BigDecimal("10"))).thenReturn(1);
+        when(foreignProductMapper.selectById(10L)).thenReturn(Optional.of(validProduct()));
         when(kisPriceClient.getPreviousClose("NAS", "AAPL"))
                 .thenThrow(new KisPriceNotFoundException("전일종가 조회 실패: AAPL"));
 
@@ -121,7 +136,7 @@ class SellOrderServiceImplTest {
         assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
                 .isInstanceOf(SellOrderException.class);
 
-        verifyNoInteractions(sellOrderMapper, kisPriceClient, exchangeRateClient, inboundMapper);
+        verifyNoInteractions(sellOrderMapper, kisPriceClient, exchangeRateClient, inboundMapper, foreignProductMapper);
     }
 
     @Test
@@ -132,7 +147,7 @@ class SellOrderServiceImplTest {
         assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
                 .isInstanceOf(SellOrderException.class);
 
-        verifyNoInteractions(sellOrderMapper, kisPriceClient, exchangeRateClient, inboundMapper);
+        verifyNoInteractions(sellOrderMapper, kisPriceClient, exchangeRateClient, inboundMapper, foreignProductMapper);
     }
 
     @Test
@@ -143,7 +158,7 @@ class SellOrderServiceImplTest {
         assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
                 .isInstanceOf(SellOrderException.class);
 
-        verifyNoInteractions(sellOrderMapper, kisPriceClient, exchangeRateClient, inboundMapper);
+        verifyNoInteractions(sellOrderMapper, kisPriceClient, exchangeRateClient, inboundMapper, foreignProductMapper);
     }
 
     @Test
@@ -158,7 +173,7 @@ class SellOrderServiceImplTest {
                 .hasMessage("입고 상세를 찾을 수 없습니다.");
 
         verify(inboundMapper, never()).decreaseCurrentQty(any(), any());
-        verifyNoInteractions(kisPriceClient, exchangeRateClient, sellOrderMapper);
+        verifyNoInteractions(kisPriceClient, exchangeRateClient, sellOrderMapper, foreignProductMapper);
     }
 
     @Test
@@ -176,6 +191,22 @@ class SellOrderServiceImplTest {
                 .hasMessage("매도 가능 수량을 초과했습니다.");
 
         verify(inboundMapper, never()).decreaseCurrentQty(any(), any());
+        verifyNoInteractions(kisPriceClient, exchangeRateClient, sellOrderMapper, foreignProductMapper);
+    }
+
+    @Test
+    @DisplayName("종목 정보를 찾을 수 없으면 예외를 던지고 잔량 차감/외부 API/저장은 하지 않는다")
+    void placeSellOrderThrowsWhenForeignProductNotFound() {
+        SellOrderRequestDTO request = validRequestBuilder().build();
+
+        when(inboundMapper.selectInboundDetailById(1L)).thenReturn(Optional.of(validLot()));
+        when(foreignProductMapper.selectById(10L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
+                .isInstanceOf(ForeignProductNotFoundException.class)
+                .hasMessage("종목 정보를 찾을 수 없습니다.");
+
+        verify(inboundMapper, never()).decreaseCurrentQty(any(), any());
         verifyNoInteractions(kisPriceClient, exchangeRateClient, sellOrderMapper);
     }
 
@@ -185,6 +216,7 @@ class SellOrderServiceImplTest {
         SellOrderRequestDTO request = validRequestBuilder().build();
 
         when(inboundMapper.selectInboundDetailById(1L)).thenReturn(Optional.of(validLot()));
+        when(foreignProductMapper.selectById(10L)).thenReturn(Optional.of(validProduct()));
         when(inboundMapper.decreaseCurrentQty(1L, new BigDecimal("10"))).thenReturn(0);
 
         assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
