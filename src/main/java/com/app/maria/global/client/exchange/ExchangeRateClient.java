@@ -4,6 +4,7 @@ import com.app.maria.global.config.properties.ExchangeApiProperties;
 import com.app.maria.global.exception.ExchangeRateNotFoundException;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -14,6 +15,7 @@ import java.time.format.DateTimeFormatter;
 
 @Component
 @RequiredArgsConstructor
+@Primary
 // 기준환율찾기
 public class ExchangeRateClient {
 
