@@ -24,7 +24,12 @@ public class SellOrderApi {
     @PostMapping
     public ResponseEntity<ApiResponseDTO<SellOrderResponseDTO>> placeSellOrder(@Valid @RequestBody SellOrderRequestDTO request) {
         SellOrderResponseDTO responseDTO = sellOrderService.placeSellOrder(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponseDTO.of("매도 주문이 완료되었습니다.", responseDTO));
+        String message = switch(responseDTO.getStatus()) {
+            case EXECUTED -> "매도 주문이 체결되었습니다.";
+            case REJECTED -> "매도 한도 초과로 거부되었습니다.";
+            case RECEIVED -> "매도 주문이 접수되었습니다.";
+        };
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponseDTO.of(message, responseDTO));
     }
 
     @GetMapping("/{orderId}")
