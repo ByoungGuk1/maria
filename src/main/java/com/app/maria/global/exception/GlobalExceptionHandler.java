@@ -16,6 +16,9 @@ import com.app.maria.domain.sellorder.exception.SellOrderException;
 import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.domain.settlement.exception.*;
 import com.app.maria.domain.withdrawal.exception.WithdrawalException;
+import com.app.maria.global.audit.exception.AuditLogInsertException;
+import com.app.maria.global.clock.exception.SystemClockNotInitializedException;
+import com.app.maria.global.clock.exception.SystemClockUpdateException;
 import com.app.maria.global.response.ApiResponseDTO;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -206,6 +209,23 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(WithdrawalException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleWithdrawalException(WithdrawalException e){
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    //11. Clock 예외
+    @ExceptionHandler(SystemClockNotInitializedException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleSystemClockNotInitializedException(SystemClockNotInitializedException e){
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(SystemClockUpdateException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleSystemClockUpdateException(SystemClockUpdateException e){
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    //12. Audit 예외
+    @ExceptionHandler(AuditLogInsertException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleAuditLogInsertException(AuditLogInsertException e){
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponseDTO.of(e.getMessage()));
     }
 
 }
