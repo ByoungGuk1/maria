@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.app.maria.domain.targetproduct.mapper.TargetProductMapper">
+
+    <insert id="insertJudgement" parameterType="TargetProductJudgementDTO" useGeneratedKeys="true" keyProperty="judgementId">
+        INSERT INTO target_product_judgement
+        (mydata_trade_id, fund_code, fund_name, is_target, foreign_stock_ratio, inception_date, judged_at)
+        VALUES
+        (#{mydataTradeId}, #{fundCode}, #{fundName}, #{isTarget}, #{foreignStockRatio}, #{inceptionDate}, #{judgedAt})
+    </insert>
+
+    <select id="existsByMydataTradeId" resultType="boolean">
+        SELECT EXISTS (
+        SELECT 1 FROM target_product_judgement WHERE mydata_trade_id = #{mydataTradeId}
+        )
+    </select>
+
+</mapper>
