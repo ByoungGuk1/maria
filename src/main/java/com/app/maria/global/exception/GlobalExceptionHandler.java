@@ -14,6 +14,7 @@ import com.app.maria.domain.member.exception.MemberException;
 import com.app.maria.domain.member.exception.MemberNotFoundException;
 import com.app.maria.domain.sellorder.exception.SellOrderException;
 import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
+import com.app.maria.domain.settlement.exception.*;
 import com.app.maria.global.response.ApiResponseDTO;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.http.HttpStatus;
