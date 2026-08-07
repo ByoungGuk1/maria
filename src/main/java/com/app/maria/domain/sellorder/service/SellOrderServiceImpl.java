@@ -33,6 +33,7 @@ public class SellOrderServiceImpl implements SellOrderService{
     private final ExchangeRateClient exchange;
     private final InboundMapper inboundMapper;
     private final ForeignProductMapper foreignProductMapper;
+    private final SellLimitService sellLimitService;
 
     @Override
     public SellOrderResponseDTO placeSellOrder(SellOrderRequestDTO request) {
@@ -64,6 +65,9 @@ public class SellOrderServiceImpl implements SellOrderService{
         BigDecimal exchangeRate = exchange.getBaseRate(product.getCurrency());
         dto.setBasePrice(previousClose.multiply(exchangeRate));
         dto.setSettlementFxRate(exchangeRate);
+
+        BigDecimal orderAmount = dto.getSellQty().multiply(dto.getBasePrice());
+        sellLimitService.validateSellLimit(lot.get().getInboundId(), orderAmount);
 
         sellOrderMapper.insertSellOrder(dto);
         return new SellOrderResponseDTO(dto);
