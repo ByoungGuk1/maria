@@ -15,8 +15,7 @@ import com.app.maria.domain.member.exception.MemberNotFoundException;
 import com.app.maria.domain.sellorder.exception.SellOrderException;
 import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.domain.settlement.exception.*;
-import com.app.maria.domain.withdrawal.exception.InsufficientWithdrawalAmountException;
-import com.app.maria.domain.withdrawal.exception.WithdrawalNotAllowedException;
+import com.app.maria.domain.withdrawal.exception.WithdrawalException;
 import com.app.maria.global.response.ApiResponseDTO;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -190,13 +189,8 @@ public class GlobalExceptionHandler {
     }
 
     //10.Withdrawal 예외
-    @ExceptionHandler(WithdrawalNotAllowedException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleWithdrawalNotAllowedException(WithdrawalNotAllowedException e){
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
-    }
-
-    @ExceptionHandler(InsufficientWithdrawalAmountException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handlerInsufficientWithdrawalAmountException(InsufficientWithdrawalAmountException e){
+    @ExceptionHandler(WithdrawalException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleWithdrawalException(WithdrawalException e){
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
     }
 
