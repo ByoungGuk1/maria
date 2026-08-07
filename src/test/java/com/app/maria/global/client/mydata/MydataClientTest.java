@@ -42,6 +42,7 @@ class MydataClientTest {
     void setUp() {
         MydataApiProperties properties = new MydataApiProperties();
         properties.setUrl("https://mydata.test");
+        properties.setOwnBrokerName("리턴증권");
         mydataClient = new MydataClient(restTemplate, properties);
     }
 
@@ -86,6 +87,28 @@ class MydataClientTest {
         BigDecimal result = mydataClient.getExternalSellTotal("ci-hash-1");
 
         assertThat(result).isEqualByComparingTo("1000000");
+    }
+
+    @Test
+    void getExternalSellTotal_리턴증권_자사항목은_제외하고_타사만_합산한다() {
+        mockExchange(new ResponseEntity<>(
+                ApiResponseDTO.of("성공", List.of(account("리턴증권", "9999999"), account("증권사A", "1000000"))),
+                HttpStatus.OK));
+
+        BigDecimal result = mydataClient.getExternalSellTotal("ci-hash-1");
+
+        assertThat(result).isEqualByComparingTo("1000000");
+    }
+
+    @Test
+    void getExternalSellTotal_전부_리턴증권_자사항목이면_0을반환한다() {
+        mockExchange(new ResponseEntity<>(
+                ApiResponseDTO.of("성공", List.of(account("리턴증권", "9999999"))),
+                HttpStatus.OK));
+
+        BigDecimal result = mydataClient.getExternalSellTotal("ci-hash-1");
+
+        assertThat(result).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     @Test
