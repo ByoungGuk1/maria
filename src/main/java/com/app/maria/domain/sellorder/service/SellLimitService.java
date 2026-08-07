@@ -4,6 +4,6 @@ import java.math.BigDecimal;
 
 public interface SellLimitService {
 
-    public boolean isWithinSellLimit(Long inboundId, BigDecimal orderAmount);
+    boolean isWithinSellLimit(Long inboundId, BigDecimal orderAmount);
 
 }
