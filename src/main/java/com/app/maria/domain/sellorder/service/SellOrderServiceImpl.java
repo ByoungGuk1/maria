@@ -14,9 +14,11 @@ import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.domain.sellorder.mapper.SellOrderMapper;
 import com.app.maria.domain.sellorder.type.SellOrderStatus;
 import com.app.maria.global.client.exchange.ExchangeRateClient;
+import com.app.maria.global.client.kis.KisExchangeCode;
 import com.app.maria.global.client.kis.KisPriceClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -33,8 +35,10 @@ public class SellOrderServiceImpl implements SellOrderService{
     private final ExchangeRateClient exchange;
     private final InboundMapper inboundMapper;
     private final ForeignProductMapper foreignProductMapper;
+    private final SellLimitService sellLimitService;
 
     @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public SellOrderResponseDTO placeSellOrder(SellOrderRequestDTO request) {
 
         if (request.getSellQty() == null || request.getSellQty().compareTo(BigDecimal.ZERO) <= 0) {
@@ -60,10 +64,14 @@ public class SellOrderServiceImpl implements SellOrderService{
             throw new SellOrderException("다른 요청이 먼저 처리되었습니다.");
         }
 
-        BigDecimal previousClose = kis.getPreviousClose(product.getMarket(), product.getTicker());
+        String kisMarketCode = KisExchangeCode.fromMarket(product.getMarket());
+        BigDecimal previousClose = kis.getPreviousClose(kisMarketCode, product.getTicker());
         BigDecimal exchangeRate = exchange.getBaseRate(product.getCurrency());
         dto.setBasePrice(previousClose.multiply(exchangeRate));
         dto.setSettlementFxRate(exchangeRate);
+
+        BigDecimal orderAmount = dto.getSellQty().multiply(dto.getBasePrice());
+        sellLimitService.validateSellLimit(lot.get().getInboundId(), orderAmount);
 
         sellOrderMapper.insertSellOrder(dto);
         return new SellOrderResponseDTO(dto);
