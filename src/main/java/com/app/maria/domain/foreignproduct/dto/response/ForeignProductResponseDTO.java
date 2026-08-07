@@ -14,14 +14,12 @@ public class ForeignProductResponseDTO {
     private String currency;
     private String type;
 
-    public static ForeignProductResponseDTO of(ForeignProductDTO dto) {
-        return ForeignProductResponseDTO.builder()
-                .foreignProductId(dto.getForeignProductId())
-                .ticker(dto.getTicker())
-                .name(dto.getName())
-                .market(dto.getMarket())
-                .currency(dto.getCurrency())
-                .type(dto.getType())
-                .build();
+    public ForeignProductResponseDTO(ForeignProductDTO dto) {
+        this.foreignProductId = dto.getForeignProductId();
+        this.ticker = dto.getTicker();
+        this.name = dto.getName();
+        this.market = dto.getMarket();
+        this.currency = dto.getCurrency();
+        this.type = dto.getType();
     }
 }

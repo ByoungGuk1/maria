@@ -6,6 +6,7 @@ import com.app.maria.domain.inbound.dto.InboundMinDTO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import java.math.BigDecimal;
+import java.util.Optional;
 
 @Mapper
 public interface InboundMapper {
@@ -16,4 +17,7 @@ public interface InboundMapper {
     BigDecimal sumApprovedQtyByAccountAndProduct(
             @Param("accountId") Long accountId,
             @Param("foreignProductId") Long foreignProductId);
+
+    Optional<InboundDetailDTO> selectInboundDetailById(Long inboundDetailId);
+    int decreaseCurrentQty(@Param("inboundDetailId") Long inboundDetailId, @Param("qty") BigDecimal qty);
 }

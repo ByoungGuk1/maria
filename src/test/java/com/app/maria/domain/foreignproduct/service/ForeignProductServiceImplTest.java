@@ -11,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -53,11 +54,37 @@ class ForeignProductServiceImplTest {
     }
 
     @Test
-    void getAllForeignProductsThrowsNotFoundExceptionWhenNoProductsExist() {
+    void getAllForeignProductsReturnsEmptyListWhenNoProductsExist() {
         when(foreignProductMapper.selectAll()).thenReturn(List.of());
 
-        assertThatThrownBy(() -> foreignProductService.getAllForeignProducts())
-                .isInstanceOf(ForeignProductNotFoundException.class)
-                .hasMessage("등록된 종목이 없습니다.");
+        List<ForeignProductResponseDTO> result = foreignProductService.getAllForeignProducts();
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void getForeignProductReturnsProductWhenProductExists() {
+        ForeignProductDTO dto = ForeignProductDTO.builder()
+                .foreignProductId(1L)
+                .ticker("AAPL")
+                .name("애플")
+                .market("NASDAQ")
+                .currency("USD")
+                .type("FOREIGN_STOCK")
+                .build();
+        when(foreignProductMapper.selectById(1L)).thenReturn(Optional.of(dto));
+
+        ForeignProductResponseDTO result = foreignProductService.getForeignProduct(1L);
+
+        assertThat(result.getTicker()).isEqualTo("AAPL");
+        assertThat(result.getName()).isEqualTo("애플");
+    }
+
+    @Test
+    void getForeignProductThrowsNotFoundExceptionWhenProductDoesNotExist() {
+        when(foreignProductMapper.selectById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> foreignProductService.getForeignProduct(999L))
+                .isInstanceOf(ForeignProductNotFoundException.class);
     }
 }

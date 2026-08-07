@@ -6,14 +6,22 @@
 <mapper namespace="com.app.maria.domain.sellorder.mapper.SellOrderMapper">
 
     <insert id="insertSellOrder" parameterType="SellOrderDTO" useGeneratedKeys="true" keyProperty="orderId" keyColumn="ORDER_ID">
-        INSERT INTO sell_order (inbound_detail_id, sell_qty, base_price, purchase_fx_rate, status, processed_at)
-        VALUES (#{inboundDetailId}, #{sellQty}, #{basePrice}, #{purchaseFxRate}, #{status}, #{processedAt})
+        INSERT INTO sell_order (inbound_detail_id, sell_qty, base_price, settlement_fx_rate, status, processed_at)
+        VALUES (#{inboundDetailId}, #{sellQty}, #{basePrice}, #{settlementFxRate}, #{status}, #{processedAt})
     </insert>
 
     <select id="selectSellOrderById" parameterType="Long" resultType="SellOrderDTO">
-        SELECT order_id, inbound_detail_id, sell_qty, base_price, purchase_fx_rate, status, processed_at
+        SELECT order_id, inbound_detail_id, sell_qty, base_price, settlement_fx_rate, status, processed_at
         FROM sell_order
         WHERE order_id = #{orderId}
+    </select>
+
+    <select id="selectSellOrdersByAccountId" parameterType="Long" resultType="SellOrderDTO">
+        SELECT s.order_id, s.inbound_detail_id, s.sell_qty, s.base_price, s.settlement_fx_rate, s.status, s.processed_at
+        FROM sell_order s
+        JOIN inbound_detail id ON s.inbound_detail_id = id.inbound_detail_id
+        JOIN inbound i ON id.inbound_id = i.inbound_id
+        WHERE i.account_id = #{accountId}
     </select>
 
 </mapper>

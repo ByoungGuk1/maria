@@ -1,5 +1,11 @@
 package com.app.maria.domain.sellorder.service;
 
+import com.app.maria.domain.foreignproduct.dto.ForeignProductDTO;
+import com.app.maria.domain.foreignproduct.exception.ForeignProductNotFoundException;
+import com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper;
+import com.app.maria.domain.inbound.dto.InboundDetailDTO;
+import com.app.maria.domain.inbound.exception.InboundNotFoundException;
+import com.app.maria.domain.inbound.mapper.InboundMapper;
 import com.app.maria.domain.sellorder.dto.SellOrderDTO;
 import com.app.maria.domain.sellorder.dto.request.SellOrderRequestDTO;
 import com.app.maria.domain.sellorder.dto.response.SellOrderResponseDTO;
@@ -14,6 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +31,8 @@ public class SellOrderServiceImpl implements SellOrderService{
     private final SellOrderMapper sellOrderMapper;
     private final KisPriceClient kis;
     private final ExchangeRateClient exchange;
+    private final InboundMapper inboundMapper;
+    private final ForeignProductMapper foreignProductMapper;
 
     @Override
     public SellOrderResponseDTO placeSellOrder(SellOrderRequestDTO request) {
@@ -31,19 +41,31 @@ public class SellOrderServiceImpl implements SellOrderService{
             throw new SellOrderException("매도 수량은 0보다 커야 합니다.");
         }
 
-        BigDecimal previousClose = kis.getPreviousClose(request.getExchangeCode(), request.getTicker());
-        BigDecimal exchangeRate = exchange.getBaseRate(request.getCurrencyUnit());
-        BigDecimal basePrice = previousClose.multiply(exchangeRate);
-
-        SellOrderDTO dto = new SellOrderDTO();
-        dto.setInboundDetailId(request.getInboundDetailId());
-        dto.setSellQty(request.getSellQty());
+        SellOrderDTO dto = request.toSellOrderDTO();
         dto.setStatus(SellOrderStatus.RECEIVED);
-        dto.setBasePrice(basePrice);
-        // purchaseFxRate는 매수 시점 환율이라 inbound_detail 연동 전까지 null
-        // processedAt은 system_clock 연동 전까지 null
-        sellOrderMapper.insertSellOrder(dto);
 
+        Optional<InboundDetailDTO> lot = inboundMapper.selectInboundDetailById(dto.getInboundDetailId());
+        if (lot.isEmpty()) {
+            throw new InboundNotFoundException("입고 상세를 찾을 수 없습니다.");
+        }
+        if (dto.getSellQty().compareTo(lot.get().getCurrentQty()) > 0) {
+            throw new SellOrderException("매도 가능 수량을 초과했습니다.");
+        }
+
+        ForeignProductDTO product = foreignProductMapper.selectById(lot.get().getForeignProductId())
+                .orElseThrow(() -> new ForeignProductNotFoundException("종목 정보를 찾을 수 없습니다."));
+
+        int updateRows = inboundMapper.decreaseCurrentQty(dto.getInboundDetailId(), dto.getSellQty());
+        if (updateRows == 0) {
+            throw new SellOrderException("다른 요청이 먼저 처리되었습니다.");
+        }
+
+        BigDecimal previousClose = kis.getPreviousClose(product.getMarket(), product.getTicker());
+        BigDecimal exchangeRate = exchange.getBaseRate(product.getCurrency());
+        dto.setBasePrice(previousClose.multiply(exchangeRate));
+        dto.setSettlementFxRate(exchangeRate);
+
+        sellOrderMapper.insertSellOrder(dto);
         return new SellOrderResponseDTO(dto);
     }
 
@@ -52,6 +74,15 @@ public class SellOrderServiceImpl implements SellOrderService{
     public SellOrderResponseDTO getSellOrder(Long orderId) {
         SellOrderDTO dto =  sellOrderMapper.selectSellOrderById(orderId).orElseThrow(() -> new SellOrderNotFoundException("매도 주문 조회 실패"));
         return new SellOrderResponseDTO(dto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SellOrderResponseDTO> getSellOrderByAccount(Long accountId) {
+        List<SellOrderDTO> orders = sellOrderMapper.selectSellOrdersByAccountId(accountId);
+        return orders.stream()
+                .map(SellOrderResponseDTO::new)
+                .toList();
     }
 
 }

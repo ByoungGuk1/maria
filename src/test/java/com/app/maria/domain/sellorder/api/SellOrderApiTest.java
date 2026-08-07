@@ -20,6 +20,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -47,10 +48,7 @@ class SellOrderApiTest {
     private SellOrderRequestDTO.SellOrderRequestDTOBuilder validRequestBuilder() {
         return SellOrderRequestDTO.builder()
                 .inboundDetailId(1L)
-                .sellQty(new BigDecimal("10"))
-                .exchangeCode("NAS")
-                .ticker("AAPL")
-                .currencyUnit("USD");
+                .sellQty(new BigDecimal("10"));
     }
 
     @Test
@@ -123,51 +121,6 @@ class SellOrderApiTest {
     }
 
     @Test
-    @DisplayName("매도 주문 접수 시 거래소 코드가 없으면 검증 실패로 400을 반환하고 서비스는 호출되지 않는다")
-    @WithMockUser(roles = "SETTLEMENT")
-    void placeSellOrderReturns400WhenExchangeCodeMissing() throws Exception {
-        SellOrderRequestDTO request = validRequestBuilder().exchangeCode(null).build();
-
-        mockMvc.perform(post("/api/sell-orders")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("거래소 코드는 필수입니다."));
-
-        verify(sellOrderService, never()).placeSellOrder(any());
-    }
-
-    @Test
-    @DisplayName("매도 주문 접수 시 종목 코드가 없으면 검증 실패로 400을 반환하고 서비스는 호출되지 않는다")
-    @WithMockUser(roles = "SETTLEMENT")
-    void placeSellOrderReturns400WhenTickerMissing() throws Exception {
-        SellOrderRequestDTO request = validRequestBuilder().ticker(null).build();
-
-        mockMvc.perform(post("/api/sell-orders")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("종목 코드는 필수입니다."));
-
-        verify(sellOrderService, never()).placeSellOrder(any());
-    }
-
-    @Test
-    @DisplayName("매도 주문 접수 시 통화 단위가 없으면 검증 실패로 400을 반환하고 서비스는 호출되지 않는다")
-    @WithMockUser(roles = "SETTLEMENT")
-    void placeSellOrderReturns400WhenCurrencyUnitMissing() throws Exception {
-        SellOrderRequestDTO request = validRequestBuilder().currencyUnit(null).build();
-
-        mockMvc.perform(post("/api/sell-orders")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("통화 단위는 필수입니다."));
-
-        verify(sellOrderService, never()).placeSellOrder(any());
-    }
-
-    @Test
     @DisplayName("매도 주문 접수 시 인증되지 않은 요청이면 401을 반환하고 서비스는 호출되지 않는다")
     void placeSellOrderReturns401WhenNotAuthenticated() throws Exception {
         SellOrderRequestDTO request = validRequestBuilder().build();
@@ -220,5 +173,43 @@ class SellOrderApiTest {
         mockMvc.perform(get("/api/sell-orders/{orderId}", 999L))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("매도 주문 조회 실패"));
+    }
+
+    @Test
+    @DisplayName("계좌ID로 매도 주문 목록을 조회하면 200과 목록을 반환한다")
+    @WithMockUser(roles = "VIEWER")
+    void getAllSellOrdersReturns200WithListForAccount() throws Exception {
+        SellOrderResponseDTO response = SellOrderResponseDTO.builder()
+                .orderId(100L)
+                .inboundDetailId(1L)
+                .status(SellOrderStatus.RECEIVED)
+                .build();
+
+        when(sellOrderService.getSellOrderByAccount(1L)).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/sell-orders").param("accountId", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].orderId").value(100))
+                .andExpect(jsonPath("$.data[0].status").value("RECEIVED"));
+    }
+
+    @Test
+    @DisplayName("계좌에 매도 주문이 없으면 빈 목록을 반환한다")
+    @WithMockUser(roles = "VIEWER")
+    void getAllSellOrdersReturns200WithEmptyListWhenNoOrders() throws Exception {
+        when(sellOrderService.getSellOrderByAccount(999L)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/sell-orders").param("accountId", "999"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    @DisplayName("계좌별 매도 주문 목록 조회 시 인증되지 않은 요청이면 401을 반환한다")
+    void getAllSellOrdersReturns401WhenNotAuthenticated() throws Exception {
+        mockMvc.perform(get("/api/sell-orders").param("accountId", "1"))
+                .andExpect(status().isUnauthorized());
+
+        verify(sellOrderService, never()).getSellOrderByAccount(any());
     }
 }

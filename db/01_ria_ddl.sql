@@ -250,7 +250,7 @@ CREATE TABLE sell_order (
     base_price        DECIMAL(15,4) NOT NULL COMMENT '매도기준가(전일종가 x 환율)',
     processed_at      DATETIME      NULL     DEFAULT CURRENT_TIMESTAMP COMMENT '매도결제일',
     status            VARCHAR(10)   NOT NULL COMMENT 'RECEIVED/EXECUTED/REJECTED',
-    purchase_fx_rate  DECIMAL(15,4) NULL     COMMENT '매도 결제일 기준환율',
+    settlement_fx_rate DECIMAL(15,4) NULL    COMMENT '매도 결제일 기준환율',
     PRIMARY KEY (order_id),
     UNIQUE KEY uk_sell_order_inbound_detail (inbound_detail_id),
     CONSTRAINT chk_sell_order_status CHECK (status IN ('RECEIVED','EXECUTED','REJECTED'))

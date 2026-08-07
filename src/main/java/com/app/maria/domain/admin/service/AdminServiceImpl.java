@@ -87,12 +87,7 @@ public class AdminServiceImpl implements AdminService {
     public List<AdminSummaryResponseDTO> getAllAdmins() {
         List<AdminUserDTO> admins = adminMapper.selectAllAdmins();
         return admins.stream()
-                .map(admin -> AdminSummaryResponseDTO.builder()
-                        .adminId(admin.getAdminId())
-                        .loginId(admin.getLoginId())
-                        .role(admin.getRole())
-                        .name(admin.getName())
-                        .build())
+                .map(AdminSummaryResponseDTO::new)
                 .toList();
     }
 

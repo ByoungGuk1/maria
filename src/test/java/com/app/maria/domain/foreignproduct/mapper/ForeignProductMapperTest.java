@@ -20,6 +20,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -111,6 +112,27 @@ class ForeignProductMapperTest {
         assertThat(dto.getMarket()).isEqualTo("HKEX");
         assertThat(dto.getCurrency()).isEqualTo("HKD");
         assertThat(dto.getType()).isEqualTo("FOREIGN_STOCK");
+    }
+
+    @Test
+    @DisplayName("foreign_product_id로 종목 단건을 조회한다")
+    void selectByIdReturnsProductWhenExists() throws SQLException {
+        insertProduct("AAPL", "애플", "NASDAQ", "USD", "FOREIGN_STOCK");
+        Long id = foreignProductMapper.selectAll().get(0).getForeignProductId();
+
+        Optional<ForeignProductDTO> result = foreignProductMapper.selectById(id);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getTicker()).isEqualTo("AAPL");
+        assertThat(result.get().getName()).isEqualTo("애플");
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 foreign_product_id로 조회하면 빈 Optional을 반환한다")
+    void selectByIdReturnsEmptyWhenNotExists() {
+        Optional<ForeignProductDTO> result = foreignProductMapper.selectById(999L);
+
+        assertThat(result).isEmpty();
     }
 
     private void resetSchema() throws SQLException {
