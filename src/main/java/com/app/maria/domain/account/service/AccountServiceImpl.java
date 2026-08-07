@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
@@ -50,6 +51,9 @@ public class AccountServiceImpl implements AccountService {
 
   @Value("${custom.mydata.url}")
   private String myDataUrl;
+  @Value("${custom.mydata.own-broker-name}")
+  private String ownBrokerName;
+
 
   @Override
   public List<AccountResponseDTO> findAll() {
@@ -64,45 +68,46 @@ public class AccountServiceImpl implements AccountService {
 
   @Override
   @Transactional(rollbackFor = Exception.class)
-  public AccountResponseDTO updateAccountLimit(Long customerId, BigDecimal expectedCurrentLimit, BigDecimal newLimitAmount) {
-    validateCustomerExists(customerId);
-    if (expectedCurrentLimit == null) {
-      throw new InvalidAccountRequestException("현재 계좌 한도 입력이 필요합니다.");
-    }
+  public AccountResponseDTO updateAccountLimit(AccountRequestDTO accountRequestDTO) {
+    AccountDTO accountDTO = accountRequestDTO.toAccountDTO();
+    validateCustomerExists(accountDTO.getCustomerId());
+    Long customerId = accountDTO.getCustomerId();
+    BigDecimal newLimitAmount = accountDTO.getLimitAmount();
 
-    AccountDTO account = accountMapper.selectByCustomerId(customerId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
-    if (account.getStatus() != Status.APPLIED && account.getStatus() != Status.OPENED) {
+    AccountDTO foundAccount = accountMapper.selectByCustomerId(customerId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
+    if (foundAccount.getStatus() != Status.APPLIED && foundAccount.getStatus() != Status.OPENED) {
       throw new InvalidAccountRequestException("신청 또는 개설 상태의 계좌만 한도를 변경할 수 있습니다.");
-    }
-    if (account.getLimitAmount().compareTo(expectedCurrentLimit) != 0) {
-      throw new InvalidAccountRequestException("계좌 한도가 변경되었습니다. 다시 조회 후 시도해주세요.");
     }
 
     validateLimitInput(newLimitAmount);
     validateLimitAvailability(newLimitAmount, calculateAvailableLimit(customerId));
-    if (account.getLimitAmount().compareTo(newLimitAmount) == 0) {
+    if (foundAccount.getLimitAmount().compareTo(newLimitAmount) == 0) {
       throw new InvalidAccountRequestException("기존 한도와 다른 금액을 입력해야 합니다.");
     }
 
-    if (accountMapper.updateLimit(account.getAccountId(), account.getStatus(), expectedCurrentLimit, newLimitAmount) != 1) {
+    if (accountMapper.updateLimit(foundAccount.getAccountId(), foundAccount.getStatus(), foundAccount.getLimitAmount(), newLimitAmount) != 1) {
       throw new InvalidAccountRequestException("계좌 한도 변경 중 상태 또는 한도가 변경되었습니다.");
     }
 
     AccountStatusLogDTO limitChangeLog = AccountStatusLogDTO.builder()
-        .accountId(account.getAccountId())
-        .prevStatus(account.getStatus())
-        .newStatus(account.getStatus())
+        .accountId(foundAccount.getAccountId())
+        .prevStatus(foundAccount.getStatus())
+        .newStatus(foundAccount.getStatus())
         .changedAt(businessClockService.now())
-        .reason(buildLimitChangeReason(account.getLimitAmount(), newLimitAmount))
+        .reason(buildLimitChangeReason(foundAccount.getLimitAmount(), newLimitAmount))
         .build();
 
     if (accountStatusLogMapper.insertLog(limitChangeLog) != 1) {
       throw new AccountException("계좌 한도 변경 로그 생성 실패");
     }
 
-    AccountDTO updatedAccount = accountMapper.selectByAccountId(account.getAccountId()).orElseThrow(() -> new AccountException("계좌 한도 변경 후 재조회 실패"));
+    AccountDTO updatedAccount = accountMapper.selectByAccountId(foundAccount.getAccountId()).orElseThrow(() -> new AccountException("계좌 한도 변경 후 재조회 실패"));
     if (updatedAccount.getLimitAmount().compareTo(newLimitAmount) != 0) {
       throw new AccountException("계좌 한도 변경 결과 불일치");
+    }
+
+    if(!addAccountToMydata(updatedAccount)){
+      throw new RuntimeException("마이데이터 등록 실패");
     }
     return new AccountResponseDTO(updatedAccount);
   }
@@ -228,7 +233,8 @@ public class AccountServiceImpl implements AccountService {
     if (reappliedAccount.getStatus() != Status.APPLIED) {
       throw new AccountException("상태 변경 실패");
     }
-    return new AccountResponseDTO(saveStatusLog(reappliedAccount, log));
+    AccountDTO accountDTO = saveStatusLog(reappliedAccount, log);
+    return new AccountResponseDTO(accountDTO);
   }
 
   @Override
@@ -292,7 +298,9 @@ public class AccountServiceImpl implements AccountService {
       if (rejectedAccount.getStatus() != Status.REJECTED) {
         throw new AccountException("자동 반려 상태 변경 실패");
       }
-      return new AccountResponseDTO(saveStatusLog(rejectedAccount, log));
+      AccountDTO accountDTO = saveStatusLog(rejectedAccount, log);
+      addAccountToMydata(accountDTO);
+      return new AccountResponseDTO(accountDTO);
     }
 
     appliedAccount.setOpenedAt(changedAt);
@@ -301,7 +309,11 @@ public class AccountServiceImpl implements AccountService {
     if (openedAccount.getStatus() != Status.OPENED) {
       throw new AccountException("자동 승인 상태 변경 실패");
     }
-    return new AccountResponseDTO(saveStatusLog(openedAccount, log));
+    AccountDTO loggedAccountDTO = saveStatusLog(openedAccount, log);
+    if(!addAccountToMydata(loggedAccountDTO)){
+      throw new RuntimeException("마이데이터 등록 실패");
+    }
+    return new AccountResponseDTO(loggedAccountDTO);
   }
 
   private AccountDTO saveStatusLog(AccountDTO account, AccountStatusLogDTO log) {
@@ -320,15 +332,42 @@ public class AccountServiceImpl implements AccountService {
   private BigDecimal calculateAvailableLimit(Long customerId) {
     Map<String, String> req = new HashMap<>();
     String ciHash = accountMapper.selectCiHashByCustomerId(customerId);
+    System.out.println("ciHash: " + ciHash);
+    if(ciHash.isBlank()){
+      // TODO customer 도메인 제작 완료 후 수정
+      // 추후 CustomerNotFoundException으로 변경 예정
+      throw new AccountNotFoundException("개설할 계좌의 사용자를 찾을 수 없습니다.");
+    }
     req.put("ciHash", ciHash);
     MydataRiaAccountsResponseDTO response = restClient.post().uri(myDataUrl + "/api/mydata/ria-accounts")
         .contentType(MediaType.APPLICATION_JSON).body(req).retrieve()
         .body(MydataRiaAccountsResponseDTO.class);
     BigDecimal sumRiaLimit = Objects.requireNonNull(response, "myData 호출에 실패했습니다.")
         .getData().stream()
+        .filter(data->!data.getBrokerName().equals(ownBrokerName))
         .map(MydataRiaAccountsResponseDTO.MyDataAccountResponse::getRiaLimit)
         .reduce(BigDecimal.ZERO, BigDecimal::add);
     return MAX_LIMIT_AMOUNT.subtract(sumRiaLimit);
+  }
+
+  private Boolean addAccountToMydata(AccountDTO account) {
+    Map<String, Object> req = new HashMap<>();
+
+    String ciHash = accountMapper.selectCiHashByCustomerId(account.getCustomerId());
+    if(ciHash.isBlank()){
+      // TODO customer 도메인 제작 완료 후 수정
+      // 추후 CustomerNotFoundException으로 변경 예정
+      throw new AccountNotFoundException("개설할 계좌의 사용자를 찾을 수 없습니다.");
+    }
+    req.put("ciHash", ciHash);
+    req.put("brokerName", ownBrokerName);
+    req.put("riaLimit", account.getLimitAmount());
+    req.put("riaCumlativeSell", 0);
+    ResponseEntity<?> resEntity = restClient.post().uri(myDataUrl + "/api/mydata/ria-accounts/save")
+        .contentType(MediaType.APPLICATION_JSON).body(req).retrieve()
+        .toEntity(Object.class);
+
+    return resEntity.getStatusCode().is2xxSuccessful();
   }
 
   Optional<AutomaticRejectionReason> findAutomaticRejectionReason(Long customerId) {
