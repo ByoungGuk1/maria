@@ -80,8 +80,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 
-    @ExceptionHandler({ExchangeRateNotFoundException.class, KisTokenIssueException.class, KisPriceNotFoundException.class})
-    public ResponseEntity<ApiResponseDTO<String>> handleExternalApiException(RuntimeException e) {
+    @ExceptionHandler(ExchangeRateNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleExchangeRateNotFoundException(ExchangeRateNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(KisTokenIssueException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleKisTokenIssueException(KisTokenIssueException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(KisPriceNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleKisPriceNotFoundException(KisPriceNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
+    }
+    @ExceptionHandler(UnsupportedExchangeException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleUnsupportedExchangeException(UnsupportedExchangeException e) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
     }
 

@@ -30,6 +30,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,6 +51,9 @@ class SellOrderServiceImplTest {
     @Mock
     ForeignProductMapper foreignProductMapper;
 
+    @Mock
+    SellLimitService sellLimitService;
+
     @InjectMocks
     SellOrderServiceImpl sellOrderService;
 
@@ -62,6 +66,7 @@ class SellOrderServiceImplTest {
     private InboundDetailDTO validLot() {
         return InboundDetailDTO.builder()
                 .inboundDetailId(1L)
+                .inboundId(5L)
                 .foreignProductId(10L)
                 .currentQty(new BigDecimal("50"))
                 .purchaseFxRate(new BigDecimal("1300.5"))
@@ -71,7 +76,7 @@ class SellOrderServiceImplTest {
     private ForeignProductDTO validProduct() {
         return ForeignProductDTO.builder()
                 .foreignProductId(10L)
-                .market("NAS")
+                .market("NASDAQ")
                 .ticker("AAPL")
                 .currency("USD")
                 .build();
@@ -111,6 +116,46 @@ class SellOrderServiceImplTest {
     }
 
     @Test
+    @DisplayName("정상 요청이면 sellLimitService에 lot의 inboundId와 매도금액(수량x기준가)을 정확히 넘겨 한도를 검증한다")
+    void placeSellOrderCallsSellLimitServiceWithLotInboundIdAndOrderAmount() {
+        SellOrderRequestDTO request = validRequestBuilder().build();
+
+        when(inboundMapper.selectInboundDetailById(1L)).thenReturn(Optional.of(validLot()));
+        when(inboundMapper.decreaseCurrentQty(1L, new BigDecimal("10"))).thenReturn(1);
+        when(foreignProductMapper.selectById(10L)).thenReturn(Optional.of(validProduct()));
+        when(kisPriceClient.getPreviousClose("NAS", "AAPL")).thenReturn(new BigDecimal("308.91"));
+        when(exchangeRateClient.getBaseRate("USD")).thenReturn(new BigDecimal("1433.6"));
+        BigDecimal expectedOrderAmount = new BigDecimal("10")
+                .multiply(new BigDecimal("308.91").multiply(new BigDecimal("1433.6")));
+
+        sellOrderService.placeSellOrder(request);
+
+        ArgumentCaptor<BigDecimal> amountCaptor = ArgumentCaptor.forClass(BigDecimal.class);
+        verify(sellLimitService, times(1)).validateSellLimit(eq(5L), amountCaptor.capture());
+        assertThat(amountCaptor.getValue()).isEqualByComparingTo(expectedOrderAmount);
+    }
+
+    @Test
+    @DisplayName("sellLimitService가 한도초과 예외를 던지면 저장하지 않고 그대로 전파한다")
+    void placeSellOrderPropagatesExceptionAndSkipsSaveWhenSellLimitExceeded() {
+        SellOrderRequestDTO request = validRequestBuilder().build();
+
+        when(inboundMapper.selectInboundDetailById(1L)).thenReturn(Optional.of(validLot()));
+        when(inboundMapper.decreaseCurrentQty(1L, new BigDecimal("10"))).thenReturn(1);
+        when(foreignProductMapper.selectById(10L)).thenReturn(Optional.of(validProduct()));
+        when(kisPriceClient.getPreviousClose("NAS", "AAPL")).thenReturn(new BigDecimal("308.91"));
+        when(exchangeRateClient.getBaseRate("USD")).thenReturn(new BigDecimal("1433.6"));
+        doThrow(new SellOrderException("매도 한도를 초과했습니다."))
+                .when(sellLimitService).validateSellLimit(any(), any());
+
+        assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
+                .isInstanceOf(SellOrderException.class)
+                .hasMessage("매도 한도를 초과했습니다.");
+
+        verifyNoInteractions(sellOrderMapper);
+    }
+
+    @Test
     @DisplayName("전일종가 조회에 실패하면 예외가 전파되고 저장은 하지 않는다")
     void placeSellOrderPropagatesExceptionAndSkipsSaveWhenPreviousCloseLookupFails() {
         SellOrderRequestDTO request = validRequestBuilder().build();
@@ -126,39 +171,6 @@ class SellOrderServiceImplTest {
 
         verify(exchangeRateClient, never()).getBaseRate(any());
         verifyNoInteractions(sellOrderMapper);
-    }
-
-    @Test
-    @DisplayName("수량이 null이면 예외를 던지고 외부 API와 저장소는 호출하지 않는다")
-    void placeSellOrderThrowsAndSkipsExternalCallsWhenSellQtyIsNull() {
-        SellOrderRequestDTO request = validRequestBuilder().sellQty(null).build();
-
-        assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
-                .isInstanceOf(SellOrderException.class);
-
-        verifyNoInteractions(sellOrderMapper, kisPriceClient, exchangeRateClient, inboundMapper, foreignProductMapper);
-    }
-
-    @Test
-    @DisplayName("수량이 0이면 예외를 던진다")
-    void placeSellOrderThrowsWhenSellQtyIsZero() {
-        SellOrderRequestDTO request = validRequestBuilder().sellQty(BigDecimal.ZERO).build();
-
-        assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
-                .isInstanceOf(SellOrderException.class);
-
-        verifyNoInteractions(sellOrderMapper, kisPriceClient, exchangeRateClient, inboundMapper, foreignProductMapper);
-    }
-
-    @Test
-    @DisplayName("수량이 음수이면 예외를 던진다")
-    void placeSellOrderThrowsWhenSellQtyIsNegative() {
-        SellOrderRequestDTO request = validRequestBuilder().sellQty(new BigDecimal("-5")).build();
-
-        assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
-                .isInstanceOf(SellOrderException.class);
-
-        verifyNoInteractions(sellOrderMapper, kisPriceClient, exchangeRateClient, inboundMapper, foreignProductMapper);
     }
 
     @Test

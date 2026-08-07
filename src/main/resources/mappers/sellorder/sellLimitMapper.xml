@@ -12,6 +12,16 @@
         FOR UPDATE
     </select>
 
+    <select id="sumPendingSellOrderAmount" parameterType="Long" resultType="BigDecimal">
+        SELECT COALESCE(SUM(s.base_price * s.sell_qty), 0)
+        FROM sell_order s
+        JOIN inbound_detail id ON s.inbound_detail_id = id.inbound_detail_id
+        JOIN inbound i ON id.inbound_id = i.inbound_id
+        LEFT JOIN krw_exchange k ON k.order_id = s.order_id AND k.settlement_status = 'FINALIZED'
+        WHERE i.account_id = #{accountId}
+        AND s.status != 'REJECTED'
+        AND k.exchange_id IS NULL
+    </select>
 
     <select id="sumFinalizedExchangeAmount" parameterType="Long" resultType="BigDecimal">
         SELECT COALESCE(SUM(final_amount), 0)
@@ -25,6 +35,12 @@
         FROM customer c
         JOIN account a ON a.customer_id = c.customer_id
         WHERE a.account_id = #{accountId}
+    </select>
+
+    <select id="selectAccountByInboundId" parameterType="Long" resultType="Long">
+        SELECT account_id
+        FROM inbound
+        WHERE inbound_id = #{inboundId}
     </select>
 
 </mapper>

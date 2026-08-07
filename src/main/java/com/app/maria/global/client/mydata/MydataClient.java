@@ -50,7 +50,10 @@ public class MydataClient {
             return BigDecimal.ZERO;
         }
         return accounts.stream()
-                .map(MydataRiaAccountDTO::getRiaCumulativeSell).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+                .filter(a -> !mydataApiProperties.getOwnBrokerName().equals(a.getBrokerName()))
+                .map(MydataRiaAccountDTO::getRiaCumulativeSell)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
 }
