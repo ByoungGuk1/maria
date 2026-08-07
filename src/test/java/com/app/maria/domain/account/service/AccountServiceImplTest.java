@@ -13,6 +13,8 @@ import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.mapper.AccountStatusLogMapper;
 import com.app.maria.domain.account.type.AutomaticRejectionReason;
 import com.app.maria.domain.account.type.Status;
+import com.app.maria.global.clock.service.BusinessClockService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -59,9 +62,17 @@ class AccountServiceImplTest {
   @Mock
   private AccountStatusLogMapper accountStatusLogMapper;
 
+  @Mock
+  private BusinessClockService businessClockService;
+
   @Spy
   @InjectMocks
   private AccountServiceImpl accountService;
+
+  @BeforeEach
+  void setUpBusinessClock() {
+    lenient().when(businessClockService.now()).thenReturn(FIXED_NOW);
+  }
 
   @Test
   @DisplayName("타 금융회사 한도가 없으면 설정 가능 최대 한도는 5천만원이다")

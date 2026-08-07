@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.Optional;
 @Mapper
 public interface AdminMapper {
-    public Optional<AdminUserDTO> selectAdminByLoginId(@Param("loginId") String loginId);
-    public Optional<AdminUserDTO> selectAdminByAdminId(@Param("adminId") Long adminId);
-    public void updateRole(@Param("adminId") Long adminId, @Param("role") AdminRole role);
-    public List<AdminUserDTO> selectAllAdmins();
+    Optional<AdminUserDTO> selectAdminByLoginId(@Param("loginId") String loginId);
+    Optional<AdminUserDTO> selectAdminByAdminId(@Param("adminId") Long adminId);
+    void updateRole(@Param("adminId") Long adminId, @Param("role") AdminRole role);
+    List<AdminUserDTO> selectAllAdmins();
 }
