@@ -14,6 +14,7 @@ import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.domain.sellorder.mapper.SellOrderMapper;
 import com.app.maria.domain.sellorder.type.SellOrderStatus;
 import com.app.maria.global.client.exchange.ExchangeRateClient;
+import com.app.maria.global.client.kis.KisExchangeCode;
 import com.app.maria.global.client.kis.KisPriceClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -63,7 +64,8 @@ public class SellOrderServiceImpl implements SellOrderService{
             throw new SellOrderException("다른 요청이 먼저 처리되었습니다.");
         }
 
-        BigDecimal previousClose = kis.getPreviousClose(product.getMarket(), product.getTicker());
+        String kisMarketCode = KisExchangeCode.fromMarket(product.getMarket());
+        BigDecimal previousClose = kis.getPreviousClose(kisMarketCode, product.getTicker());
         BigDecimal exchangeRate = exchange.getBaseRate(product.getCurrency());
         dto.setBasePrice(previousClose.multiply(exchangeRate));
         dto.setSettlementFxRate(exchangeRate);

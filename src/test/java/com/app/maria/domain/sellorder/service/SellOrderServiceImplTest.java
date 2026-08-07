@@ -76,7 +76,7 @@ class SellOrderServiceImplTest {
     private ForeignProductDTO validProduct() {
         return ForeignProductDTO.builder()
                 .foreignProductId(10L)
-                .market("NAS")
+                .market("NASDAQ")
                 .ticker("AAPL")
                 .currency("USD")
                 .build();
