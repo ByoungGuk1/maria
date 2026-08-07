@@ -27,4 +27,10 @@
         WHERE a.account_id = #{accountId}
     </select>
 
+    <select id="selectAccountByInboundId" parameterType="Long" resultType="Long">
+        SELECT account_id
+        FROM inbound
+        WHERE inbound_id = #{inboundId}
+    </select>
+
 </mapper>
