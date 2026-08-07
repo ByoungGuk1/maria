@@ -15,49 +15,23 @@ import com.app.maria.domain.member.exception.MemberNotFoundException;
 import com.app.maria.domain.sellorder.exception.SellOrderException;
 import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.domain.settlement.exception.*;
-import com.app.maria.domain.withdrawal.exception.WithdrawalException;
-import com.app.maria.global.audit.exception.AuditLogInsertException;
-import com.app.maria.global.clock.exception.SystemClockNotInitializedException;
-import com.app.maria.global.clock.exception.SystemClockUpdateException;
 import com.app.maria.global.response.ApiResponseDTO;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.ConstraintViolationException;
-import org.springframework.context.MessageSourceResolvable;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     // 1. DTO Valid 검증 예외
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
+    public ResponseEntity<ApiResponseDTO<Void>> handleValidationException(MethodArgumentNotValidException e) {
         String message = e.getBindingResult().getFieldErrors().stream()
                 .findFirst()
                 .map(DefaultMessageSourceResolvable::getDefaultMessage)
-                .orElse("요청값이 올바르지 않습니다.");
-        return ResponseEntity.badRequest().body(ApiResponseDTO.of(message));
-    }
-
-    @ExceptionHandler(HandlerMethodValidationException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleMethodValidationException(HandlerMethodValidationException e) {
-        String message = e.getAllErrors().stream()
-                .findFirst()
-                .map(MessageSourceResolvable::getDefaultMessage)
-                .orElse("요청값이 올바르지 않습니다.");
-        return ResponseEntity.badRequest().body(ApiResponseDTO.of(message));
-    }
-
-    @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleConstraintViolationException(ConstraintViolationException e) {
-        String message = e.getConstraintViolations().stream()
-                .findFirst()
-                .map(ConstraintViolation::getMessage)
                 .orElse("요청값이 올바르지 않습니다.");
         return ResponseEntity.badRequest().body(ApiResponseDTO.of(message));
     }
@@ -84,22 +58,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 
-    @ExceptionHandler(ExchangeRateNotFoundException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleExchangeRateNotFoundException(ExchangeRateNotFoundException e) {
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
-    }
-
-    @ExceptionHandler(KisTokenIssueException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleKisTokenIssueException(KisTokenIssueException e) {
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
-    }
-
-    @ExceptionHandler(KisPriceNotFoundException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleKisPriceNotFoundException(KisPriceNotFoundException e) {
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
-    }
-    @ExceptionHandler(UnsupportedExchangeException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleUnsupportedExchangeException(UnsupportedExchangeException e) {
+    @ExceptionHandler({ExchangeRateNotFoundException.class, KisTokenIssueException.class, KisPriceNotFoundException.class})
+    public ResponseEntity<ApiResponseDTO<String>> handleExternalApiException(RuntimeException e) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
     }
 
@@ -188,13 +148,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 
-    // 8. mydata 예외
-    @ExceptionHandler(MydataApiException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleMydataApiException(MydataApiException e) {
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
-    }
-
-    // 9. ForeignProduct 예외
+    // 8. ForeignProduct 예외
     @ExceptionHandler(ForeignProductException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleForeignProductException(ForeignProductException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
@@ -204,28 +158,4 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponseDTO<Void>> handleForeignProductNotFound(ForeignProductNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
-
-    //10.Withdrawal 예외
-    @ExceptionHandler(WithdrawalException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleWithdrawalException(WithdrawalException e){
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
-    }
-
-    //11. Clock 예외
-    @ExceptionHandler(SystemClockNotInitializedException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleSystemClockNotInitializedException(SystemClockNotInitializedException e){
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponseDTO.of(e.getMessage()));
-    }
-
-    @ExceptionHandler(SystemClockUpdateException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleSystemClockUpdateException(SystemClockUpdateException e){
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
-    }
-
-    //12. Audit 예외
-    @ExceptionHandler(AuditLogInsertException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleAuditLogInsertException(AuditLogInsertException e){
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponseDTO.of(e.getMessage()));
-    }
-
 }

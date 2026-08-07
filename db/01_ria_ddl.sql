@@ -22,6 +22,8 @@ DROP TABLE IF EXISTS left_amount;
 DROP TABLE IF EXISTS krw_exchange;
 DROP TABLE IF EXISTS sell_order;
 DROP TABLE IF EXISTS outbound;
+DROP TABLE IF EXISTS target_product_judgement;
+DROP TABLE IF EXISTS external_trade_sync_cursor;
 DROP TABLE IF EXISTS inbound_min;
 DROP TABLE IF EXISTS inbound_detail;
 DROP TABLE IF EXISTS inbound;
@@ -229,6 +231,30 @@ CREATE TABLE inbound_min (
     PRIMARY KEY (inbound_min_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='3-way Min 산식 근거';
 
+-- 대상상품 판별 결과(G2, 스냅샷)
+CREATE TABLE target_product_judgement (
+    judgement_id         BIGINT        NOT NULL AUTO_INCREMENT,
+    mydata_trade_id      BIGINT        NOT NULL COMMENT 'mydata_trade.trade_id 참조(다른 DB, FK 불가)',
+    fund_code            VARCHAR(12)   NULL COMMENT 'stock_type=FUND인 경우만',
+    fund_name            VARCHAR(100)  NULL COMMENT '판정 시점 스냅샷',
+    is_target            BOOLEAN       NOT NULL COMMENT 'G2 판정 결과(대상상품 여부)',
+    foreign_stock_ratio  DECIMAL(5,2)  NULL COMMENT '판정 시점 스냅샷',
+    inception_date       DATE          NULL COMMENT '판정 시점 스냅샷',
+    judged_at            DATETIME      NOT NULL COMMENT '판정 시각',
+    PRIMARY KEY (judgement_id),
+    CONSTRAINT uq_target_product__trade UNIQUE (mydata_trade_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='G2 대상상품 판별 결과(스냅샷)';
+
+-- G1 mydata 거래 동기화 커서(고객별 마지막 처리 거래일 — 반복 동기화 시 fromDate로 사용)
+CREATE TABLE external_trade_sync_cursor (
+                                            cursor_id              BIGINT   NOT NULL AUTO_INCREMENT,
+                                            customer_id            BIGINT   NOT NULL COMMENT '동기화 대상 고객',
+                                            last_synced_trade_date DATE     NULL     COMMENT '마지막으로 처리한 거래의 trade_date. 다음 동기화 시 MydataTradeRequestDTO.fromDate로 사용(경계일 중복은 judge() 전 존재확인으로 방지)',
+                                            updated_at             DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '커서 갱신 시각',
+                                            PRIMARY KEY (cursor_id),
+                                            UNIQUE KEY uk_external_trade_sync_cursor__customer (customer_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='G1 mydata 거래 동기화 커서(고객별 마지막 처리 거래일)';
+
 -- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE outbound (
     outbound_id       BIGINT        NOT NULL AUTO_INCREMENT,
@@ -415,6 +441,7 @@ ALTER TABLE inbound                ADD CONSTRAINT fk_inbound__account           
 ALTER TABLE inbound_detail         ADD CONSTRAINT fk_inbound_detail__inbound          FOREIGN KEY (inbound_id)           REFERENCES inbound (inbound_id);
 ALTER TABLE inbound_detail         ADD CONSTRAINT fk_inbound_detail__foreign_product  FOREIGN KEY (foreign_product_id)   REFERENCES foreign_product (foreign_product_id);
 ALTER TABLE inbound_min            ADD CONSTRAINT fk_inbound_min__inbound_detail       FOREIGN KEY (inbound_detail_id)    REFERENCES inbound_detail (inbound_detail_id);
+ALTER TABLE external_trade_sync_cursor ADD CONSTRAINT fk_etsc__customer                FOREIGN KEY (customer_id)          REFERENCES customer (customer_id);
 ALTER TABLE outbound               ADD CONSTRAINT fk_outbound__inbound_detail          FOREIGN KEY (inbound_detail_id)    REFERENCES inbound_detail (inbound_detail_id);
 ALTER TABLE sell_order             ADD CONSTRAINT fk_sell_order__inbound_detail        FOREIGN KEY (inbound_detail_id)    REFERENCES inbound_detail (inbound_detail_id);
 ALTER TABLE krw_exchange           ADD CONSTRAINT fk_krw_exchange__account             FOREIGN KEY (account_id)           REFERENCES account (account_id);

@@ -1,0 +1,269 @@
+package com.app.maria.domain.externaltradesync.service;
+
+import com.app.maria.domain.customer.dto.CustomerCiHashDTO;
+import com.app.maria.domain.customer.mapper.CustomerMapper;
+import com.app.maria.domain.externaltradesync.dto.ExternalTradeSyncCursorDTO;
+import com.app.maria.domain.externaltradesync.mapper.ExternalTradeSyncCursorMapper;
+import com.app.maria.domain.mydatatrade.dto.MydataTradeResponseDTO;
+import com.app.maria.domain.mydatatrade.dto.request.MydataTradeRequestDTO;
+import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
+import com.app.maria.domain.targetproduct.service.TargetProductService;
+import com.app.maria.global.client.mydatatrade.MydataTradeClient;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.groups.Tuple.tuple;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class ExternalTradeSyncServiceImplTest {
+
+    @Mock
+    private CustomerMapper customerMapper;
+
+    @Mock
+    private ExternalTradeSyncCursorMapper cursorMapper;
+
+    @Mock
+    private MydataTradeClient mydataTradeClient;
+
+    @Mock
+    private TargetProductMapper targetProductMapper;
+
+    @Mock
+    private TargetProductService targetProductService;
+
+    @InjectMocks
+    private ExternalTradeSyncServiceImpl externalTradeSyncService;
+
+    private static CustomerCiHashDTO customer(Long customerId, String ciHash) {
+        return CustomerCiHashDTO.builder().customerId(customerId).ciHash(ciHash).build();
+    }
+
+    private static MydataTradeResponseDTO trade(Long tradeId, String stockType, String fundCode, LocalDate tradeDate) {
+        return MydataTradeResponseDTO.builder()
+                .tradeId(tradeId)
+                .ciHash("ci-1")
+                .brokerName("증권사A")
+                .tradeType("BUY")
+                .stockType(stockType)
+                .qty(BigDecimal.TEN)
+                .tradeDate(tradeDate)
+                .amount(BigDecimal.valueOf(1_000_000))
+                .fundCode(fundCode)
+                .build();
+    }
+
+    @Test
+    @DisplayName("동기화 대상 고객이 없으면 mydata 조회, 판정, 커서 갱신 모두 발생하지 않는다")
+    void syncAllDoesNothingWhenNoCustomers() {
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of());
+
+        externalTradeSyncService.syncAll();
+
+        verifyNoInteractions(mydataTradeClient, targetProductService, cursorMapper);
+    }
+
+    @Test
+    @DisplayName("커서가 없는 고객(첫 동기화)은 fromDate 없이 mydata를 조회한다")
+    void firstSyncQueriesWithNullFromDate() {
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of());
+
+        externalTradeSyncService.syncAll();
+
+        ArgumentCaptor<MydataTradeRequestDTO> captor = ArgumentCaptor.forClass(MydataTradeRequestDTO.class);
+        verify(mydataTradeClient).getTrades(captor.capture());
+        assertThat(captor.getValue().getCiHash()).isEqualTo("ci-1");
+        assertThat(captor.getValue().getFromDate()).isNull();
+    }
+
+    @Test
+    @DisplayName("커서가 있는 고객은 마지막 동기화 거래일을 fromDate로 사용해 조회한다")
+    void resumedSyncQueriesWithLastSyncedTradeDate() {
+        LocalDate lastSynced = LocalDate.of(2026, 3, 1);
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.of(
+                ExternalTradeSyncCursorDTO.builder().customerId(1L).lastSyncedTradeDate(lastSynced).build()));
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of());
+
+        externalTradeSyncService.syncAll();
+
+        ArgumentCaptor<MydataTradeRequestDTO> captor = ArgumentCaptor.forClass(MydataTradeRequestDTO.class);
+        verify(mydataTradeClient).getTrades(captor.capture());
+        assertThat(captor.getValue().getFromDate()).isEqualTo(lastSynced);
+    }
+
+    @Test
+    @DisplayName("신규 거래는 각 거래의 tradeId, stockType, fundCode로 judge()가 호출된다")
+    void newTradesAreJudgedWithTheirOwnArguments() {
+        MydataTradeResponseDTO foreignStock = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
+        MydataTradeResponseDTO fund = trade(101L, "FUND", "448630", LocalDate.of(2026, 3, 10));
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(foreignStock, fund));
+        when(targetProductMapper.existsByMydataTradeId(anyLong())).thenReturn(false);
+
+        externalTradeSyncService.syncAll();
+
+        verify(targetProductService).judge(100L, "FOREIGN_STOCK", null);
+        verify(targetProductService).judge(101L, "FUND", "448630");
+    }
+
+    @Test
+    @DisplayName("이미 판정된 거래(mydata_trade_id 존재)는 judge()를 다시 호출하지 않는다")
+    void alreadyJudgedTradeIsSkippedWithoutCallingJudge() {
+        MydataTradeResponseDTO alreadyJudged = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
+        MydataTradeResponseDTO newTrade = trade(101L, "ETF", null, LocalDate.of(2026, 3, 6));
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(alreadyJudged, newTrade));
+        when(targetProductMapper.existsByMydataTradeId(100L)).thenReturn(true);
+        when(targetProductMapper.existsByMydataTradeId(101L)).thenReturn(false);
+
+        externalTradeSyncService.syncAll();
+
+        verify(targetProductService).judge(101L, "ETF", null);
+        verifyNoMoreInteractions(targetProductService);
+    }
+
+    @Test
+    @DisplayName("한 거래의 판정이 실패해도 나머지 거래는 계속 처리된다")
+    void oneTradeFailureDoesNotStopProcessingOtherTrades() {
+        MydataTradeResponseDTO failing = trade(100L, "FUND", "BADCODE", LocalDate.of(2026, 3, 5));
+        MydataTradeResponseDTO succeeding = trade(101L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 6));
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(failing, succeeding));
+        when(targetProductMapper.existsByMydataTradeId(anyLong())).thenReturn(false);
+        when(targetProductService.judge(100L, "FUND", "BADCODE"))
+                .thenThrow(new RuntimeException("mydata 펀드 조회 실패"));
+
+        externalTradeSyncService.syncAll();
+
+        verify(targetProductService).judge(101L, "FOREIGN_STOCK", null);
+    }
+
+    @Test
+    @DisplayName("고객별 커서를 여러 거래 중 가장 늦은 거래일로 갱신한다")
+    void cursorAdvancesToTheLatestTradeDateAmongMultipleTrades() {
+        MydataTradeResponseDTO t1 = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
+        MydataTradeResponseDTO t2 = trade(101L, "ETF", null, LocalDate.of(2026, 3, 20));
+        MydataTradeResponseDTO t3 = trade(102L, "ETN", null, LocalDate.of(2026, 3, 10));
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(t1, t2, t3));
+        when(targetProductMapper.existsByMydataTradeId(anyLong())).thenReturn(false);
+
+        externalTradeSyncService.syncAll();
+
+        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor = ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
+        verify(cursorMapper).upsertCursor(captor.capture());
+        assertThat(captor.getValue().getCustomerId()).isEqualTo(1L);
+        assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(LocalDate.of(2026, 3, 20));
+    }
+
+    @Test
+    @DisplayName("판정에 실패한 거래가 가장 최근 거래여도 그 거래일까지 커서를 전진시켜 무한 재시도를 막는다")
+    void cursorAdvancesPastAFailingTradeToAvoidPermanentBlock() {
+        MydataTradeResponseDTO failing = trade(100L, "FUND", "BADCODE", LocalDate.of(2026, 3, 20));
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(failing));
+        when(targetProductMapper.existsByMydataTradeId(100L)).thenReturn(false);
+        when(targetProductService.judge(100L, "FUND", "BADCODE"))
+                .thenThrow(new RuntimeException("mydata 펀드 조회 실패"));
+
+        externalTradeSyncService.syncAll();
+
+        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor = ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
+        verify(cursorMapper).upsertCursor(captor.capture());
+        assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(LocalDate.of(2026, 3, 20));
+    }
+
+    @Test
+    @DisplayName("신규 거래가 없고 기존 커서도 없으면 커서를 생성하지 않는다")
+    void cursorIsNotUpsertedWhenNoTradesAndNoExistingCursor() {
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of());
+
+        externalTradeSyncService.syncAll();
+
+        verify(cursorMapper, never()).upsertCursor(any());
+        verifyNoInteractions(targetProductService);
+    }
+
+    @Test
+    @DisplayName("신규 거래가 없어도 기존 커서가 있으면 동일한 값으로 커서를 다시 저장한다")
+    void cursorIsReupsertedWithSameValueWhenNoNewTrades() {
+        LocalDate lastSynced = LocalDate.of(2026, 3, 1);
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.of(
+                ExternalTradeSyncCursorDTO.builder().customerId(1L).lastSyncedTradeDate(lastSynced).build()));
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of());
+
+        externalTradeSyncService.syncAll();
+
+        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor = ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
+        verify(cursorMapper).upsertCursor(captor.capture());
+        assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(lastSynced);
+    }
+
+    @Test
+    @DisplayName("고객이 여러 명이면 고객마다 각각 mydata를 조회하고 서로의 결과에 영향을 주지 않는다")
+    void syncsMultipleCustomersIndependently() {
+        MydataTradeResponseDTO customer1Trade = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
+        MydataTradeResponseDTO customer2Trade = trade(200L, "ETF", null, LocalDate.of(2026, 4, 1));
+
+        when(customerMapper.selectActiveRiaCustomers())
+                .thenReturn(List.of(customer(1L, "ci-1"), customer(2L, "ci-2")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(cursorMapper.selectByCustomerId(2L)).thenReturn(Optional.empty());
+        // customerMapper가 고객을 1번→2번 순서로 반환하고 syncAll()도 그 순서로 순회하므로,
+        // getTrades() 호출 순서에 맞춰 결과를 순차적으로 반환하도록 스텁한다.
+        when(mydataTradeClient.getTrades(any()))
+                .thenReturn(List.of(customer1Trade))
+                .thenReturn(List.of(customer2Trade));
+        when(targetProductMapper.existsByMydataTradeId(anyLong())).thenReturn(false);
+
+        externalTradeSyncService.syncAll();
+
+        verify(targetProductService).judge(100L, "FOREIGN_STOCK", null);
+        verify(targetProductService).judge(200L, "ETF", null);
+        verify(mydataTradeClient, times(2)).getTrades(any());
+
+        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor = ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
+        verify(cursorMapper, times(2)).upsertCursor(captor.capture());
+        assertThat(captor.getAllValues())
+                .extracting(ExternalTradeSyncCursorDTO::getCustomerId, ExternalTradeSyncCursorDTO::getLastSyncedTradeDate)
+                .containsExactlyInAnyOrder(
+                        tuple(1L, LocalDate.of(2026, 3, 5)),
+                        tuple(2L, LocalDate.of(2026, 4, 1))
+                );
+    }
+}
