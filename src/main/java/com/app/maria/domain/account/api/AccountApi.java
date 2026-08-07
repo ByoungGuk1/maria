@@ -3,6 +3,7 @@ package com.app.maria.domain.account.api;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.ReasonRequestDTO;
+import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.service.AccountService;
 import com.app.maria.global.response.ApiResponseDTO;
@@ -11,19 +12,22 @@ import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/account")
+@PreAuthorize("hasAnyRole('ADMIN', 'SETTLEMENT', 'REVIEWER', 'VIEWER')")
 public class AccountApi {
 
     private final AccountService accountService;
 
     @GetMapping("/list")
-    public ResponseEntity<?> getAccountList(){
+    public ResponseEntity<ApiResponseDTO<List<AccountResponseDTO>>> getAccountList(){
         return ResponseEntity.ok(ApiResponseDTO.of("계좌 정보 전체 조회", accountService.findAll()));
     }
 
@@ -38,11 +42,13 @@ public class AccountApi {
     }
 
     @PostMapping("/{accountId}/approve")
+    @PreAuthorize("hasAnyRole('ADMIN', 'REVIEWER')")
     public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> approve(@PathVariable @Positive(message = "계좌 ID는 0보다 커야 합니다.") Long accountId){
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponseDTO.of("계좌 승인", accountService.approveAccount(accountId)));
     }
 
     @PostMapping("/{accountId}/reject")
+    @PreAuthorize("hasAnyRole('ADMIN', 'REVIEWER')")
     public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> reject(@PathVariable @Positive(message = "계좌 ID는 0보다 커야 합니다.") Long accountId, @Valid @RequestBody ReasonRequestDTO reasonRequestDTO
     ) {
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponseDTO.of("계좌 반려", accountService.rejectAccount(accountId, reasonRequestDTO.getReason())));
@@ -59,11 +65,12 @@ public class AccountApi {
     }
 
     @GetMapping("/{accountId}/status-logs")
-    public ResponseEntity<?> getStatusLogs(@PathVariable @Positive(message = "계좌 ID는 0보다 커야 합니다.") Long accountId) {
+    public ResponseEntity<ApiResponseDTO<List<AccountLogResponseDTO>>> getStatusLogs(@PathVariable @Positive(message = "계좌 ID는 0보다 커야 합니다.") Long accountId) {
         return ResponseEntity.ok(ApiResponseDTO.of("계좌 상태 이력 조회", accountService.getStatusLogsByAccountId(accountId)));
     }
 
     @PostMapping("/{accountId}/override")
+    @PreAuthorize("hasAnyRole('ADMIN', 'REVIEWER')")
     public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> override(@PathVariable @Positive(message = "계좌 ID는 0보다 커야 합니다.") Long accountId, @Valid @RequestBody ReasonRequestDTO reasonRequestDTO) {
         return ResponseEntity.ok(ApiResponseDTO.of("계좌 상태 오버라이드", accountService.overrideAccount(accountId, reasonRequestDTO.getReason())));
     }
