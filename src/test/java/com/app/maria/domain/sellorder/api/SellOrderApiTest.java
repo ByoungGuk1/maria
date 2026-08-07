@@ -123,6 +123,36 @@ class SellOrderApiTest {
     }
 
     @Test
+    @DisplayName("매도 주문 접수 시 수량이 없으면 검증 실패로 400을 반환하고 서비스는 호출되지 않는다")
+    @WithMockUser(roles = "SETTLEMENT")
+    void placeSellOrderReturns400WhenSellQtyIsMissing() throws Exception {
+        SellOrderRequestDTO request = validRequestBuilder().sellQty(null).build();
+
+        mockMvc.perform(post("/api/sell-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("매도 수량을 입력하세요."));
+
+        verify(sellOrderService, never()).placeSellOrder(any());
+    }
+
+    @Test
+    @DisplayName("매도 주문 접수 시 수량이 음수면 검증 실패로 400을 반환하고 서비스는 호출되지 않는다")
+    @WithMockUser(roles = "SETTLEMENT")
+    void placeSellOrderReturns400WhenSellQtyIsNegative() throws Exception {
+        SellOrderRequestDTO request = validRequestBuilder().sellQty(new BigDecimal("-5")).build();
+
+        mockMvc.perform(post("/api/sell-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("매도 수량은 0보다 커야 합니다."));
+
+        verify(sellOrderService, never()).placeSellOrder(any());
+    }
+
+    @Test
     @DisplayName("매도 주문 접수 시 출고 상세 ID가 없으면 검증 실패로 400을 반환하고 서비스는 호출되지 않는다")
     @WithMockUser(roles = "SETTLEMENT")
     void placeSellOrderReturns400WhenInboundDetailIdMissing() throws Exception {

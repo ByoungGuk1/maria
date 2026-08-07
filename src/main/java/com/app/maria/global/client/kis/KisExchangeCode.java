@@ -16,10 +16,6 @@ public enum KisExchangeCode {
     private final String kisCode;
 
     public static String fromMarket(String market) {
-        if (market == null) {
-            throw new UnsupportedExchangeException("거래소를 입력하세요.");
-        }
-
         for (KisExchangeCode code : values()) {
             if (code.name().equalsIgnoreCase(market.trim())) {
                 return code.getKisCode();
