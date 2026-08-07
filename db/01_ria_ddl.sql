@@ -152,7 +152,7 @@ CREATE TABLE foreign_product (
     foreign_product_id BIGINT       NOT NULL AUTO_INCREMENT,
     ticker             VARCHAR(20)  NOT NULL COMMENT '종목코드',
     name               VARCHAR(100) NOT NULL COMMENT '종목명',
-    market             VARCHAR(50)  NULL     COMMENT '거래소',
+    market             VARCHAR(50)  NOT NULL COMMENT '거래소',
     currency           VARCHAR(10)  NULL     COMMENT '거래통화',
     type               VARCHAR(15)  NOT NULL COMMENT 'FOREIGN_STOCK/ETF/ETN',
     PRIMARY KEY (foreign_product_id),

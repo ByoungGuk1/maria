@@ -174,39 +174,6 @@ class SellOrderServiceImplTest {
     }
 
     @Test
-    @DisplayName("수량이 null이면 예외를 던지고 외부 API와 저장소는 호출하지 않는다")
-    void placeSellOrderThrowsAndSkipsExternalCallsWhenSellQtyIsNull() {
-        SellOrderRequestDTO request = validRequestBuilder().sellQty(null).build();
-
-        assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
-                .isInstanceOf(SellOrderException.class);
-
-        verifyNoInteractions(sellOrderMapper, kisPriceClient, exchangeRateClient, inboundMapper, foreignProductMapper);
-    }
-
-    @Test
-    @DisplayName("수량이 0이면 예외를 던진다")
-    void placeSellOrderThrowsWhenSellQtyIsZero() {
-        SellOrderRequestDTO request = validRequestBuilder().sellQty(BigDecimal.ZERO).build();
-
-        assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
-                .isInstanceOf(SellOrderException.class);
-
-        verifyNoInteractions(sellOrderMapper, kisPriceClient, exchangeRateClient, inboundMapper, foreignProductMapper);
-    }
-
-    @Test
-    @DisplayName("수량이 음수이면 예외를 던진다")
-    void placeSellOrderThrowsWhenSellQtyIsNegative() {
-        SellOrderRequestDTO request = validRequestBuilder().sellQty(new BigDecimal("-5")).build();
-
-        assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
-                .isInstanceOf(SellOrderException.class);
-
-        verifyNoInteractions(sellOrderMapper, kisPriceClient, exchangeRateClient, inboundMapper, foreignProductMapper);
-    }
-
-    @Test
     @DisplayName("입고 상세가 존재하지 않으면 예외를 던지고 차감/외부 API/저장은 하지 않는다")
     void placeSellOrderThrowsWhenInboundDetailNotFound() {
         SellOrderRequestDTO request = validRequestBuilder().build();

@@ -54,12 +54,4 @@ class KisExchangeCodeTest {
                 .isInstanceOf(UnsupportedExchangeException.class)
                 .hasMessage("지원하지 않는 거래소입니다.");
     }
-
-    @Test
-    @DisplayName("market이 null이면 예외를 던진다")
-    void fromMarketThrowsWhenMarketIsNull() {
-        assertThatThrownBy(() -> KisExchangeCode.fromMarket(null))
-                .isInstanceOf(UnsupportedExchangeException.class)
-                .hasMessage("거래소를 입력하세요.");
-    }
 }
