@@ -27,12 +27,14 @@ public class SellLimitServiceImpl implements SellLimitService {
 
         BigDecimal finalizedSum = sellLimitMapper.sumFinalizedExchangeAmount(accountId);
 
+        BigDecimal pendingSum = sellLimitMapper.sumPendingSellOrderAmount(accountId);
+
         String ciHash = sellLimitMapper.selectCiHashByAccountId(accountId)
                 .orElseThrow(() ->  new SellOrderException("고객 정보를 확인할 수 없습니다."));
 
         BigDecimal externalSum = mydataClient.getExternalSellTotal(ciHash);
 
-        BigDecimal totalAfterThisOrder = finalizedSum.add(externalSum).add(orderAmount);
+        BigDecimal totalAfterThisOrder = finalizedSum.add(pendingSum).add(externalSum).add(orderAmount);
         if (totalAfterThisOrder.compareTo(limitAmount) > 0) {
             throw new SellOrderException("매도 한도를 초과했습니다.");
         }

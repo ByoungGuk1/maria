@@ -13,5 +13,6 @@ public interface SellLimitMapper {
     BigDecimal sumFinalizedExchangeAmount(@Param("accountId") Long accountId);
     Optional<String> selectCiHashByAccountId(@Param("accountId") Long accountId);
     Optional<Long> selectAccountByInboundId(@Param("inboundId") Long inboundId);
+    BigDecimal sumPendingSellOrderAmount(@Param("accountId") Long accountId);
 
 }

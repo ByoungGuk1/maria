@@ -17,6 +17,7 @@ import com.app.maria.global.client.exchange.ExchangeRateClient;
 import com.app.maria.global.client.kis.KisPriceClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -36,6 +37,7 @@ public class SellOrderServiceImpl implements SellOrderService{
     private final SellLimitService sellLimitService;
 
     @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public SellOrderResponseDTO placeSellOrder(SellOrderRequestDTO request) {
 
         if (request.getSellQty() == null || request.getSellQty().compareTo(BigDecimal.ZERO) <= 0) {

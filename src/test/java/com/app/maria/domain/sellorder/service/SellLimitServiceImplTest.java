@@ -33,17 +33,18 @@ class SellLimitServiceImplTest {
     @InjectMocks
     SellLimitServiceImpl sellLimitService;
 
-    private void stubAccount(Long inboundId, Long accountId, String limitAmount, String finalizedSum, String ciHash) {
+    private void stubAccount(Long inboundId, Long accountId, String limitAmount, String finalizedSum, String pendingSum, String ciHash) {
         when(sellLimitMapper.selectAccountByInboundId(inboundId)).thenReturn(Optional.of(accountId));
         when(sellLimitMapper.selectAccountLimitForUpdate(accountId)).thenReturn(Optional.of(new BigDecimal(limitAmount)));
         when(sellLimitMapper.sumFinalizedExchangeAmount(accountId)).thenReturn(new BigDecimal(finalizedSum));
+        when(sellLimitMapper.sumPendingSellOrderAmount(accountId)).thenReturn(new BigDecimal(pendingSum));
         when(sellLimitMapper.selectCiHashByAccountId(accountId)).thenReturn(Optional.of(ciHash));
     }
 
     @Test
     @DisplayName("RIA 내 확정산 + myData 외부 순매수 + 이번 주문금액 합이 한도 이내면 예외 없이 통과한다")
     void validateSellLimitPassesWhenTotalIsWithinLimit() {
-        stubAccount(1L, 100L, "50000000", "20000000", "ci-hash-1");
+        stubAccount(1L, 100L, "50000000", "20000000", "0", "ci-hash-1");
         when(mydataClient.getExternalSellTotal("ci-hash-1")).thenReturn(new BigDecimal("10000000"));
 
         assertThatCode(() -> sellLimitService.validateSellLimit(1L, new BigDecimal("15000000")))
@@ -53,7 +54,7 @@ class SellLimitServiceImplTest {
     @Test
     @DisplayName("확정산+외부순매수+이번주문금액 합이 한도를 넘으면 예외를 던진다")
     void validateSellLimitThrowsWhenTotalExceedsLimit() {
-        stubAccount(1L, 100L, "50000000", "20000000", "ci-hash-1");
+        stubAccount(1L, 100L, "50000000", "20000000", "0", "ci-hash-1");
         when(mydataClient.getExternalSellTotal("ci-hash-1")).thenReturn(new BigDecimal("10000000"));
 
         assertThatThrownBy(() -> sellLimitService.validateSellLimit(1L, new BigDecimal("20000001")))
@@ -64,7 +65,7 @@ class SellLimitServiceImplTest {
     @Test
     @DisplayName("합계가 한도와 정확히 같으면(경계값) 초과가 아니므로 통과한다")
     void validateSellLimitPassesWhenTotalExactlyEqualsLimit() {
-        stubAccount(1L, 100L, "50000000", "20000000", "ci-hash-1");
+        stubAccount(1L, 100L, "50000000", "20000000", "0", "ci-hash-1");
         when(mydataClient.getExternalSellTotal("ci-hash-1")).thenReturn(new BigDecimal("10000000"));
 
         assertThatCode(() -> sellLimitService.validateSellLimit(1L, new BigDecimal("20000000")))
@@ -72,15 +73,28 @@ class SellLimitServiceImplTest {
     }
 
     @Test
-    @DisplayName("RIA 확정산과 myData 외부 순매수를 각각 따로 더한 뒤 이번 주문금액까지 정확히 합산한다")
-    void validateSellLimitSumsFinalizedAndExternalAndOrderAmountCorrectly() {
-        stubAccount(1L, 100L, "6000", "2000", "ci-hash-1");
-        when(mydataClient.getExternalSellTotal("ci-hash-1")).thenReturn(new BigDecimal("3000"));
+    @DisplayName("RIA 확정산 + 미확정 매도주문 + myData 외부 순매수를 각각 따로 더한 뒤 이번 주문금액까지 정확히 합산한다")
+    void validateSellLimitSumsFinalizedAndPendingAndExternalAndOrderAmountCorrectly() {
+        stubAccount(1L, 100L, "6000", "2000", "1500", "ci-hash-1");
+        when(mydataClient.getExternalSellTotal("ci-hash-1")).thenReturn(new BigDecimal("1500"));
 
         assertThatCode(() -> sellLimitService.validateSellLimit(1L, new BigDecimal("1000")))
                 .doesNotThrowAnyException();
         assertThatThrownBy(() -> sellLimitService.validateSellLimit(1L, new BigDecimal("1001")))
                 .isInstanceOf(SellOrderException.class);
+    }
+
+    @Test
+    @DisplayName("RIA 확정산이 0이어도 미확정(RECEIVED) 매도주문 합계만으로 한도초과를 잡아낸다")
+    void validateSellLimitCatchesExcessFromPendingSellOrdersAloneWhenFinalizedSumIsZero() {
+        stubAccount(1L, 100L, "50000000", "0", "40000000", "ci-hash-1");
+        when(mydataClient.getExternalSellTotal("ci-hash-1")).thenReturn(BigDecimal.ZERO);
+
+        assertThatCode(() -> sellLimitService.validateSellLimit(1L, new BigDecimal("10000000")))
+                .doesNotThrowAnyException();
+        assertThatThrownBy(() -> sellLimitService.validateSellLimit(1L, new BigDecimal("10000001")))
+                .isInstanceOf(SellOrderException.class)
+                .hasMessage("매도 한도를 초과했습니다.");
     }
 
     @Test
