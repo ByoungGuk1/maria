@@ -245,14 +245,13 @@ CREATE TABLE outbound (
 -- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE sell_order (
     order_id          BIGINT        NOT NULL AUTO_INCREMENT,
-    inbound_detail_id BIGINT        NOT NULL COMMENT '1 lot당 1건',
+    inbound_detail_id BIGINT        NOT NULL COMMENT '매도 대상 lot (한 lot이 여러 매도주문에 걸쳐 나뉠 수 있음 — FIFO 분할매도)',
     sell_qty          DECIMAL(15,4) NOT NULL COMMENT '매도수량',
     base_price        DECIMAL(15,4) NOT NULL COMMENT '매도기준가(전일종가 x 환율)',
     processed_at      DATETIME      NULL     DEFAULT CURRENT_TIMESTAMP COMMENT '매도결제일',
     status            VARCHAR(10)   NOT NULL COMMENT 'RECEIVED/EXECUTED/REJECTED',
     settlement_fx_rate DECIMAL(15,4) NULL    COMMENT '매도 결제일 기준환율',
     PRIMARY KEY (order_id),
-    UNIQUE KEY uk_sell_order_inbound_detail (inbound_detail_id),
     CONSTRAINT chk_sell_order_status CHECK (status IN ('RECEIVED','EXECUTED','REJECTED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='매도 주문';
 
