@@ -13,22 +13,22 @@ import com.app.maria.domain.account.exception.DuplicateAccountException;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.mapper.AccountStatusLogMapper;
+import com.app.maria.domain.account.provider.MydataProvider;
 import com.app.maria.domain.account.type.AutomaticRejectionReason;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.global.clock.service.BusinessClockService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -46,14 +46,10 @@ public class AccountServiceImpl implements AccountService {
   private final AccountMapper accountMapper;
   private final AccountStatusLogMapper accountStatusLogMapper;
   private final BusinessClockService businessClockService;
+  private final MydataProvider mydataProvider;
 
-  private final RestClient restClient;
-
-  @Value("${custom.mydata.url}")
-  private String myDataUrl;
   @Value("${custom.mydata.own-broker-name}")
   private String ownBrokerName;
-
 
   @Override
   public List<AccountResponseDTO> findAll() {
@@ -330,18 +326,8 @@ public class AccountServiceImpl implements AccountService {
   }
 
   private BigDecimal calculateAvailableLimit(Long customerId) {
-    Map<String, String> req = new HashMap<>();
-    String ciHash = accountMapper.selectCiHashByCustomerId(customerId);
-    System.out.println("ciHash: " + ciHash);
-    if(ciHash.isBlank()){
-      // TODO customer 도메인 제작 완료 후 수정
-      // 추후 CustomerNotFoundException으로 변경 예정
-      throw new AccountNotFoundException("개설할 계좌의 사용자를 찾을 수 없습니다.");
-    }
-    req.put("ciHash", ciHash);
-    MydataRiaAccountsResponseDTO response = restClient.post().uri(myDataUrl + "/api/mydata/ria-accounts")
-        .contentType(MediaType.APPLICATION_JSON).body(req).retrieve()
-        .body(MydataRiaAccountsResponseDTO.class);
+    String ciHash = accountMapper.selectCiHashByCustomerId(customerId).orElseThrow(()->new AccountNotFoundException("개설할 계좌의 사용자를 찾을 수 없습니다."));
+    MydataRiaAccountsResponseDTO response = mydataProvider.getRiaAccounts(ciHash);
     BigDecimal sumRiaLimit = Objects.requireNonNull(response, "myData 호출에 실패했습니다.")
         .getData().stream()
         .filter(data->!data.getBrokerName().equals(ownBrokerName))
@@ -351,23 +337,8 @@ public class AccountServiceImpl implements AccountService {
   }
 
   private Boolean addAccountToMydata(AccountDTO account) {
-    Map<String, Object> req = new HashMap<>();
-
-    String ciHash = accountMapper.selectCiHashByCustomerId(account.getCustomerId());
-    if(ciHash.isBlank()){
-      // TODO customer 도메인 제작 완료 후 수정
-      // 추후 CustomerNotFoundException으로 변경 예정
-      throw new AccountNotFoundException("개설할 계좌의 사용자를 찾을 수 없습니다.");
-    }
-    req.put("ciHash", ciHash);
-    req.put("brokerName", ownBrokerName);
-    req.put("riaLimit", account.getLimitAmount());
-    req.put("riaCumlativeSell", 0);
-    ResponseEntity<?> resEntity = restClient.post().uri(myDataUrl + "/api/mydata/ria-accounts/save")
-        .contentType(MediaType.APPLICATION_JSON).body(req).retrieve()
-        .toEntity(Object.class);
-
-    return resEntity.getStatusCode().is2xxSuccessful();
+    String ciHash = accountMapper.selectCiHashByCustomerId(account.getCustomerId()).orElseThrow(()->new AccountNotFoundException("개설할 계좌의 사용자를 찾을 수 없습니다."));
+    return mydataProvider.saveRiaAccounts(ciHash, account).is2xxSuccessful();
   }
 
   Optional<AutomaticRejectionReason> findAutomaticRejectionReason(Long customerId) {

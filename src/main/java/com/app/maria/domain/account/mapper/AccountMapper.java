@@ -50,5 +50,5 @@ public interface AccountMapper {
   int overrideToOpened(AccountDTO accountDTO);
 
   // customerId를 통해 ci_hash 값 가져오기
-  String selectCiHashByCustomerId(Long customerId);
+  Optional<String> selectCiHashByCustomerId(Long customerId);
 }
