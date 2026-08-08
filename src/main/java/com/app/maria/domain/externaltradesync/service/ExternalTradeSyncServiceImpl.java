@@ -31,7 +31,11 @@ public class ExternalTradeSyncServiceImpl implements ExternalTradeSyncService {
     public void syncAll() {
         List<CustomerCiHashDTO> customers = customerMapper.selectActiveRiaCustomers();
         for (CustomerCiHashDTO customer : customers) {
-            syncCustomer(customer);
+            try {
+                syncCustomer(customer);
+            } catch (Exception e) {
+                log.warn("고객 동기화 실패, 다음 고객으로 진행합니다. customerId={}", customer.getCustomerId(), e);
+            }
         }
     }
 
@@ -47,31 +51,33 @@ public class ExternalTradeSyncServiceImpl implements ExternalTradeSyncService {
 
         List<MydataTradeResponseDTO> trades = mydataTradeClient.getTrades(request);
 
-        LocalDate latestTradeDate = fromDate;
+        LocalDate cursor = fromDate;
+        boolean allSucceededSoFar = true;
         for (MydataTradeResponseDTO trade : trades) {
-            latestTradeDate = judgeAndAdvance(trade, latestTradeDate);
+            boolean succeeded = judgeTrade(trade);
+            allSucceededSoFar = allSucceededSoFar && succeeded;
+            if (allSucceededSoFar) {
+                cursor = trade.getTradeDate();
+            }
         }
 
-        if (latestTradeDate != null) {
+        if (cursor != null) {
             cursorMapper.upsertCursor(ExternalTradeSyncCursorDTO.builder()
                     .customerId(customer.getCustomerId())
-                    .lastSyncedTradeDate(latestTradeDate)
+                    .lastSyncedTradeDate(cursor)
                     .build());
         }
     }
 
-    private LocalDate judgeAndAdvance(MydataTradeResponseDTO trade, LocalDate latestTradeDate) {
+    private boolean judgeTrade(MydataTradeResponseDTO trade) {
         try {
             if (!targetProductMapper.existsByMydataTradeId(trade.getTradeId())) {
                 targetProductService.judge(trade.getTradeId(), trade.getStockType(), trade.getFundCode());
             }
+            return true;
         } catch (Exception e) {
             log.warn("거래 판정 실패, 스킵합니다. tradeId={}", trade.getTradeId(), e);
+            return false;
         }
-
-        if (latestTradeDate == null || trade.getTradeDate().isAfter(latestTradeDate)) {
-            return trade.getTradeDate();
-        }
-        return latestTradeDate;
     }
 }

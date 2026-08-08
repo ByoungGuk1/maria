@@ -39,7 +39,7 @@ public class TargetProductServiceImpl implements TargetProductService {
             MydataFundResponseDTO fund = mydataFundClient.getFund(fundCode);
 
             if (fund.getForeignStockRatio() != null) {
-                foreignStockRatio = BigDecimal.valueOf(fund.getForeignStockRatio());
+                foreignStockRatio = fund.getForeignStockRatio();
             }
             inceptionDate = fund.getInceptionDate();
             fundName = fund.getFundName();
@@ -66,7 +66,7 @@ public class TargetProductServiceImpl implements TargetProductService {
 
     private boolean isForeignStockRatioMet(MydataFundResponseDTO fund) {
         return fund.getForeignStockRatio() != null
-                && fund.getForeignStockRatio() >= FOREIGN_STOCK_RATIO_THRESHOLD;
+                && fund.getForeignStockRatio().compareTo(BigDecimal.valueOf(FOREIGN_STOCK_RATIO_THRESHOLD)) >= 0;
     }
 
     private boolean isInceptionPeriodMet(MydataFundResponseDTO fund, LocalDate today) {
