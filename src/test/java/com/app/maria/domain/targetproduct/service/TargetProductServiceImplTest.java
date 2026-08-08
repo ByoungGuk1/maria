@@ -14,6 +14,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -69,7 +70,7 @@ class TargetProductServiceImplTest {
         MydataFundResponseDTO fund = MydataFundResponseDTO.builder()
                 .fundCode("448630")
                 .fundName("TIGER 미국배당다우존스")
-                .foreignStockRatio(72.50)
+                .foreignStockRatio(BigDecimal.valueOf(72.50))
                 .inceptionDate(FIXED_NOW.toLocalDate().minusMonths(2))
                 .build();
         when(mydataFundClient.getFund("448630")).thenReturn(fund);
@@ -87,7 +88,7 @@ class TargetProductServiceImplTest {
     void judgeMarksFundAsNonTargetWhenRatioBelowThreshold() {
         MydataFundResponseDTO fund = MydataFundResponseDTO.builder()
                 .fundCode("069500")
-                .foreignStockRatio(59.99)
+                .foreignStockRatio(BigDecimal.valueOf(59.99))
                 .inceptionDate(FIXED_NOW.toLocalDate().minusMonths(2))
                 .build();
         when(mydataFundClient.getFund("069500")).thenReturn(fund);
@@ -102,7 +103,7 @@ class TargetProductServiceImplTest {
     void judgeMarksFundAsNonTargetWhenInceptionPeriodNotMet() {
         MydataFundResponseDTO fund = MydataFundResponseDTO.builder()
                 .fundCode("381170")
-                .foreignStockRatio(88.00)
+                .foreignStockRatio(BigDecimal.valueOf(88.00))
                 .inceptionDate(FIXED_NOW.toLocalDate().minusDays(10))
                 .build();
         when(mydataFundClient.getFund("381170")).thenReturn(fund);
@@ -117,7 +118,7 @@ class TargetProductServiceImplTest {
     void judgeTreatsExactlyOneMonthAsMet() {
         MydataFundResponseDTO fund = MydataFundResponseDTO.builder()
                 .fundCode("448630")
-                .foreignStockRatio(60.00)
+                .foreignStockRatio(BigDecimal.valueOf(60.00))
                 .inceptionDate(FIXED_NOW.toLocalDate().minusMonths(1))
                 .build();
         when(mydataFundClient.getFund("448630")).thenReturn(fund);

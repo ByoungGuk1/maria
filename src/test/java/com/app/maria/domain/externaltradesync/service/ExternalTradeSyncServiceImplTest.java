@@ -6,6 +6,7 @@ import com.app.maria.domain.externaltradesync.dto.ExternalTradeSyncCursorDTO;
 import com.app.maria.domain.externaltradesync.mapper.ExternalTradeSyncCursorMapper;
 import com.app.maria.domain.mydatatrade.dto.MydataTradeResponseDTO;
 import com.app.maria.domain.mydatatrade.dto.request.MydataTradeRequestDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
 import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
 import com.app.maria.domain.targetproduct.service.TargetProductService;
 import com.app.maria.global.client.mydatatrade.MydataTradeClient;
@@ -175,7 +176,9 @@ class ExternalTradeSyncServiceImplTest {
 
         when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
         when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
-        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(t1, t2, t3));
+        // 실제 mydata 조회는 trade_date 오름차순으로 오므로(MydataTradeMapper의 ORDER BY trade_date),
+        // 테스트 픽스처도 그 순서(3/5 -> 3/10 -> 3/20)에 맞춰 구성한다.
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(t1, t3, t2));
         when(targetProductMapper.existsByMydataTradeId(anyLong())).thenReturn(false);
 
         externalTradeSyncService.syncAll();
@@ -187,8 +190,8 @@ class ExternalTradeSyncServiceImplTest {
     }
 
     @Test
-    @DisplayName("판정에 실패한 거래가 가장 최근 거래여도 그 거래일까지 커서를 전진시켜 무한 재시도를 막는다")
-    void cursorAdvancesPastAFailingTradeToAvoidPermanentBlock() {
+    @DisplayName("유일한 거래가 판정에 실패하면 재시도할 수 있도록 커서를 만들지 않는다")
+    void cursorDoesNotAdvancePastAFailingTradeToAllowRetry() {
         MydataTradeResponseDTO failing = trade(100L, "FUND", "BADCODE", LocalDate.of(2026, 3, 20));
 
         when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
@@ -200,9 +203,39 @@ class ExternalTradeSyncServiceImplTest {
 
         externalTradeSyncService.syncAll();
 
+        // 첫 동기화(fromDate=null)에서 유일한 거래가 실패했으므로 커서를 저장할 근거가 없다
+        verify(cursorMapper, never()).upsertCursor(any());
+    }
+
+    @Test
+    @DisplayName("성공-실패-성공 순서로 거래가 와도 커서는 실패한 거래 이전 지점에서 멈춘다")
+    void cursorStopsAtFirstFailureEvenIfLaterTradesSucceed() {
+        MydataTradeResponseDTO success1 = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
+        MydataTradeResponseDTO failing = trade(101L, "FUND", "BADCODE", LocalDate.of(2026, 3, 10));
+        MydataTradeResponseDTO success2 = trade(102L, "ETF", null, LocalDate.of(2026, 3, 20));
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(success1, failing, success2));
+        when(targetProductMapper.existsByMydataTradeId(anyLong())).thenReturn(false);
+        when(targetProductService.judge(100L, "FOREIGN_STOCK", null))
+                .thenReturn(TargetProductJudgementDTO.builder().build());
+        when(targetProductService.judge(101L, "FUND", "BADCODE"))
+                .thenThrow(new RuntimeException("mydata 펀드 조회 실패"));
+        when(targetProductService.judge(102L, "ETF", null))
+                .thenReturn(TargetProductJudgementDTO.builder().build());
+
+        externalTradeSyncService.syncAll();
+
+        // 실패한 거래(3/10) 이후의 성공(3/20)은 커서에 반영되지 않고, 실패 직전(3/5)에서 멈춘다
         ArgumentCaptor<ExternalTradeSyncCursorDTO> captor = ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
         verify(cursorMapper).upsertCursor(captor.capture());
-        assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(LocalDate.of(2026, 3, 20));
+        assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(LocalDate.of(2026, 3, 5));
+
+        // 세 거래 모두 스킵되지 않고 judge 시도는 이루어졌다
+        verify(targetProductService).judge(100L, "FOREIGN_STOCK", null);
+        verify(targetProductService).judge(101L, "FUND", "BADCODE");
+        verify(targetProductService).judge(102L, "ETF", null);
     }
 
     @Test
