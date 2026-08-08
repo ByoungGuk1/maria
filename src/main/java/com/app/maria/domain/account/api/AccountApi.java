@@ -74,4 +74,10 @@ public class AccountApi {
     public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> override(@PathVariable @Positive(message = "계좌 ID는 0보다 커야 합니다.") Long accountId, @Valid @RequestBody ReasonRequestDTO reasonRequestDTO) {
         return ResponseEntity.ok(ApiResponseDTO.of("계좌 상태 오버라이드", accountService.overrideAccount(accountId, reasonRequestDTO.getReason())));
     }
+
+    @PutMapping("/update/limit")
+    @PreAuthorize("hasAnyRole('ADMIN', 'REVIEWER')")
+    public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> updateLimit(@Valid @RequestBody AccountRequestDTO accountRequestDTO){
+      return ResponseEntity.status(HttpStatus.OK).body(ApiResponseDTO.of("계좌 한도 변경", accountService.updateAccountLimit(accountRequestDTO)));
+    }
 }

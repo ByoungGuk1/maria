@@ -48,7 +48,7 @@
         FROM account_status_log
         WHERE account_id = #{accountId}
         AND prev_status = new_status
-        AND reason LIKE 'LIMIT_CHANGE_V1|%'
+        AND reason LIKE 'LIMIT_CHANGE|%'
         ORDER BY changed_at DESC, log_id DESC
     </select>
     <select id="selectLatestApplicationAt" resultType="java.time.LocalDateTime" parameterType="Long">
