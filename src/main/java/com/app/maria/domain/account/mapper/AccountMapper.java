@@ -33,6 +33,8 @@ public interface AccountMapper {
   //APPLIED 또는 OPENED 계좌의 설정한도 변경
   int updateLimit(Long accountId, Status status, BigDecimal expectedCurrentLimit, BigDecimal newLimitAmount);
 
+  BigDecimal selectOwnUsedAndReservedAmount(Long accountId);
+
   //신청 승인
   // - 계좌번호는 승인 시점에 최초 1회 발급
   // - 수정 건수가 0이면 이미 처리됐거나 신청 상태가 아님

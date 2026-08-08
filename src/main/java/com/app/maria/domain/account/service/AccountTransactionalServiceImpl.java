@@ -38,6 +38,10 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
     if (account.getLimitAmount().compareTo(newLimit) == 0){
       throw new InvalidAccountRequestException("기존 한도와 다른 금액을 입력해야 합니다.");
     }
+    BigDecimal ownUsedAndReservedAmount = accountMapper.selectOwnUsedAndReservedAmount(account.getAccountId());
+    if (newLimit.compareTo(ownUsedAndReservedAmount) < 0) {
+      throw new InvalidAccountRequestException("이미 사용한 매도한도보다 낮게 설정할 수 없습니다.");
+    }
     if (accountMapper.updateLimit(account.getAccountId(), account.getStatus(), account.getLimitAmount(), newLimit) != 1){
       throw new InvalidAccountRequestException("계좌 한도 변경 중 상태 또는 한도가 변경되었습니다.");
     }
@@ -78,9 +82,10 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
 
   @Override
   @Transactional(rollbackFor = Exception.class)
-  public AccountDTO approve(Long accountId, LocalDateTime openedAt) {
+  public AccountDTO approve(Long accountId, BigDecimal expectedLimit, LocalDateTime openedAt) {
     AccountDTO account = find(accountId);
-    open(account, openedAt);
+    account.setLimitAmount(expectedLimit);
+    open(account, openedAt, "심사 도중 계좌 한도가 변경되었습니다. 다시 심사하세요.");
     AccountDTO openedAccount = find(accountId);
     assertStatus(openedAccount, Status.OPENED);
     accountLogService.recordStatusChange(openedAccount, account.getStatus(), openedAt, "사용자 계좌 개설");
@@ -133,6 +138,10 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
   }
 
   private void open(AccountDTO account, LocalDateTime openedAt) {
+    open(account, openedAt, "사용자 계좌 신청 승인 실패");
+  }
+
+  private void open(AccountDTO account, LocalDateTime openedAt, String approvalFailureMessage) {
     boolean override = account.getStatus() == Status.REJECTED;
     account.setOpenedAt(openedAt);
     for (int i = 0; i < ACCOUNT_NO_RETRY_LIMIT; i++) {
@@ -143,7 +152,7 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
         if ((override ? accountMapper.overrideToOpened(account) : accountMapper.approve(account)) == 1){
           return;
         }
-        throw new InvalidAccountRequestException(override ? "계좌 오버라이드 실패" : "사용자 계좌 신청 승인 실패");
+        throw new InvalidAccountRequestException(override ? "계좌 오버라이드 실패" : approvalFailureMessage);
       } catch (DuplicateKeyException e) {
         if (i == ACCOUNT_NO_RETRY_LIMIT - 1){
           throw new AccountException("고유한 계좌번호 생성에 실패했습니다.");

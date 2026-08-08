@@ -5,7 +5,6 @@ import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
-import com.app.maria.domain.account.exception.AccountException;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
@@ -35,6 +34,7 @@ public class AccountServiceImpl implements AccountService {
   private final AccountLogService accountLogService;
   private final BusinessClockService businessClockService;
   private final AccountTransactionalService accountTransactionalService;
+  private final AccountMydataSyncService accountMydataSyncService;
 
   @Override
   public List<AccountResponseDTO> findAll() {
@@ -57,7 +57,9 @@ public class AccountServiceImpl implements AccountService {
     validateLimitInput(newLimitAmount);
     validateLimitAvailability(newLimitAmount, calculateAvailableLimit(customerId));
     AccountDTO updatedAccount = accountTransactionalService.updateLimit(customerId, newLimitAmount, businessClockService.now());
-    registerAccountToMydata(updatedAccount);
+    if (updatedAccount.getStatus() == Status.OPENED) {
+      accountMydataSyncService.updateLimit(updatedAccount);
+    }
     return new AccountResponseDTO(updatedAccount);
   }
 
@@ -65,23 +67,20 @@ public class AccountServiceImpl implements AccountService {
   public AccountResponseDTO applyAccount(AccountRequestDTO requestDTO) {
     Long customerId = requestDTO.getCustomerId();
     validateCustomerExists(customerId);
-    LocalDateTime appliedAt = businessClockService.now();
+    LocalDateTime appliedAt = getApplicationTime();
 
     AccountDTO account = requestDTO.toAccountDTO();
     validateLimitInput(account.getLimitAmount());
     BigDecimal availableLimit = calculateAvailableLimit(customerId);
-    AccountDTO appliedAccount = accountTransactionalService.apply(account, appliedAt, findAutomaticRejectionReason(account.getLimitAmount(), availableLimit));
+    AccountDTO appliedAccount = accountTransactionalService.apply(account, appliedAt,
+        findAutomaticRejectionReason(account.getLimitAmount(), availableLimit));
     if (appliedAccount.getStatus() == Status.OPENED) {
-      registerAccountToMydata(appliedAccount);
+      accountMydataSyncService.create(appliedAccount);
     }
     return new AccountResponseDTO(appliedAccount);
   }
 
   private Optional<AutomaticRejectionReason> findAutomaticRejectionReason(BigDecimal requestedLimit, BigDecimal availableLimit) {
-    LocalDate today = businessClockService.now().toLocalDate();
-    if (today.isBefore(RIA_APPLICATION_START_DATE) || today.isAfter(RIA_APPLICATION_END_DATE)) {
-      return Optional.of(AutomaticRejectionReason.OUTSIDE_APPLICATION_PERIOD);
-    }
     if (availableLimit.compareTo(MIN_LIMIT_AMOUNT) < 0 || requestedLimit.compareTo(availableLimit) > 0) {
       return Optional.of(AutomaticRejectionReason.EXTERNAL_LIMIT_EXCEEDED);
     }
@@ -93,8 +92,8 @@ public class AccountServiceImpl implements AccountService {
     AccountDTO account = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
     LocalDateTime openedAt = getApplicationTime();
     validateLimitAvailability(account.getLimitAmount(), calculateAvailableLimit(account.getCustomerId()));
-    AccountDTO openedAccount = accountTransactionalService.approve(accountId, openedAt);
-    registerAccountToMydata(openedAccount);
+    AccountDTO openedAccount = accountTransactionalService.approve(accountId, account.getLimitAmount(), openedAt);
+    accountMydataSyncService.create(openedAccount);
     return new AccountResponseDTO(openedAccount);
   }
 
@@ -134,20 +133,13 @@ public class AccountServiceImpl implements AccountService {
     LocalDateTime openedAt = getApplicationTime();
     validateLimitAvailability(account.getLimitAmount(), calculateAvailableLimit(account.getCustomerId()));
     AccountDTO openedAccount = accountTransactionalService.override(accountId, normalizedReason, openedAt);
-    registerAccountToMydata(openedAccount);
+    accountMydataSyncService.create(openedAccount);
     return new AccountResponseDTO(openedAccount);
   }
 
   private BigDecimal calculateAvailableLimit(Long customerId) {
     String ciHash = accountMapper.selectCiHashByCustomerId(customerId).orElseThrow(()->new AccountNotFoundException("개설할 계좌의 사용자를 찾을 수 없습니다."));
     return MAX_LIMIT_AMOUNT.subtract(mydataProvider.getExternalUsedLimit(ciHash)).max(BigDecimal.ZERO);
-  }
-
-  private void registerAccountToMydata(AccountDTO account) {
-    String ciHash = accountMapper.selectCiHashByCustomerId(account.getCustomerId()).orElseThrow(()->new AccountNotFoundException("개설할 계좌의 사용자를 찾을 수 없습니다."));
-    if (!mydataProvider.saveRiaAccounts(ciHash, account).is2xxSuccessful()) {
-      throw new AccountException("마이데이터 등록 실패");
-    }
   }
 
   private void validateLimitAvailability(BigDecimal requestedLimit, BigDecimal availableLimit) {

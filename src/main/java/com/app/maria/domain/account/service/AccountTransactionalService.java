@@ -11,7 +11,7 @@ import java.util.Optional;
 public interface AccountTransactionalService {
   AccountDTO updateLimit(Long customerId, BigDecimal newLimit, LocalDateTime changedAt);
   AccountDTO apply(AccountDTO account, LocalDateTime appliedAt, Optional<AutomaticRejectionReason> rejectionReason);
-  AccountDTO approve(Long accountId, LocalDateTime openedAt);
+  AccountDTO approve(Long accountId, BigDecimal expectedLimit, LocalDateTime openedAt);
   AccountDTO reject(Long accountId, String reason, LocalDateTime changedAt);
   AccountDTO reapply(Long accountId, AccountReapplyRequestDTO request, LocalDateTime appliedAt);
   AccountDTO override(Long accountId, String reason, LocalDateTime openedAt);

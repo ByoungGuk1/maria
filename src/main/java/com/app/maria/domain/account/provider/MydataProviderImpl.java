@@ -63,7 +63,15 @@ public class MydataProviderImpl implements MydataProvider {
   }
 
   @Override
-  public HttpStatusCode saveRiaAccounts(String ciHash, AccountDTO account) {
+  public boolean hasOwnRiaAccount(String ciHash) {
+    MydataRiaAccountsResponseDTO response = getRiaAccounts(ciHash);
+    return response != null && response.getData() != null && response.getData().stream()
+        .filter(account -> account != null)
+        .anyMatch(account -> ownBrokerName.equals(account.getBrokerName()));
+  }
+
+  @Override
+  public HttpStatusCode createRiaAccount(String ciHash, AccountDTO account) {
     log.info("ciHash: {}", ciHash);
     Map<String, String> req = new HashMap<>();
     req.put("ciHash", ciHash);
@@ -78,6 +86,24 @@ public class MydataProviderImpl implements MydataProvider {
       return response.getStatusCode();
     } catch (RestClientException exception) {
       throw new MydataApiException("myData 계좌 등록 실패", exception);
+    }
+  }
+
+  @Override
+  public HttpStatusCode updateRiaLimit(String ciHash, AccountDTO account) {
+    log.info("ciHash: {}", ciHash);
+    Map<String, String> req = new HashMap<>();
+    req.put("ciHash", ciHash);
+    req.put("brokerName", ownBrokerName);
+    req.put("riaLimit", String.valueOf(account.getLimitAmount()));
+
+    try {
+      ResponseEntity<?> response = restClient.post().uri(myDataUrl + "/api/mydata/ria-accounts/update-limit")
+          .contentType(MediaType.APPLICATION_JSON).body(req).retrieve()
+          .toEntity(Object.class);
+      return response.getStatusCode();
+    } catch (RestClientException exception) {
+      throw new MydataApiException("myData 계좌 한도 변경 실패", exception);
     }
   }
 }
