@@ -17,6 +17,8 @@ public class SellOrderResponseDTO {
 
     private Long orderId;
     private Long inboundDetailId;
+    private Long accountId;
+    private Long foreignProductId;
     private BigDecimal sellQty;
     private BigDecimal basePrice;
     private BigDecimal settlementFxRate;
@@ -26,6 +28,8 @@ public class SellOrderResponseDTO {
     public SellOrderResponseDTO(SellOrderDTO dto) {
         this.orderId = dto.getOrderId();
         this.inboundDetailId = dto.getInboundDetailId();
+        this.accountId = dto.getAccountId();
+        this.foreignProductId = dto.getForeignProductId();
         this.sellQty = dto.getSellQty();
         this.basePrice = dto.getBasePrice();
         this.settlementFxRate = dto.getSettlementFxRate();
