@@ -115,7 +115,7 @@ class ExternalTradeSyncServiceImplTest {
     }
 
     @Test
-    @DisplayName("신규 거래는 각 거래의 tradeId, stockType, fundCode로 judge()가 호출된다")
+    @DisplayName("신규 거래는 각 거래 객체 그대로 judge()에 전달된다")
     void newTradesAreJudgedWithTheirOwnArguments() {
         MydataTradeResponseDTO foreignStock = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
         MydataTradeResponseDTO fund = trade(101L, "FUND", "448630", LocalDate.of(2026, 3, 10));
@@ -127,8 +127,8 @@ class ExternalTradeSyncServiceImplTest {
 
         externalTradeSyncService.syncAll();
 
-        verify(targetProductService).judge(100L, "FOREIGN_STOCK", null);
-        verify(targetProductService).judge(101L, "FUND", "448630");
+        verify(targetProductService).judge(foreignStock);
+        verify(targetProductService).judge(fund);
     }
 
     @Test
@@ -145,7 +145,7 @@ class ExternalTradeSyncServiceImplTest {
 
         externalTradeSyncService.syncAll();
 
-        verify(targetProductService).judge(101L, "ETF", null);
+        verify(targetProductService).judge(newTrade);
         verifyNoMoreInteractions(targetProductService);
     }
 
@@ -159,12 +159,12 @@ class ExternalTradeSyncServiceImplTest {
         when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
         when(mydataTradeClient.getTrades(any())).thenReturn(List.of(failing, succeeding));
         when(targetProductMapper.existsByMydataTradeId(anyLong())).thenReturn(false);
-        when(targetProductService.judge(100L, "FUND", "BADCODE"))
+        when(targetProductService.judge(failing))
                 .thenThrow(new RuntimeException("mydata 펀드 조회 실패"));
 
         externalTradeSyncService.syncAll();
 
-        verify(targetProductService).judge(101L, "FOREIGN_STOCK", null);
+        verify(targetProductService).judge(succeeding);
     }
 
     @Test
@@ -198,7 +198,7 @@ class ExternalTradeSyncServiceImplTest {
         when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
         when(mydataTradeClient.getTrades(any())).thenReturn(List.of(failing));
         when(targetProductMapper.existsByMydataTradeId(100L)).thenReturn(false);
-        when(targetProductService.judge(100L, "FUND", "BADCODE"))
+        when(targetProductService.judge(failing))
                 .thenThrow(new RuntimeException("mydata 펀드 조회 실패"));
 
         externalTradeSyncService.syncAll();
@@ -218,11 +218,11 @@ class ExternalTradeSyncServiceImplTest {
         when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
         when(mydataTradeClient.getTrades(any())).thenReturn(List.of(success1, failing, success2));
         when(targetProductMapper.existsByMydataTradeId(anyLong())).thenReturn(false);
-        when(targetProductService.judge(100L, "FOREIGN_STOCK", null))
+        when(targetProductService.judge(success1))
                 .thenReturn(TargetProductJudgementDTO.builder().build());
-        when(targetProductService.judge(101L, "FUND", "BADCODE"))
+        when(targetProductService.judge(failing))
                 .thenThrow(new RuntimeException("mydata 펀드 조회 실패"));
-        when(targetProductService.judge(102L, "ETF", null))
+        when(targetProductService.judge(success2))
                 .thenReturn(TargetProductJudgementDTO.builder().build());
 
         externalTradeSyncService.syncAll();
@@ -233,9 +233,9 @@ class ExternalTradeSyncServiceImplTest {
         assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(LocalDate.of(2026, 3, 5));
 
         // 세 거래 모두 스킵되지 않고 judge 시도는 이루어졌다
-        verify(targetProductService).judge(100L, "FOREIGN_STOCK", null);
-        verify(targetProductService).judge(101L, "FUND", "BADCODE");
-        verify(targetProductService).judge(102L, "ETF", null);
+        verify(targetProductService).judge(success1);
+        verify(targetProductService).judge(failing);
+        verify(targetProductService).judge(success2);
     }
 
     @Test
@@ -286,8 +286,8 @@ class ExternalTradeSyncServiceImplTest {
 
         externalTradeSyncService.syncAll();
 
-        verify(targetProductService).judge(100L, "FOREIGN_STOCK", null);
-        verify(targetProductService).judge(200L, "ETF", null);
+        verify(targetProductService).judge(customer1Trade);
+        verify(targetProductService).judge(customer2Trade);
         verify(mydataTradeClient, times(2)).getTrades(any());
 
         ArgumentCaptor<ExternalTradeSyncCursorDTO> captor = ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
