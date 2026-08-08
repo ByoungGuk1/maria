@@ -108,4 +108,10 @@
         AND account_no IS NULL
         AND opened_at IS NULL
     </update>
+    <update id="updateBenefitToImpossible">
+        UPDATE account
+        SET benefit = 'IMPOSSIBLE'
+        WHERE account_id = #{accountId}
+        AND benefit IN('POSSIBLE','REDUCED')
+    </update>
 </mapper>

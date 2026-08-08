@@ -48,4 +48,7 @@ public interface AccountMapper {
 
   //관리자 반려 판정 오버라이드
   int overrideToOpened(AccountDTO accountDTO);
+
+  //세제혜택 불가 변경
+  int updateBenefitToImpossible(Long accountId);
 }
