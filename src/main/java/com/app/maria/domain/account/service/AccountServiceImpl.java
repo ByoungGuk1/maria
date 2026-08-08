@@ -90,7 +90,7 @@ public class AccountServiceImpl implements AccountService {
   @Override
   public AccountResponseDTO approveAccount(Long accountId) {
     AccountDTO account = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
-    LocalDateTime openedAt = getApplicationTime();
+    LocalDateTime openedAt = businessClockService.now();
     validateLimitAvailability(account.getLimitAmount(), calculateAvailableLimit(account.getCustomerId()));
     AccountDTO openedAccount = accountTransactionalService.approve(accountId, account.getLimitAmount(), openedAt);
     accountMydataSyncService.create(openedAccount);
@@ -130,7 +130,7 @@ public class AccountServiceImpl implements AccountService {
   public AccountResponseDTO overrideAccount(Long accountId, String reason) {
     String normalizedReason = normalizeReason(reason);
     AccountDTO account = accountMapper.selectByAccountId(accountId).orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
-    LocalDateTime openedAt = getApplicationTime();
+    LocalDateTime openedAt = businessClockService.now();
     validateLimitAvailability(account.getLimitAmount(), calculateAvailableLimit(account.getCustomerId()));
     AccountDTO openedAccount = accountTransactionalService.override(accountId, normalizedReason, openedAt);
     accountMydataSyncService.create(openedAccount);

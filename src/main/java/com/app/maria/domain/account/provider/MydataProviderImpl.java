@@ -65,7 +65,10 @@ public class MydataProviderImpl implements MydataProvider {
   @Override
   public boolean hasOwnRiaAccount(String ciHash) {
     MydataRiaAccountsResponseDTO response = getRiaAccounts(ciHash);
-    return response != null && response.getData() != null && response.getData().stream()
+    if (response == null || response.getData() == null) {
+      throw new MydataApiException("myData 계좌 조회 응답이 올바르지 않습니다.", null);
+    }
+    return response.getData().stream()
         .filter(account -> account != null)
         .anyMatch(account -> ownBrokerName.equals(account.getBrokerName()));
   }

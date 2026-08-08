@@ -10,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -49,20 +51,24 @@ public class AccountMydataSyncService {
     }
   }
 
-  private boolean hasOwnRiaAccount(AccountDTO account) {
+  private Optional<Boolean> hasOwnRiaAccount(AccountDTO account) {
     String ciHash = accountMapper.selectCiHashByCustomerId(account.getCustomerId())
         .orElseThrow(() -> new AccountNotFoundException("개설할 계좌의 사용자를 찾을 수 없습니다."));
     try {
-      return mydataProvider.hasOwnRiaAccount(ciHash);
+      return Optional.of(mydataProvider.hasOwnRiaAccount(ciHash));
     } catch (RuntimeException exception) {
       log.error("MyData RIA 계좌 재동기화 대상 조회 실패: accountId={}", account.getAccountId(), exception);
-      return false;
+      return Optional.empty();
     }
   }
 
   private void retry(AccountDTO account) {
     try {
-      synchronize(account, !hasOwnRiaAccount(account));
+      Optional<Boolean> ownRiaAccount = hasOwnRiaAccount(account);
+      if (ownRiaAccount.isEmpty()) {
+        return;
+      }
+      synchronize(account, !ownRiaAccount.get());
     } catch (RuntimeException exception) {
       log.error("MyData RIA 계좌 재동기화 실패: accountId={}", account.getAccountId(), exception);
     }
