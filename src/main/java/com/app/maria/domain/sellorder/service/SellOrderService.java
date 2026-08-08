@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface SellOrderService {
 
-    SellOrderResponseDTO placeSellOrder(SellOrderRequestDTO request);
+    List<SellOrderResponseDTO> placeSellOrder(SellOrderRequestDTO request);
     SellOrderResponseDTO getSellOrder(Long orderId);
     List<SellOrderResponseDTO> getSellOrderByAccount(Long accountId);
 

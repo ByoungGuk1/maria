@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @ToString
-@Builder
+@Builder(toBuilder = true)
 @EqualsAndHashCode(of = "orderId")
 public class SellOrderDTO {
 

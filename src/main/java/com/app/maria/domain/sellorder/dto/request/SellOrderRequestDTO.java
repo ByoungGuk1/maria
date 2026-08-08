@@ -1,5 +1,6 @@
 package com.app.maria.domain.sellorder.dto.request;
 
+import com.app.maria.domain.sellorder.dto.SellOrderDTO;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
@@ -23,5 +24,13 @@ public class SellOrderRequestDTO {
     @NotNull(message = "매도 수량을 입력하세요.")
     @DecimalMin(value = "0", inclusive = false, message = "매도 수량은 0보다 커야 합니다.")
     private BigDecimal sellQty;
+
+    public SellOrderDTO toSellOrderDTO() {
+        return SellOrderDTO.builder()
+                .accountId(accountId)
+                .foreignProductId(foreignProductId)
+                .sellQty(sellQty)
+                .build();
+    }
 
 }
