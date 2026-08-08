@@ -3,6 +3,7 @@ package com.app.maria.domain.mydatafund.dto;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Getter
@@ -11,6 +12,6 @@ public class MydataFundResponseDTO {
 
     private String fundCode;
     private String fundName;
-    private Double foreignStockRatio;
+    private BigDecimal foreignStockRatio;
     private LocalDate inceptionDate;
 }
