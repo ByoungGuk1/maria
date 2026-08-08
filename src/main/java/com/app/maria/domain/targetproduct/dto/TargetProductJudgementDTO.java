@@ -19,4 +19,8 @@ public class TargetProductJudgementDTO {
     private BigDecimal foreignStockRatio;
     private LocalDate inceptionDate;
     private LocalDateTime judgedAt;
+    private String tradeType;
+    private BigDecimal amount;
+    private LocalDate tradeDate;
+    private BigDecimal netBuyAmount;
 }

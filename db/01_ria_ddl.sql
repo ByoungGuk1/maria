@@ -241,6 +241,10 @@ CREATE TABLE target_product_judgement (
     foreign_stock_ratio  DECIMAL(5,2)  NULL COMMENT '판정 시점 스냅샷',
     inception_date       DATE          NULL COMMENT '판정 시점 스냅샷',
     judged_at            DATETIME      NOT NULL COMMENT '판정 시각',
+    trade_type           VARCHAR(15)   NOT NULL COMMENT '원본 거래유형(BUY/SELL/INHERITANCE/GIFT), 감사용',
+    amount               DECIMAL(15,2) NOT NULL COMMENT '원본 거래금액(항상 양수), 감사용',
+    trade_date           DATE          NOT NULL COMMENT 'F1 시기별 가중치 판정용',
+    net_buy_amount       DECIMAL(15,2) NOT NULL COMMENT 'F3이 바로 합산할 부호처리된 금액(SELL만 음수, 나머지 양수)',
     PRIMARY KEY (judgement_id),
     CONSTRAINT uq_target_product__trade UNIQUE (mydata_trade_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='G2 대상상품 판별 결과(스냅샷)';

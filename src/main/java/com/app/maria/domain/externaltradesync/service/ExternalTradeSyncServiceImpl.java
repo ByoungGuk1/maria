@@ -72,7 +72,7 @@ public class ExternalTradeSyncServiceImpl implements ExternalTradeSyncService {
     private boolean judgeTrade(MydataTradeResponseDTO trade) {
         try {
             if (!targetProductMapper.existsByMydataTradeId(trade.getTradeId())) {
-                targetProductService.judge(trade.getTradeId(), trade.getStockType(), trade.getFundCode());
+                targetProductService.judge(trade);
             }
             return true;
         } catch (Exception e) {

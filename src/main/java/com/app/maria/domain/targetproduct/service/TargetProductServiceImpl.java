@@ -1,6 +1,7 @@
 package com.app.maria.domain.targetproduct.service;
 
 import com.app.maria.domain.mydatafund.dto.MydataFundResponseDTO;
+import com.app.maria.domain.mydatatrade.dto.MydataTradeResponseDTO;
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
 import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
 import com.app.maria.global.client.mydatafund.MydataFundClient;
@@ -26,7 +27,7 @@ public class TargetProductServiceImpl implements TargetProductService {
     private final BusinessClockService businessClockService;
 
     @Override
-    public TargetProductJudgementDTO judge(Long mydataTradeId, String stockType, String fundCode) {
+    public TargetProductJudgementDTO judge(MydataTradeResponseDTO trade) {
 
         boolean isTarget;
         BigDecimal foreignStockRatio = null;
@@ -35,8 +36,8 @@ public class TargetProductServiceImpl implements TargetProductService {
         LocalDateTime now = businessClockService.now();
         LocalDate today = now.toLocalDate();
 
-        if ("FUND".equals(stockType)) {
-            MydataFundResponseDTO fund = mydataFundClient.getFund(fundCode);
+        if ("FUND".equals(trade.getStockType())) {
+            MydataFundResponseDTO fund = mydataFundClient.getFund(trade.getFundCode());
 
             if (fund.getForeignStockRatio() != null) {
                 foreignStockRatio = fund.getForeignStockRatio();
@@ -50,13 +51,21 @@ public class TargetProductServiceImpl implements TargetProductService {
             isTarget = true;
         }
 
+        BigDecimal netBuyAmount = "SELL".equals(trade.getTradeType())
+                ? trade.getAmount().negate()
+                : trade.getAmount();
+
         TargetProductJudgementDTO dto = new TargetProductJudgementDTO();
-        dto.setMydataTradeId(mydataTradeId);
-        dto.setFundCode(fundCode);
+        dto.setMydataTradeId(trade.getTradeId());
+        dto.setFundCode(trade.getFundCode());
         dto.setFundName(fundName);
         dto.setIsTarget(isTarget);
         dto.setForeignStockRatio(foreignStockRatio);
         dto.setInceptionDate(inceptionDate);
+        dto.setTradeType(trade.getTradeType());
+        dto.setAmount(trade.getAmount());
+        dto.setTradeDate(trade.getTradeDate());
+        dto.setNetBuyAmount(netBuyAmount);
         dto.setJudgedAt(now);
 
         targetProductMapper.insertJudgement(dto);
