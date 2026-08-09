@@ -343,14 +343,14 @@ CREATE TABLE withdrawal_allocation (
 -- [SEED] data-generator가 채우는 테이블. 컬럼 추가/삭제 시 생성기 INSERT(컬럼목록+값)도 수정 후 재생성 필요 (seed.sql 직접 편집 금지).
 CREATE TABLE tax_rule (
     rule_id    BIGINT        NOT NULL AUTO_INCREMENT,
-    rule_type  VARCHAR(20)   NOT NULL COMMENT 'RELIEF_RATE/DEPOSIT_LIMIT/HOLDING_PERIOD',
+    rule_type  VARCHAR(20)   NOT NULL COMMENT 'RELIEF_RATE/DEPOSIT_LIMIT/HOLDING_PERIOD/BASIC_DEDUCTION/TAX_RATE',
     rule_value DECIMAL(15,4) NOT NULL,
     valid_from DATE          NOT NULL,
     valid_to   DATE          NOT NULL COMMENT '열린구간은 9999-12-31',
     created_at DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(30)   NULL,
     PRIMARY KEY (rule_id),
-    CONSTRAINT chk_tax_rule_type CHECK (rule_type IN ('RELIEF_RATE','DEPOSIT_LIMIT','HOLDING_PERIOD'))
+    CONSTRAINT chk_tax_rule_type CHECK (rule_type IN ('RELIEF_RATE','DEPOSIT_LIMIT','HOLDING_PERIOD','BASIC_DEDUCTION','TAX_RATE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='effective-dated 세금 규칙';
 
 -- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
