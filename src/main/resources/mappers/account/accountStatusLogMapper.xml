@@ -24,10 +24,6 @@
         *
         FROM account_status_log
         WHERE account_id = #{accountId}
-        AND (
-            prev_status IS NULL
-            OR prev_status &lt;> new_status
-        )
         ORDER BY changed_at ASC, log_id ASC
     </select>
     <select id="selectLatestByAccountId" resultType="AccountStatusLogDTO" parameterType="Long">
@@ -35,10 +31,6 @@
         *
         FROM account_status_log
         WHERE account_id = #{accountId}
-        AND (
-            prev_status IS NULL
-            OR prev_status &lt;&gt; new_status
-        )
         ORDER BY changed_at DESC, log_id DESC
         LIMIT 1
     </select>

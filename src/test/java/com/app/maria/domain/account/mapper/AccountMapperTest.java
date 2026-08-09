@@ -353,18 +353,23 @@ class AccountMapperTest {
 
     List<AccountStatusLogDTO> logs = accountStatusLogMapper.selectByAccountId(accountId);
 
-    assertThat(logs).hasSize(3);
+    assertThat(logs).hasSize(4);
     assertThat(logs).extracting(AccountStatusLogDTO::getNewStatus)
-        .containsExactly(Status.APPLIED, Status.REJECTED, Status.APPLIED);
+        .containsExactly(Status.APPLIED, Status.REJECTED, Status.APPLIED, Status.APPLIED);
     assertThat(logs).extracting(AccountStatusLogDTO::getReason)
-        .containsExactly("최초 개설 신청", "서류 확인 필요", "사용자 계좌 개설 재신청");
+        .containsExactly(
+            "최초 개설 신청",
+            "서류 확인 필요",
+            "사용자 계좌 개설 재신청",
+            "LIMIT_CHANGE|from=30000000|to=40000000"
+        );
 
     AccountStatusLogDTO latestLog = accountStatusLogMapper
         .selectLatestByAccountId(accountId)
         .orElseThrow();
-    assertThat(latestLog.getPrevStatus()).isEqualTo(Status.REJECTED);
+    assertThat(latestLog.getPrevStatus()).isEqualTo(Status.APPLIED);
     assertThat(latestLog.getNewStatus()).isEqualTo(Status.APPLIED);
-    assertThat(latestLog.getChangedAt()).isEqualTo(reappliedAt);
+    assertThat(latestLog.getChangedAt()).isEqualTo(limitChangedAt);
     assertThat(accountStatusLogMapper.selectLatestApplicationAt(accountId))
         .isEqualTo(reappliedAt);
 

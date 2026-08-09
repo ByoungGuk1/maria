@@ -3,6 +3,7 @@ package com.app.maria.domain.account.service;
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
+import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.provider.MydataProvider;
 import com.app.maria.domain.account.type.Status;
@@ -21,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -74,14 +76,51 @@ class AccountServiceImplTest {
   }
 
   @Test
+  void updateLimitRejectsAmountThatExceedsMydataAvailableLimit() {
+    when(mydataProvider.getExternalUsedLimit("ci-hash")).thenReturn(BigDecimal.valueOf(20_000_000L));
+
+    assertThatThrownBy(() -> accountService.updateAccountLimit(request(CHANGED_LIMIT)))
+        .isInstanceOf(InvalidAccountRequestException.class)
+        .hasMessageContaining("30000000");
+
+    verify(accountTransactionalService, never()).updateLimit(any(), any(), any());
+  }
+
+  @Test
   void applyUsesSingleBusinessClockSnapshotAndCreatesMydataForOpenedAccount() {
     AccountDTO opened = account(Status.OPENED, LIMIT);
-    when(accountTransactionalService.apply(any(AccountDTO.class), eq(NOW), any())).thenReturn(opened);
+    when(accountTransactionalService.apply(any(AccountDTO.class), eq(NOW), eq(true))).thenReturn(opened);
 
     accountService.applyAccount(request(LIMIT));
 
     verify(businessClockService).now();
     verify(accountMydataSyncService).create(opened);
+  }
+
+  @Test
+  void applyKeepsAccountAppliedWhenExternalLimitDoesNotMatch() {
+    AccountDTO applied = account(Status.APPLIED, LIMIT);
+    when(mydataProvider.getExternalUsedLimit("ci-hash")).thenReturn(BigDecimal.valueOf(25_000_000L));
+    when(accountTransactionalService.apply(any(AccountDTO.class), eq(NOW), eq(false))).thenReturn(applied);
+
+    AccountResponseDTO result = accountService.applyAccount(request(LIMIT));
+
+    assertThat(result.getStatus()).isEqualTo(Status.APPLIED);
+    verify(accountTransactionalService).apply(any(AccountDTO.class), eq(NOW), eq(false));
+    verify(accountMydataSyncService, never()).create(any());
+  }
+
+  @Test
+  void applyKeepsAccountAppliedOutsideApplicationPeriod() {
+    LocalDateTime outsidePeriod = LocalDateTime.of(2027, 1, 1, 10, 0);
+    AccountDTO applied = account(Status.APPLIED, LIMIT);
+    when(businessClockService.now()).thenReturn(outsidePeriod);
+    when(accountTransactionalService.apply(any(AccountDTO.class), eq(outsidePeriod), eq(false))).thenReturn(applied);
+
+    AccountResponseDTO result = accountService.applyAccount(request(LIMIT));
+
+    assertThat(result.getStatus()).isEqualTo(Status.APPLIED);
+    verify(accountMydataSyncService, never()).create(any());
   }
 
   @Test

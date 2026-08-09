@@ -95,18 +95,35 @@ public class MydataProviderImpl implements MydataProvider {
   @Override
   public HttpStatusCode updateRiaLimit(String ciHash, AccountDTO account) {
     log.info("ciHash: {}", ciHash);
+    MydataRiaAccountsResponseDTO.MyDataAccountResponse ownRiaAccount = getOwnRiaAccount(ciHash);
     Map<String, String> req = new HashMap<>();
     req.put("ciHash", ciHash);
     req.put("brokerName", ownBrokerName);
     req.put("riaLimit", String.valueOf(account.getLimitAmount()));
+    req.put("riaCumulativeSell", String.valueOf(ownRiaAccount.getRiaCumulativeSell()));
 
     try {
-      ResponseEntity<?> response = restClient.post().uri(myDataUrl + "/api/mydata/ria-accounts/update-limit")
+      ResponseEntity<?> response = restClient.post().uri(myDataUrl + "/api/mydata/ria-accounts/save")
           .contentType(MediaType.APPLICATION_JSON).body(req).retrieve()
           .toEntity(Object.class);
       return response.getStatusCode();
     } catch (RestClientException exception) {
       throw new MydataApiException("myData 계좌 한도 변경 실패", exception);
     }
+  }
+
+  private MydataRiaAccountsResponseDTO.MyDataAccountResponse getOwnRiaAccount(String ciHash) {
+    MydataRiaAccountsResponseDTO response = getRiaAccounts(ciHash);
+    if (response == null || response.getData() == null) {
+      throw new MydataApiException("myData 계좌 조회 응답이 올바르지 않습니다.", null);
+    }
+    MydataRiaAccountsResponseDTO.MyDataAccountResponse ownAccount = response.getData().stream()
+        .filter(account -> account != null && ownBrokerName.equals(account.getBrokerName()))
+        .findFirst()
+        .orElseThrow(() -> new MydataApiException("myData에 당사 RIA 계좌가 없습니다.", null));
+    if (ownAccount.getRiaCumulativeSell() == null || ownAccount.getRiaCumulativeSell().signum() < 0) {
+      throw new MydataApiException("myData 누적 매도금액 응답이 올바르지 않습니다.", null);
+    }
+    return ownAccount;
   }
 }

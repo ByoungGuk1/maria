@@ -8,7 +8,6 @@ import com.app.maria.domain.account.exception.DuplicateAccountException;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.type.Status;
-import com.app.maria.domain.account.type.AutomaticRejectionReason;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -17,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -53,7 +51,7 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
 
   @Override
   @Transactional(rollbackFor = Exception.class)
-  public AccountDTO apply(AccountDTO account, LocalDateTime appliedAt, Optional<AutomaticRejectionReason> rejectionReason) {
+  public AccountDTO apply(AccountDTO account, LocalDateTime appliedAt, boolean autoApprove) {
     if (accountMapper.existsByCustomerId(account.getCustomerId())){
       throw new DuplicateAccountException("사용자의 기존 계좌 정보가 있습니다.");
     }
@@ -67,11 +65,8 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
     }
     AccountDTO appliedAccount = findByCustomer(account.getCustomerId());
     accountLogService.recordStatusChange(appliedAccount, null, appliedAt, "최초 개설 신청");
-    if (rejectionReason.isPresent()) {
-      if (accountMapper.reject(appliedAccount) != 1) throw new AccountException("계좌 자동 반려 처리 실패");
-      AccountDTO rejected = findByCustomer(account.getCustomerId());
-      accountLogService.recordStatusChange(rejected, Status.APPLIED, appliedAt, rejectionReason.get().name());
-      return rejected;
+    if (!autoApprove) {
+      return appliedAccount;
     }
     open(appliedAccount, appliedAt);
     AccountDTO opened = findByCustomer(account.getCustomerId());

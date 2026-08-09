@@ -9,7 +9,6 @@ import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.provider.MydataProvider;
-import com.app.maria.domain.account.type.AutomaticRejectionReason;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.global.clock.service.BusinessClockService;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +18,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -67,24 +65,19 @@ public class AccountServiceImpl implements AccountService {
   public AccountResponseDTO applyAccount(AccountRequestDTO requestDTO) {
     Long customerId = requestDTO.getCustomerId();
     validateCustomerExists(customerId);
-    LocalDateTime appliedAt = getApplicationTime();
+    LocalDateTime appliedAt = businessClockService.now();
 
     AccountDTO account = requestDTO.toAccountDTO();
     validateLimitInput(account.getLimitAmount());
     BigDecimal availableLimit = calculateAvailableLimit(customerId);
-    AccountDTO appliedAccount = accountTransactionalService.apply(account, appliedAt,
-        findAutomaticRejectionReason(account.getLimitAmount(), availableLimit));
+    boolean autoApprove = isWithinApplicationPeriod(appliedAt)
+        && account.getLimitAmount().compareTo(availableLimit) <= 0
+        && availableLimit.compareTo(MIN_LIMIT_AMOUNT) >= 0;
+    AccountDTO appliedAccount = accountTransactionalService.apply(account, appliedAt, autoApprove);
     if (appliedAccount.getStatus() == Status.OPENED) {
       accountMydataSyncService.create(appliedAccount);
     }
     return new AccountResponseDTO(appliedAccount);
-  }
-
-  private Optional<AutomaticRejectionReason> findAutomaticRejectionReason(BigDecimal requestedLimit, BigDecimal availableLimit) {
-    if (availableLimit.compareTo(MIN_LIMIT_AMOUNT) < 0 || requestedLimit.compareTo(availableLimit) > 0) {
-      return Optional.of(AutomaticRejectionReason.EXTERNAL_LIMIT_EXCEEDED);
-    }
-    return Optional.empty();
   }
 
   @Override
@@ -176,11 +169,15 @@ public class AccountServiceImpl implements AccountService {
 
   private LocalDateTime getApplicationTime() {
     LocalDateTime applicationTime = businessClockService.now();
-    LocalDate today = applicationTime.toLocalDate();
-    if (today.isBefore(RIA_APPLICATION_START_DATE) || today.isAfter(RIA_APPLICATION_END_DATE)) {
+    if (!isWithinApplicationPeriod(applicationTime)) {
       throw new InvalidAccountRequestException("RIA 계좌 신청 가능 기간이 아닙니다.");
     }
     return applicationTime;
+  }
+
+  private boolean isWithinApplicationPeriod(LocalDateTime applicationTime) {
+    LocalDate today = applicationTime.toLocalDate();
+    return !today.isBefore(RIA_APPLICATION_START_DATE) && !today.isAfter(RIA_APPLICATION_END_DATE);
   }
 
   private String normalizeReason(String reason) {

@@ -52,6 +52,20 @@ class AccountTransactionalServiceImplTest {
   }
 
   @Test
+  void applyKeepsAccountAppliedWhenAutoApprovalConditionIsNotMet() {
+    AccountDTO applied = account(Status.APPLIED, LIMIT);
+    when(accountMapper.existsByCustomerId(CUSTOMER_ID)).thenReturn(false);
+    when(accountMapper.insertApplication(any(AccountDTO.class))).thenReturn(1);
+    when(accountMapper.selectByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(applied));
+
+    AccountDTO result = service.apply(account(Status.APPLIED, LIMIT), NOW, false);
+
+    assertThat(result.getStatus()).isEqualTo(Status.APPLIED);
+    verify(accountMapper, never()).reject(any(AccountDTO.class));
+    verify(accountMapper, never()).approve(any(AccountDTO.class));
+  }
+
+  @Test
   void approveUsesValidatedLimitAsOptimisticLockCondition() {
     AccountDTO applied = account(Status.APPLIED, BigDecimal.valueOf(40_000_000L));
     AccountDTO opened = account(Status.OPENED, LIMIT);
