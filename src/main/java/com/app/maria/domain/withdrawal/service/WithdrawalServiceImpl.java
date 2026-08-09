@@ -1,12 +1,17 @@
 package com.app.maria.domain.withdrawal.service;
 
+import com.app.maria.domain.account.dto.AccountBenefitLogDTO;
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.exception.AccountException;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
+import com.app.maria.domain.account.mapper.AccountBenefitLogMapper;
 import com.app.maria.domain.account.mapper.AccountMapper;
+import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.withdrawal.dto.LeftAmountDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
+import com.app.maria.domain.withdrawal.exception.EarlyWithdrawalConsentRequiredException;
 import com.app.maria.domain.withdrawal.exception.InsufficientWithdrawalAmountException;
 import com.app.maria.domain.withdrawal.exception.WithdrawalNotAllowedException;
 import com.app.maria.domain.withdrawal.mapper.WithdrawalMapper;
@@ -28,6 +33,7 @@ public class WithdrawalServiceImpl implements WithdrawalService {
     private final BusinessClockService businessClockService;
     private final AccountMapper accountMapper;
     private final WithdrawalMapper withdrawalMapper;
+    private final AccountBenefitLogMapper accountBenefitLogMapper;
 
     @Override
     @Transactional
@@ -63,6 +69,7 @@ public class WithdrawalServiceImpl implements WithdrawalService {
                 withdrawalMapper.selectAvailableLeftAmountsByAccountId(accountId);
         LocalDateTime currentDatetime = businessClockService.now();
 
+        // 확정된 납입 원금의 잔액 합계와 자유롭게 인출할 수 있는 수익금을 계산한다.
         BigDecimal totalPrincipal = leftAmounts.stream()
                 .map(LeftAmountDTO::getCurAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -72,13 +79,19 @@ public class WithdrawalServiceImpl implements WithdrawalService {
         BigDecimal earningsAllocation = requestedAmount.min(earnings);
         BigDecimal remainingRequest = requestedAmount.subtract(earningsAllocation);
 
+        // finalAt으로부터 1년이 지난 납입 원금만 경과 원금으로 분류한다.
         List<LeftAmountDTO> maturedLeftAmounts = leftAmounts.stream()
                 .filter(leftAmount -> !leftAmount.getFinalAt()
                         .plusYears(1)
                         .isAfter(currentDatetime))
                 .toList();
 
+
+
+
         List<WithdrawalAllocationDTO> allocations = new ArrayList<>();
+
+        // 요청액 중 수익금으로 충당할 수 있는 금액을 가장 먼저 배분한다.
         if (earningsAllocation.compareTo(BigDecimal.ZERO) > 0) {
             allocations.add(WithdrawalAllocationDTO.builder()
                     .leftAmountId(null)
@@ -87,9 +100,75 @@ public class WithdrawalServiceImpl implements WithdrawalService {
                     .type(WithdrawalType.EARNINGS_ONLY)
                     .build());
         }
-        allocations.addAll(allocateMaturedPrincipalFifo(
-                remainingRequest, maturedLeftAmounts, currentDatetime));
 
+        // 수익금 배분 후 남은 요청액을 오래된 경과 원금부터 FIFO로 배분한다.
+        List<WithdrawalAllocationDTO> maturedAllocations =
+                allocateMaturedPrincipalFifo(
+                        remainingRequest,
+                        maturedLeftAmounts,
+                        currentDatetime
+                );
+        allocations.addAll(maturedAllocations);
+
+        // finalAt으로부터 아직 1년이 지나지 않은 납입 원금을 분류한다.
+        List<LeftAmountDTO> immatureLeftAmounts = leftAmounts.stream()
+                .filter(leftAmount -> leftAmount.getFinalAt()
+                        .plusYears(1)
+                        .isAfter(currentDatetime))
+                .toList();
+
+
+
+        // 경과 원금에서 실제 배분된 합계를 빼서 조기인출이 필요한 금액을 구한다.
+        BigDecimal maturedAllocatedAmount = maturedAllocations.stream()
+                .map(WithdrawalAllocationDTO::getAllocatedAmount)
+                .reduce(BigDecimal.ZERO,BigDecimal::add);
+
+        remainingRequest = remainingRequest.subtract(maturedAllocatedAmount);
+
+        if(remainingRequest.compareTo(BigDecimal.ZERO)>0){
+            if (!requestDTO.isEarlyWithdrawalAgreed()){
+                throw new EarlyWithdrawalConsentRequiredException(
+                        "미경과 원금을 인출하려면 조기인출 동의가 필요합니다."
+                );
+            }
+            List<WithdrawalAllocationDTO> immatureAllocations =
+                    allocateImmaturePrincipalFifo(
+                            remainingRequest,
+                            immatureLeftAmounts,
+                            currentDatetime
+                    );
+
+            BigDecimal immatureAllocatedAmount =  immatureAllocations.stream()
+                    .map(WithdrawalAllocationDTO::getAllocatedAmount)
+                    .reduce(BigDecimal.ZERO,BigDecimal::add);
+
+            if(immatureAllocatedAmount.compareTo(remainingRequest)<0){
+                throw new WithdrawalNotAllowedException(
+                  "인출 가능한 원금이 부족합니다."
+                );
+            }
+            allocations.addAll(immatureAllocations);
+            int changedBenefit = accountMapper.updateBenefitToImpossible(accountId);
+            String benefitChangeReason = "조기인출로 인한 세제혜택 취소";
+            if(changedBenefit ==1){
+                AccountBenefitLogDTO benefitLog = AccountBenefitLogDTO.builder()
+                        .accountId(accountId)
+                        .prevStatus(account.getBenefit())
+                        .newStatus(BenefitType.IMPOSSIBLE)
+                        .changedAt(currentDatetime)
+                        .reason(benefitChangeReason)
+                        .build();
+
+                int insertedLog = accountBenefitLogMapper.insertLog(benefitLog);
+
+                if(insertedLog != 1){
+                    throw new AccountException(
+                            "ACCOUNT_BENEFIT_LOG저장에 실패했습니다."
+                    );
+                }
+            }
+        }
         return allocations;
     }
 
@@ -118,6 +197,40 @@ public class WithdrawalServiceImpl implements WithdrawalService {
 
             remainingAmount = remainingAmount.subtract(allocatedAmount);
         }
+
+        return allocations;
+    }
+
+
+
+    private List<WithdrawalAllocationDTO> allocateImmaturePrincipalFifo(
+            BigDecimal amountToAllocate,
+            List<LeftAmountDTO> immatureLeftAmounts,
+            LocalDateTime currentDatetime
+    ){
+        List<WithdrawalAllocationDTO> allocations = new ArrayList<>();
+        BigDecimal remainingAmount = amountToAllocate;
+
+        for(LeftAmountDTO leftAmount : immatureLeftAmounts ) {
+            if (remainingAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                break;
+            }
+
+            BigDecimal allocatedAmount =
+                    remainingAmount.min(leftAmount.getCurAmount());
+
+            allocations.add(WithdrawalAllocationDTO.builder()
+                    .leftAmountId(leftAmount.getLeftAmountId())
+                    .allocatedAmount(allocatedAmount)
+                    .withdrawalAt(currentDatetime)
+                    .type(WithdrawalType.IMMATURE_PRINCIPAL_INCLUDED)
+                    .build());
+
+            remainingAmount = remainingAmount.subtract(allocatedAmount);
+
+        }
+
+
 
         return allocations;
     }

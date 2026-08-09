@@ -1,12 +1,17 @@
 package com.app.maria.domain.withdrawal.service;
 
+import com.app.maria.domain.account.dto.AccountBenefitLogDTO;
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.exception.AccountException;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
+import com.app.maria.domain.account.mapper.AccountBenefitLogMapper;
 import com.app.maria.domain.account.mapper.AccountMapper;
+import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.withdrawal.dto.LeftAmountDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
+import com.app.maria.domain.withdrawal.exception.EarlyWithdrawalConsentRequiredException;
 import com.app.maria.domain.withdrawal.exception.InsufficientWithdrawalAmountException;
 import com.app.maria.domain.withdrawal.exception.WithdrawalNotAllowedException;
 import com.app.maria.domain.withdrawal.mapper.WithdrawalMapper;
@@ -17,6 +22,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -27,6 +33,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -39,6 +47,7 @@ class WithdrawalServiceImplTest {
     @Mock BusinessClockService businessClockService;
     @Mock AccountMapper accountMapper;
     @Mock WithdrawalMapper withdrawalMapper;
+    @Mock AccountBenefitLogMapper accountBenefitLogMapper;
     @InjectMocks WithdrawalServiceImpl withdrawalService;
 
     @Test
@@ -77,11 +86,91 @@ class WithdrawalServiceImplTest {
     }
 
     @Test
-    void oneSecondBeforeOneYear_isNotMatured() {
+    void oneSecondBeforeOneYear_requiresEarlyWithdrawalConsent() {
         prepareOpenedAccount(List.of(leftAmount(
                 12L, "300", NOW.minusYears(1).plusSeconds(1))));
 
-        assertThat(withdrawalService.withdraw(request("200"))).isEmpty();
+        assertThatThrownBy(() -> withdrawalService.withdraw(request("200")))
+                .isInstanceOf(EarlyWithdrawalConsentRequiredException.class);
+
+        verify(accountMapper, never()).updateBenefitToImpossible(ACCOUNT_ID);
+        verifyNoInteractions(accountBenefitLogMapper);
+    }
+
+    @Test
+    void agreedEarlyWithdrawal_allocatesImmaturePrincipalFifoAndSavesBenefitLog() {
+        prepareOpenedAccount("1200", BenefitType.POSSIBLE, List.of(
+                leftAmount(61L, "300", NOW.minusYears(2)),
+                leftAmount(62L, "400", NOW.minusMonths(11)),
+                leftAmount(63L, "500", NOW.minusMonths(6))
+        ));
+        when(accountMapper.updateBenefitToImpossible(ACCOUNT_ID)).thenReturn(1);
+        when(accountBenefitLogMapper.insertLog(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(1);
+
+        List<WithdrawalAllocationDTO> result =
+                withdrawalService.withdraw(request("800", true));
+
+        assertThat(result).extracting(WithdrawalAllocationDTO::getLeftAmountId)
+                .containsExactly(61L, 62L, 63L);
+        assertThat(result).extracting(WithdrawalAllocationDTO::getAllocatedAmount)
+                .containsExactly(
+                        new BigDecimal("300"),
+                        new BigDecimal("400"),
+                        new BigDecimal("100")
+                );
+        assertThat(result).extracting(WithdrawalAllocationDTO::getType)
+                .containsExactly(
+                        WithdrawalType.MATURED_PRINCIPAL_INCLUDED,
+                        WithdrawalType.IMMATURE_PRINCIPAL_INCLUDED,
+                        WithdrawalType.IMMATURE_PRINCIPAL_INCLUDED
+                );
+
+        ArgumentCaptor<AccountBenefitLogDTO> logCaptor =
+                ArgumentCaptor.forClass(AccountBenefitLogDTO.class);
+        verify(accountBenefitLogMapper).insertLog(logCaptor.capture());
+
+        assertThat(logCaptor.getValue()).satisfies(log -> {
+            assertThat(log.getBenefitId()).isNull();
+            assertThat(log.getAccountId()).isEqualTo(ACCOUNT_ID);
+            assertThat(log.getPrevStatus()).isEqualTo(BenefitType.POSSIBLE);
+            assertThat(log.getNewStatus()).isEqualTo(BenefitType.IMPOSSIBLE);
+            assertThat(log.getChangedAt()).isEqualTo(NOW);
+            assertThat(log.getReason()).isEqualTo("조기인출로 인한 세제혜택 취소");
+        });
+    }
+
+    @Test
+    void benefitAlreadyImpossible_doesNotSaveDuplicateBenefitLog() {
+        prepareOpenedAccount("300", BenefitType.IMPOSSIBLE, List.of(
+                leftAmount(71L, "300", NOW.minusMonths(3))
+        ));
+        when(accountMapper.updateBenefitToImpossible(ACCOUNT_ID)).thenReturn(0);
+
+        List<WithdrawalAllocationDTO> result =
+                withdrawalService.withdraw(request("200", true));
+
+        assertThat(result).singleElement().satisfies(allocation -> {
+            assertThat(allocation.getLeftAmountId()).isEqualTo(71L);
+            assertThat(allocation.getAllocatedAmount()).isEqualByComparingTo("200");
+            assertThat(allocation.getType())
+                    .isEqualTo(WithdrawalType.IMMATURE_PRINCIPAL_INCLUDED);
+        });
+        verifyNoInteractions(accountBenefitLogMapper);
+    }
+
+    @Test
+    void benefitLogInsertFailure_abortsEarlyWithdrawal() {
+        prepareOpenedAccount("300", BenefitType.REDUCED, List.of(
+                leftAmount(81L, "300", NOW.minusMonths(3))
+        ));
+        when(accountMapper.updateBenefitToImpossible(ACCOUNT_ID)).thenReturn(1);
+        when(accountBenefitLogMapper.insertLog(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(0);
+
+        assertThatThrownBy(() -> withdrawalService.withdraw(request("200", true)))
+                .isInstanceOf(AccountException.class)
+                .hasMessage("ACCOUNT_BENEFIT_LOG저장에 실패했습니다.");
     }
 
     @Test
@@ -187,8 +276,16 @@ class WithdrawalServiceImplTest {
             String accountAmount,
             List<LeftAmountDTO> leftAmounts
     ) {
+        prepareOpenedAccount(accountAmount, BenefitType.POSSIBLE, leftAmounts);
+    }
+
+    private void prepareOpenedAccount(
+            String accountAmount,
+            BenefitType benefit,
+            List<LeftAmountDTO> leftAmounts
+    ) {
         when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
-                .thenReturn(Optional.of(account(Status.OPENED, accountAmount)));
+                .thenReturn(Optional.of(account(Status.OPENED, accountAmount, benefit)));
         when(withdrawalMapper.selectAvailableLeftAmountsByAccountId(ACCOUNT_ID))
                 .thenReturn(leftAmounts);
         when(businessClockService.now()).thenReturn(NOW);
@@ -199,17 +296,31 @@ class WithdrawalServiceImplTest {
     }
 
     private static AccountDTO account(Status status, String amount) {
+        return account(status, amount, BenefitType.POSSIBLE);
+    }
+
+    private static AccountDTO account(
+            Status status,
+            String amount,
+            BenefitType benefit
+    ) {
         return AccountDTO.builder()
                 .accountId(ACCOUNT_ID)
                 .status(status)
                 .amount(new BigDecimal(amount))
+                .benefit(benefit)
                 .build();
     }
 
     private static WithdrawalRequestDTO request(String amount) {
+        return request(amount, false);
+    }
+
+    private static WithdrawalRequestDTO request(String amount, boolean earlyWithdrawalAgreed) {
         return WithdrawalRequestDTO.builder()
                 .accountId(ACCOUNT_ID)
                 .requestedAmount(new BigDecimal(amount))
+                .earlyWithdrawalAgreed(earlyWithdrawalAgreed)
                 .build();
     }
 
