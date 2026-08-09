@@ -21,6 +21,9 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 @Slf4j
 public class MydataProviderImpl implements MydataProvider {
+  private static final String RIA_ACCOUNTS_PATH = "/api/mydata/ria-accounts";
+  private static final String CREATE_RIA_ACCOUNT_PATH = RIA_ACCOUNTS_PATH + "/save";
+  private static final String UPDATE_RIA_LIMIT_PATH = RIA_ACCOUNTS_PATH + "/limit-update";
 
   private final RestClient restClient;
 
@@ -54,7 +57,7 @@ public class MydataProviderImpl implements MydataProvider {
     Map<String, String> req = new HashMap<>();
     req.put("ciHash", ciHash);
     try {
-      return restClient.post().uri(myDataUrl + "/api/mydata/ria-accounts")
+      return restClient.post().uri(myDataUrl + RIA_ACCOUNTS_PATH)
           .contentType(MediaType.APPLICATION_JSON).body(req).retrieve()
           .body(MydataRiaAccountsResponseDTO.class);
     } catch (RestClientException exception) {
@@ -83,7 +86,7 @@ public class MydataProviderImpl implements MydataProvider {
     req.put("riaCumulativeSell", String.valueOf(0));
 
     try {
-      ResponseEntity<?> response = restClient.post().uri(myDataUrl + "/api/mydata/ria-accounts/save")
+      ResponseEntity<?> response = restClient.post().uri(myDataUrl + CREATE_RIA_ACCOUNT_PATH)
           .contentType(MediaType.APPLICATION_JSON).body(req).retrieve()
           .toEntity(Object.class);
       return response.getStatusCode();
@@ -103,7 +106,7 @@ public class MydataProviderImpl implements MydataProvider {
     req.put("riaCumulativeSell", String.valueOf(ownRiaAccount.getRiaCumulativeSell()));
 
     try {
-      ResponseEntity<?> response = restClient.post().uri(myDataUrl + "/api/mydata/ria-accounts/save")
+      ResponseEntity<?> response = restClient.put().uri(myDataUrl + UPDATE_RIA_LIMIT_PATH)
           .contentType(MediaType.APPLICATION_JSON).body(req).retrieve()
           .toEntity(Object.class);
       return response.getStatusCode();

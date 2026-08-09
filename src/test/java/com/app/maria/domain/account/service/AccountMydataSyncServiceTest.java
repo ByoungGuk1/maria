@@ -1,6 +1,8 @@
 package com.app.maria.domain.account.service;
 
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.infra.RedisMydataSyncTaskRepository;
+import com.app.maria.domain.account.infra.RedisMydataSyncTaskRepository.ClaimedTask;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.provider.MydataProvider;
 import com.app.maria.domain.account.type.Status;
@@ -11,14 +13,12 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
-import org.springframework.data.redis.core.ZSetOperations;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -30,39 +30,27 @@ class AccountMydataSyncServiceTest {
 
   @Mock private AccountMapper accountMapper;
   @Mock private MydataProvider mydataProvider;
-  @Mock private StringRedisTemplate redisTemplate;
-  @Mock private ValueOperations<String, String> valueOperations;
-  @Mock private ZSetOperations<String, String> zSetOperations;
+  @Mock private RedisMydataSyncTaskRepository taskRepository;
   @InjectMocks private AccountMydataSyncService service;
 
-  @org.junit.jupiter.api.BeforeEach
-  void setUp() {
-    when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-    when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
-  }
-
   @Test
-  void createSendsInitialCumulativeSellPayloadThroughCreateOperation() {
+  void createEnqueuesInitialSynchronizationWithoutCallingMydata() {
     AccountDTO account = openedAccount();
-    when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(CI_HASH));
-    when(mydataProvider.createRiaAccount(CI_HASH, account)).thenReturn(HttpStatus.OK);
 
     service.create(account);
 
-    verify(mydataProvider).createRiaAccount(CI_HASH, account);
-    verify(mydataProvider, never()).updateRiaLimit(CI_HASH, account);
+    verify(taskRepository).enqueue(10L, "CREATE");
+    verify(mydataProvider, never()).createRiaAccount(CI_HASH, account);
   }
 
   @Test
-  void updateLimitUsesUpdateOperation() {
+  void updateLimitEnqueuesSynchronizationWithoutCallingMydata() {
     AccountDTO account = openedAccount();
-    when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(CI_HASH));
-    when(mydataProvider.updateRiaLimit(CI_HASH, account)).thenReturn(HttpStatus.OK);
 
     service.updateLimit(account);
 
-    verify(mydataProvider).updateRiaLimit(CI_HASH, account);
-    verify(mydataProvider, never()).createRiaAccount(CI_HASH, account);
+    verify(taskRepository).enqueue(10L, "UPDATE_LIMIT");
+    verify(mydataProvider, never()).updateRiaLimit(CI_HASH, account);
   }
 
   @Test
@@ -71,9 +59,9 @@ class AccountMydataSyncServiceTest {
     missing.setAccountId(10L);
     AccountDTO existing = openedAccount();
     existing.setAccountId(11L);
-    when(zSetOperations.rangeByScore(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong()))
-        .thenReturn(Set.of("10", "11"));
-    when(valueOperations.setIfAbsent(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+    ClaimedTask createTask = claimed(10L, "CREATE:0:token-10");
+    ClaimedTask updateTask = claimed(11L, "UPDATE_LIMIT:0:token-11");
+    when(taskRepository.claimDueTasks(100)).thenReturn(List.of(createTask, updateTask));
     when(accountMapper.selectByAccountId(10L)).thenReturn(Optional.of(missing));
     when(accountMapper.selectByAccountId(11L)).thenReturn(Optional.of(existing));
     when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(CI_HASH));
@@ -85,15 +73,18 @@ class AccountMydataSyncServiceTest {
 
     verify(mydataProvider).createRiaAccount(CI_HASH, missing);
     verify(mydataProvider).updateRiaLimit(CI_HASH, existing);
+    verify(taskRepository).complete(createTask);
+    verify(taskRepository).complete(updateTask);
+    verify(taskRepository).release(createTask);
+    verify(taskRepository).release(updateTask);
   }
 
   @Test
   void retryDoesNotCreateOrUpdateWhenMydataLookupFails() {
     AccountDTO account = openedAccount();
     account.setAccountId(10L);
-    when(zSetOperations.rangeByScore(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong()))
-        .thenReturn(Set.of("10"));
-    when(valueOperations.setIfAbsent(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+    ClaimedTask task = claimed(10L, "UPDATE_LIMIT:0:token-10");
+    when(taskRepository.claimDueTasks(100)).thenReturn(List.of(task));
     when(accountMapper.selectByAccountId(10L)).thenReturn(Optional.of(account));
     when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(CI_HASH));
     when(mydataProvider.hasOwnRiaAccount(CI_HASH))
@@ -103,10 +94,17 @@ class AccountMydataSyncServiceTest {
 
     verify(mydataProvider, never()).createRiaAccount(CI_HASH, account);
     verify(mydataProvider, never()).updateRiaLimit(CI_HASH, account);
+    verify(taskRepository).reschedule(task, "UPDATE_LIMIT");
+    verify(taskRepository).release(task);
+  }
+
+  private ClaimedTask claimed(Long accountId, String value) {
+    return new ClaimedTask(accountId, value, "lock:" + accountId, "token:" + accountId);
   }
 
   private AccountDTO openedAccount() {
     return AccountDTO.builder()
+        .accountId(10L)
         .customerId(CUSTOMER_ID)
         .status(Status.OPENED)
         .limitAmount(BigDecimal.valueOf(30_000_000L))
