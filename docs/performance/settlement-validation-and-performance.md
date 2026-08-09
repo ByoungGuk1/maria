@@ -1,0 +1,90 @@
+# Settlement 검증 및 성능 리포트
+
+## 책임과 Freeze 범위
+
+```text
+EXECUTED sell_order
+  -> [매도 처리 도메인] PROVISIONAL krw_exchange 생성
+  -> [Settlement 도메인] PROVISIONAL -> FINALIZED
+```
+
+Settlement Batch는 이미 생성된 `PROVISIONAL krw_exchange`를 확정산한다. 현재 생산 코드에는 `INSERT krw_exchange`가 없으므로 가환전 생성 책임은 매도 처리 도메인 또는 병합 대상 브랜치에서 확정한다. 이후에는 검증에서 발견된 오류만 수정하며, 새 기능은 추가하지 않는다.
+
+## 요약
+
+Settlement는 `PROVISIONAL` 환전을 대상으로 Batch Snapshot을 만들고, 확정산 처리 및 재처리 이력을 관리한다. 이번 기록에서는 실제 MariaDB 운영 DDL에서 컬럼·제약조건과 Snapshot 조회를 검증했다. Batch 재처리·동시성·처리량 수치는 아직 측정 전이다.
+
+## 실행 환경
+
+| 항목 | 값 |
+| --- | --- |
+| 측정일 | 2026-08-09 |
+| 기준 커밋 | `d2f1720` |
+| Java | OpenJDK 17.0.19 |
+| CPU / 메모리 | 12 vCPU / 15 GiB |
+| MariaDB | 11.8.8 (`mariadb:11.8`, localhost:3307) |
+| 외부 환율 API | 미사용 — Mapper 통합 테스트 |
+
+## 실제 MariaDB 검증 결과
+
+| 항목 | 결과 |
+| --- | --- |
+| `sell_order.settlement_fx_rate` | `DECIMAL(15,4)` 확인 |
+| 원화 금액 컬럼 | `account.amount`, `krw_exchange.final_amount`, `left_amount.cur_amount` 모두 `DECIMAL(15,0)` 확인 |
+| 제약조건 | `uk_left_amount_exchange_id`, `uk_settlement_batch_run_id` 적용 확인 |
+| Mapper 통합 테스트 | `SettlementMariaDbMapperIntegrationTest` 성공 1건 |
+
+테스트는 실제 운영 DDL에 `PROVISIONAL` 환전 대상을 준비하고, Batch Snapshot 생성 및 `settlement_fx_rate` 매핑을 검증한다.
+
+```text
+tests=1, failures=0, errors=0, skipped=0
+```
+
+## 실패 Batch Retry 통합 테스트
+
+| 항목 | 결과 |
+| --- | --- |
+| 최초 대상 | 3건 |
+| 1차 SUCCESS / FAILED | 미측정 / 미측정 |
+| 새 Retry Item | 미측정 |
+| 기존 SUCCESS 재처리 | 미측정 |
+| Retry 이후 SUCCESS / FAILED | 미측정 / 미측정 |
+| `account.amount` 중복 반영 | 미측정 |
+| `left_amount` 중복 생성 | 미측정 |
+| 최종 Batch 상태 | 미측정 |
+| `DB Batch runId == Retry Job runId` | 미측정 |
+
+시나리오는 `SUCCESS / FAILED / SUCCESS -> Batch Retry -> COMPLETED`다. 성공한 두 건은 새 Retry Item을 만들지 않아야 하고, 실패한 한 건만 새 이력을 만들어야 한다.
+
+## 동시성 검증
+
+| 테스트 | 요청 | 기대 핵심 결과 | 실제 결과 |
+| --- | ---: | --- | --- |
+| CT-1 동일 업무일 Batch | 10 | Batch 생성 1, 중복 0 | 미측정 |
+| CT-2 동일 Item Retry | 2 | Retry Item 생성 1, 중복 정산 0, 중복 `left_amount` 0 | 미측정 |
+| CT-3 FAILED 전이 | 2 | 실제 `RUNNING -> FAILED` 전이 1, 멱등 처리 1 | 미측정 |
+
+## 처리량 측정 계획
+
+외부 환율 Provider는 동일 응답 Stub으로 고정한다. Batch가 `RUNNING`으로 전환된 시점부터 최종 상태가 될 때까지를 측정 범위로 한다.
+
+| 대상 건수 | Warm-up | 실측 | 평균(ms) | P95(ms) | 최소(ms) | 최대(ms) | 처리량(items/s) | 상태 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 100 | 5 | 20 | 미측정 | 미측정 | 미측정 | 미측정 | 미측정 | 예정 |
+| 1,000 | 5 | 20 | 미측정 | 미측정 | 미측정 | 미측정 | 미측정 | 예정 |
+| 5,000 | 5 | 20 | 미측정 | 미측정 | 미측정 | 미측정 | 미측정 | 예정 |
+
+## 환율 Cache 검증 계획
+
+현재 Cache 범위는 Batch 전체가 아니라 Tasklet의 100건 페이지다. 따라서 포트폴리오에는 **“100건 처리 페이지 내 동일 통화·기준일 환율 캐싱”**으로 표현한다.
+
+| 조건 | 기대 Provider 호출 수 | 상태 |
+| --- | ---: | --- |
+| 100개 Item, 동일 USD·동일 기준일 | 1 | 단위 테스트로 검증됨, 실측 예정 |
+| 100개 Item, 통화·기준일 혼합 | 고유 `(통화, 기준일)` 수 | 실측 예정 |
+
+## 포트폴리오 문장
+
+> `runId`를 Batch 실행 세대 식별자로 사용하고 업무 DB와 Spring Batch Job 파라미터의 일치 여부를 검증했습니다. 또한 Batch 상태 전이를 단일 Updater로 통합하고, 중복된 비동기 실패 경로에서도 `RUNNING -> FAILED` 전이를 멱등적으로 처리하도록 설계했습니다.
+
+> 실제 MariaDB 11.8 운영 DDL에서 Settlement Mapper 통합 테스트를 수행해 Snapshot 생성과 `settlement_fx_rate` 매핑을 검증했습니다. Batch 재처리·동시성·처리량 수치는 측정 완료 후 추가합니다.
