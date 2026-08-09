@@ -4,6 +4,7 @@ import com.app.maria.domain.externaltradesync.launcher.ExternalTradeSyncLauncher
 import com.app.maria.global.response.ApiResponseDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,6 +16,7 @@ public class ExternalTradeSyncApi {
 
     private final ExternalTradeSyncLauncher externalTradeSyncLauncher;
 
+    @PreAuthorize("hasAnyRole('SETTLEMENT', 'ADMIN')")
     @PostMapping("/jobs")
     public ResponseEntity<ApiResponseDTO<Void>> executeSync() {
         externalTradeSyncLauncher.launch();
