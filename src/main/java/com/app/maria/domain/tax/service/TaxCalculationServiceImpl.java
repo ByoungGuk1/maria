@@ -24,29 +24,17 @@ public class TaxCalculationServiceImpl implements TaxCalculationService {
     private final RiaTaxProperties riaTaxProperties;
     private final TaxCalculator taxCalculator;
 
-
-
     @Override
     @Transactional(readOnly = true)
     public TaxCalculationResponseDTO taxCalculate(Long accountId) {
         AccountDTO account = accountMapper.selectByAccountId(accountId)
                 .orElseThrow(() -> new AccountNotFoundException("계좌가 없습니다."));
 
-        LocalDate startDate = LocalDate.of(riaTaxProperties.getTaxYear(), 1, 1);
-        LocalDate endDate = LocalDate.of(riaTaxProperties.getTaxYear(), 12, 31);
-
         List<SellLotDTO> lots = taxMapper.findFinalizedLotsByAccountAndYear(accountId,
                 riaTaxProperties.getTaxYear(), clockService.now());
 
-        List<TaxRuleDTO> rules = taxMapper.findTaxRulesByPeriod(startDate, endDate);
+        List<TaxRuleDTO> rules = taxMapper.findTaxRules();
 
         return TaxCalculationResponseDTO.of(accountId,taxCalculator.calculate(lots,rules));
-
-        /* 외부 순매수 가중합산 로직*/
-
-
-
-
     }
-
 }

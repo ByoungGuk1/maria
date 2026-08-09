@@ -13,11 +13,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class TaxCalculator {
 
+    private static final String RELIEF_RATE = "RELIEF_RATE";
+    private static final String BASIC_DEDUCTION = "BASIC_DEDUCTION";
+    private static final String TAX_RATE = "TAX_RATE";
+
     public TaxCalculationResultDTO calculate(List<SellLotDTO> lots, List<TaxRuleDTO> rules ) {
         RiaSellAggregateDTO riaSellAggregate = aggregateRiaSell(lots, rules);
-
-        /* 외부 순매수 가중합산 로직*/
-
 
         return TaxCalculationResultDTO.of(riaSellAggregate);
     }
@@ -44,11 +45,17 @@ public class TaxCalculator {
     }
 
     private BigDecimal findWeight(List<TaxRuleDTO> rules,LocalDate sellAt) {
+        return findRuleValue(rules, RELIEF_RATE, sellAt)
+                .divide(BigDecimal.valueOf(100),4, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal findRuleValue(List<TaxRuleDTO> rules, String ruleType, LocalDate baseDate) {
         return rules.stream()
-                .filter(rule -> !sellAt.isBefore(rule.getValidFrom())&&!sellAt.isAfter(rule.getValidTo()))
+                .filter(rule -> ruleType.equals(rule.getRuleType()))
+                .filter(rule -> !baseDate.isBefore(rule.getValidFrom()) && !baseDate.isAfter(rule.getValidTo()))
                 .findFirst()
                 .map(TaxRuleDTO::getRuleValue)
-                .orElseThrow(() -> new IllegalArgumentException("해당 날짜가 해당되는 가중치를 찾지 못했습니다.") )
-                .divide(BigDecimal.valueOf(100),4, RoundingMode.HALF_UP);
+                .orElseThrow(() -> new IllegalArgumentException(
+                        baseDate + " 에 유효한 " + ruleType + " 규칙을 찾지 못했습니다."));
     }
 }

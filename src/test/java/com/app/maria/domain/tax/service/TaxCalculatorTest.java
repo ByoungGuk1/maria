@@ -6,7 +6,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationResultDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
-import java.math.BigDecimal;
+import static com.app.maria.domain.tax.fixture.TaxFixtures.lot;
+import static com.app.maria.domain.tax.fixture.TaxFixtures.reliefRate;
+import static com.app.maria.domain.tax.fixture.TaxFixtures.reliefRates;
+import static com.app.maria.domain.tax.fixture.TaxFixtures.rule;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -17,28 +20,6 @@ import org.junit.jupiter.params.provider.CsvSource;
 class TaxCalculatorTest {
 
     private final TaxCalculator calculator = new TaxCalculator();
-
-    private List<TaxRuleDTO> reliefRates() {
-        return List.of(
-                rule("100", LocalDate.of(2026, 1, 1), LocalDate.of(2026, 5, 31)),
-                rule("80", LocalDate.of(2026, 6, 1), LocalDate.of(2026, 7, 31)),
-                rule("50", LocalDate.of(2026, 8, 1), LocalDate.of(2026, 12, 31)));
-    }
-
-    private TaxRuleDTO rule(String value, LocalDate validFrom, LocalDate validTo) {
-        return new TaxRuleDTO(null, new BigDecimal(value), validTo, validFrom);
-    }
-
-    private SellLotDTO lot(LocalDate sellAt, String finalAmount,
-                           String purchasePrice, String purchaseFxRate, String sellQty) {
-        return SellLotDTO.builder()
-                .sellAt(sellAt)
-                .finalAmount(new BigDecimal(finalAmount))
-                .purchasePrice(new BigDecimal(purchasePrice))
-                .purchaseFxRate(new BigDecimal(purchaseFxRate))
-                .sellQty(new BigDecimal(sellQty))
-                .build();
-    }
 
     @Test
     @DisplayName("골든 시나리오 - CLAUDE.md §3 검증 예시와 일치한다")
@@ -173,6 +154,39 @@ class TaxCalculatorTest {
                 lot(LocalDate.of(2027, 1, 5), "10000000", "100", "1000", "40"));
 
         assertThatThrownBy(() -> calculator.calculate(lots, reliefRates()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("RELIEF_RATE가 아닌 규칙이 섞여 있어도 가중치만 골라 쓴다")
+    void 다른규칙이_섞여도_가중치만_사용한다() {
+        List<TaxRuleDTO> mixed = List.of(
+                rule("DEPOSIT_LIMIT", "50000000", LocalDate.of(2026, 1, 1), LocalDate.of(9999, 12, 31)),
+                rule("BASIC_DEDUCTION", "2500000", LocalDate.of(2026, 1, 1), LocalDate.of(9999, 12, 31)),
+                rule("TAX_RATE", "0.22", LocalDate.of(2026, 1, 1), LocalDate.of(9999, 12, 31)),
+                reliefRate("100", LocalDate.of(2026, 1, 1), LocalDate.of(2026, 5, 31)),
+                reliefRate("80", LocalDate.of(2026, 6, 1), LocalDate.of(2026, 7, 31)),
+                reliefRate("50", LocalDate.of(2026, 8, 1), LocalDate.of(2026, 12, 31)));
+
+        List<SellLotDTO> lots = List.of(
+                lot(LocalDate.of(2026, 9, 20), "10000000", "100", "1000", "40"));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, mixed);
+
+        assertThat(result.getWeightedSell()).isEqualByComparingTo("5000000");
+        assertThat(result.getWeightedGain()).isEqualByComparingTo("3000000");
+    }
+
+    @Test
+    @DisplayName("RELIEF_RATE가 하나도 없으면 예외")
+    void 가중치규칙없음() {
+        List<TaxRuleDTO> onlyConstants = List.of(
+                rule("BASIC_DEDUCTION", "2500000", LocalDate.of(2026, 1, 1), LocalDate.of(9999, 12, 31)));
+
+        List<SellLotDTO> lots = List.of(
+                lot(LocalDate.of(2026, 3, 10), "10000000", "100", "1000", "40"));
+
+        assertThatThrownBy(() -> calculator.calculate(lots, onlyConstants))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
