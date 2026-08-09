@@ -22,14 +22,14 @@ public class SellOrderApi {
 
     @PreAuthorize("hasAnyRole('SETTLEMENT', 'ADMIN')")
     @PostMapping
-    public ResponseEntity<ApiResponseDTO<SellOrderResponseDTO>> placeSellOrder(@Valid @RequestBody SellOrderRequestDTO request) {
-        SellOrderResponseDTO responseDTO = sellOrderService.placeSellOrder(request);
-        String message = switch(responseDTO.getStatus()) {
+    public ResponseEntity<ApiResponseDTO<List<SellOrderResponseDTO>>> placeSellOrder(@Valid @RequestBody SellOrderRequestDTO request) {
+        List<SellOrderResponseDTO> responseDTOs = sellOrderService.placeSellOrder(request);
+        String message = switch(responseDTOs.get(0).getStatus()) {
             case EXECUTED -> "매도 주문이 체결되었습니다.";
             case REJECTED -> "매도 한도 초과로 거부되었습니다.";
             case RECEIVED -> "매도 주문이 접수되었습니다.";
         };
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponseDTO.of(message, responseDTO));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponseDTO.of(message, responseDTOs));
     }
 
     @GetMapping("/{orderId}")

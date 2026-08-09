@@ -164,31 +164,6 @@ class SellLimitMapperTest {
         assertThat(result).isEmpty();
     }
 
-    // ---- selectAccountByInboundId ----
-
-    @Test
-    @DisplayName("inbound_id로 정확히 그 계좌의 account_id를 반환한다 (다른 계좌와 안 섞임)")
-    void selectAccountByInboundIdReturnsMatchingAccountNotAnothers() throws SQLException {
-        Long customerA = insertCustomer("ci-hash-inbound-a");
-        Long customerB = insertCustomer("ci-hash-inbound-b");
-        Long accountA = insertAccount(customerA, "10000000");
-        Long accountB = insertAccount(customerB, "10000000");
-        Long inboundOfA = insertInbound(accountA);
-        insertInbound(accountB);
-
-        Optional<Long> result = sellLimitMapper.selectAccountByInboundId(inboundOfA);
-
-        assertThat(result).contains(accountA);
-    }
-
-    @Test
-    @DisplayName("존재하지 않는 inbound_id면 빈 Optional을 반환한다")
-    void selectAccountByInboundIdReturnsEmptyWhenInboundDoesNotExist() {
-        Optional<Long> result = sellLimitMapper.selectAccountByInboundId(999L);
-
-        assertThat(result).isEmpty();
-    }
-
     private void resetSchema() throws SQLException {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement()) {
@@ -214,12 +189,6 @@ class SellLimitMapperTest {
                         settlement_status VARCHAR(12) NOT NULL
                     )
                     """);
-            statement.execute("""
-                    CREATE TABLE inbound (
-                        inbound_id BIGINT PRIMARY KEY AUTO_INCREMENT,
-                        account_id BIGINT NOT NULL
-                    )
-                    """);
         }
     }
 
@@ -241,18 +210,6 @@ class SellLimitMapperTest {
              PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             statement.setLong(1, customerId);
             statement.setBigDecimal(2, new BigDecimal(limitAmount));
-            statement.executeUpdate();
-            var keys = statement.getGeneratedKeys();
-            keys.next();
-            return keys.getLong(1);
-        }
-    }
-
-    private Long insertInbound(Long accountId) throws SQLException {
-        String sql = "INSERT INTO inbound (account_id) VALUES (?)";
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            statement.setLong(1, accountId);
             statement.executeUpdate();
             var keys = statement.getGeneratedKeys();
             keys.next();
