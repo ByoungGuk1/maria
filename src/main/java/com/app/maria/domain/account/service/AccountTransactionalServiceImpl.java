@@ -28,7 +28,7 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
 
   @Override
   @Transactional(rollbackFor = Exception.class)
-  public AccountDTO updateLimit(Long customerId, BigDecimal newLimit, LocalDateTime changedAt) {
+  public AccountDTO updateLimit(Long customerId, BigDecimal expectedCurrentLimit, BigDecimal newLimit, LocalDateTime changedAt) {
     AccountDTO account = findByCustomer(customerId);
     if (account.getStatus() != Status.APPLIED && account.getStatus() != Status.OPENED) {
       throw new InvalidAccountRequestException("신청 또는 개설 상태의 계좌만 한도를 변경할 수 있습니다.");
@@ -36,11 +36,14 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
     if (account.getLimitAmount().compareTo(newLimit) == 0){
       throw new InvalidAccountRequestException("기존 한도와 다른 금액을 입력해야 합니다.");
     }
+    if (expectedCurrentLimit == null || account.getLimitAmount().compareTo(expectedCurrentLimit) != 0) {
+      throw new InvalidAccountRequestException("계좌 한도가 변경되었습니다. 다시 조회 후 시도해주세요.");
+    }
     BigDecimal ownUsedAndReservedAmount = accountMapper.selectOwnUsedAndReservedAmount(account.getAccountId());
     if (newLimit.compareTo(ownUsedAndReservedAmount) < 0) {
       throw new InvalidAccountRequestException("이미 사용한 매도한도보다 낮게 설정할 수 없습니다.");
     }
-    if (accountMapper.updateLimit(account.getAccountId(), account.getStatus(), account.getLimitAmount(), newLimit) != 1){
+    if (accountMapper.updateLimit(account.getAccountId(), account.getStatus(), expectedCurrentLimit, newLimit) != 1){
       throw new InvalidAccountRequestException("계좌 한도 변경 중 상태 또는 한도가 변경되었습니다.");
     }
     AccountDTO updatedAccount = find(account.getAccountId());

@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public interface AccountTransactionalService {
-  AccountDTO updateLimit(Long customerId, BigDecimal newLimit, LocalDateTime changedAt);
+  AccountDTO updateLimit(Long customerId, BigDecimal expectedCurrentLimit, BigDecimal newLimit, LocalDateTime changedAt);
   AccountDTO apply(AccountDTO account, LocalDateTime appliedAt, boolean autoApprove);
   AccountDTO approve(Long accountId, BigDecimal expectedLimit, LocalDateTime openedAt);
   AccountDTO reject(Long accountId, String reason, LocalDateTime changedAt);

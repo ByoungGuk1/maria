@@ -17,6 +17,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -139,6 +140,22 @@ class AccountApiTest {
         .andExpect(jsonPath("$.message").value("계좌 한도는 필수입니다."));
 
     verify(accountService, never()).applyAccount(any());
+  }
+
+  @Test
+  void updateLimitRequiresExpectedCurrentLimit() throws Exception {
+    mockMvc.perform(put("/api/account/update/limit")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "customerId": 1,
+                  "limitAmount": 40000000
+                }
+                """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("현재 계좌 한도 입력이 필요합니다."));
+
+    verify(accountService, never()).updateAccountLimit(any());
   }
 
   @Test

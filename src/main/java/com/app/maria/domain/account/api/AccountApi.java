@@ -1,6 +1,7 @@
 package com.app.maria.domain.account.api;
 
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.ReasonRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
@@ -77,7 +78,7 @@ public class AccountApi {
 
     @PutMapping("/update/limit")
     @PreAuthorize("hasAnyRole('ADMIN', 'REVIEWER')")
-    public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> updateLimit(@Valid @RequestBody AccountRequestDTO accountRequestDTO){
-      return ResponseEntity.status(HttpStatus.OK).body(ApiResponseDTO.of("계좌 한도 변경", accountService.updateAccountLimit(accountRequestDTO)));
+    public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> updateLimit(@Valid @RequestBody AccountLimitUpdateRequestDTO requestDTO){
+      return ResponseEntity.status(HttpStatus.OK).body(ApiResponseDTO.of("계좌 한도 변경", accountService.updateAccountLimit(requestDTO)));
     }
 }

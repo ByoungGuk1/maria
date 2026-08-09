@@ -2,6 +2,7 @@ package com.app.maria.domain.account.service;
 
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
@@ -55,10 +56,10 @@ class AccountServiceImplTest {
 
   @Test
   void updateLimitDoesNotSyncMydataForAppliedAccount() {
-    when(accountTransactionalService.updateLimit(CUSTOMER_ID, CHANGED_LIMIT, NOW))
+    when(accountTransactionalService.updateLimit(CUSTOMER_ID, LIMIT, CHANGED_LIMIT, NOW))
         .thenReturn(account(Status.APPLIED, CHANGED_LIMIT));
 
-    AccountResponseDTO result = accountService.updateAccountLimit(request(CHANGED_LIMIT));
+    AccountResponseDTO result = accountService.updateAccountLimit(limitUpdateRequest(LIMIT, CHANGED_LIMIT));
 
     assertThat(result.getStatus()).isEqualTo(Status.APPLIED);
     verify(accountMydataSyncService, never()).updateLimit(any());
@@ -67,9 +68,9 @@ class AccountServiceImplTest {
   @Test
   void updateLimitSyncsOnlyLimitForOpenedAccount() {
     AccountDTO updated = account(Status.OPENED, CHANGED_LIMIT);
-    when(accountTransactionalService.updateLimit(CUSTOMER_ID, CHANGED_LIMIT, NOW)).thenReturn(updated);
+    when(accountTransactionalService.updateLimit(CUSTOMER_ID, LIMIT, CHANGED_LIMIT, NOW)).thenReturn(updated);
 
-    accountService.updateAccountLimit(request(CHANGED_LIMIT));
+    accountService.updateAccountLimit(limitUpdateRequest(LIMIT, CHANGED_LIMIT));
 
     verify(accountMydataSyncService).updateLimit(updated);
     verify(accountMydataSyncService, never()).create(any());
@@ -79,11 +80,11 @@ class AccountServiceImplTest {
   void updateLimitRejectsAmountThatExceedsMydataAvailableLimit() {
     when(mydataProvider.getExternalUsedLimit("ci-hash")).thenReturn(BigDecimal.valueOf(20_000_000L));
 
-    assertThatThrownBy(() -> accountService.updateAccountLimit(request(CHANGED_LIMIT)))
+    assertThatThrownBy(() -> accountService.updateAccountLimit(limitUpdateRequest(LIMIT, CHANGED_LIMIT)))
         .isInstanceOf(InvalidAccountRequestException.class)
         .hasMessageContaining("30000000");
 
-    verify(accountTransactionalService, never()).updateLimit(any(), any(), any());
+    verify(accountTransactionalService, never()).updateLimit(any(), any(), any(), any());
   }
 
   @Test
@@ -152,6 +153,14 @@ class AccountServiceImplTest {
 
   private AccountRequestDTO request(BigDecimal limit) {
     return AccountRequestDTO.builder().customerId(CUSTOMER_ID).limitAmount(limit).build();
+  }
+
+  private AccountLimitUpdateRequestDTO limitUpdateRequest(BigDecimal expectedCurrentLimit, BigDecimal limitAmount) {
+    return AccountLimitUpdateRequestDTO.builder()
+        .customerId(CUSTOMER_ID)
+        .expectedCurrentLimit(expectedCurrentLimit)
+        .limitAmount(limitAmount)
+        .build();
   }
 
   private AccountDTO account(Status status, BigDecimal limit) {

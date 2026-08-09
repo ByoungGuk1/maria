@@ -39,7 +39,7 @@ class AccountTransactionalServiceImplTest {
     when(accountMapper.selectByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(account(Status.OPENED, LIMIT)));
     when(accountMapper.selectOwnUsedAndReservedAmount(ACCOUNT_ID)).thenReturn(BigDecimal.valueOf(20_000_000L));
 
-    assertThatThrownBy(() -> service.updateLimit(CUSTOMER_ID, BigDecimal.valueOf(10_000_000L), NOW))
+    assertThatThrownBy(() -> service.updateLimit(CUSTOMER_ID, LIMIT, BigDecimal.valueOf(10_000_000L), NOW))
         .isInstanceOf(InvalidAccountRequestException.class)
         .hasMessage("이미 사용한 매도한도보다 낮게 설정할 수 없습니다.");
 
@@ -49,6 +49,32 @@ class AccountTransactionalServiceImplTest {
         any(BigDecimal.class),
         any(BigDecimal.class)
     );
+  }
+
+  @Test
+  void updateLimitRejectsStaleExpectedCurrentLimitBeforeUpdating() {
+    when(accountMapper.selectByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(account(Status.OPENED, LIMIT)));
+
+    assertThatThrownBy(() -> service.updateLimit(
+        CUSTOMER_ID, BigDecimal.valueOf(20_000_000L), BigDecimal.valueOf(40_000_000L), NOW))
+        .isInstanceOf(InvalidAccountRequestException.class)
+        .hasMessage("계좌 한도가 변경되었습니다. 다시 조회 후 시도해주세요.");
+
+    verify(accountMapper, never()).updateLimit(anyLong(), any(Status.class), any(BigDecimal.class), any(BigDecimal.class));
+  }
+
+  @Test
+  void updateLimitUsesClientExpectedLimitForCompareAndSet() {
+    AccountDTO current = account(Status.OPENED, LIMIT);
+    AccountDTO updated = account(Status.OPENED, BigDecimal.valueOf(40_000_000L));
+    when(accountMapper.selectByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(current));
+    when(accountMapper.selectOwnUsedAndReservedAmount(ACCOUNT_ID)).thenReturn(BigDecimal.ZERO);
+    when(accountMapper.updateLimit(ACCOUNT_ID, Status.OPENED, LIMIT, BigDecimal.valueOf(40_000_000L))).thenReturn(1);
+    when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(updated));
+
+    service.updateLimit(CUSTOMER_ID, LIMIT, BigDecimal.valueOf(40_000_000L), NOW);
+
+    verify(accountMapper).updateLimit(ACCOUNT_ID, Status.OPENED, LIMIT, BigDecimal.valueOf(40_000_000L));
   }
 
   @Test

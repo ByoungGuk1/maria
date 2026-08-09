@@ -1,6 +1,7 @@
 package com.app.maria.domain.account.service;
 
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
@@ -16,7 +17,7 @@ public interface AccountService {
   BigDecimal getAvailableLimit(Long customerId);
 
   // 고객 마이페이지용 한도 변경: APPLIED, OPENED 상태에서만 허용
-  AccountResponseDTO updateAccountLimit(AccountRequestDTO accountRequestDTO);
+  AccountResponseDTO updateAccountLimit(AccountLimitUpdateRequestDTO requestDTO);
 
   // 관리자 대리 신청과 사용자 본인 신청이 공통으로 사용
   AccountResponseDTO applyAccount(AccountRequestDTO requestDTO);

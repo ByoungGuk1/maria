@@ -3,6 +3,7 @@ package com.app.maria.domain.account.service;
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
@@ -46,15 +47,14 @@ public class AccountServiceImpl implements AccountService {
   }
 
   @Override
-  public AccountResponseDTO updateAccountLimit(AccountRequestDTO accountRequestDTO) {
-    AccountDTO accountDTO = accountRequestDTO.toAccountDTO();
-    validateCustomerExists(accountDTO.getCustomerId());
-    Long customerId = accountDTO.getCustomerId();
-    BigDecimal newLimitAmount = accountDTO.getLimitAmount();
+  public AccountResponseDTO updateAccountLimit(AccountLimitUpdateRequestDTO requestDTO) {
+    validateCustomerExists(requestDTO.getCustomerId());
+    Long customerId = requestDTO.getCustomerId();
+    BigDecimal newLimitAmount = requestDTO.getLimitAmount();
 
     validateLimitInput(newLimitAmount);
     validateLimitAvailability(newLimitAmount, calculateAvailableLimit(customerId));
-    AccountDTO updatedAccount = accountTransactionalService.updateLimit(customerId, newLimitAmount, businessClockService.now());
+    AccountDTO updatedAccount = accountTransactionalService.updateLimit(customerId, requestDTO.getExpectedCurrentLimit(), newLimitAmount, businessClockService.now());
     if (updatedAccount.getStatus() == Status.OPENED) {
       accountMydataSyncService.updateLimit(updatedAccount);
     }
