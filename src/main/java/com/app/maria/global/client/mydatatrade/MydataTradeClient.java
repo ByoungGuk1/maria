@@ -1,7 +1,7 @@
 package com.app.maria.global.client.mydatatrade;
 
-import com.app.maria.domain.mydatatrade.dto.MydataTradeResponseDTO;
-import com.app.maria.domain.mydatatrade.dto.request.MydataTradeRequestDTO;
+import com.app.maria.domain.externaltradesync.dto.response.MydataTradeResponseDTO;
+import com.app.maria.domain.externaltradesync.dto.request.MydataTradeRequestDTO;
 import com.app.maria.global.response.ApiResponseDTO;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;

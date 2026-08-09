@@ -4,8 +4,8 @@ import com.app.maria.domain.customer.dto.CustomerCiHashDTO;
 import com.app.maria.domain.customer.mapper.CustomerMapper;
 import com.app.maria.domain.externaltradesync.dto.ExternalTradeSyncCursorDTO;
 import com.app.maria.domain.externaltradesync.mapper.ExternalTradeSyncCursorMapper;
-import com.app.maria.domain.mydatatrade.dto.MydataTradeResponseDTO;
-import com.app.maria.domain.mydatatrade.dto.request.MydataTradeRequestDTO;
+import com.app.maria.domain.externaltradesync.dto.response.MydataTradeResponseDTO;
+import com.app.maria.domain.externaltradesync.dto.request.MydataTradeRequestDTO;
 import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
 import com.app.maria.domain.targetproduct.service.TargetProductService;
 import com.app.maria.global.client.mydatatrade.MydataTradeClient;
@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 
 @Slf4j
@@ -50,6 +51,9 @@ public class ExternalTradeSyncServiceImpl implements ExternalTradeSyncService {
                 .build();
 
         List<MydataTradeResponseDTO> trades = mydataTradeClient.getTrades(request);
+        trades = trades.stream()
+                .sorted(Comparator.comparing(MydataTradeResponseDTO::getTradeDate))
+                .toList();
 
         LocalDate cursor = fromDate;
         boolean allSucceededSoFar = true;

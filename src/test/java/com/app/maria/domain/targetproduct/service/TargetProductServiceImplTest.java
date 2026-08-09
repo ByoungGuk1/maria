@@ -1,7 +1,7 @@
 package com.app.maria.domain.targetproduct.service;
 
-import com.app.maria.domain.mydatafund.dto.MydataFundResponseDTO;
-import com.app.maria.domain.mydatatrade.dto.MydataTradeResponseDTO;
+import com.app.maria.domain.externaltradesync.dto.response.MydataTradeResponseDTO;
+import com.app.maria.domain.targetproduct.dto.response.MydataFundResponseDTO;
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
 import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
 import com.app.maria.global.client.mydatafund.MydataFundClient;
