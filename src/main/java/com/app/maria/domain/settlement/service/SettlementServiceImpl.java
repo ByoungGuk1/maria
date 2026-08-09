@@ -5,6 +5,8 @@ import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
 import com.app.maria.domain.settlement.dto.SettlementItemDTO;
 import com.app.maria.domain.settlement.dto.SettlementJoinDTO;
 import com.app.maria.domain.settlement.batch.SettlementBatchLauncher;
+import com.app.maria.domain.settlement.component.SettlementFailureRecorder;
+import com.app.maria.domain.settlement.component.SettlementTransactionExecutor;
 import com.app.maria.domain.settlement.exception.*;
 import com.app.maria.domain.settlement.mapper.KrwExchangeMapper;
 import com.app.maria.domain.settlement.mapper.SettlementBatchMapper;
@@ -12,6 +14,7 @@ import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
 import com.app.maria.domain.settlement.mapper.SettlementJoinMapper;
 import com.app.maria.domain.settlement.mapper.SettlementBatchGuardMapper;
 import com.app.maria.domain.settlement.type.BatchStatus;
+import com.app.maria.global.clock.service.BusinessClockService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -22,6 +25,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.List;
+import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
@@ -33,21 +37,26 @@ public class SettlementServiceImpl implements SettlementService {
   private final SettlementBatchGuardMapper settlementBatchGuardMapper;
   private final PlatformTransactionManager transactionManager;
   private final SettlementBatchLauncher settlementBatchLauncher;
+  private final BusinessClockService businessClockService;
+  private final SettlementTransactionExecutor settlementTransactionExecutor;
+  private final SettlementFailureRecorder settlementFailureRecorder;
+  private final com.app.maria.domain.settlement.provider.ExchangeRateProvider exchangeRateProvider;
 
   @Override
   public SettlementBatchDTO executeSettlementBatch() {
-    LocalDateTime executedAt = LocalDateTime.now();
+    LocalDateTime executedAt = businessClockService.now();
     LocalDate businessDate = executedAt.toLocalDate();
 
-    SettlementBatchDTO batch = new TransactionTemplate(transactionManager).execute(status -> {
+    BatchLaunchResult result = new TransactionTemplate(transactionManager).execute(status -> {
       settlementBatchGuardMapper.ensureGuard(businessDate);
 
       if (settlementBatchGuardMapper.selectGuardForUpdate(businessDate).isEmpty()) {
         throw new SettlementBatchLockException("확정산 Batch 업무일 잠금 획득 실패");
       }
 
-      if (settlementBatchMapper.selectRunningBatchByBusinessDate(businessDate).isPresent()) {
-        throw new SettlementBatchAlreadyRunningException("동일 업무일의 확정산 Batch가 이미 실행 중");
+      SettlementBatchDTO existingBatch = settlementBatchMapper.selectBatchByBusinessDate(businessDate).orElse(null);
+      if (existingBatch != null) {
+        return new BatchLaunchResult(existingBatch, false);
       }
 
       SettlementBatchDTO newBatch = SettlementBatchDTO.builder()
@@ -61,14 +70,16 @@ public class SettlementServiceImpl implements SettlementService {
       }
 
       settlementItemMapper.insertItemsForTargets(newBatch);
-      return newBatch;
+      return new BatchLaunchResult(newBatch, true);
     });
 
-    if (batch == null) {
+    if (result == null) {
       throw new SettlementStateConflictException("확정산 Batch 트랜잭션 처리에 실패했습니다.");
     }
-    settlementBatchLauncher.launch(batch);
-    return batch;
+    if (result.shouldLaunch()) {
+      settlementBatchLauncher.launch(result.batch());
+    }
+    return result.batch();
   }
 
   @Override
@@ -124,8 +135,79 @@ public class SettlementServiceImpl implements SettlementService {
   }
 
   @Override
+  public SettlementItemDTO retryFailedSettlementItem(Long batchId, Long itemId) {
+    SettlementItemDTO retryItem = new TransactionTemplate(transactionManager).execute(status -> {
+      SettlementItemDTO failedItem = settlementItemMapper.selectItemByIdForUpdate(itemId)
+          .orElseThrow(() -> new SettlementItemNotFoundException("재처리 대상 정산 Item을 찾을 수 없습니다."));
+      if (!batchId.equals(failedItem.getBatchId()) || failedItem.getResult() != com.app.maria.domain.settlement.type.SettlementItemResult.FAILED) {
+        throw new SettlementStateConflictException("실패한 정산 Item만 재처리할 수 있습니다.");
+      }
+      settlementItemMapper.selectItemsByExchangeIdForUpdate(failedItem.getExchangeId());
+      if (settlementItemMapper.existsSuccessfulItemByExchangeId(failedItem.getExchangeId())
+          || settlementItemMapper.existsPendingItemByExchangeId(failedItem.getExchangeId())) {
+        throw new SettlementStateConflictException("이미 성공 처리되었거나 재처리 중인 정산 건입니다.");
+      }
+
+      SettlementItemDTO command = SettlementItemDTO.builder().batchId(batchId).itemId(itemId).build();
+      if (settlementItemMapper.insertRetryItem(command) != 1 || command.getItemId() == null) {
+        throw new SettlementStateConflictException("정산 Item 재처리 이력 생성에 실패했습니다.");
+      }
+      return command;
+    });
+    if (retryItem == null) {
+      throw new SettlementStateConflictException("정산 Item 재처리 트랜잭션 처리에 실패했습니다.");
+    }
+
+    try {
+      SettlementJoinDTO target = settlementJoinMapper.selectTargetByItemId(SettlementJoinDTO.builder()
+          .batchId(batchId)
+          .itemId(retryItem.getItemId())
+          .build())
+          .orElseThrow(() -> new SettlementItemNotFoundException("재처리 대상 정산 정보를 찾을 수 없습니다."));
+      LocalDate rateDate = getSettlementBatch(batchId).getExecutedAt().toLocalDate();
+      BigDecimal finalRate = exchangeRateProvider.getFinalRate(target.getPurchaseCurrency(), rateDate);
+      settlementTransactionExecutor.execute(target, finalRate);
+    } catch (Exception exception) {
+      settlementFailureRecorder.markFailed(retryItem.getItemId(), exception);
+    }
+
+    settlementBatchMapper.refreshBatchStatusAfterRetry(batchId);
+
+    return settlementItemMapper.selectItemById(retryItem.getItemId())
+        .orElseThrow(() -> new SettlementItemNotFoundException("재처리 Item 조회 실패"));
+  }
+
+  @Override
+  public SettlementBatchDTO retryFailedSettlementBatch(Long batchId) {
+    SettlementBatchDTO batch = new TransactionTemplate(transactionManager).execute(status -> {
+      SettlementBatchDTO foundBatch = settlementBatchMapper.selectBatchByIdForUpdate(batchId)
+          .orElseThrow(() -> new SettlementBatchNotFoundException("재처리 대상 Batch를 찾을 수 없습니다."));
+      if (foundBatch.getStatus() != BatchStatus.FAILED) {
+        throw new SettlementStateConflictException("실패 상태 Batch만 재처리할 수 있습니다.");
+      }
+      if (settlementItemMapper.insertRetryItemsForFailedBatch(batchId) == 0) {
+        throw new SettlementStateConflictException("재처리할 실패 정산 Item이 없습니다.");
+      }
+      if (settlementBatchMapper.markBatchRetryRunning(batchId) != 1) {
+        throw new SettlementStateConflictException("정산 Batch 재처리 상태 변경에 실패했습니다.");
+      }
+      foundBatch.setStatus(BatchStatus.RUNNING);
+      foundBatch.setFailureMessage(null);
+      return foundBatch;
+    });
+    if (batch == null) {
+      throw new SettlementStateConflictException("정산 Batch 재처리 트랜잭션 처리에 실패했습니다.");
+    }
+    settlementBatchLauncher.launchRetry(batch, UUID.randomUUID().toString());
+    return batch;
+  }
+
+  @Override
   @Transactional(readOnly = true)
   public KrwExchangeDTO getKrwExchange(Long exchangeId) {
     return krwExchangeMapper.selectExchangeById(exchangeId).orElseThrow(()->new KrwExchangeNotFoundException("환전 조회 실패"));
+  }
+
+  private record BatchLaunchResult(SettlementBatchDTO batch, boolean shouldLaunch) {
   }
 }

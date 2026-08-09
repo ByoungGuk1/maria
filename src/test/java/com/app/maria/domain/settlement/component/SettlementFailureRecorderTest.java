@@ -33,7 +33,7 @@ class SettlementFailureRecorderTest {
     when(settlementItemMapper.updateItemResult(any(SettlementItemDTO.class))).thenReturn(1);
     SettlementFailureRecorder recorder = new SettlementFailureRecorder(settlementItemMapper, clockService);
 
-    recorder.markFailed(10L);
+    recorder.markFailed(10L, new IllegalStateException("실패"));
 
     ArgumentCaptor<SettlementItemDTO> captor =
         ArgumentCaptor.forClass(SettlementItemDTO.class);
@@ -41,6 +41,7 @@ class SettlementFailureRecorderTest {
     assertThat(captor.getValue().getItemId()).isEqualTo(10L);
     assertThat(captor.getValue().getResult()).isEqualTo(SettlementItemResult.FAILED);
     assertThat(captor.getValue().getProcessedAt()).isEqualTo(now);
+    assertThat(captor.getValue().getFailureMessage()).isEqualTo("실패");
   }
 
   @Test
@@ -48,7 +49,7 @@ class SettlementFailureRecorderTest {
     when(settlementItemMapper.updateItemResult(any(SettlementItemDTO.class))).thenReturn(0);
     SettlementFailureRecorder recorder = new SettlementFailureRecorder(settlementItemMapper, clockService);
 
-    assertThatThrownBy(() -> recorder.markFailed(10L))
+    assertThatThrownBy(() -> recorder.markFailed(10L, new IllegalStateException("실패")))
         .isInstanceOf(SettlementStateConflictException.class);
   }
 
@@ -56,7 +57,7 @@ class SettlementFailureRecorderTest {
   void rejectsNullItemIdWithoutMapperCall() {
     SettlementFailureRecorder recorder = new SettlementFailureRecorder(settlementItemMapper, clockService);
 
-    assertThatThrownBy(() -> recorder.markFailed(null))
+    assertThatThrownBy(() -> recorder.markFailed(null, new IllegalStateException("실패")))
         .isInstanceOf(SettlementStateConflictException.class);
 
     verify(settlementItemMapper, never()).updateItemResult(any());

@@ -51,7 +51,7 @@ public class SettlementBatchTasklet implements Tasklet {
     }
 
     SettlementBatchDTO batch = settlementBatchMapper.selectBatchById(batchId).orElseThrow(() -> new SettlementBatchNotFoundException("Batch를 찾을 수 없습니다. batchId=" + batchId));
-    if (!runId.equals(batch.getRunId()) || batch.getStatus() != BatchStatus.RUNNING) {
+    if (batch.getStatus() != BatchStatus.RUNNING) {
       throw new SettlementStateConflictException("확정산 Batch 상태가 실행 가능하지 않습니다. batchId=" + batchId);
     }
 
@@ -94,7 +94,7 @@ public class SettlementBatchTasklet implements Tasklet {
       BigDecimal finalRate = rateCache.computeIfAbsent(rateKey, ignored -> exchangeRateProvider.getFinalRate(value.getPurchaseCurrency(), rateDate));
       settlementTransactionExecutor.execute(value, finalRate);
     } catch (Exception e) {
-      settlementFailureRecorder.markFailed(item.getItemId());
+      settlementFailureRecorder.markFailed(item.getItemId(), e);
     }
   }
 
@@ -106,9 +106,11 @@ public class SettlementBatchTasklet implements Tasklet {
               + batchId + ", pending=" + pendingCount);
     }
 
+    int failedCount = settlementItemMapper.countLatestFailedItems(batchId);
     SettlementBatchDTO result = SettlementBatchDTO.builder()
         .batchId(batchId)
-        .status(settlementItemMapper.countFailedItems(batchId) == 0 ? BatchStatus.COMPLETED : BatchStatus.FAILED)
+        .status(failedCount == 0 ? BatchStatus.COMPLETED : BatchStatus.FAILED)
+        .failureMessage(failedCount == 0 ? null : "정산 Item 실패 " + failedCount + "건 발생")
         .build();
     if (settlementBatchMapper.updateBatchStatus(result) != 1) {
       throw new SettlementStateConflictException("확정산 Batch 최종 상태 변경에 실패했습니다. batchId=" + batchId);

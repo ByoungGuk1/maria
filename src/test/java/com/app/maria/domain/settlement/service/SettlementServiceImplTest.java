@@ -5,6 +5,8 @@ import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
 import com.app.maria.domain.settlement.dto.SettlementItemDTO;
 import com.app.maria.domain.settlement.dto.SettlementJoinDTO;
 import com.app.maria.domain.settlement.batch.SettlementBatchLauncher;
+import com.app.maria.domain.settlement.component.SettlementFailureRecorder;
+import com.app.maria.domain.settlement.component.SettlementTransactionExecutor;
 import com.app.maria.domain.settlement.exception.KrwExchangeNotFoundException;
 import com.app.maria.domain.settlement.exception.SettlementBatchNotFoundException;
 import com.app.maria.domain.settlement.exception.SettlementItemNotFoundException;
@@ -13,9 +15,10 @@ import com.app.maria.domain.settlement.mapper.SettlementBatchMapper;
 import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
 import com.app.maria.domain.settlement.mapper.SettlementJoinMapper;
 import com.app.maria.domain.settlement.mapper.SettlementBatchGuardMapper;
-import com.app.maria.domain.settlement.exception.SettlementBatchAlreadyRunningException;
 import com.app.maria.domain.settlement.type.BatchStatus;
 import com.app.maria.domain.settlement.type.SettlementStatus;
+import com.app.maria.domain.settlement.provider.ExchangeRateProvider;
+import com.app.maria.global.clock.service.BusinessClockService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,10 +32,12 @@ import org.springframework.transaction.TransactionStatus;
 import java.util.List;
 import java.util.Optional;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
@@ -69,6 +74,14 @@ class SettlementServiceImplTest {
 
   @Mock
   private SettlementBatchLauncher settlementBatchLauncher;
+  @Mock
+  private BusinessClockService businessClockService;
+  @Mock
+  private SettlementTransactionExecutor settlementTransactionExecutor;
+  @Mock
+  private SettlementFailureRecorder settlementFailureRecorder;
+  @Mock
+  private ExchangeRateProvider exchangeRateProvider;
 
   @InjectMocks
   private SettlementServiceImpl settlementService;
@@ -76,11 +89,12 @@ class SettlementServiceImplTest {
   @Test
   @DisplayName("Guard 잠금 후 Batch와 Snapshot을 같은 트랜잭션에서 생성한다")
   void executeSettlementBatchCreatesBatchAfterGuardLock() {
-    LocalDate businessDate = LocalDate.now();
+    LocalDate businessDate = LocalDate.of(2026, 8, 9);
+    when(businessClockService.now()).thenReturn(businessDate.atStartOfDay());
     when(transactionManager.getTransaction(any())).thenReturn(transactionStatus);
     when(settlementBatchGuardMapper.selectGuardForUpdate(businessDate))
         .thenReturn(Optional.of(businessDate));
-    when(settlementBatchMapper.selectRunningBatchByBusinessDate(businessDate))
+    when(settlementBatchMapper.selectBatchByBusinessDate(businessDate))
         .thenReturn(Optional.empty());
     doAnswer(invocation -> {
       SettlementBatchDTO batch = invocation.getArgument(0);
@@ -94,29 +108,47 @@ class SettlementServiceImplTest {
     assertThat(result.getStatus()).isEqualTo(BatchStatus.RUNNING);
     verify(settlementBatchGuardMapper).ensureGuard(businessDate);
     verify(settlementBatchGuardMapper).selectGuardForUpdate(businessDate);
-    verify(settlementBatchMapper).selectRunningBatchByBusinessDate(businessDate);
+    verify(settlementBatchMapper).selectBatchByBusinessDate(businessDate);
     verify(settlementItemMapper).insertItemsForTargets(result);
     verify(transactionManager).commit(transactionStatus);
     verify(settlementBatchLauncher).launch(result);
   }
 
   @Test
-  @DisplayName("동일 업무일 RUNNING Batch가 있으면 신규 Batch를 생성하지 않는다")
-  void executeSettlementBatchRejectsDuplicateRunningBatch() {
-    LocalDate businessDate = LocalDate.now();
+  @DisplayName("동일 업무일 Batch가 있으면 기존 Batch를 반환하고 새 Job을 실행하지 않는다")
+  void executeSettlementBatchReturnsExistingBatchForSameBusinessDate() {
+    LocalDate businessDate = LocalDate.of(2026, 8, 9);
+    when(businessClockService.now()).thenReturn(businessDate.atStartOfDay());
     when(transactionManager.getTransaction(any())).thenReturn(transactionStatus);
     when(settlementBatchGuardMapper.selectGuardForUpdate(businessDate))
         .thenReturn(Optional.of(businessDate));
-    when(settlementBatchMapper.selectRunningBatchByBusinessDate(businessDate))
-        .thenReturn(Optional.of(batch()));
+    SettlementBatchDTO existingBatch = batch();
+    when(settlementBatchMapper.selectBatchByBusinessDate(businessDate))
+        .thenReturn(Optional.of(existingBatch));
 
-    assertThatThrownBy(() -> settlementService.executeSettlementBatch())
-        .isInstanceOf(SettlementBatchAlreadyRunningException.class);
+    SettlementBatchDTO result = settlementService.executeSettlementBatch();
 
+    assertThat(result).isSameAs(existingBatch);
     verify(settlementBatchMapper, never()).insertBatch(any());
     verify(settlementItemMapper, never()).insertItemsForTargets(any());
-    verify(transactionManager).rollback(transactionStatus);
+    verify(transactionManager).commit(transactionStatus);
     verify(settlementBatchLauncher, never()).launch(any());
+  }
+
+  @Test
+  @DisplayName("실패 Batch 재처리는 실패 Item 이력을 생성하고 비동기 Job을 다시 실행한다")
+  void retryFailedSettlementBatchRetriesOnlyFailedItems() {
+    SettlementBatchDTO failedBatch = batch();
+    failedBatch.setStatus(BatchStatus.FAILED);
+    when(transactionManager.getTransaction(any())).thenReturn(transactionStatus);
+    when(settlementBatchMapper.selectBatchByIdForUpdate(BATCH_ID)).thenReturn(Optional.of(failedBatch));
+    when(settlementItemMapper.insertRetryItemsForFailedBatch(BATCH_ID)).thenReturn(2);
+    when(settlementBatchMapper.markBatchRetryRunning(BATCH_ID)).thenReturn(1);
+
+    SettlementBatchDTO result = settlementService.retryFailedSettlementBatch(BATCH_ID);
+
+    assertThat(result.getStatus()).isEqualTo(BatchStatus.RUNNING);
+    verify(settlementBatchLauncher).launchRetry(result, anyString());
   }
 
   @Test
