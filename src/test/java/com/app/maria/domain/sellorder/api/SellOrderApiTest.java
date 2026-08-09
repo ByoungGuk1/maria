@@ -53,16 +53,16 @@ class SellOrderApiTest {
     }
 
     @Test
-    @DisplayName("매도 주문 접수 성공 시 201과 결과를 반환한다")
+    @DisplayName("한도 이내로 체결되면 201과 EXECUTED 상태, 체결 메시지를 반환한다")
     @WithMockUser(roles = "SETTLEMENT")
-    void placeSellOrderReturns201WithResultOnSuccess() throws Exception {
+    void placeSellOrderReturns201WithExecutedStatusAndMessageWhenWithinLimit() throws Exception {
         SellOrderRequestDTO request = validRequestBuilder().build();
 
         SellOrderResponseDTO response = SellOrderResponseDTO.builder()
                 .orderId(100L)
                 .inboundDetailId(1L)
                 .sellQty(new BigDecimal("10"))
-                .status(SellOrderStatus.RECEIVED)
+                .status(SellOrderStatus.EXECUTED)
                 .build();
 
         when(sellOrderService.placeSellOrder(any())).thenReturn(response);
@@ -71,8 +71,33 @@ class SellOrderApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.message").value("매도 주문이 체결되었습니다."))
                 .andExpect(jsonPath("$.data.orderId").value(100))
-                .andExpect(jsonPath("$.data.status").value("RECEIVED"));
+                .andExpect(jsonPath("$.data.status").value("EXECUTED"));
+    }
+
+    @Test
+    @DisplayName("한도 초과로 거부되어도 201과 REJECTED 상태, 거부 메시지를 반환한다")
+    @WithMockUser(roles = "SETTLEMENT")
+    void placeSellOrderReturns201WithRejectedStatusAndMessageWhenLimitExceeded() throws Exception {
+        SellOrderRequestDTO request = validRequestBuilder().build();
+
+        SellOrderResponseDTO response = SellOrderResponseDTO.builder()
+                .orderId(101L)
+                .inboundDetailId(1L)
+                .sellQty(new BigDecimal("10"))
+                .status(SellOrderStatus.REJECTED)
+                .build();
+
+        when(sellOrderService.placeSellOrder(any())).thenReturn(response);
+
+        mockMvc.perform(post("/api/sell-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.message").value("매도 한도 초과로 거부되었습니다."))
+                .andExpect(jsonPath("$.data.orderId").value(101))
+                .andExpect(jsonPath("$.data.status").value("REJECTED"));
     }
 
     @Test
