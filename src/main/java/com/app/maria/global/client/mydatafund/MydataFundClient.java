@@ -1,7 +1,7 @@
 package com.app.maria.global.client.mydatafund;
 
 
-import com.app.maria.domain.mydatafund.dto.MydataFundResponseDTO;
+import com.app.maria.domain.targetproduct.dto.response.MydataFundResponseDTO;
 import com.app.maria.domain.targetproduct.exception.TargetProductNotFoundException;
 import com.app.maria.global.response.ApiResponseDTO;
 import org.springframework.beans.factory.annotation.Qualifier;

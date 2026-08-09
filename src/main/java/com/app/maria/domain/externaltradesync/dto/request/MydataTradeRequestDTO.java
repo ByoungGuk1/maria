@@ -1,4 +1,4 @@
-package com.app.maria.domain.mydatatrade.dto.request;
+package com.app.maria.domain.externaltradesync.dto.request;
 
 import lombok.Builder;
 import lombok.Getter;
