@@ -4,8 +4,8 @@ import com.app.maria.domain.customer.dto.CustomerCiHashDTO;
 import com.app.maria.domain.customer.mapper.CustomerMapper;
 import com.app.maria.domain.externaltradesync.dto.ExternalTradeSyncCursorDTO;
 import com.app.maria.domain.externaltradesync.mapper.ExternalTradeSyncCursorMapper;
-import com.app.maria.domain.mydatatrade.dto.MydataTradeResponseDTO;
-import com.app.maria.domain.mydatatrade.dto.request.MydataTradeRequestDTO;
+import com.app.maria.domain.externaltradesync.dto.response.MydataTradeResponseDTO;
+import com.app.maria.domain.externaltradesync.dto.request.MydataTradeRequestDTO;
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
 import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
 import com.app.maria.domain.targetproduct.service.TargetProductService;
@@ -187,6 +187,54 @@ class ExternalTradeSyncServiceImplTest {
         verify(cursorMapper).upsertCursor(captor.capture());
         assertThat(captor.getValue().getCustomerId()).isEqualTo(1L);
         assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(LocalDate.of(2026, 3, 20));
+    }
+
+    @Test
+    @DisplayName("mydata가 거래를 날짜순이 아니라 뒤섞어서 반환해도, 실제 날짜 기준 최댓값으로 커서가 잡힌다")
+    void cursorAdvancesToTheLatestTradeDateEvenWhenMydataReturnsTradesOutOfOrder() {
+        MydataTradeResponseDTO latest = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 20));
+        MydataTradeResponseDTO earliest = trade(101L, "ETF", null, LocalDate.of(2026, 3, 5));
+        MydataTradeResponseDTO middle = trade(102L, "ETN", null, LocalDate.of(2026, 3, 10));
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        // mydata가 날짜 역순으로 반환하는 상황을 재현 (리스트 마지막 원소가 최댓값이 아님)
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(latest, earliest, middle));
+        when(targetProductMapper.existsByMydataTradeId(anyLong())).thenReturn(false);
+
+        externalTradeSyncService.syncAll();
+
+        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor = ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
+        verify(cursorMapper).upsertCursor(captor.capture());
+        assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(LocalDate.of(2026, 3, 20));
+    }
+
+    @Test
+    @DisplayName("뒤섞인 순서로 와도 날짜 기준 실패 지점 이전까지만 커서가 전진한다")
+    void cursorStopsAtDateOrderFailurePointEvenWhenMydataReturnsTradesOutOfOrder() {
+        MydataTradeResponseDTO late = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 20));
+        MydataTradeResponseDTO failingMiddle = trade(101L, "FUND", "BADCODE", LocalDate.of(2026, 3, 10));
+        MydataTradeResponseDTO early = trade(102L, "ETF", null, LocalDate.of(2026, 3, 5));
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        // 리스트 순서(late -> failingMiddle -> early)는 날짜 순서와 정반대
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(late, failingMiddle, early));
+        when(targetProductMapper.existsByMydataTradeId(anyLong())).thenReturn(false);
+        when(targetProductService.judge(100L, "FOREIGN_STOCK", null))
+                .thenReturn(TargetProductJudgementDTO.builder().build());
+        when(targetProductService.judge(101L, "FUND", "BADCODE"))
+                .thenThrow(new RuntimeException("mydata 펀드 조회 실패"));
+        when(targetProductService.judge(102L, "ETF", null))
+                .thenReturn(TargetProductJudgementDTO.builder().build());
+
+        externalTradeSyncService.syncAll();
+
+        // 날짜순 정렬 후 처리 순서는 early(3/5) -> failingMiddle(3/10, 실패) -> late(3/20)
+        // 실패 직전인 3/5에서 커서가 멈춰야 하며, 리스트상 첫 원소였던 3/20으로 잘못 잡히면 안 된다
+        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor = ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
+        verify(cursorMapper).upsertCursor(captor.capture());
+        assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(LocalDate.of(2026, 3, 5));
     }
 
     @Test
