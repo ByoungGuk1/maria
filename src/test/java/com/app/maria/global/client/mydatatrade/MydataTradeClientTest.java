@@ -2,11 +2,15 @@ package com.app.maria.global.client.mydatatrade;
 
 import com.app.maria.domain.externaltradesync.dto.response.MydataTradeResponseDTO;
 import com.app.maria.domain.externaltradesync.dto.request.MydataTradeRequestDTO;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
@@ -29,7 +33,13 @@ class MydataTradeClientTest {
 
     @BeforeEach
     void setUp() {
-        RestClient.Builder builder = RestClient.builder().baseUrl("http://localhost:10002");
+        ObjectMapper objectMapper = new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        RestClient.Builder builder = RestClient.builder()
+                .baseUrl("http://localhost:10002")
+                .messageConverters(converters ->
+                        converters.add(0, new MappingJackson2HttpMessageConverter(objectMapper)));
         mockServer = MockRestServiceServer.bindTo(builder).build();
         mydataTradeClient = new MydataTradeClient(builder.build());
     }
@@ -121,9 +131,9 @@ class MydataTradeClientTest {
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().string(containsString("\"ciHash\":\"ci-1\"")))
-                // LocalDate는 RestClient의 기본 ObjectMapper(Spring Boot 커스터마이징 미적용)에서
-                // ISO 문자열이 아니라 [year,month,day] 배열로 직렬화된다 (프로덕션 코드도 동일한 방식으로 RestClient를 생성함).
-                .andExpect(content().string(containsString("\"fromDate\":[2026,3,1]")))
+                // RestClientConfig가 Spring 자동구성 RestClient.Builder를 주입받도록 고쳐서
+                // LocalDate가 이제 ISO 문자열로 직렬화된다.
+                .andExpect(content().string(containsString("\"fromDate\":\"2026-03-01\"")))
                 .andRespond(withSuccess("""
                         {"message": "조회 성공", "data": []}
                         """, MediaType.APPLICATION_JSON));
