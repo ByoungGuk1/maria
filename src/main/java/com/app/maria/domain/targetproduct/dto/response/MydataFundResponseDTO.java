@@ -1,4 +1,4 @@
-package com.app.maria.domain.mydatafund.dto;
+package com.app.maria.domain.targetproduct.dto.response;
 
 import lombok.Builder;
 import lombok.Getter;
