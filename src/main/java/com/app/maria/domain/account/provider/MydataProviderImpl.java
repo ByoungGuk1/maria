@@ -30,22 +30,22 @@ public class MydataProviderImpl implements MydataProvider {
   private String ownBrokerName;
 
   @Override
-  public BigDecimal getExternalUsedLimit(String ciHash) {
+  public BigDecimal getExternalConfiguredLimit(String ciHash) {
     MydataRiaAccountsResponseDTO response = getRiaAccounts(ciHash);
     if (response == null || response.getData() == null) {
       throw new MydataApiException("myData 계좌 한도 조회 응답이 올바르지 않습니다.", null);
     }
 
-    BigDecimal usedLimit = BigDecimal.ZERO;
+    BigDecimal configuredLimit = BigDecimal.ZERO;
     for (MydataRiaAccountsResponseDTO.MyDataAccountResponse account : response.getData()) {
       if (account == null || account.getRiaLimit() == null || account.getRiaLimit().signum() < 0) {
         throw new MydataApiException("myData 계좌 한도 응답이 올바르지 않습니다.", null);
       }
       if (!ownBrokerName.equals(account.getBrokerName())) {
-        usedLimit = usedLimit.add(account.getRiaLimit());
+        configuredLimit = configuredLimit.add(account.getRiaLimit());
       }
     }
-    return usedLimit;
+    return configuredLimit;
   }
 
   @Override

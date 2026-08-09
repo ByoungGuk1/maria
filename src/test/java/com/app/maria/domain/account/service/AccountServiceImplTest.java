@@ -50,7 +50,7 @@ class AccountServiceImplTest {
   void setUp() {
     when(accountMapper.existsCustomerById(CUSTOMER_ID)).thenReturn(true);
     when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of("ci-hash"));
-    when(mydataProvider.getExternalUsedLimit("ci-hash")).thenReturn(BigDecimal.ZERO);
+    when(mydataProvider.getExternalConfiguredLimit("ci-hash")).thenReturn(BigDecimal.ZERO);
     when(businessClockService.now()).thenReturn(NOW);
   }
 
@@ -78,7 +78,7 @@ class AccountServiceImplTest {
 
   @Test
   void updateLimitRejectsAmountThatExceedsMydataAvailableLimit() {
-    when(mydataProvider.getExternalUsedLimit("ci-hash")).thenReturn(BigDecimal.valueOf(20_000_000L));
+    when(mydataProvider.getExternalConfiguredLimit("ci-hash")).thenReturn(BigDecimal.valueOf(20_000_000L));
 
     assertThatThrownBy(() -> accountService.updateAccountLimit(limitUpdateRequest(LIMIT, CHANGED_LIMIT)))
         .isInstanceOf(InvalidAccountRequestException.class)
@@ -101,7 +101,7 @@ class AccountServiceImplTest {
   @Test
   void applyKeepsAccountAppliedWhenExternalLimitDoesNotMatch() {
     AccountDTO applied = account(Status.APPLIED, LIMIT);
-    when(mydataProvider.getExternalUsedLimit("ci-hash")).thenReturn(BigDecimal.valueOf(25_000_000L));
+    when(mydataProvider.getExternalConfiguredLimit("ci-hash")).thenReturn(BigDecimal.valueOf(25_000_000L));
     when(accountTransactionalService.apply(any(AccountDTO.class), eq(NOW), eq(false))).thenReturn(applied);
 
     AccountResponseDTO result = accountService.applyAccount(request(LIMIT));

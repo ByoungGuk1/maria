@@ -132,7 +132,7 @@ public class AccountServiceImpl implements AccountService {
 
   private BigDecimal calculateAvailableLimit(Long customerId) {
     String ciHash = accountMapper.selectCiHashByCustomerId(customerId).orElseThrow(()->new AccountNotFoundException("개설할 계좌의 사용자를 찾을 수 없습니다."));
-    return MAX_LIMIT_AMOUNT.subtract(mydataProvider.getExternalUsedLimit(ciHash)).max(BigDecimal.ZERO);
+    return MAX_LIMIT_AMOUNT.subtract(mydataProvider.getExternalConfiguredLimit(ciHash)).max(BigDecimal.ZERO);
   }
 
   private void validateLimitAvailability(BigDecimal requestedLimit, BigDecimal availableLimit) {

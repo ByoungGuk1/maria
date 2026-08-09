@@ -7,7 +7,7 @@ import org.springframework.http.HttpStatusCode;
 import java.math.BigDecimal;
 
 public interface MydataProvider {
-  BigDecimal getExternalUsedLimit(String ciHash);
+  BigDecimal getExternalConfiguredLimit(String ciHash);
   MydataRiaAccountsResponseDTO getRiaAccounts(String ciHash);
   boolean hasOwnRiaAccount(String ciHash);
   HttpStatusCode createRiaAccount(String ciHash, AccountDTO account);
