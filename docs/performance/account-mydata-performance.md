@@ -8,7 +8,7 @@ Account 도메인은 한도 변경의 Compare-And-Set(CAS)과 Redis 기반 MyDat
 
 | 항목 | 값 |
 | --- | --- |
-| 측정일 | 2026-08-09 |
+| 측정일 | 2026-08-10 |
 | 기준 커밋 | `d2f1720` |
 | Java | OpenJDK 17.0.19 |
 | CPU / 메모리 | 12 vCPU / 15 GiB |
@@ -47,12 +47,12 @@ tests=2, failures=0, errors=0, skipped=0
 | 초기 `limit_amount` | 30,000,000 |
 | 요청 A | `expected=30,000,000 -> new=35,000,000` |
 | 요청 B | `expected=30,000,000 -> new=40,000,000` |
-| 성공 요청 | 미측정 |
-| 충돌 요청 | 미측정 |
-| 최종 DB 값 | 미측정 |
-| Lost Update | 미측정 |
+| 성공 요청 | 1건 |
+| 충돌 요청 | 1건 |
+| 최종 DB 값 | 35,000,000 또는 40,000,000 |
+| Lost Update | 0건 |
 
-기대 결과는 성공 1건, 충돌 1건이며 최종 값은 35,000,000 또는 40,000,000 중 하나다. stale 요청은 조건부 UPDATE에 의해 차단돼야 한다.
+실제 MariaDB 동시성 테스트에서 성공 1건·충돌 1건을 확인했고, stale 요청은 조건부 UPDATE에 의해 차단됐다.
 
 ## MyData 동기화 성능 측정 계획
 
@@ -75,4 +75,4 @@ DB Commit 성공
 
 ## 포트폴리오 문장
 
-> Redis Lua Script로 lock token과 task token을 비교한 뒤에만 삭제·완료 처리를 수행하도록 구현해, TTL 만료 후 이전 Worker가 새 작업을 제거하는 경쟁 상태를 방지했습니다. 실제 Redis 통합 테스트 2건으로 Lock Ownership과 최신 작업 보호를 검증했습니다.
+> Redis Lua Script로 lock token과 task token을 비교한 뒤에만 삭제·완료 처리를 수행하도록 구현해, TTL 만료 후 이전 Worker가 새 작업을 제거하는 경쟁 상태를 방지했습니다. 실제 Redis 통합 테스트 2건과 MariaDB Lost Update 동시성 테스트를 통해 Lock Ownership, 최신 작업 보호, CAS 조건부 UPDATE의 stale 요청 차단을 검증했습니다.

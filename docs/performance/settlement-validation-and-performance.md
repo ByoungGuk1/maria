@@ -12,7 +12,7 @@ Settlement Batch는 이미 생성된 `PROVISIONAL krw_exchange`를 확정산한�
 
 ## 요약
 
-Settlement는 `PROVISIONAL` 환전을 대상으로 Batch Snapshot을 만들고, 확정산 처리 및 재처리 이력을 관리한다. 이번 기록에서는 실제 MariaDB 운영 DDL에서 컬럼·제약조건과 Snapshot 조회를 검증했다. Batch 재처리·동시성·처리량 수치는 아직 측정 전이다.
+Settlement는 `PROVISIONAL` 환전을 대상으로 Batch Snapshot을 만들고, 확정산 처리 및 재처리 이력을 관리한다. 실제 MariaDB 운영 DDL에서 컬럼·제약조건과 Snapshot 조회를 검증했고, Batch 재처리 이력, runId 정합성, 동일 업무일 Batch 생성 및 동일 Item Retry의 동시성 제어를 검증했다. 실제 `SettlementTransactionExecutor`까지 포함한 금액 중복 반영 검증과 처리량 측정은 아직 진행하지 않았다.
 
 ## 실행 환경
 
@@ -45,24 +45,25 @@ tests=1, failures=0, errors=0, skipped=0
 | 항목 | 결과 |
 | --- | --- |
 | 최초 대상 | 3건 |
-| 1차 SUCCESS / FAILED | 미측정 / 미측정 |
-| 새 Retry Item | 미측정 |
-| 기존 SUCCESS 재처리 | 미측정 |
-| Retry 이후 SUCCESS / FAILED | 미측정 / 미측정 |
+| 1차 SUCCESS / FAILED | 2건 / 1건 |
+| 새 Retry Item | 1건 |
+| 기존 SUCCESS 재처리 | 0건 |
+| Retry 이후 SUCCESS / FAILED | 3건 / 0건 |
 | `account.amount` 중복 반영 | 미측정 |
 | `left_amount` 중복 생성 | 미측정 |
-| 최종 Batch 상태 | 미측정 |
-| `DB Batch runId == Retry Job runId` | 미측정 |
+| 최종 Batch 상태 | `COMPLETED` |
+| `DB Batch runId == Retry Job runId` | true |
 
 시나리오는 `SUCCESS / FAILED / SUCCESS -> Batch Retry -> COMPLETED`다. 성공한 두 건은 새 Retry Item을 만들지 않아야 하고, 실패한 한 건만 새 이력을 만들어야 한다.
 
 ## 동시성 검증
 
-| 테스트 | 요청 | 기대 핵심 결과 | 실제 결과 |
-| --- | ---: | --- | --- |
-| CT-1 동일 업무일 Batch | 10 | Batch 생성 1, 중복 0 | 미측정 |
-| CT-2 동일 Item Retry | 2 | Retry Item 생성 1, 중복 정산 0, 중복 `left_amount` 0 | 미측정 |
-| CT-3 FAILED 전이 | 2 | 실제 `RUNNING -> FAILED` 전이 1, 멱등 처리 1 | 미측정 |
+| 테스트 | 검증 범위 | 실제 결과 |
+| --- | --- | --- |
+| CT-1 동일 업무일 Batch | 동시 요청 10건의 Batch 중복 생성 방지 | Batch 생성 1, 중복 0 |
+| CT-2 동일 Item Retry | 동시 요청 2건의 Retry Item 중복 생성 방지 | Retry Item 생성 1 |
+| CT-2-2 Retry 금액 정합성 | Executor 포함 금액·잔여금 반영 | `FINALIZED`, amount 변경 1회, `left_amount` 1건 |
+| CT-3 FAILED 전이 | 동시 실패 상태 전이의 멱등 처리 | 실제 전이 1, 후속 요청 1 |
 
 ## 처리량 측정 계획
 
@@ -87,4 +88,6 @@ tests=1, failures=0, errors=0, skipped=0
 
 > `runId`를 Batch 실행 세대 식별자로 사용하고 업무 DB와 Spring Batch Job 파라미터의 일치 여부를 검증했습니다. 또한 Batch 상태 전이를 단일 Updater로 통합하고, 중복된 비동기 실패 경로에서도 `RUNNING -> FAILED` 전이를 멱등적으로 처리하도록 설계했습니다.
 
-> 실제 MariaDB 11.8 운영 DDL에서 Settlement Mapper 통합 테스트를 수행해 Snapshot 생성과 `settlement_fx_rate` 매핑을 검증했습니다. Batch 재처리·동시성·처리량 수치는 측정 완료 후 추가합니다.
+> 실제 MariaDB 환경에서 동일 업무일 Batch 생성 요청 10건을 동시에 실행해 Batch가 1건만 생성됨을 검증하고, 동일 실패 Item에 대한 동시 Retry 요청 2건에서도 Retry Item이 1건만 생성됨을 확인했습니다. 실패 Batch 재처리 시 실패한 Item만 새 이력으로 생성하고, runId를 새로운 실행 세대로 갱신한 뒤 최종 `COMPLETED` 전환까지 검증했습니다.
+
+> 실제 금액 중복 반영 검증은 `SettlementTransactionExecutor`를 포함한 Retry 통합 테스트 후 확정합니다.

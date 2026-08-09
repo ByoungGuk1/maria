@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE configuration
+    PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-config.dtd">
+
+<configuration>
+    <settings>
+        <setting name="mapUnderscoreToCamelCase" value="true"/>
+    </settings>
+
+    <typeAliases>
+        <package name="com.app.maria.domain.settlement.dto"/>
+        <package name="com.app.maria.domain.account.dto"/>
+    </typeAliases>
+
+    <environments default="settlement-mariadb-integration-test">
+        <environment id="settlement-mariadb-integration-test">
+            <transactionManager type="JDBC"/>
+            <dataSource type="POOLED">
+                <property name="driver" value="${db.driver}"/>
+                <property name="url" value="${db.url}"/>
+                <property name="username" value="${db.username}"/>
+                <property name="password" value="${db.password}"/>
+            </dataSource>
+        </environment>
+    </environments>
+
+    <mappers>
+        <mapper resource="mappers/settlement/krwExchangeMapper.xml"/>
+        <mapper resource="mappers/settlement/settlementBatchMapper.xml"/>
+        <mapper resource="mappers/settlement/settlementBatchGuardMapper.xml"/>
+        <mapper resource="mappers/settlement/settlementItemMapper.xml"/>
+        <mapper resource="mappers/settlement/settlementJoinMapper.xml"/>
+        <mapper resource="mappers/account/accountMapper.xml"/>
+    </mappers>
+</configuration>

@@ -22,6 +22,9 @@ HELP.md
 .gradle/
 build/
 
+**/private/**
+AGENTS.md
+
 ### STS ###
 .apt_generated
 .classpath

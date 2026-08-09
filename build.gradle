@@ -133,5 +133,20 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    [
+        'settlement.mariadb.enabled',
+        'settlement.mariadb.url',
+        'settlement.mariadb.username',
+        'settlement.mariadb.password'
+        , 'account.redis.enabled'
+        , 'account.redis.host'
+        , 'account.redis.port'
+        , 'account.redis.password'
+    ].each { propertyName ->
+        def propertyValue = System.getProperty(propertyName)
+        if (propertyValue != null) {
+            systemProperty propertyName, propertyValue
+        }
+    }
     finalizedBy tasks.named('jacocoTestReport')
 }
