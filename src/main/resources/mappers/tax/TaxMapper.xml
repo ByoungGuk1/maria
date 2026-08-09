@@ -4,6 +4,8 @@
 
     <select id="findFinalizedLotsByAccountAndYear" resultType="SellLotDTO">
         select
+            so.order_id,
+            so.inbound_detail_id,
             ke.final_amount,
             so.processed_at as sell_at,
             so.sell_qty,
@@ -14,18 +16,18 @@
         join inbound_detail id on id.inbound_detail_id = so.inbound_detail_id
         where ke.account_id = #{accountId}
             and ke.settlement_status = 'FINALIZED'
+            and so.status = 'EXECUTED'
             and YEAR(so.processed_at) = #{year}
             and #{calcBaseDateTime} >= so.processed_at
     </select>
 
-    <select id="findTaxRulesByPeriod" resultType="TaxRuleDTO">
+    <select id="findTaxRules" resultType="TaxRuleDTO">
         select
             rule_id,
+            rule_type,
             rule_value,
             valid_from,
             valid_to
         from tax_rule
-        where valid_from >= #{startDate}
-            and #{endDate} >= valid_to
     </select>
 </mapper>

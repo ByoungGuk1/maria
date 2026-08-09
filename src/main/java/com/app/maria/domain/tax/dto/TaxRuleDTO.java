@@ -9,7 +9,8 @@ import lombok.Getter;
 @AllArgsConstructor
 public class TaxRuleDTO {
     private Long ruleId;
+    private String ruleType;
     private BigDecimal ruleValue;
-    private LocalDate validTo;
     private LocalDate validFrom;
+    private LocalDate validTo;
 }

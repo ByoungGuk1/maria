@@ -11,5 +11,5 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface TaxMapper {
     List<SellLotDTO> findFinalizedLotsByAccountAndYear(@Param("accountId") Long accountId, @Param("year") int year,@Param("calcBaseDateTime")  LocalDateTime calcBaseDateTime);
-    List<TaxRuleDTO> findTaxRulesByPeriod(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    List<TaxRuleDTO> findTaxRules();
 }
