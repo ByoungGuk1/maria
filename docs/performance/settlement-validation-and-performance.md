@@ -62,7 +62,8 @@ tests=1, failures=0, errors=0, skipped=0
 | --- | --- | --- |
 | CT-1 동일 업무일 Batch | 동시 요청 10건의 Batch 중복 생성 방지 | Batch 생성 1, 중복 0 |
 | CT-2 동일 Item Retry | 동시 요청 2건의 Retry Item 중복 생성 방지 | Retry Item 생성 1 |
-| CT-2-2 Retry 금액 정합성 | Executor 포함 금액·잔여금 반영 | `FINALIZED`, amount 변경 1회, `left_amount` 1건 |
+| IT-4 Retry Executor 정상 반영 | Retry Item의 Executor 금융 반영 | `FINALIZED`, amount 변경 1회, `left_amount` 1건 |
+| CT-2-2 동일 Item Retry End-to-End | 동시 Retry 이후 금액·잔여금 중복 반영 방지 | 미검증 |
 | CT-3 FAILED 전이 | 동시 실패 상태 전이의 멱등 처리 | 실제 전이 1, 후속 요청 1 |
 
 ## 처리량 측정 계획

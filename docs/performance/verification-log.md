@@ -68,7 +68,7 @@ Redis: 8.8.0 (Docker, localhost:6379)
 - 실제 RUNNING -> FAILED 전이: 1
 - 후속 요청: 이미 FAILED 상태 확인
 
-[PASS] CT-2-2 Retry 금액 정합성
+[PASS] IT-4 Retry Executor 정상 반영
 - SettlementTransactionExecutor 실제 실행
 - 대상 krw_exchange: FINALIZED
 - account.amount: Before/After 변경 확인
