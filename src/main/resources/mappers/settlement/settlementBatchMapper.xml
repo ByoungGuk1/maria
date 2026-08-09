@@ -145,7 +145,7 @@
                   )
             ) = 0 THEN NULL ELSE '정산 Item 재처리 실패 건 존재' END
         WHERE batch_id = #{batchId}
-          AND status IN ('FAILED', 'COMPLETED')
+          AND status IN ('RUNNING', 'FAILED', 'COMPLETED')
     </update>
 
     <update id="markBatchRetryRunning" parameterType="Long">

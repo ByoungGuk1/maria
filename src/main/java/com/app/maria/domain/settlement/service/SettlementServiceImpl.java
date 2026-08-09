@@ -6,6 +6,7 @@ import com.app.maria.domain.settlement.dto.SettlementItemDTO;
 import com.app.maria.domain.settlement.dto.SettlementJoinDTO;
 import com.app.maria.domain.settlement.batch.SettlementBatchLauncher;
 import com.app.maria.domain.settlement.component.SettlementFailureRecorder;
+import com.app.maria.domain.settlement.component.SettlementBatchStatusUpdater;
 import com.app.maria.domain.settlement.component.SettlementTransactionExecutor;
 import com.app.maria.domain.settlement.exception.*;
 import com.app.maria.domain.settlement.mapper.KrwExchangeMapper;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.core.task.TaskRejectedException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -40,6 +42,7 @@ public class SettlementServiceImpl implements SettlementService {
   private final BusinessClockService businessClockService;
   private final SettlementTransactionExecutor settlementTransactionExecutor;
   private final SettlementFailureRecorder settlementFailureRecorder;
+  private final SettlementBatchStatusUpdater settlementBatchStatusUpdater;
   private final com.app.maria.domain.settlement.provider.ExchangeRateProvider exchangeRateProvider;
 
   @Override
@@ -77,7 +80,7 @@ public class SettlementServiceImpl implements SettlementService {
       throw new SettlementStateConflictException("확정산 Batch 트랜잭션 처리에 실패했습니다.");
     }
     if (result.shouldLaunch()) {
-      settlementBatchLauncher.launch(result.batch());
+      launchBatch(result.batch());
     }
     return result.batch();
   }
@@ -137,6 +140,11 @@ public class SettlementServiceImpl implements SettlementService {
   @Override
   public SettlementItemDTO retryFailedSettlementItem(Long batchId, Long itemId) {
     SettlementItemDTO retryItem = new TransactionTemplate(transactionManager).execute(status -> {
+      SettlementBatchDTO batch = settlementBatchMapper.selectBatchByIdForUpdate(batchId)
+          .orElseThrow(() -> new SettlementBatchNotFoundException("재처리 대상 Batch를 찾을 수 없습니다."));
+      if (batch.getStatus() != BatchStatus.FAILED) {
+        throw new SettlementStateConflictException("실패 상태 Batch의 Item만 재처리할 수 있습니다.");
+      }
       SettlementItemDTO failedItem = settlementItemMapper.selectItemByIdForUpdate(itemId)
           .orElseThrow(() -> new SettlementItemNotFoundException("재처리 대상 정산 Item을 찾을 수 없습니다."));
       if (!batchId.equals(failedItem.getBatchId()) || failedItem.getResult() != com.app.maria.domain.settlement.type.SettlementItemResult.FAILED) {
@@ -151,6 +159,9 @@ public class SettlementServiceImpl implements SettlementService {
       SettlementItemDTO command = SettlementItemDTO.builder().batchId(batchId).itemId(itemId).build();
       if (settlementItemMapper.insertRetryItem(command) != 1 || command.getItemId() == null) {
         throw new SettlementStateConflictException("정산 Item 재처리 이력 생성에 실패했습니다.");
+      }
+      if (settlementBatchMapper.markBatchRetryRunning(batchId) != 1) {
+        throw new SettlementStateConflictException("정산 Item 재처리 상태 변경에 실패했습니다.");
       }
       return command;
     });
@@ -198,7 +209,7 @@ public class SettlementServiceImpl implements SettlementService {
     if (batch == null) {
       throw new SettlementStateConflictException("정산 Batch 재처리 트랜잭션 처리에 실패했습니다.");
     }
-    settlementBatchLauncher.launchRetry(batch, UUID.randomUUID().toString());
+    launchRetryBatch(batch);
     return batch;
   }
 
@@ -209,5 +220,26 @@ public class SettlementServiceImpl implements SettlementService {
   }
 
   private record BatchLaunchResult(SettlementBatchDTO batch, boolean shouldLaunch) {
+  }
+
+  private void launchBatch(SettlementBatchDTO batch) {
+    try {
+      settlementBatchLauncher.launch(batch);
+    } catch (TaskRejectedException exception) {
+      markLaunchRejected(batch.getBatchId(), exception);
+    }
+  }
+
+  private void launchRetryBatch(SettlementBatchDTO batch) {
+    try {
+      settlementBatchLauncher.launchRetry(batch, UUID.randomUUID().toString());
+    } catch (TaskRejectedException exception) {
+      markLaunchRejected(batch.getBatchId(), exception);
+    }
+  }
+
+  private void markLaunchRejected(Long batchId, TaskRejectedException exception) {
+    settlementBatchStatusUpdater.markFailed(batchId, "확정산 Batch 작업 제출 실패: " + exception.getMessage());
+    throw new SettlementStateConflictException("확정산 Batch 작업 제출에 실패했습니다.");
   }
 }
