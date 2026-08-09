@@ -2,7 +2,9 @@ package com.app.maria.domain.settlement.component;
 
 import com.app.maria.domain.settlement.dto.SettlementItemDTO;
 import com.app.maria.domain.settlement.exception.SettlementStateConflictException;
+import com.app.maria.domain.settlement.exception.SettlementCalculationException;
 import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
+import com.app.maria.domain.settlement.type.SettlementFailureCode;
 import com.app.maria.domain.settlement.type.SettlementItemResult;
 import com.app.maria.global.clock.service.BusinessClockService;
 import org.junit.jupiter.api.Test;
@@ -51,6 +53,19 @@ class SettlementFailureRecorderTest {
 
     assertThatThrownBy(() -> recorder.markFailed(10L, new IllegalStateException("실패")))
         .isInstanceOf(SettlementStateConflictException.class);
+  }
+
+  @Test
+  void classifiesCalculationFailureSeparately() {
+    when(settlementItemMapper.updateItemResult(any(SettlementItemDTO.class))).thenReturn(1);
+    SettlementFailureRecorder recorder = new SettlementFailureRecorder(settlementItemMapper, clockService);
+
+    recorder.markFailed(10L, new SettlementCalculationException("계산 실패"));
+
+    ArgumentCaptor<SettlementItemDTO> captor = ArgumentCaptor.forClass(SettlementItemDTO.class);
+    verify(settlementItemMapper).updateItemResult(captor.capture());
+    assertThat(captor.getValue().getFailureCode())
+        .isEqualTo(SettlementFailureCode.CALCULATION_ERROR);
   }
 
   @Test

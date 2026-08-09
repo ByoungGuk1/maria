@@ -22,26 +22,55 @@ public class SettlementBatchStatusUpdater {
   private final BusinessClockService systemClock;
 
   @Transactional(transactionManager = "transactionManager", propagation = Propagation.REQUIRES_NEW)
-  public void markFailed(Long batchId, String failureMessage) {
+  public void markFailedIfRunning(Long batchId, String failureMessage) {
     String limitedMessage = limitMessage(failureMessage);
-    settlementItemMapper.markPendingItemsFailed(SettlementItemDTO.builder()
-        .batchId(batchId)
-        .result(SettlementItemResult.FAILED)
-        .processedAt(systemClock.now())
-        .failureCode(SettlementFailureCode.UNKNOWN_ERROR)
-        .failureMessage(limitedMessage)
-        .build());
-
     SettlementBatchDTO command = SettlementBatchDTO.builder()
-            .batchId(batchId)
-            .status(BatchStatus.FAILED)
-            .failureMessage(limitedMessage)
-            .build();
+        .batchId(batchId)
+        .status(BatchStatus.FAILED)
+        .failureMessage(limitedMessage)
+        .build();
 
     int affectedRows = settlementBatchMapper.updateBatchStatus(command);
+    if (affectedRows == 1) {
+      settlementItemMapper.markPendingItemsFailed(SettlementItemDTO.builder()
+          .batchId(batchId)
+          .result(SettlementItemResult.FAILED)
+          .processedAt(systemClock.now())
+          .failureCode(SettlementFailureCode.UNKNOWN_ERROR)
+          .failureMessage(limitedMessage)
+          .build());
+      return;
+    }
 
-    if (affectedRows != 1) {
+    BatchStatus currentStatus = settlementBatchMapper.selectBatchById(batchId)
+        .orElseThrow(() -> new SettlementStateConflictException("Batch 실패 상태 변경 대상 없음 batchId=" + batchId))
+        .getStatus();
+    if (currentStatus != BatchStatus.FAILED) {
       throw new SettlementStateConflictException("Batch 실패 상태 변경 실패 batchId=" + batchId);
+    }
+  }
+
+  public void startBatchRetry(Long batchId, String runId) {
+    updateRetryRunning(batchId, runId);
+  }
+
+  public void startItemRetry(Long batchId) {
+    updateRetryRunning(batchId, null);
+  }
+
+  public void completeFromLatestItems(Long batchId) {
+    if (settlementBatchMapper.refreshBatchStatusAfterRetry(batchId) != 1) {
+      throw new SettlementStateConflictException("Batch 최종 상태 변경 실패 batchId=" + batchId);
+    }
+  }
+
+  private void updateRetryRunning(Long batchId, String runId) {
+    SettlementBatchDTO command = SettlementBatchDTO.builder()
+        .batchId(batchId)
+        .runId(runId)
+        .build();
+    if (settlementBatchMapper.markBatchRetryRunning(command) != 1) {
+      throw new SettlementStateConflictException("Batch 재처리 상태 변경 실패 batchId=" + batchId);
     }
   }
 

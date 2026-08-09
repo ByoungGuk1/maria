@@ -2,7 +2,6 @@ package com.app.maria.domain.settlement.batch;
 
 import com.app.maria.domain.settlement.component.SettlementBatchStatusUpdater;
 import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
-import com.app.maria.domain.settlement.exception.SettlementStateConflictException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -27,8 +26,8 @@ public class SettlementBatchLauncher {
   }
 
   @Async("settlementBatchTaskExecutor")
-  public void launchRetry(SettlementBatchDTO batch, String retryRunId) {
-    launch(batch, retryRunId);
+  public void launchRetry(SettlementBatchDTO batch) {
+    launch(batch, batch.getRunId());
   }
 
   private void launch(SettlementBatchDTO batch, String runId) {
@@ -39,8 +38,12 @@ public class SettlementBatchLauncher {
     try {
       jobLauncher.run(settlementJob, parameters);
     } catch (Exception e) {
-      statusUpdater.markFailed(batch.getBatchId(), e.getMessage());
       log.error("확정산 Batch 실행 실패: batchId={}", batch.getBatchId(), e);
+      try {
+        statusUpdater.markFailedIfRunning(batch.getBatchId(), e.getMessage());
+      } catch (Exception statusException) {
+        log.error("확정산 Batch 실패 상태 기록 실패: batchId={}", batch.getBatchId(), statusException);
+      }
     }
   }
 }

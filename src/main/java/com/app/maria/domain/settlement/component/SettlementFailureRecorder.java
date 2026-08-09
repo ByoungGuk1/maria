@@ -4,6 +4,7 @@ import com.app.maria.domain.settlement.dto.SettlementItemDTO;
 import com.app.maria.domain.settlement.exception.SettlementStateConflictException;
 import com.app.maria.domain.settlement.exception.ExchangeRateExternalApiException;
 import com.app.maria.domain.settlement.exception.InvalidSettlementException;
+import com.app.maria.domain.settlement.exception.KrwExchangeNotFoundException;
 import com.app.maria.domain.settlement.exception.SettlementCalculationException;
 import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
 import com.app.maria.domain.settlement.type.SettlementFailureCode;
@@ -47,14 +48,23 @@ public class SettlementFailureRecorder {
     if (exception instanceof ExchangeRateExternalApiException) {
       return SettlementFailureCode.EXTERNAL_API_ERROR;
     }
+    if (exception instanceof KrwExchangeNotFoundException) {
+      return SettlementFailureCode.EXCHANGE_NOT_FOUND;
+    }
     if (exception instanceof InvalidSettlementException) {
+      if (exception.getMessage() != null && exception.getMessage().contains("계좌 조회")) {
+        return SettlementFailureCode.ACCOUNT_NOT_FOUND;
+      }
       return SettlementFailureCode.INVALID_ORDER_STATUS;
     }
     if (exception instanceof SettlementStateConflictException && exception.getMessage() != null && exception.getMessage().contains("계좌 미일치")) {
       return SettlementFailureCode.ACCOUNT_MISMATCH;
     }
     if (exception instanceof SettlementCalculationException) {
-      return SettlementFailureCode.UNKNOWN_ERROR;
+      return SettlementFailureCode.CALCULATION_ERROR;
+    }
+    if (exception instanceof SettlementStateConflictException) {
+      return SettlementFailureCode.DB_STATE_CONFLICT;
     }
     return SettlementFailureCode.UNKNOWN_ERROR;
   }

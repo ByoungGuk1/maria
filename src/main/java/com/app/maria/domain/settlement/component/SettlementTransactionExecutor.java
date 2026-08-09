@@ -58,7 +58,7 @@ public class SettlementTransactionExecutor {
     // 모든 정산 경로에서 exchange -> account 순서로 잠금을 획득한다.
     krwExchangeMapper.selectAccountAmountForUpdate(exchange.getAccountId()).orElseThrow(() -> new InvalidSettlementException("계좌 조회 실패"));
 
-    BigDecimal finalAmount = settlementCalculator.calculateFinalAmount(exchange.getProvisionalAmount(), target.getPurchaseFxRate(), finalRate);
+    BigDecimal finalAmount = settlementCalculator.calculateFinalAmount(exchange.getProvisionalAmount(), target.getSettlementFxRate(), finalRate);
     LocalDateTime settledAt = businessClockService.now();
 
     exchange.setFinalRate(finalRate);

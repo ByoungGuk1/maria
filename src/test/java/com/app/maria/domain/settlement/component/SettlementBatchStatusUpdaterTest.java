@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,7 +36,7 @@ class SettlementBatchStatusUpdaterTest {
     SettlementBatchStatusUpdater updater = new SettlementBatchStatusUpdater(
         settlementBatchMapper, settlementItemMapper, systemClock);
 
-    updater.markFailed(1L, "Job 실행 실패");
+    updater.markFailedIfRunning(1L, "Job 실행 실패");
 
     ArgumentCaptor<SettlementItemDTO> itemCaptor = ArgumentCaptor.forClass(SettlementItemDTO.class);
     verify(settlementItemMapper).markPendingItemsFailed(itemCaptor.capture());
@@ -49,5 +50,18 @@ class SettlementBatchStatusUpdaterTest {
     ArgumentCaptor<SettlementBatchDTO> batchCaptor = ArgumentCaptor.forClass(SettlementBatchDTO.class);
     verify(settlementBatchMapper).updateBatchStatus(batchCaptor.capture());
     assertThat(batchCaptor.getValue().getStatus()).isEqualTo(BatchStatus.FAILED);
+  }
+
+  @Test
+  void ignoresDuplicateFailureMarkWhenBatchIsAlreadyFailed() {
+    when(settlementBatchMapper.updateBatchStatus(org.mockito.ArgumentMatchers.any())).thenReturn(0);
+    when(settlementBatchMapper.selectBatchById(1L)).thenReturn(java.util.Optional.of(
+        SettlementBatchDTO.builder().batchId(1L).status(BatchStatus.FAILED).build()));
+    SettlementBatchStatusUpdater updater = new SettlementBatchStatusUpdater(
+        settlementBatchMapper, settlementItemMapper, systemClock);
+
+    updater.markFailedIfRunning(1L, "Job 실행 실패");
+
+    verify(settlementItemMapper, never()).markPendingItemsFailed(org.mockito.ArgumentMatchers.any());
   }
 }

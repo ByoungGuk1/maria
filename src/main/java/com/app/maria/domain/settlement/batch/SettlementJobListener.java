@@ -27,6 +27,6 @@ public class SettlementJobListener implements JobExecutionListener {
     }
 
     String message = jobExecution.getAllFailureExceptions().isEmpty()  ? "확정산 Job 실행 실패" : jobExecution.getAllFailureExceptions().get(0).getMessage();
-    statusUpdater.markFailed(batchId, message);
+    statusUpdater.markFailedIfRunning(batchId, message);
   }
 }

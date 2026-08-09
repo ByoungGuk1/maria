@@ -43,6 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
@@ -162,7 +163,7 @@ class SettlementServiceImplTest {
         .isInstanceOf(SettlementStateConflictException.class)
         .hasMessage("확정산 Batch 작업 제출에 실패했습니다.");
 
-    verify(settlementBatchStatusUpdater).markFailed(BATCH_ID, "확정산 Batch 작업 제출 실패: queue full");
+    verify(settlementBatchStatusUpdater).markFailedIfRunning(BATCH_ID, "확정산 Batch 작업 제출 실패: queue full");
   }
 
   @Test
@@ -173,12 +174,12 @@ class SettlementServiceImplTest {
     when(transactionManager.getTransaction(any())).thenReturn(transactionStatus);
     when(settlementBatchMapper.selectBatchByIdForUpdate(BATCH_ID)).thenReturn(Optional.of(failedBatch));
     when(settlementItemMapper.insertRetryItemsForFailedBatch(BATCH_ID)).thenReturn(2);
-    when(settlementBatchMapper.markBatchRetryRunning(BATCH_ID)).thenReturn(1);
 
     SettlementBatchDTO result = settlementService.retryFailedSettlementBatch(BATCH_ID);
 
     assertThat(result.getStatus()).isEqualTo(BatchStatus.RUNNING);
-    verify(settlementBatchLauncher).launchRetry(any(SettlementBatchDTO.class), anyString());
+    verify(settlementBatchStatusUpdater).startBatchRetry(eq(BATCH_ID), anyString());
+    verify(settlementBatchLauncher).launchRetry(any(SettlementBatchDTO.class));
   }
 
   @Test
@@ -198,7 +199,6 @@ class SettlementServiceImplTest {
       invocation.<SettlementItemDTO>getArgument(0).setItemId(11L);
       return 1;
     }).when(settlementItemMapper).insertRetryItem(any(SettlementItemDTO.class));
-    when(settlementBatchMapper.markBatchRetryRunning(BATCH_ID)).thenReturn(1);
     when(settlementJoinMapper.selectTargetByItemId(any())).thenReturn(Optional.of(
         SettlementJoinDTO.builder().itemId(11L).batchId(BATCH_ID).exchangeId(EXCHANGE_ID)
             .accountId(1L).purchaseCurrency("USD").build()));
@@ -211,8 +211,8 @@ class SettlementServiceImplTest {
     SettlementItemDTO result = settlementService.retryFailedSettlementItem(BATCH_ID, ITEM_ID);
 
     assertThat(result.getResult()).isEqualTo(SettlementItemResult.SUCCESS);
-    verify(settlementBatchMapper).markBatchRetryRunning(BATCH_ID);
-    verify(settlementBatchMapper).refreshBatchStatusAfterRetry(BATCH_ID);
+    verify(settlementBatchStatusUpdater).startItemRetry(BATCH_ID);
+    verify(settlementBatchStatusUpdater).completeFromLatestItems(BATCH_ID);
   }
 
   @Test

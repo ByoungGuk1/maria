@@ -1,6 +1,7 @@
 package com.app.maria.domain.settlement.batch;
 
 import com.app.maria.domain.settlement.component.SettlementFailureRecorder;
+import com.app.maria.domain.settlement.component.SettlementBatchStatusUpdater;
 import com.app.maria.domain.settlement.component.SettlementTransactionExecutor;
 import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
 import com.app.maria.domain.settlement.dto.SettlementItemDTO;
@@ -39,6 +40,7 @@ public class SettlementBatchTasklet implements Tasklet {
   private final ExchangeRateProvider exchangeRateProvider;
   private final SettlementTransactionExecutor settlementTransactionExecutor;
   private final SettlementFailureRecorder settlementFailureRecorder;
+  private final SettlementBatchStatusUpdater settlementBatchStatusUpdater;
 
   @Override
   public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
@@ -51,7 +53,7 @@ public class SettlementBatchTasklet implements Tasklet {
     }
 
     SettlementBatchDTO batch = settlementBatchMapper.selectBatchById(batchId).orElseThrow(() -> new SettlementBatchNotFoundException("Batch를 찾을 수 없습니다. batchId=" + batchId));
-    if (batch.getStatus() != BatchStatus.RUNNING) {
+    if (batch.getStatus() != BatchStatus.RUNNING || !runId.equals(batch.getRunId())) {
       throw new SettlementStateConflictException("확정산 Batch 상태가 실행 가능하지 않습니다. batchId=" + batchId);
     }
 
@@ -106,14 +108,6 @@ public class SettlementBatchTasklet implements Tasklet {
               + batchId + ", pending=" + pendingCount);
     }
 
-    int failedCount = settlementItemMapper.countLatestFailedItems(batchId);
-    SettlementBatchDTO result = SettlementBatchDTO.builder()
-        .batchId(batchId)
-        .status(failedCount == 0 ? BatchStatus.COMPLETED : BatchStatus.FAILED)
-        .failureMessage(failedCount == 0 ? null : "정산 Item 실패 " + failedCount + "건 발생")
-        .build();
-    if (settlementBatchMapper.updateBatchStatus(result) != 1) {
-      throw new SettlementStateConflictException("확정산 Batch 최종 상태 변경에 실패했습니다. batchId=" + batchId);
-    }
+    settlementBatchStatusUpdater.completeFromLatestItems(batchId);
   }
 }

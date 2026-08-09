@@ -160,7 +160,7 @@ class SettlementMapperTest {
     assertThat(target.getProvisionalAmount()).isEqualByComparingTo("2700000.00");
     assertThat(target.getProvisionalAt()).isEqualTo(LocalDateTime.of(2026, 8, 2, 15, 30));
     assertThat(target.getSettlementStatus()).isEqualTo(SettlementStatus.PROVISIONAL);
-    assertThat(target.getPurchaseFxRate()).isEqualByComparingTo("1350.0000");
+    assertThat(target.getSettlementFxRate()).isEqualByComparingTo("1350.0000");
     assertThat(target.getSellOrderStatus()).isEqualTo(SellOrderStatus.EXECUTED);
     assertThat(target.getPurchaseCurrency()).isEqualTo("USD");
     assertThat(settlementJoinMapper.selectItemDetail(targetQuery)).contains(target);
@@ -389,7 +389,7 @@ class SettlementMapperTest {
           CREATE TABLE account (
               account_id BIGINT PRIMARY KEY AUTO_INCREMENT,
               status VARCHAR(20) NOT NULL,
-              amount DECIMAL(15, 2) NOT NULL DEFAULT 0
+              amount DECIMAL(15, 0) NOT NULL DEFAULT 0
           )
           """);
       statement.execute("""
@@ -402,7 +402,7 @@ class SettlementMapperTest {
           CREATE TABLE sell_order (
               order_id BIGINT PRIMARY KEY AUTO_INCREMENT,
               inbound_detail_id BIGINT NOT NULL,
-              purchase_fx_rate DECIMAL(15, 4),
+              settlement_fx_rate DECIMAL(15, 4),
               status VARCHAR(20) NOT NULL
           )
           """);
@@ -414,7 +414,7 @@ class SettlementMapperTest {
               provisional_amount DECIMAL(15, 2) NOT NULL,
               provisional_at DATETIME NOT NULL,
               final_rate DECIMAL(15, 6),
-              final_amount DECIMAL(15, 2),
+              final_amount DECIMAL(15, 0),
               final_at DATETIME,
               settlement_status VARCHAR(20) NOT NULL
           )
@@ -449,7 +449,7 @@ class SettlementMapperTest {
           CREATE TABLE left_amount (
               left_amount_id BIGINT PRIMARY KEY AUTO_INCREMENT,
               exchange_id BIGINT NOT NULL UNIQUE,
-              cur_amount DECIMAL(15, 2) NOT NULL
+              cur_amount DECIMAL(15, 0) NOT NULL UNIQUE
           )
           """);
 
@@ -463,7 +463,7 @@ class SettlementMapperTest {
           """);
       statement.execute("""
           INSERT INTO sell_order (
-              order_id, inbound_detail_id, purchase_fx_rate, status
+              order_id, inbound_detail_id, settlement_fx_rate, status
           ) VALUES
               (1, 1, 1350.0000, 'EXECUTED'),
               (2, 1, NULL, 'RECEIVED'),

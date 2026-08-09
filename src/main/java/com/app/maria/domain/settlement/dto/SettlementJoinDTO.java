@@ -39,7 +39,7 @@ public class SettlementJoinDTO {
   private SettlementStatus settlementStatus;
 
   //sell_order
-  private BigDecimal purchaseFxRate;
+  private BigDecimal settlementFxRate;
   private SellOrderStatus sellOrderStatus;
 
   //inbound_detail

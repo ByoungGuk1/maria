@@ -148,9 +148,11 @@
           AND status IN ('RUNNING', 'FAILED', 'COMPLETED')
     </update>
 
-    <update id="markBatchRetryRunning" parameterType="Long">
+    <update id="markBatchRetryRunning" parameterType="SettlementBatchDTO">
         UPDATE settlement_batch
-        SET status = 'RUNNING', failure_message = NULL
+        SET status = 'RUNNING',
+            failure_message = NULL,
+            run_id = COALESCE(#{runId}, run_id)
         WHERE batch_id = #{batchId}
           AND status = 'FAILED'
     </update>

@@ -62,6 +62,6 @@ class SettlementBatchLauncherTest {
     launcher.launch(batch);
 
     assertThat(batch.getStatus()).isEqualTo(BatchStatus.RUNNING);
-    verify(statusUpdater).markFailed(1L, "launch failed");
+    verify(statusUpdater).markFailedIfRunning(1L, "launch failed");
   }
 }

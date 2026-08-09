@@ -30,5 +30,5 @@ public interface SettlementBatchMapper {
 
   int refreshBatchStatusAfterRetry(Long batchId);
 
-  int markBatchRetryRunning(Long batchId);
+  int markBatchRetryRunning(SettlementBatchDTO batch);
 }

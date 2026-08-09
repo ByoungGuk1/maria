@@ -160,9 +160,7 @@ public class SettlementServiceImpl implements SettlementService {
       if (settlementItemMapper.insertRetryItem(command) != 1 || command.getItemId() == null) {
         throw new SettlementStateConflictException("정산 Item 재처리 이력 생성에 실패했습니다.");
       }
-      if (settlementBatchMapper.markBatchRetryRunning(batchId) != 1) {
-        throw new SettlementStateConflictException("정산 Item 재처리 상태 변경에 실패했습니다.");
-      }
+      settlementBatchStatusUpdater.startItemRetry(batchId);
       return command;
     });
     if (retryItem == null) {
@@ -182,7 +180,7 @@ public class SettlementServiceImpl implements SettlementService {
       settlementFailureRecorder.markFailed(retryItem.getItemId(), exception);
     }
 
-    settlementBatchMapper.refreshBatchStatusAfterRetry(batchId);
+    settlementBatchStatusUpdater.completeFromLatestItems(batchId);
 
     return settlementItemMapper.selectItemById(retryItem.getItemId())
         .orElseThrow(() -> new SettlementItemNotFoundException("재처리 Item 조회 실패"));
@@ -199,11 +197,11 @@ public class SettlementServiceImpl implements SettlementService {
       if (settlementItemMapper.insertRetryItemsForFailedBatch(batchId) == 0) {
         throw new SettlementStateConflictException("재처리할 실패 정산 Item이 없습니다.");
       }
-      if (settlementBatchMapper.markBatchRetryRunning(batchId) != 1) {
-        throw new SettlementStateConflictException("정산 Batch 재처리 상태 변경에 실패했습니다.");
-      }
+      String retryRunId = UUID.randomUUID().toString();
+      settlementBatchStatusUpdater.startBatchRetry(batchId, retryRunId);
       foundBatch.setStatus(BatchStatus.RUNNING);
       foundBatch.setFailureMessage(null);
+      foundBatch.setRunId(retryRunId);
       return foundBatch;
     });
     if (batch == null) {
@@ -232,14 +230,14 @@ public class SettlementServiceImpl implements SettlementService {
 
   private void launchRetryBatch(SettlementBatchDTO batch) {
     try {
-      settlementBatchLauncher.launchRetry(batch, UUID.randomUUID().toString());
+      settlementBatchLauncher.launchRetry(batch);
     } catch (TaskRejectedException exception) {
       markLaunchRejected(batch.getBatchId(), exception);
     }
   }
 
   private void markLaunchRejected(Long batchId, TaskRejectedException exception) {
-    settlementBatchStatusUpdater.markFailed(batchId, "확정산 Batch 작업 제출 실패: " + exception.getMessage());
+    settlementBatchStatusUpdater.markFailedIfRunning(batchId, "확정산 Batch 작업 제출 실패: " + exception.getMessage());
     throw new SettlementStateConflictException("확정산 Batch 작업 제출에 실패했습니다.");
   }
 }

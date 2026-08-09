@@ -129,7 +129,7 @@ class SettlementTransactionExecutorTest {
         .batchId(40L)
         .exchangeId(10L)
         .accountId(20L)
-        .purchaseFxRate(new BigDecimal("1350"))
+        .settlementFxRate(new BigDecimal("1350"))
         .sellOrderStatus(SellOrderStatus.EXECUTED)
         .build();
   }
