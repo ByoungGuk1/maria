@@ -11,10 +11,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.ZSetOperations;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -27,7 +30,16 @@ class AccountMydataSyncServiceTest {
 
   @Mock private AccountMapper accountMapper;
   @Mock private MydataProvider mydataProvider;
+  @Mock private StringRedisTemplate redisTemplate;
+  @Mock private ValueOperations<String, String> valueOperations;
+  @Mock private ZSetOperations<String, String> zSetOperations;
   @InjectMocks private AccountMydataSyncService service;
+
+  @org.junit.jupiter.api.BeforeEach
+  void setUp() {
+    when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+    when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
+  }
 
   @Test
   void createSendsInitialCumulativeSellPayloadThroughCreateOperation() {
@@ -59,7 +71,11 @@ class AccountMydataSyncServiceTest {
     missing.setAccountId(10L);
     AccountDTO existing = openedAccount();
     existing.setAccountId(11L);
-    when(accountMapper.selectAllAccount()).thenReturn(List.of(missing, existing));
+    when(zSetOperations.rangeByScore(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong()))
+        .thenReturn(Set.of("10", "11"));
+    when(valueOperations.setIfAbsent(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+    when(accountMapper.selectByAccountId(10L)).thenReturn(Optional.of(missing));
+    when(accountMapper.selectByAccountId(11L)).thenReturn(Optional.of(existing));
     when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(CI_HASH));
     when(mydataProvider.hasOwnRiaAccount(CI_HASH)).thenReturn(false, true);
     when(mydataProvider.createRiaAccount(CI_HASH, missing)).thenReturn(HttpStatus.OK);
@@ -74,7 +90,11 @@ class AccountMydataSyncServiceTest {
   @Test
   void retryDoesNotCreateOrUpdateWhenMydataLookupFails() {
     AccountDTO account = openedAccount();
-    when(accountMapper.selectAllAccount()).thenReturn(List.of(account));
+    account.setAccountId(10L);
+    when(zSetOperations.rangeByScore(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong()))
+        .thenReturn(Set.of("10"));
+    when(valueOperations.setIfAbsent(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+    when(accountMapper.selectByAccountId(10L)).thenReturn(Optional.of(account));
     when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(CI_HASH));
     when(mydataProvider.hasOwnRiaAccount(CI_HASH))
         .thenThrow(new MydataApiException("조회 실패", null));
