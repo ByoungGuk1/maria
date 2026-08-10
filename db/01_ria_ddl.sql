@@ -276,14 +276,21 @@ CREATE TABLE outbound (
 -- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
 CREATE TABLE sell_order (
     order_id          BIGINT        NOT NULL AUTO_INCREMENT,
-    inbound_detail_id BIGINT        NOT NULL COMMENT '매도 대상 lot (한 lot이 여러 매도주문에 걸쳐 나뉠 수 있음 — FIFO 분할매도)',
+    account_id        BIGINT        NOT NULL COMMENT '매도 시도 계좌 (거부 건은 lot이 없어 간접조회 불가하므로 직접 저장)',
+    foreign_product_id BIGINT       NOT NULL COMMENT '매도 시도 종목 (거부 건은 lot이 없어 간접조회 불가하므로 직접 저장)',
+    inbound_detail_id BIGINT        NULL     COMMENT '매도 대상 lot (한 lot이 여러 매도주문에 걸쳐 나뉠 수 있음 — FIFO 분할매도). REJECTED면 NULL',
     sell_qty          DECIMAL(15,4) NOT NULL COMMENT '매도수량',
     base_price        DECIMAL(15,4) NOT NULL COMMENT '매도기준가(전일종가 x 환율)',
     processed_at      DATETIME      NULL     DEFAULT CURRENT_TIMESTAMP COMMENT '매도결제일',
     status            VARCHAR(10)   NOT NULL COMMENT 'RECEIVED/EXECUTED/REJECTED',
     settlement_fx_rate DECIMAL(15,4) NULL    COMMENT '매도 결제일 기준환율',
     PRIMARY KEY (order_id),
-    CONSTRAINT chk_sell_order_status CHECK (status IN ('RECEIVED','EXECUTED','REJECTED'))
+    CONSTRAINT chk_sell_order_status CHECK (status IN ('RECEIVED','EXECUTED','REJECTED')),
+    CONSTRAINT chk_sell_order_lot_consistency CHECK (
+        (status = 'REJECTED' AND inbound_detail_id IS NULL)
+        OR
+        (status != 'REJECTED' AND inbound_detail_id IS NOT NULL)
+    )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='매도 주문';
 
 -- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
@@ -448,6 +455,8 @@ ALTER TABLE inbound_min            ADD CONSTRAINT fk_inbound_min__inbound_detail
 ALTER TABLE external_trade_sync_cursor ADD CONSTRAINT fk_etsc__customer                FOREIGN KEY (customer_id)          REFERENCES customer (customer_id);
 ALTER TABLE outbound               ADD CONSTRAINT fk_outbound__inbound_detail          FOREIGN KEY (inbound_detail_id)    REFERENCES inbound_detail (inbound_detail_id);
 ALTER TABLE sell_order             ADD CONSTRAINT fk_sell_order__inbound_detail        FOREIGN KEY (inbound_detail_id)    REFERENCES inbound_detail (inbound_detail_id);
+ALTER TABLE sell_order             ADD CONSTRAINT fk_sell_order__account               FOREIGN KEY (account_id)           REFERENCES account (account_id);
+ALTER TABLE sell_order             ADD CONSTRAINT fk_sell_order__foreign_product       FOREIGN KEY (foreign_product_id)   REFERENCES foreign_product (foreign_product_id);
 ALTER TABLE krw_exchange           ADD CONSTRAINT fk_krw_exchange__account             FOREIGN KEY (account_id)           REFERENCES account (account_id);
 ALTER TABLE krw_exchange           ADD CONSTRAINT fk_krw_exchange__sell_order          FOREIGN KEY (order_id)             REFERENCES sell_order (order_id);
 ALTER TABLE left_amount            ADD CONSTRAINT fk_left_amount__krw_exchange         FOREIGN KEY (exchange_id)          REFERENCES krw_exchange (exchange_id);
