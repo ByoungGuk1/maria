@@ -1,7 +1,6 @@
 package com.app.maria.global.audit.dto.response;
 
 import com.app.maria.global.audit.dto.AuditLogDTO;
-import com.app.maria.global.audit.type.ReasonCode;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -20,7 +19,7 @@ public class AuditLogResponseDTO {
     private String targetPk;
     private String beforeValue;
     private String afterValue;
-    private ReasonCode reasonCode;
+    private String reasonCode;
     private LocalDateTime processedAt;
 
     public AuditLogResponseDTO(AuditLogDTO dto) {
