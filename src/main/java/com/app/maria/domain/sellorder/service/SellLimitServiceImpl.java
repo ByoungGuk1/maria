@@ -18,10 +18,7 @@ public class SellLimitServiceImpl implements SellLimitService {
     private final MydataClient mydataClient;
 
     @Override
-    public boolean isWithinSellLimit(Long inboundId, BigDecimal orderAmount) {
-        Long accountId = sellLimitMapper.selectAccountByInboundId(inboundId)
-                .orElseThrow(() -> new SellOrderException("계좌 정보를 찾을 수 없습니다."));
-
+    public boolean isWithinSellLimit(Long accountId, BigDecimal orderAmount) {
         BigDecimal limitAmount = sellLimitMapper.selectAccountLimitForUpdate(accountId)
                 .orElseThrow(() -> new SellOrderException("계좌 한도 정보를 찾을 수 없습니다."));
 

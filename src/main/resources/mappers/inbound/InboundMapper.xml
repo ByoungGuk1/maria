@@ -45,4 +45,15 @@
         WHERE inbound_detail_id = #{inboundDetailId} AND current_qty >= #{qty}
     </update>
 
+    <select id="selectFifoLots" resultType="InboundDetailDTO">
+        SELECT id.inbound_detail_id, id.inbound_id, id.foreign_product_id, id.source_broker, id.qty, id.current_qty,
+               id.purchase_date, id.purchase_price, id.purchase_currency, id.purchase_fx_rate, id.source_general_account_id
+        FROM inbound_detail id
+        JOIN inbound i ON i.inbound_id = id.inbound_id
+        WHERE i.account_id = #{accountId}
+        AND id.foreign_product_id = #{foreignProductId}
+        AND id.current_qty > 0
+        ORDER BY id.purchase_date ASC, id.inbound_detail_id ASC
+    </select>
+
 </mapper>

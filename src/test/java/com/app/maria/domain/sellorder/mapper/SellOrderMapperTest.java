@@ -72,7 +72,7 @@ class SellOrderMapperTest {
     @DisplayName("insert 후 useGeneratedKeys로 orderId가 실제로 채워진다")
     void insertSellOrderPopulatesGeneratedOrderId() throws SQLException {
         Long inboundDetailId = insertInboundChain(1L);
-        SellOrderDTO dto = newSellOrder(inboundDetailId, "10", "308.91", SellOrderStatus.RECEIVED, "1433.6");
+        SellOrderDTO dto = newSellOrder(1L, 10L, inboundDetailId, "10", "308.91", SellOrderStatus.RECEIVED, "1433.6");
 
         sellOrderMapper.insertSellOrder(dto);
 
@@ -80,16 +80,18 @@ class SellOrderMapperTest {
     }
 
     @Test
-    @DisplayName("저장한 모든 필드가 조회 시 정확히 그대로 돌아온다")
+    @DisplayName("저장한 모든 필드(account_id/foreign_product_id 포함)가 조회 시 정확히 그대로 돌아온다")
     void selectSellOrderByIdRoundTripsAllFieldsExactly() throws SQLException {
         Long inboundDetailId = insertInboundChain(1L);
-        SellOrderDTO dto = newSellOrder(inboundDetailId, "12.5", "100.1234", SellOrderStatus.EXECUTED, "1350.5");
+        SellOrderDTO dto = newSellOrder(1L, 10L, inboundDetailId, "12.5", "100.1234", SellOrderStatus.EXECUTED, "1350.5");
         sellOrderMapper.insertSellOrder(dto);
 
         Optional<SellOrderDTO> result = sellOrderMapper.selectSellOrderById(dto.getOrderId());
 
         assertThat(result).isPresent();
         SellOrderDTO found = result.get();
+        assertThat(found.getAccountId()).isEqualTo(1L);
+        assertThat(found.getForeignProductId()).isEqualTo(10L);
         assertThat(found.getInboundDetailId()).isEqualTo(inboundDetailId);
         assertThat(found.getSellQty()).isEqualByComparingTo("12.5");
         assertThat(found.getBasePrice()).isEqualByComparingTo("100.1234");
@@ -101,13 +103,28 @@ class SellOrderMapperTest {
     @DisplayName("settlement_fx_rate가 null이어도 예외 없이 null로 조회된다")
     void selectSellOrderByIdReturnsNullSettlementFxRateWhenNotSet() throws SQLException {
         Long inboundDetailId = insertInboundChain(1L);
-        SellOrderDTO dto = newSellOrder(inboundDetailId, "5", "50", SellOrderStatus.RECEIVED, null);
+        SellOrderDTO dto = newSellOrder(1L, 10L, inboundDetailId, "5", "50", SellOrderStatus.RECEIVED, null);
         sellOrderMapper.insertSellOrder(dto);
 
         Optional<SellOrderDTO> result = sellOrderMapper.selectSellOrderById(dto.getOrderId());
 
         assertThat(result).isPresent();
         assertThat(result.get().getSettlementFxRate()).isNull();
+    }
+
+    @Test
+    @DisplayName("REJECTED 건은 inbound_detail_id가 null이어도 저장/조회가 되고, account_id/foreign_product_id는 그대로 남는다")
+    void insertSellOrderAllowsNullInboundDetailIdForRejectedOrder() throws SQLException {
+        SellOrderDTO dto = newSellOrder(1L, 10L, null, "100", "308.91", SellOrderStatus.REJECTED, null);
+
+        sellOrderMapper.insertSellOrder(dto);
+        Optional<SellOrderDTO> result = sellOrderMapper.selectSellOrderById(dto.getOrderId());
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getInboundDetailId()).isNull();
+        assertThat(result.get().getAccountId()).isEqualTo(1L);
+        assertThat(result.get().getForeignProductId()).isEqualTo(10L);
+        assertThat(result.get().getStatus()).isEqualTo(SellOrderStatus.REJECTED);
     }
 
     @Test
@@ -126,9 +143,9 @@ class SellOrderMapperTest {
         Long inboundDetailForAccountA = insertInboundChain(100L);
         Long inboundDetailForAccountB = insertInboundChain(200L);
 
-        SellOrderDTO orderForA = newSellOrder(inboundDetailForAccountA, "1", "10", SellOrderStatus.RECEIVED, "1000");
+        SellOrderDTO orderForA = newSellOrder(100L, 10L, inboundDetailForAccountA, "1", "10", SellOrderStatus.RECEIVED, "1000");
         sellOrderMapper.insertSellOrder(orderForA);
-        SellOrderDTO orderForB = newSellOrder(inboundDetailForAccountB, "2", "20", SellOrderStatus.RECEIVED, "1000");
+        SellOrderDTO orderForB = newSellOrder(200L, 10L, inboundDetailForAccountB, "2", "20", SellOrderStatus.RECEIVED, "1000");
         sellOrderMapper.insertSellOrder(orderForB);
 
         List<SellOrderDTO> result = sellOrderMapper.selectSellOrdersByAccountId(100L);
@@ -144,9 +161,9 @@ class SellOrderMapperTest {
         Long inboundDetail1 = insertInboundChain(accountId);
         Long inboundDetail2 = insertInboundChainUnderExistingInbound(accountId);
 
-        SellOrderDTO order1 = newSellOrder(inboundDetail1, "1", "10", SellOrderStatus.RECEIVED, "1000");
+        SellOrderDTO order1 = newSellOrder(accountId, 10L, inboundDetail1, "1", "10", SellOrderStatus.RECEIVED, "1000");
         sellOrderMapper.insertSellOrder(order1);
-        SellOrderDTO order2 = newSellOrder(inboundDetail2, "2", "20", SellOrderStatus.RECEIVED, "1000");
+        SellOrderDTO order2 = newSellOrder(accountId, 10L, inboundDetail2, "2", "20", SellOrderStatus.RECEIVED, "1000");
         sellOrderMapper.insertSellOrder(order2);
 
         List<SellOrderDTO> result = sellOrderMapper.selectSellOrdersByAccountId(accountId);
@@ -166,9 +183,28 @@ class SellOrderMapperTest {
         assertThat(result).isEmpty();
     }
 
-    private SellOrderDTO newSellOrder(Long inboundDetailId, String sellQty, String basePrice,
+    @Test
+    @DisplayName("REJECTED로 inbound_detail_id 없이 저장된 건도 계좌별 조회에 포함된다 (조인이 아니라 account_id 직접 필터라서)")
+    void selectSellOrdersByAccountIdIncludesRejectedOrdersWithoutInboundDetail() throws SQLException {
+        Long accountId = 500L;
+        Long inboundDetailId = insertInboundChain(accountId);
+        SellOrderDTO executed = newSellOrder(accountId, 10L, inboundDetailId, "1", "10", SellOrderStatus.EXECUTED, "1000");
+        sellOrderMapper.insertSellOrder(executed);
+        SellOrderDTO rejected = newSellOrder(accountId, 10L, null, "5", "10", SellOrderStatus.REJECTED, null);
+        sellOrderMapper.insertSellOrder(rejected);
+
+        List<SellOrderDTO> result = sellOrderMapper.selectSellOrdersByAccountId(accountId);
+
+        assertThat(result).extracting(SellOrderDTO::getOrderId)
+                .containsExactlyInAnyOrder(executed.getOrderId(), rejected.getOrderId());
+    }
+
+    private SellOrderDTO newSellOrder(Long accountId, Long foreignProductId, Long inboundDetailId,
+                                       String sellQty, String basePrice,
                                        SellOrderStatus status, String settlementFxRate) {
         return SellOrderDTO.builder()
+                .accountId(accountId)
+                .foreignProductId(foreignProductId)
                 .inboundDetailId(inboundDetailId)
                 .sellQty(new BigDecimal(sellQty))
                 .basePrice(new BigDecimal(basePrice))
@@ -241,7 +277,9 @@ class SellOrderMapperTest {
             statement.execute("""
                     CREATE TABLE sell_order (
                         order_id BIGINT PRIMARY KEY AUTO_INCREMENT,
-                        inbound_detail_id BIGINT NOT NULL,
+                        account_id BIGINT NOT NULL,
+                        foreign_product_id BIGINT NOT NULL,
+                        inbound_detail_id BIGINT NULL,
                         sell_qty DECIMAL(15,4) NOT NULL,
                         base_price DECIMAL(15,4) NOT NULL,
                         processed_at DATETIME NULL,

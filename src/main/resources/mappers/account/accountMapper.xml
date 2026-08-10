@@ -74,6 +74,21 @@
         AND status IN ('APPLIED', 'OPENED')
         AND limit_amount = #{expectedCurrentLimit}
     </update>
+    <select id="selectOwnUsedAndReservedAmount" parameterType="Long" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(
+            CASE
+                WHEN ke.settlement_status = 'FINALIZED' THEN ke.final_amount
+                WHEN ke.exchange_id IS NOT NULL THEN ke.provisional_amount
+                ELSE so.sell_qty * so.base_price
+            END
+        ), 0)
+        FROM sell_order so
+        INNER JOIN inbound_detail ind ON ind.inbound_detail_id = so.inbound_detail_id
+        INNER JOIN inbound i ON i.inbound_id = ind.inbound_id
+        LEFT JOIN krw_exchange ke ON ke.order_id = so.order_id
+        WHERE i.account_id = #{accountId}
+          AND so.status IN ('RECEIVED', 'EXECUTED')
+    </select>
     <update id="approve" parameterType="AccountDTO">
         UPDATE account
         SET status = 'OPENED',
@@ -81,6 +96,7 @@
         opened_at = #{openedAt}
         WHERE account_id = #{accountId}
         AND status = 'APPLIED'
+        AND limit_amount = #{limitAmount}
         AND account_no IS NULL
         AND opened_at IS NULL
     </update>
@@ -114,4 +130,11 @@
         WHERE account_id = #{accountId}
         AND benefit IN('POSSIBLE','REDUCED')
     </update>
+
+    <select id="selectCiHashByCustomerId" parameterType="Long" resultType="String">
+        SELECT
+        ci_hash
+        FROM customer
+        WHERE customer_id = #{customerId}
+    </select>
 </mapper>
