@@ -56,6 +56,7 @@ public class ExternalTradeSyncServiceImpl implements ExternalTradeSyncService {
         LocalDate today = businessClockService.now().toLocalDate();
         trades = trades.stream()
                 .filter(trade -> !trade.getTradeDate().isAfter(today))
+                .map(trade -> trade.toBuilder().ciHash(customer.getCiHash()).build())
                 .sorted(Comparator.comparing(MydataTradeResponseDTO::getTradeDate))
                 .toList();
 
