@@ -93,6 +93,7 @@ CREATE TABLE account (
     last_domestic_trade_id BIGINT NULL COMMENT '국내거래 pull 커서(마지막 반영한 증권사 domestic_trade.trade_id)',
     PRIMARY KEY (account_id),
     UNIQUE KEY uk_account_customer_id (customer_id),
+    UNIQUE KEY uk_account_account_no (account_no),
     CONSTRAINT chk_account_status  CHECK (status IN ('APPLIED','OPENED','REJECTED','CLOSURE_REQUESTED','CLOSED')),
     CONSTRAINT chk_account_benefit CHECK (benefit IN ('POSSIBLE','IMPOSSIBLE','REDUCED')),
     CONSTRAINT chk_account_limit   CHECK (limit_amount > 0 AND limit_amount <= 50000000),

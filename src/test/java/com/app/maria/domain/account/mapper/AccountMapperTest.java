@@ -123,6 +123,7 @@ class AccountMapperTest {
         .accountId(accountId)
         .accountNo(accountNo)
         .openedAt(openedAt)
+        .limitAmount(DEFAULT_LIMIT)
         .build();
 
     assertThat(accountMapper.approve(approval)).isOne();
@@ -132,6 +133,21 @@ class AccountMapperTest {
     assertThat(openedAccount.getStatus()).isEqualTo(Status.OPENED);
     assertThat(openedAccount.getAccountNo()).isEqualTo(accountNo);
     assertThat(openedAccount.getOpenedAt()).isEqualTo(openedAt);
+  }
+
+  @Test
+  @DisplayName("승인은 심사에 사용한 한도와 현재 한도가 다르면 처리하지 않는다")
+  void approveDoesNotUpdateWhenExpectedLimitIsStale() {
+    Long accountId = insertApplication(1L, DEFAULT_LIMIT);
+    AccountDTO approval = AccountDTO.builder()
+        .accountId(accountId)
+        .accountNo("1234567890")
+        .openedAt(CREATED_AT.plusMinutes(1))
+        .limitAmount(BigDecimal.valueOf(20_000_000L))
+        .build();
+
+    assertThat(accountMapper.approve(approval)).isZero();
+    assertThat(accountMapper.selectByAccountId(accountId).orElseThrow().getStatus()).isEqualTo(Status.APPLIED);
   }
 
   @Test
@@ -234,6 +250,16 @@ class AccountMapperTest {
   }
 
   @Test
+  @DisplayName("자사 확정 사용액과 진행 주문 예약액을 합산한다")
+  void selectOwnUsedAndReservedAmountSumsFinalizedAndPendingOrders() throws SQLException {
+    Long accountId = insertApplication(1L, DEFAULT_LIMIT);
+    insertSellLimitData(accountId);
+
+    assertThat(accountMapper.selectOwnUsedAndReservedAmount(accountId))
+        .isEqualByComparingTo(BigDecimal.valueOf(1_050L));
+  }
+
+  @Test
   @DisplayName("관리자 오버라이드는 REJECTED 계좌만 OPENED로 변경한다")
   void overrideOpensOnlyRejectedAccount() {
     Long rejectedAccountId = insertApplication(1L, DEFAULT_LIMIT);
@@ -276,6 +302,7 @@ class AccountMapperTest {
         .accountId(secondAccountId)
         .accountNo(duplicatedAccountNo)
         .openedAt(CREATED_AT.plusMinutes(2))
+        .limitAmount(DEFAULT_LIMIT)
         .build();
 
     assertThatThrownBy(() -> accountMapper.approve(secondApproval))
@@ -321,23 +348,28 @@ class AccountMapperTest {
         Status.APPLIED,
         Status.APPLIED,
         limitChangedAt,
-        "LIMIT_CHANGE_V1|source=MYPAGE|from=30000000|to=40000000"
+        "LIMIT_CHANGE|from=30000000|to=40000000"
     ))).isOne();
 
     List<AccountStatusLogDTO> logs = accountStatusLogMapper.selectByAccountId(accountId);
 
-    assertThat(logs).hasSize(3);
+    assertThat(logs).hasSize(4);
     assertThat(logs).extracting(AccountStatusLogDTO::getNewStatus)
-        .containsExactly(Status.APPLIED, Status.REJECTED, Status.APPLIED);
+        .containsExactly(Status.APPLIED, Status.REJECTED, Status.APPLIED, Status.APPLIED);
     assertThat(logs).extracting(AccountStatusLogDTO::getReason)
-        .containsExactly("최초 개설 신청", "서류 확인 필요", "사용자 계좌 개설 재신청");
+        .containsExactly(
+            "최초 개설 신청",
+            "서류 확인 필요",
+            "사용자 계좌 개설 재신청",
+            "LIMIT_CHANGE|from=30000000|to=40000000"
+        );
 
     AccountStatusLogDTO latestLog = accountStatusLogMapper
         .selectLatestByAccountId(accountId)
         .orElseThrow();
-    assertThat(latestLog.getPrevStatus()).isEqualTo(Status.REJECTED);
+    assertThat(latestLog.getPrevStatus()).isEqualTo(Status.APPLIED);
     assertThat(latestLog.getNewStatus()).isEqualTo(Status.APPLIED);
-    assertThat(latestLog.getChangedAt()).isEqualTo(reappliedAt);
+    assertThat(latestLog.getChangedAt()).isEqualTo(limitChangedAt);
     assertThat(accountStatusLogMapper.selectLatestApplicationAt(accountId))
         .isEqualTo(reappliedAt);
 
@@ -348,7 +380,7 @@ class AccountMapperTest {
     assertThat(limitChanges.get(0).getNewStatus()).isEqualTo(Status.APPLIED);
     assertThat(limitChanges.get(0).getChangedAt()).isEqualTo(limitChangedAt);
     assertThat(limitChanges.get(0).getReason())
-        .isEqualTo("LIMIT_CHANGE_V1|source=MYPAGE|from=30000000|to=40000000");
+        .isEqualTo("LIMIT_CHANGE|from=30000000|to=40000000");
   }
 
   private void resetSchema() throws SQLException {
@@ -402,6 +434,36 @@ class AccountMapperTest {
           )
           """);
       statement.execute("""
+          CREATE TABLE inbound (
+              inbound_id BIGINT PRIMARY KEY,
+              account_id BIGINT NOT NULL
+          )
+          """);
+      statement.execute("""
+          CREATE TABLE inbound_detail (
+              inbound_detail_id BIGINT PRIMARY KEY,
+              inbound_id BIGINT NOT NULL
+          )
+          """);
+      statement.execute("""
+          CREATE TABLE sell_order (
+              order_id BIGINT PRIMARY KEY,
+              inbound_detail_id BIGINT NOT NULL,
+              sell_qty DECIMAL(15, 4) NOT NULL,
+              base_price DECIMAL(15, 4) NOT NULL,
+              status VARCHAR(10) NOT NULL
+          )
+          """);
+      statement.execute("""
+          CREATE TABLE krw_exchange (
+              exchange_id BIGINT PRIMARY KEY,
+              order_id BIGINT NOT NULL UNIQUE,
+              provisional_amount DECIMAL(15, 2) NOT NULL,
+              final_amount DECIMAL(15, 0),
+              settlement_status VARCHAR(12) NOT NULL
+          )
+          """);
+      statement.execute("""
           INSERT INTO customer (
               customer_id, name, birth_date, phone, investor_type, ci_hash
           ) VALUES
@@ -430,8 +492,28 @@ class AccountMapperTest {
         .accountId(accountId)
         .accountNo(accountNo)
         .openedAt(CREATED_AT.plusMinutes(1))
+        .limitAmount(DEFAULT_LIMIT)
         .build();
     assertThat(accountMapper.approve(approval)).isOne();
+  }
+
+  private void insertSellLimitData(Long accountId) throws SQLException {
+    try (Connection connection = dataSource.getConnection();
+         Statement statement = connection.createStatement()) {
+      statement.executeUpdate("INSERT INTO inbound (inbound_id, account_id) VALUES (1, " + accountId + ")");
+      statement.executeUpdate("INSERT INTO inbound_detail (inbound_detail_id, inbound_id) VALUES (1, 1), (2, 1), (3, 1)");
+      statement.executeUpdate("""
+          INSERT INTO sell_order (order_id, inbound_detail_id, sell_qty, base_price, status) VALUES
+          (1, 1, 3, 100, 'RECEIVED'),
+          (2, 2, 2, 100, 'EXECUTED'),
+          (3, 3, 4, 100, 'EXECUTED')
+          """);
+      statement.executeUpdate("""
+          INSERT INTO krw_exchange (exchange_id, order_id, provisional_amount, final_amount, settlement_status) VALUES
+          (1, 2, 250, NULL, 'PROVISIONAL'),
+          (2, 3, 400, 500, 'FINALIZED')
+          """);
+    }
   }
 
   private AccountStatusLogDTO statusLog(
