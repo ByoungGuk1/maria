@@ -69,6 +69,7 @@ class TargetProductMapperTest {
     private static TargetProductJudgementDTO.TargetProductJudgementDTOBuilder baseBuilder(Long mydataTradeId) {
         return TargetProductJudgementDTO.builder()
                 .mydataTradeId(mydataTradeId)
+                .ciHash("ci-1")
                 .isTarget(true)
                 .tradeType("BUY")
                 .amount(new BigDecimal("1000000.00"))
@@ -92,10 +93,11 @@ class TargetProductMapperTest {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(
-                     "SELECT mydata_trade_id, fund_code, fund_name, is_target, foreign_stock_ratio, inception_date, " +
+                     "SELECT mydata_trade_id, ci_hash, fund_code, fund_name, is_target, foreign_stock_ratio, inception_date, " +
                              "trade_type, amount, trade_date, net_buy_amount FROM target_product_judgement WHERE mydata_trade_id = 1")) {
             assertThat(resultSet.next()).isTrue();
             assertThat(resultSet.getLong("mydata_trade_id")).isEqualTo(1L);
+            assertThat(resultSet.getString("ci_hash")).isEqualTo("ci-1");
             assertThat(resultSet.getString("fund_code")).isEqualTo("448630");
             assertThat(resultSet.getString("fund_name")).isEqualTo("TIGER 미국배당다우존스");
             assertThat(resultSet.getBoolean("is_target")).isTrue();
@@ -190,6 +192,7 @@ class TargetProductMapperTest {
                     CREATE TABLE target_product_judgement (
                         judgement_id BIGINT PRIMARY KEY AUTO_INCREMENT,
                         mydata_trade_id BIGINT NOT NULL,
+                        ci_hash VARCHAR(64) NOT NULL,
                         fund_code VARCHAR(12),
                         fund_name VARCHAR(100),
                         is_target BOOLEAN NOT NULL,
