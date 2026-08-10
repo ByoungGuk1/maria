@@ -57,6 +57,7 @@ public class TargetProductServiceImpl implements TargetProductService {
 
         TargetProductJudgementDTO dto = new TargetProductJudgementDTO();
         dto.setMydataTradeId(trade.getTradeId());
+        dto.setCiHash(trade.getCiHash());
         dto.setFundCode(trade.getFundCode());
         dto.setFundName(fundName);
         dto.setIsTarget(isTarget);

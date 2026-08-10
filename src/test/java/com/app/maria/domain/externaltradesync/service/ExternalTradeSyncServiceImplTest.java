@@ -10,6 +10,8 @@ import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
 import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
 import com.app.maria.domain.targetproduct.service.TargetProductService;
 import com.app.maria.global.client.mydatatrade.MydataTradeClient;
+import com.app.maria.global.clock.service.BusinessClockService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.groups.Tuple.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -36,6 +39,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ExternalTradeSyncServiceImplTest {
+
+    private static final LocalDate TODAY = LocalDate.of(2026, 12, 31);
 
     @Mock
     private CustomerMapper customerMapper;
@@ -52,8 +57,18 @@ class ExternalTradeSyncServiceImplTest {
     @Mock
     private TargetProductService targetProductService;
 
+    @Mock
+    private BusinessClockService businessClockService;
+
     @InjectMocks
     private ExternalTradeSyncServiceImpl externalTradeSyncService;
+
+    @BeforeEach
+    void setUpClock() {
+        // 대부분의 테스트가 syncCustomer()를 거쳐 now()를 호출하지만,
+        // 고객이 아예 없는 테스트(syncAllDoesNothingWhenNoCustomers)는 호출하지 않으므로 lenient 처리
+        lenient().when(businessClockService.now()).thenReturn(TODAY.atStartOfDay());
+    }
 
     private static CustomerCiHashDTO customer(Long customerId, String ciHash) {
         return CustomerCiHashDTO.builder().customerId(customerId).ciHash(ciHash).build();
@@ -346,5 +361,56 @@ class ExternalTradeSyncServiceImplTest {
                         tuple(1L, LocalDate.of(2026, 3, 5)),
                         tuple(2L, LocalDate.of(2026, 4, 1))
                 );
+    }
+
+    @Test
+    @DisplayName("시스템 시간(오늘) 이후 거래는 판정하지 않고, 커서도 그 이전 거래에서 멈춘다")
+    void syncCustomerExcludesTradesAfterSystemToday() {
+        MydataTradeResponseDTO past = trade(100L, "FOREIGN_STOCK", null, TODAY.minusDays(5));
+        MydataTradeResponseDTO future = trade(101L, "FOREIGN_STOCK", null, TODAY.plusDays(1));
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(past, future));
+        when(targetProductMapper.existsByMydataTradeId(anyLong())).thenReturn(false);
+
+        externalTradeSyncService.syncAll();
+
+        verify(targetProductService).judge(past);
+        verify(targetProductService, never()).judge(future);
+
+        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor = ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
+        verify(cursorMapper).upsertCursor(captor.capture());
+        assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(TODAY.minusDays(5));
+    }
+
+    @Test
+    @DisplayName("거래일이 시스템 시간과 정확히 같으면 필터링되지 않고 판정된다")
+    void syncCustomerIncludesTradeExactlyOnSystemToday() {
+        MydataTradeResponseDTO onToday = trade(100L, "FOREIGN_STOCK", null, TODAY);
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(onToday));
+        when(targetProductMapper.existsByMydataTradeId(anyLong())).thenReturn(false);
+
+        externalTradeSyncService.syncAll();
+
+        verify(targetProductService).judge(onToday);
+    }
+
+    @Test
+    @DisplayName("모든 거래가 시스템 시간 이후면 아무것도 판정하지 않고 커서도 만들지 않는다")
+    void syncCustomerUpsertsNoCursorWhenAllTradesAreAfterSystemToday() {
+        MydataTradeResponseDTO future = trade(100L, "FOREIGN_STOCK", null, TODAY.plusDays(3));
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(future));
+
+        externalTradeSyncService.syncAll();
+
+        verifyNoInteractions(targetProductService);
+        verify(cursorMapper, never()).upsertCursor(any());
     }
 }

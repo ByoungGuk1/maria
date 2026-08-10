@@ -9,6 +9,7 @@ import com.app.maria.domain.externaltradesync.dto.request.MydataTradeRequestDTO;
 import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
 import com.app.maria.domain.targetproduct.service.TargetProductService;
 import com.app.maria.global.client.mydatatrade.MydataTradeClient;
+import com.app.maria.global.clock.service.BusinessClockService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ public class ExternalTradeSyncServiceImpl implements ExternalTradeSyncService {
     private final MydataTradeClient mydataTradeClient;
     private final TargetProductMapper targetProductMapper;
     private final TargetProductService targetProductService;
+    private final BusinessClockService businessClockService;
 
     @Override
     public void syncAll() {
@@ -51,7 +53,9 @@ public class ExternalTradeSyncServiceImpl implements ExternalTradeSyncService {
                 .build();
 
         List<MydataTradeResponseDTO> trades = mydataTradeClient.getTrades(request);
+        LocalDate today = businessClockService.now().toLocalDate();
         trades = trades.stream()
+                .filter(trade -> !trade.getTradeDate().isAfter(today))
                 .sorted(Comparator.comparing(MydataTradeResponseDTO::getTradeDate))
                 .toList();
 

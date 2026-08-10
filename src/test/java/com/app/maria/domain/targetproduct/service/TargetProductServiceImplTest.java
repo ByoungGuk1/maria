@@ -170,6 +170,7 @@ class TargetProductServiceImplTest {
 
         verify(targetProductMapper).insertJudgement(captor.capture());
         assertThat(captor.getValue().getMydataTradeId()).isEqualTo(7L);
+        assertThat(captor.getValue().getCiHash()).isEqualTo("ci-1");
         assertThat(captor.getValue().getJudgedAt()).isEqualTo(FIXED_NOW);
         assertThat(captor.getValue().getTradeType()).isEqualTo("BUY");
         assertThat(captor.getValue().getAmount()).isEqualByComparingTo("200000");
