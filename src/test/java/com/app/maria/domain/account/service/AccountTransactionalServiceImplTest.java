@@ -1,6 +1,7 @@
 package com.app.maria.domain.account.service;
 
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.exception.AccountException;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.type.Status;
@@ -113,6 +114,37 @@ class AccountTransactionalServiceImplTest {
     assertThatThrownBy(() -> service.approve(ACCOUNT_ID, LIMIT, NOW))
         .isInstanceOf(InvalidAccountRequestException.class)
         .hasMessage("심사 도중 계좌 한도가 변경되었습니다. 다시 심사하세요.");
+  }
+
+  @Test
+  void updateAmountPassesProvisionalDeltaToAtomicBalanceUpdate() {
+    AccountDTO increase = AccountDTO.builder()
+        .accountId(ACCOUNT_ID)
+        .amount(BigDecimal.valueOf(267_300L))
+        .build();
+    when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(account(Status.OPENED, LIMIT)));
+    when(accountMapper.updateProvisionalAmount(increase)).thenReturn(1);
+
+    service.updateAmount(increase);
+
+    ArgumentCaptor<AccountDTO> captor = ArgumentCaptor.forClass(AccountDTO.class);
+    verify(accountMapper).updateProvisionalAmount(captor.capture());
+    assertThat(captor.getValue().getAccountId()).isEqualTo(ACCOUNT_ID);
+    assertThat(captor.getValue().getAmount()).isEqualByComparingTo("267300");
+  }
+
+  @Test
+  void updateAmountThrowsWhenNoAccountBalanceIsUpdated() {
+    AccountDTO increase = AccountDTO.builder()
+        .accountId(ACCOUNT_ID)
+        .amount(BigDecimal.ONE)
+        .build();
+    when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(account(Status.OPENED, LIMIT)));
+    when(accountMapper.updateProvisionalAmount(increase)).thenReturn(0);
+
+    assertThatThrownBy(() -> service.updateAmount(increase))
+        .isInstanceOf(AccountException.class)
+        .hasMessage("계좌 잔액 수정 실패");
   }
 
   private AccountDTO account(Status status, BigDecimal limit) {

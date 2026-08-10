@@ -70,4 +70,21 @@
         )
     </insert>
 
+    <insert id="insertProvisional" parameterType="KrwExchangeDTO">
+        INSERT INTO krw_exchange (
+            account_id,
+            order_id,
+            provisional_amount,
+            provisional_at,
+            settlement_status
+        )
+        VALUES (
+            #{accountId},
+            #{orderId},
+            #{provisionalAmount},
+            #{provisionalAt},
+            'PROVISIONAL'
+        )
+    </insert>
+
 </mapper>

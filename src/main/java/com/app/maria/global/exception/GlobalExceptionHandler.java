@@ -240,4 +240,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponseDTO<Void>> handleDomesticProductNotFound(DomesticProductNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
+
+    //14. 가환전 처리 예외
+    @ExceptionHandler(ProvisionalException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleProvisionalException(ProvisionalException e){
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponseDTO.of(e.getMessage()));
+    }
 }
