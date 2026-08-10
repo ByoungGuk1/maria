@@ -15,8 +15,11 @@ import java.math.BigDecimal;
 @Builder
 public class SellOrderRequestDTO {
 
-    @NotNull(message = "출고 상세 ID를 입력하세요.")
-    private Long inboundDetailId;
+    @NotNull(message = "계좌 ID를 입력하세요.")
+    private Long accountId;
+
+    @NotNull(message = "종목 ID를 입력하세요.")
+    private Long foreignProductId;
 
     @NotNull(message = "매도 수량을 입력하세요.")
     @DecimalMin(value = "0", inclusive = false, message = "매도 수량은 0보다 커야 합니다.")
@@ -24,7 +27,8 @@ public class SellOrderRequestDTO {
 
     public SellOrderDTO toSellOrderDTO() {
         return SellOrderDTO.builder()
-                .inboundDetailId(inboundDetailId)
+                .accountId(accountId)
+                .foreignProductId(foreignProductId)
                 .sellQty(sellQty)
                 .build();
     }

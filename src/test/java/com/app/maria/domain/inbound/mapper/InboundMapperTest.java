@@ -22,6 +22,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -134,6 +135,55 @@ class InboundMapperTest {
         assertThat(availableQty).isEqualByComparingTo(BigDecimal.valueOf(40));
     }
 
+    // ---- selectFifoLots ----
+
+    @Test
+    @DisplayName("여러 lot이 있으면 purchase_date 오래된 순으로 반환한다")
+    void selectFifoLotsReturnsLotsOrderedByPurchaseDateAscending() {
+        Long newer = insertApprovedInbound(1L, 1L, BigDecimal.valueOf(30), PURCHASE_DATE.plusMonths(2));
+        Long oldest = insertApprovedInbound(1L, 1L, BigDecimal.valueOf(10), PURCHASE_DATE);
+        Long middle = insertApprovedInbound(1L, 1L, BigDecimal.valueOf(20), PURCHASE_DATE.plusMonths(1));
+
+        List<InboundDetailDTO> lots = inboundMapper.selectFifoLots(1L, 1L);
+
+        assertThat(lots).extracting(InboundDetailDTO::getInboundDetailId)
+                .containsExactly(oldest, middle, newer);
+    }
+
+    @Test
+    @DisplayName("current_qty가 0인 lot은 제외한다")
+    void selectFifoLotsExcludesLotsWithZeroCurrentQty() {
+        Long depleted = insertApprovedInbound(1L, 1L, BigDecimal.valueOf(10), PURCHASE_DATE);
+        reduceCurrentQty(depleted, BigDecimal.ZERO);
+        Long remaining = insertApprovedInbound(1L, 1L, BigDecimal.valueOf(20), PURCHASE_DATE.plusMonths(1));
+
+        List<InboundDetailDTO> lots = inboundMapper.selectFifoLots(1L, 1L);
+
+        assertThat(lots).extracting(InboundDetailDTO::getInboundDetailId)
+                .containsExactly(remaining);
+    }
+
+    @Test
+    @DisplayName("다른 계좌·다른 종목의 lot은 제외한다")
+    void selectFifoLotsExcludesOtherAccountsAndProducts() {
+        insertApprovedInbound(2L, 1L, BigDecimal.valueOf(10), PURCHASE_DATE);
+        insertApprovedInbound(1L, 2L, BigDecimal.valueOf(10), PURCHASE_DATE);
+        Long matching = insertApprovedInbound(1L, 1L, BigDecimal.valueOf(10), PURCHASE_DATE);
+
+        List<InboundDetailDTO> lots = inboundMapper.selectFifoLots(1L, 1L);
+
+        assertThat(lots).extracting(InboundDetailDTO::getInboundDetailId)
+                .containsExactly(matching);
+    }
+
+    @Test
+    @DisplayName("해당 계좌·종목의 lot이 없으면 빈 목록을 반환한다")
+    void selectFifoLotsReturnsEmptyListWhenNoLotsExist() {
+        List<InboundDetailDTO> lots = inboundMapper.selectFifoLots(1L, 1L);
+
+        assertThat(lots).isEmpty();
+    }
+
     private void resetSchema() throws SQLException {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement()) {
@@ -170,6 +220,10 @@ class InboundMapperTest {
     }
 
     private Long insertApprovedInbound(Long accountId, Long foreignProductId, BigDecimal approvedQty) {
+        return insertApprovedInbound(accountId, foreignProductId, approvedQty, PURCHASE_DATE);
+    }
+
+    private Long insertApprovedInbound(Long accountId, Long foreignProductId, BigDecimal approvedQty, LocalDateTime purchaseDate) {
         InboundDTO inboundDTO = InboundDTO.builder()
                 .accountId(accountId)
                 .requestedQty(approvedQty)
@@ -183,7 +237,7 @@ class InboundMapperTest {
                 .foreignProductId(foreignProductId)
                 .qty(approvedQty)
                 .currentQty(approvedQty)
-                .purchaseDate(PURCHASE_DATE)
+                .purchaseDate(purchaseDate)
                 .purchasePrice(PURCHASE_PRICE)
                 .purchaseCurrency("USD")
                 .purchaseFxRate(PURCHASE_FX_RATE)

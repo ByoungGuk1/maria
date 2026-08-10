@@ -11,12 +11,14 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @ToString
-@Builder
+@Builder(toBuilder = true)
 @EqualsAndHashCode(of = "orderId")
 public class SellOrderDTO {
 
     private Long orderId;
     private Long inboundDetailId;
+    private Long accountId;
+    private Long foreignProductId;
     private BigDecimal sellQty;
     private BigDecimal basePrice;
     private BigDecimal settlementFxRate;

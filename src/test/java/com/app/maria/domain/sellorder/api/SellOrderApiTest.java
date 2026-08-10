@@ -48,31 +48,98 @@ class SellOrderApiTest {
 
     private SellOrderRequestDTO.SellOrderRequestDTOBuilder validRequestBuilder() {
         return SellOrderRequestDTO.builder()
-                .inboundDetailId(1L)
+                .accountId(1L)
+                .foreignProductId(1L)
                 .sellQty(new BigDecimal("10"));
     }
 
     @Test
-    @DisplayName("매도 주문 접수 성공 시 201과 결과를 반환한다")
+    @DisplayName("한도 이내로 체결되면 201과 EXECUTED 상태, 체결 메시지를 반환한다")
     @WithMockUser(roles = "SETTLEMENT")
-    void placeSellOrderReturns201WithResultOnSuccess() throws Exception {
+    void placeSellOrderReturns201WithExecutedStatusAndMessageWhenWithinLimit() throws Exception {
         SellOrderRequestDTO request = validRequestBuilder().build();
 
         SellOrderResponseDTO response = SellOrderResponseDTO.builder()
                 .orderId(100L)
                 .inboundDetailId(1L)
+                .accountId(1L)
+                .foreignProductId(1L)
                 .sellQty(new BigDecimal("10"))
-                .status(SellOrderStatus.RECEIVED)
+                .status(SellOrderStatus.EXECUTED)
                 .build();
 
-        when(sellOrderService.placeSellOrder(any())).thenReturn(response);
+        when(sellOrderService.placeSellOrder(any())).thenReturn(List.of(response));
 
         mockMvc.perform(post("/api/sell-orders")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.orderId").value(100))
-                .andExpect(jsonPath("$.data.status").value("RECEIVED"));
+                .andExpect(jsonPath("$.message").value("매도 주문이 체결되었습니다."))
+                .andExpect(jsonPath("$.data[0].orderId").value(100))
+                .andExpect(jsonPath("$.data[0].status").value("EXECUTED"));
+    }
+
+    @Test
+    @DisplayName("매도 수량이 여러 입고 lot에 걸쳐 FIFO로 체결되면 체결된 lot 수만큼 응답 목록이 반환된다")
+    @WithMockUser(roles = "SETTLEMENT")
+    void placeSellOrderReturnsOneEntryPerLotWhenFilledAcrossMultipleLots() throws Exception {
+        SellOrderRequestDTO request = validRequestBuilder().build();
+
+        SellOrderResponseDTO firstLot = SellOrderResponseDTO.builder()
+                .orderId(100L)
+                .inboundDetailId(1L)
+                .accountId(1L)
+                .foreignProductId(1L)
+                .sellQty(new BigDecimal("6"))
+                .status(SellOrderStatus.EXECUTED)
+                .build();
+        SellOrderResponseDTO secondLot = SellOrderResponseDTO.builder()
+                .orderId(101L)
+                .inboundDetailId(2L)
+                .accountId(1L)
+                .foreignProductId(1L)
+                .sellQty(new BigDecimal("4"))
+                .status(SellOrderStatus.EXECUTED)
+                .build();
+
+        when(sellOrderService.placeSellOrder(any())).thenReturn(List.of(firstLot, secondLot));
+
+        mockMvc.perform(post("/api/sell-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.message").value("매도 주문이 체결되었습니다."))
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].inboundDetailId").value(1))
+                .andExpect(jsonPath("$.data[1].inboundDetailId").value(2));
+    }
+
+    @Test
+    @DisplayName("한도 초과로 거부되면 201과 REJECTED 상태, 거부 메시지를 반환하고 lot과 연결되지 않은 단건 응답을 준다")
+    @WithMockUser(roles = "SETTLEMENT")
+    void placeSellOrderReturns201WithRejectedStatusAndMessageWhenLimitExceeded() throws Exception {
+        SellOrderRequestDTO request = validRequestBuilder().build();
+
+        SellOrderResponseDTO response = SellOrderResponseDTO.builder()
+                .orderId(101L)
+                .inboundDetailId(null)
+                .accountId(1L)
+                .foreignProductId(1L)
+                .sellQty(new BigDecimal("10"))
+                .status(SellOrderStatus.REJECTED)
+                .build();
+
+        when(sellOrderService.placeSellOrder(any())).thenReturn(List.of(response));
+
+        mockMvc.perform(post("/api/sell-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.message").value("매도 한도 초과로 거부되었습니다."))
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].orderId").value(101))
+                .andExpect(jsonPath("$.data[0].status").value("REJECTED"))
+                .andExpect(jsonPath("$.data[0].inboundDetailId").doesNotExist());
     }
 
     @Test
@@ -153,16 +220,31 @@ class SellOrderApiTest {
     }
 
     @Test
-    @DisplayName("매도 주문 접수 시 출고 상세 ID가 없으면 검증 실패로 400을 반환하고 서비스는 호출되지 않는다")
+    @DisplayName("매도 주문 접수 시 계좌 ID가 없으면 검증 실패로 400을 반환하고 서비스는 호출되지 않는다")
     @WithMockUser(roles = "SETTLEMENT")
-    void placeSellOrderReturns400WhenInboundDetailIdMissing() throws Exception {
-        SellOrderRequestDTO request = validRequestBuilder().inboundDetailId(null).build();
+    void placeSellOrderReturns400WhenAccountIdMissing() throws Exception {
+        SellOrderRequestDTO request = validRequestBuilder().accountId(null).build();
 
         mockMvc.perform(post("/api/sell-orders")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("출고 상세 ID를 입력하세요."));
+                .andExpect(jsonPath("$.message").value("계좌 ID를 입력하세요."));
+
+        verify(sellOrderService, never()).placeSellOrder(any());
+    }
+
+    @Test
+    @DisplayName("매도 주문 접수 시 종목 ID가 없으면 검증 실패로 400을 반환하고 서비스는 호출되지 않는다")
+    @WithMockUser(roles = "SETTLEMENT")
+    void placeSellOrderReturns400WhenForeignProductIdMissing() throws Exception {
+        SellOrderRequestDTO request = validRequestBuilder().foreignProductId(null).build();
+
+        mockMvc.perform(post("/api/sell-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("종목 ID를 입력하세요."));
 
         verify(sellOrderService, never()).placeSellOrder(any());
     }
@@ -200,7 +282,7 @@ class SellOrderApiTest {
     void getSellOrderReturns200WithResultWhenExists() throws Exception {
         SellOrderResponseDTO response = SellOrderResponseDTO.builder()
                 .orderId(100L)
-                .status(SellOrderStatus.RECEIVED)
+                .status(SellOrderStatus.EXECUTED)
                 .build();
 
         when(sellOrderService.getSellOrder(100L)).thenReturn(response);
@@ -229,7 +311,7 @@ class SellOrderApiTest {
         SellOrderResponseDTO response = SellOrderResponseDTO.builder()
                 .orderId(100L)
                 .inboundDetailId(1L)
-                .status(SellOrderStatus.RECEIVED)
+                .status(SellOrderStatus.EXECUTED)
                 .build();
 
         when(sellOrderService.getSellOrderByAccount(1L)).thenReturn(List.of(response));
@@ -237,7 +319,7 @@ class SellOrderApiTest {
         mockMvc.perform(get("/api/sell-orders").param("accountId", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].orderId").value(100))
-                .andExpect(jsonPath("$.data[0].status").value("RECEIVED"));
+                .andExpect(jsonPath("$.data[0].status").value("EXECUTED"));
     }
 
     @Test

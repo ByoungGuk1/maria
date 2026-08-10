@@ -18,10 +18,7 @@ public class SellLimitServiceImpl implements SellLimitService {
     private final MydataClient mydataClient;
 
     @Override
-    public void validateSellLimit(Long inboundId, BigDecimal orderAmount) {
-        Long accountId = sellLimitMapper.selectAccountByInboundId(inboundId)
-                .orElseThrow(() -> new SellOrderException("계좌 정보를 찾을 수 없습니다."));
-
+    public boolean isWithinSellLimit(Long accountId, BigDecimal orderAmount) {
         BigDecimal limitAmount = sellLimitMapper.selectAccountLimitForUpdate(accountId)
                 .orElseThrow(() -> new SellOrderException("계좌 한도 정보를 찾을 수 없습니다."));
 
@@ -35,9 +32,8 @@ public class SellLimitServiceImpl implements SellLimitService {
         BigDecimal externalSum = mydataClient.getExternalSellTotal(ciHash);
 
         BigDecimal totalAfterThisOrder = finalizedSum.add(pendingSum).add(externalSum).add(orderAmount);
-        if (totalAfterThisOrder.compareTo(limitAmount) > 0) {
-            throw new SellOrderException("매도 한도를 초과했습니다.");
-        }
+
+        return totalAfterThisOrder.compareTo(limitAmount) <= 0;
     }
 
 }
