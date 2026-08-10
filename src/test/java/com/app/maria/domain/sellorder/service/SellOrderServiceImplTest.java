@@ -12,6 +12,9 @@ import com.app.maria.domain.sellorder.exception.SellOrderException;
 import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.domain.sellorder.mapper.SellOrderMapper;
 import com.app.maria.domain.sellorder.type.SellOrderStatus;
+import com.app.maria.domain.settlement.service.ProvisionalExchangeService;
+import com.app.maria.global.audit.dto.AuditLogDTO;
+import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.client.exchange.ExchangeRateClient;
 import com.app.maria.global.client.kis.KisPriceClient;
 import com.app.maria.global.clock.service.BusinessClockService;
@@ -39,6 +42,7 @@ import static org.mockito.Mockito.*;
 class SellOrderServiceImplTest {
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 9, 12, 0);
+    private static final Long ACTOR_ADMIN_ID = 99L;
 
     @Mock
     SellOrderMapper sellOrderMapper;
@@ -60,6 +64,12 @@ class SellOrderServiceImplTest {
 
     @Mock
     BusinessClockService businessClockService;
+
+    @Mock
+    AuditLogService auditLogService;
+
+    @Mock
+    ProvisionalExchangeService provisionalExchangeService;
 
     @InjectMocks
     SellOrderServiceImpl sellOrderService;
@@ -108,7 +118,7 @@ class SellOrderServiceImplTest {
         when(businessClockService.now()).thenReturn(NOW);
         BigDecimal expectedBasePrice = new BigDecimal("308.91").multiply(new BigDecimal("1433.6"));
 
-        List<SellOrderResponseDTO> result = sellOrderService.placeSellOrder(request);
+        List<SellOrderResponseDTO> result = sellOrderService.placeSellOrder(ACTOR_ADMIN_ID, request);
 
         assertThat(result).hasSize(1);
         SellOrderResponseDTO first = result.get(0);
@@ -130,6 +140,13 @@ class SellOrderServiceImplTest {
         assertThat(saved.getBasePrice()).isEqualByComparingTo(expectedBasePrice);
         assertThat(saved.getSettlementFxRate()).isEqualByComparingTo("1433.6");
         assertThat(saved.getProcessedAt()).isEqualTo(NOW);
+
+        ArgumentCaptor<AuditLogDTO> auditCaptor = ArgumentCaptor.forClass(AuditLogDTO.class);
+        verify(auditLogService, times(1)).log(auditCaptor.capture());
+        AuditLogDTO auditLog = auditCaptor.getValue();
+        assertThat(auditLog.getAdminId()).isEqualTo(ACTOR_ADMIN_ID);
+        assertThat(auditLog.getTargetTable()).isEqualTo("SELL_ORDER");
+        assertThat(auditLog.getReasonCode()).isEqualTo("SELL_ORDER_EXECUTED");
     }
 
     @Test
@@ -147,7 +164,7 @@ class SellOrderServiceImplTest {
         when(inboundMapper.decreaseCurrentQty(2L, new BigDecimal("4"))).thenReturn(1);
         when(businessClockService.now()).thenReturn(NOW);
 
-        List<SellOrderResponseDTO> result = sellOrderService.placeSellOrder(request);
+        List<SellOrderResponseDTO> result = sellOrderService.placeSellOrder(ACTOR_ADMIN_ID, request);
 
         assertThat(result).hasSize(2);
         assertThat(result.get(0).getInboundDetailId()).isEqualTo(1L);
@@ -159,6 +176,7 @@ class SellOrderServiceImplTest {
         verify(inboundMapper, times(1)).decreaseCurrentQty(1L, new BigDecimal("6"));
         verify(inboundMapper, times(1)).decreaseCurrentQty(2L, new BigDecimal("4"));
         verify(sellOrderMapper, times(2)).insertSellOrder(any());
+        verify(auditLogService, times(2)).log(any());
     }
 
     @Test
@@ -177,7 +195,7 @@ class SellOrderServiceImplTest {
         BigDecimal expectedOrderAmount = new BigDecimal("10")
                 .multiply(new BigDecimal("308.91").multiply(new BigDecimal("1433.6")));
 
-        sellOrderService.placeSellOrder(request);
+        sellOrderService.placeSellOrder(ACTOR_ADMIN_ID, request);
 
         ArgumentCaptor<BigDecimal> amountCaptor = ArgumentCaptor.forClass(BigDecimal.class);
         verify(sellLimitService, times(1)).isWithinSellLimit(eq(1L), amountCaptor.capture());
@@ -198,7 +216,7 @@ class SellOrderServiceImplTest {
         when(businessClockService.now()).thenReturn(NOW);
         BigDecimal expectedBasePrice = new BigDecimal("308.91").multiply(new BigDecimal("1433.6"));
 
-        List<SellOrderResponseDTO> result = sellOrderService.placeSellOrder(request);
+        List<SellOrderResponseDTO> result = sellOrderService.placeSellOrder(ACTOR_ADMIN_ID, request);
 
         assertThat(result).hasSize(1);
         SellOrderResponseDTO rejected = result.get(0);
@@ -214,6 +232,13 @@ class SellOrderServiceImplTest {
         verify(sellOrderMapper, times(1)).insertSellOrder(captor.capture());
         assertThat(captor.getValue().getStatus()).isEqualTo(SellOrderStatus.REJECTED);
         assertThat(captor.getValue().getInboundDetailId()).isNull();
+
+        ArgumentCaptor<AuditLogDTO> auditCaptor = ArgumentCaptor.forClass(AuditLogDTO.class);
+        verify(auditLogService, times(1)).log(auditCaptor.capture());
+        AuditLogDTO auditLog = auditCaptor.getValue();
+        assertThat(auditLog.getAdminId()).isEqualTo(ACTOR_ADMIN_ID);
+        assertThat(auditLog.getTargetTable()).isEqualTo("SELL_ORDER");
+        assertThat(auditLog.getReasonCode()).isEqualTo("SELL_ORDER_REJECTED");
     }
 
     @Test
@@ -227,11 +252,11 @@ class SellOrderServiceImplTest {
         when(kisPriceClient.getPreviousClose("NAS", "AAPL"))
                 .thenThrow(new KisPriceNotFoundException("전일종가 조회 실패: AAPL"));
 
-        assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
+        assertThatThrownBy(() -> sellOrderService.placeSellOrder(ACTOR_ADMIN_ID, request))
                 .isInstanceOf(KisPriceNotFoundException.class);
 
         verify(exchangeRateClient, never()).getBaseRate(any());
-        verifyNoInteractions(sellOrderMapper, sellLimitService);
+        verifyNoInteractions(sellOrderMapper, sellLimitService, auditLogService);
         verify(inboundMapper, never()).decreaseCurrentQty(any(), any());
     }
 
@@ -242,12 +267,12 @@ class SellOrderServiceImplTest {
 
         when(inboundMapper.selectFifoLots(1L, 10L)).thenReturn(List.of());
 
-        assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
+        assertThatThrownBy(() -> sellOrderService.placeSellOrder(ACTOR_ADMIN_ID, request))
                 .isInstanceOf(SellOrderException.class)
                 .hasMessage("매도 가능 수량을 초과했습니다.");
 
         verify(inboundMapper, never()).decreaseCurrentQty(any(), any());
-        verifyNoInteractions(kisPriceClient, exchangeRateClient, sellOrderMapper, foreignProductMapper, sellLimitService);
+        verifyNoInteractions(kisPriceClient, exchangeRateClient, sellOrderMapper, foreignProductMapper, sellLimitService, auditLogService);
     }
 
     @Test
@@ -257,12 +282,12 @@ class SellOrderServiceImplTest {
         when(inboundMapper.selectFifoLots(1L, 10L))
                 .thenReturn(List.of(lot(1L, "50", LocalDateTime.of(2026, 1, 1, 0, 0))));
 
-        assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
+        assertThatThrownBy(() -> sellOrderService.placeSellOrder(ACTOR_ADMIN_ID, request))
                 .isInstanceOf(SellOrderException.class)
                 .hasMessage("매도 가능 수량을 초과했습니다.");
 
         verify(inboundMapper, never()).decreaseCurrentQty(any(), any());
-        verifyNoInteractions(kisPriceClient, exchangeRateClient, sellOrderMapper, foreignProductMapper, sellLimitService);
+        verifyNoInteractions(kisPriceClient, exchangeRateClient, sellOrderMapper, foreignProductMapper, sellLimitService, auditLogService);
     }
 
     @Test
@@ -274,12 +299,12 @@ class SellOrderServiceImplTest {
                 .thenReturn(List.of(lot(1L, "50", LocalDateTime.of(2026, 1, 1, 0, 0))));
         when(foreignProductMapper.selectById(10L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
+        assertThatThrownBy(() -> sellOrderService.placeSellOrder(ACTOR_ADMIN_ID, request))
                 .isInstanceOf(ForeignProductNotFoundException.class)
                 .hasMessage("종목 정보를 찾을 수 없습니다.");
 
         verify(inboundMapper, never()).decreaseCurrentQty(any(), any());
-        verifyNoInteractions(kisPriceClient, exchangeRateClient, sellOrderMapper, sellLimitService);
+        verifyNoInteractions(kisPriceClient, exchangeRateClient, sellOrderMapper, sellLimitService, auditLogService);
     }
 
     @Test
@@ -294,11 +319,11 @@ class SellOrderServiceImplTest {
         when(sellLimitService.isWithinSellLimit(any(), any())).thenReturn(true);
         when(inboundMapper.decreaseCurrentQty(1L, new BigDecimal("10"))).thenReturn(0);
 
-        assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
+        assertThatThrownBy(() -> sellOrderService.placeSellOrder(ACTOR_ADMIN_ID, request))
                 .isInstanceOf(SellOrderException.class)
                 .hasMessage("다른 요청이 먼저 처리되었습니다.");
 
-        verifyNoInteractions(sellOrderMapper);
+        verifyNoInteractions(sellOrderMapper, auditLogService);
     }
 
     @Test
@@ -316,11 +341,12 @@ class SellOrderServiceImplTest {
         when(inboundMapper.decreaseCurrentQty(2L, new BigDecimal("4"))).thenReturn(0);
         when(businessClockService.now()).thenReturn(NOW);
 
-        assertThatThrownBy(() -> sellOrderService.placeSellOrder(request))
+        assertThatThrownBy(() -> sellOrderService.placeSellOrder(ACTOR_ADMIN_ID, request))
                 .isInstanceOf(SellOrderException.class)
                 .hasMessage("다른 요청이 먼저 처리되었습니다.");
 
         verify(sellOrderMapper, times(1)).insertSellOrder(any());
+        verify(auditLogService, times(1)).log(any());
     }
 
     @Test
