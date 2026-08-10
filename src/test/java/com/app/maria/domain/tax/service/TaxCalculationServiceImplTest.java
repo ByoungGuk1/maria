@@ -13,10 +13,12 @@ import static org.mockito.Mockito.when;
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.mapper.AccountMapper;
+import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationResponseDTO;
 import com.app.maria.domain.tax.mapper.TaxMapper;
+import static com.app.maria.domain.tax.fixture.TaxFixtures.externalBuy;
 import static com.app.maria.domain.tax.fixture.TaxFixtures.lot;
 import static com.app.maria.domain.tax.fixture.TaxFixtures.reliefRates;
 import com.app.maria.global.clock.service.BusinessClockService;
@@ -67,6 +69,8 @@ class TaxCalculationServiceImplTest {
         when(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW))
                 .thenReturn(List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100")));
         when(taxMapper.findTaxRules()).thenReturn(reliefRates());
+        when(taxMapper.findExternalBuysByAccountAndYear(ACCOUNT_ID, TAX_YEAR))
+                .thenReturn(List.of(externalBuy(LocalDate.of(2026, 6, 15), "10000000")));
 
         TaxCalculationResponseDTO response = taxCalculationService.taxCalculate(ACCOUNT_ID);
 
@@ -74,6 +78,8 @@ class TaxCalculationServiceImplTest {
         assertThat(response.getTaxCalculationResultDTO().getWeightedSell()).isEqualByComparingTo("30000000");
         assertThat(response.getTaxCalculationResultDTO().getWeightedGain()).isEqualByComparingTo("20000000");
         assertThat(response.getTaxCalculationResultDTO().getOriginalGainAmount()).isEqualByComparingTo("20000000");
+        assertThat(response.getTaxCalculationResultDTO().getWeightedExternalAmount())
+                .isEqualByComparingTo("8000000");
     }
 
     @Test
@@ -96,10 +102,12 @@ class TaxCalculationServiceImplTest {
         when(taxMapper.findFinalizedLotsByAccountAndYear(anyLong(), anyInt(), any()))
                 .thenReturn(List.of());
         when(taxMapper.findTaxRules()).thenReturn(reliefRates());
+        when(taxMapper.findExternalBuysByAccountAndYear(anyLong(), anyInt())).thenReturn(List.of());
 
         taxCalculationService.taxCalculate(ACCOUNT_ID);
 
         verify(taxMapper).findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW);
+        verify(taxMapper).findExternalBuysByAccountAndYear(ACCOUNT_ID, TAX_YEAR);
     }
 
     @Test
@@ -109,17 +117,21 @@ class TaxCalculationServiceImplTest {
         stubTaxYearAndClock();
         List<SellLotDTO> lots = List.of(lot(LocalDate.of(2026, 6, 15), "10000000", "100", "1000", "40"));
         List<TaxRuleDTO> rules = reliefRates();
+        List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "5000000"));
         when(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW)).thenReturn(lots);
         when(taxMapper.findTaxRules()).thenReturn(rules);
+        when(taxMapper.findExternalBuysByAccountAndYear(ACCOUNT_ID, TAX_YEAR)).thenReturn(external);
 
         taxCalculationService.taxCalculate(ACCOUNT_ID);
 
         ArgumentCaptor<List<SellLotDTO>> lotCaptor = ArgumentCaptor.forClass(List.class);
         ArgumentCaptor<List<TaxRuleDTO>> ruleCaptor = ArgumentCaptor.forClass(List.class);
-        verify(taxCalculator).calculate(lotCaptor.capture(), ruleCaptor.capture());
+        ArgumentCaptor<List<ExternalBuyDTO>> externalCaptor = ArgumentCaptor.forClass(List.class);
+        verify(taxCalculator).calculate(lotCaptor.capture(), ruleCaptor.capture(), externalCaptor.capture());
 
         assertThat(lotCaptor.getValue()).isSameAs(lots);
         assertThat(ruleCaptor.getValue()).isSameAs(rules);
+        assertThat(externalCaptor.getValue()).isSameAs(external);
     }
 
     @Test
@@ -129,12 +141,14 @@ class TaxCalculationServiceImplTest {
         stubTaxYearAndClock();
         when(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW)).thenReturn(List.of());
         when(taxMapper.findTaxRules()).thenReturn(reliefRates());
+        when(taxMapper.findExternalBuysByAccountAndYear(ACCOUNT_ID, TAX_YEAR)).thenReturn(List.of());
 
         TaxCalculationResponseDTO response = taxCalculationService.taxCalculate(ACCOUNT_ID);
 
         assertThat(response.getTaxCalculationResultDTO().getWeightedSell()).isEqualByComparingTo("0");
         assertThat(response.getTaxCalculationResultDTO().getWeightedGain()).isEqualByComparingTo("0");
         assertThat(response.getTaxCalculationResultDTO().getOriginalGainAmount()).isEqualByComparingTo("0");
+        assertThat(response.getTaxCalculationResultDTO().getWeightedExternalAmount()).isEqualByComparingTo("0");
     }
 
     private void stubAccount() {
