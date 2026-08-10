@@ -74,6 +74,38 @@ public class TaxTestFixture {
                 """.formatted(accountId, orderId, finalAmount, finalAmount, settlementStatus));
     }
 
+    /** 고객 1명 + 그 고객의 RIA 계좌 1개를 만들고 account_id를 돌려준다. */
+    public Long insertCustomerWithAccount(String ciHash) {
+        Long customerId = insertReturningId("""
+                INSERT INTO customer (name, birth_date, investor_type, ci_hash)
+                VALUES ('테스트고객', '1990-01-01', 'NEUTRAL', '%s')
+                """.formatted(ciHash));
+
+        return insertReturningId("""
+                INSERT INTO account (customer_id, status, limit_amount, amount, benefit)
+                VALUES (%d, 'OPENED', 50000000, 0, 'POSSIBLE')
+                """.formatted(customerId));
+    }
+
+    /** 계좌 없이 고객만 만든다(계좌 미개설 고객의 판정건이 새어나오는지 확인용). */
+    public void insertCustomerOnly(String ciHash) {
+        execute("""
+                INSERT INTO customer (name, birth_date, investor_type, ci_hash)
+                VALUES ('계좌없는고객', '1990-01-01', 'NEUTRAL', '%s')
+                """.formatted(ciHash));
+    }
+
+    public void insertJudgement(Long mydataTradeId, String ciHash, boolean isTarget,
+                                String tradeDate, String netBuyAmount) {
+        execute("""
+                INSERT INTO target_product_judgement
+                    (mydata_trade_id, ci_hash, is_target, judged_at, trade_type, amount, trade_date, net_buy_amount)
+                VALUES (%d, '%s', %b, '2026-12-31 01:00:00', '%s', %s, '%s', %s)
+                """.formatted(mydataTradeId, ciHash, isTarget,
+                netBuyAmount.startsWith("-") ? "SELL" : "BUY",
+                netBuyAmount.replace("-", ""), tradeDate, netBuyAmount));
+    }
+
     private String readSchema() {
         try (InputStream in = getClass().getClassLoader().getResourceAsStream(SCHEMA_PATH)) {
             if (in == null) {

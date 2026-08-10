@@ -1,5 +1,6 @@
 package com.app.maria.domain.tax.fixture;
 
+import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
 import java.math.BigDecimal;
@@ -35,6 +36,14 @@ public final class TaxFixtures {
 
     public static TaxRuleDTO rule(String ruleType, String value, LocalDate validFrom, LocalDate validTo) {
         return new TaxRuleDTO(null, ruleType, new BigDecimal(value), validFrom, validTo);
+    }
+
+    /** RIA 외 계좌 감시대상 거래 1건. netBuyAmount는 SELL이면 음수로 넣는다(G2가 부호를 처리해 저장하므로). */
+    public static ExternalBuyDTO externalBuy(LocalDate tradeDate, String netBuyAmount) {
+        return ExternalBuyDTO.builder()
+                .tradeDate(tradeDate)
+                .netBuyAmount(new BigDecimal(netBuyAmount))
+                .build();
     }
 
     public static SellLotDTO lot(LocalDate sellAt, String finalAmount,
