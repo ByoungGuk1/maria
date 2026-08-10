@@ -100,6 +100,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponseDTO<Void>> handleKisPriceNotFoundException(KisPriceNotFoundException e) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
     }
+
     @ExceptionHandler(UnsupportedExchangeException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleUnsupportedExchangeException(UnsupportedExchangeException e) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
@@ -207,13 +208,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 
-    //10.Withdrawal 예외
+    // 10. Withdrawal 예외
     @ExceptionHandler(WithdrawalException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleWithdrawalException(WithdrawalException e){
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
     }
 
-    //11. Clock 예외
+    // 11. Clock 예외
     @ExceptionHandler(SystemClockNotInitializedException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleSystemClockNotInitializedException(SystemClockNotInitializedException e){
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponseDTO.of(e.getMessage()));
@@ -224,7 +225,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
     }
 
-    //12. Audit 예외
+    // 12. Audit 예외
     @ExceptionHandler(AuditLogException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleAuditLogException(AuditLogException e){
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
@@ -238,6 +239,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuditLogNotFoundException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleAuditLogNotFoundException(AuditLogNotFoundException e){
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    // 13. 가환전 처리 예외
+    @ExceptionHandler(ProvisionalException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleProvisionalException(ProvisionalException e){
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponseDTO.of(e.getMessage()));
     }
 
 }
