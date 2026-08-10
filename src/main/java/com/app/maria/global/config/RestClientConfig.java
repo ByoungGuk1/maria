@@ -1,5 +1,6 @@
 package com.app.maria.global.config;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
@@ -8,9 +9,18 @@ import org.springframework.web.client.RestClient;
 public class RestClientConfig {
 
     @Bean
-    public RestClient restClient() {
-        return RestClient.builder()
+    @Qualifier("registrableStockRestClient")
+    public RestClient restClient(RestClient.Builder builder) {
+        return builder
                 .baseUrl("http://localhost:10001")
+                .build();
+    }
+
+    @Bean
+    @Qualifier("mydataRestClient")
+    public RestClient mydataRestClient(RestClient.Builder builder) {
+        return builder
+                .baseUrl("http://localhost:10002")
                 .build();
     }
 }
