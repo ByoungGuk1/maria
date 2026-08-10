@@ -55,5 +55,10 @@ public interface AccountMapper {
   Optional<String> selectCiHashByCustomerId(Long customerId);
 
   // 계좌 잔액 변경
-  int updateProvisionalAmount(AccountDTO newAmountAccount);
+
+  /**
+   * @param provisionalAmountDelta : AccountDTO.builder().accountId(업데이트 할 계좌ID).amount(더해줄 amount값).build();
+   * @return 성공시 1, 실패시 0
+   */
+  int updateProvisionalAmount(AccountDTO provisionalAmountDelta);
 }

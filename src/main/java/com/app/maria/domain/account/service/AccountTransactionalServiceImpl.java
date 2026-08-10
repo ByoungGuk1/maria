@@ -138,13 +138,11 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
 
   @Override
   @Transactional(propagation = Propagation.MANDATORY)
-  public AccountDTO updateAmount(AccountDTO newAmountAccount){
-    AccountDTO foundAccount = find(newAmountAccount.getAccountId());
-    if(accountMapper.updateProvisionalAmount(newAmountAccount)!=1){
+  public void updateAmount(AccountDTO provisionalAmountDelta){
+    find(provisionalAmountDelta.getAccountId());
+    if(accountMapper.updateProvisionalAmount(provisionalAmountDelta)!=1){
       throw new AccountException("계좌 잔액 수정 실패");
     }
-    foundAccount.setAmount(foundAccount.getAmount().add(newAmountAccount.getAmount()));
-    return foundAccount;
   }
 
   private void open(AccountDTO account, LocalDateTime openedAt) {

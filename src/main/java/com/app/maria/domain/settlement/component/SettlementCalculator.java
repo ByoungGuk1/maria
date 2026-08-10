@@ -1,6 +1,7 @@
 package com.app.maria.domain.settlement.component;
 
 import com.app.maria.domain.settlement.exception.SettlementCalculationException;
+import com.app.maria.domain.settlement.type.ProvisionalRate;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -11,14 +12,13 @@ public class SettlementCalculator {
   private static final int FOREIGN_SCALE = 8;
   private static final int KRW_SCALE = 2;
   private static final RoundingMode ROUNDING_MODE = RoundingMode.HALF_UP;
-  private static final BigDecimal PROVISIONAL_RATE = new BigDecimal("0.99");
 
   public BigDecimal calculateFinalAmount(BigDecimal provisionalAmount, BigDecimal purchaseFxRate, BigDecimal finalRate) {
     validatePositive(provisionalAmount, "provisionalAmount");
     validatePositive(purchaseFxRate, "purchaseFxRate");
     validatePositive(finalRate, "finalRate");
 
-    BigDecimal provisionalRate = purchaseFxRate.multiply(PROVISIONAL_RATE);
+    BigDecimal provisionalRate = purchaseFxRate.multiply(ProvisionalRate.PROVISIONAL_RATE.getValue());
 
     BigDecimal foreignAmount = provisionalAmount.divide(provisionalRate, FOREIGN_SCALE, ROUNDING_MODE);
 
