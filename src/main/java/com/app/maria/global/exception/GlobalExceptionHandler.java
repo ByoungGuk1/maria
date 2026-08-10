@@ -228,4 +228,10 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponseDTO.of(e.getMessage()));
     }
 
+    //13. 가환전 처리 예외
+    @ExceptionHandler(ProvisionalException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleProvisionalException(ProvisionalException e){
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
 }
