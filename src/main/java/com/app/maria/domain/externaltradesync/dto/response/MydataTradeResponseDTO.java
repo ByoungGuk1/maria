@@ -2,6 +2,7 @@ package com.app.maria.domain.externaltradesync.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -11,7 +12,8 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
-@Builder
+@Builder(toBuilder = true)
+@EqualsAndHashCode(of = "tradeId")
 public class MydataTradeResponseDTO {
 
     private Long tradeId;

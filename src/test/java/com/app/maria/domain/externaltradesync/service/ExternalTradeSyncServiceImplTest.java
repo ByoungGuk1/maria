@@ -413,4 +413,22 @@ class ExternalTradeSyncServiceImplTest {
         verifyNoInteractions(targetProductService);
         verify(cursorMapper, never()).upsertCursor(any());
     }
+
+    @Test
+    @DisplayName("mydata 응답의 ciHash가 요청한 고객과 다르더라도, judge()에는 우리가 요청에 사용한 고객의 ciHash로 덮어써서 전달한다")
+    void judgeReceivesRequestedCustomerCiHashEvenWhenMydataResponseHasDifferentCiHash() {
+        MydataTradeResponseDTO mismatchedCiHash = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5))
+                .toBuilder().ciHash("ci-attacker-or-stale").build();
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(mismatchedCiHash));
+        when(targetProductMapper.existsByMydataTradeId(100L)).thenReturn(false);
+
+        externalTradeSyncService.syncAll();
+
+        ArgumentCaptor<MydataTradeResponseDTO> captor = ArgumentCaptor.forClass(MydataTradeResponseDTO.class);
+        verify(targetProductService).judge(captor.capture());
+        assertThat(captor.getValue().getCiHash()).isEqualTo("ci-1");
+    }
 }
