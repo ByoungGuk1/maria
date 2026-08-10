@@ -11,6 +11,7 @@ import com.app.maria.domain.account.type.Status;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -133,6 +134,15 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
     assertStatus(openedAccount, Status.OPENED);
     accountLogService.recordStatusChange(openedAccount, Status.REJECTED, openedAt, reason);
     return openedAccount;
+  }
+
+  @Override
+  @Transactional(propagation = Propagation.MANDATORY)
+  public void updateAmount(AccountDTO provisionalAmountDelta){
+    find(provisionalAmountDelta.getAccountId());
+    if(accountMapper.updateProvisionalAmount(provisionalAmountDelta)!=1){
+      throw new AccountException("계좌 잔액 수정 실패");
+    }
   }
 
   private void open(AccountDTO account, LocalDateTime openedAt) {

@@ -13,4 +13,5 @@ public interface AccountTransactionalService {
   AccountDTO reject(Long accountId, String reason, LocalDateTime changedAt);
   AccountDTO reapply(Long accountId, AccountReapplyRequestDTO request, LocalDateTime appliedAt);
   AccountDTO override(Long accountId, String reason, LocalDateTime openedAt);
+  void updateAmount(AccountDTO newAmountAccount);
 }

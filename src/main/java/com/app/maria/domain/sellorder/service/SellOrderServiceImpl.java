@@ -12,6 +12,7 @@ import com.app.maria.domain.sellorder.exception.SellOrderException;
 import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.domain.sellorder.mapper.SellOrderMapper;
 import com.app.maria.domain.sellorder.type.SellOrderStatus;
+import com.app.maria.domain.settlement.service.ProvisionalExchangeService;
 import com.app.maria.global.client.exchange.ExchangeRateClient;
 import com.app.maria.global.client.kis.KisExchangeCode;
 import com.app.maria.global.client.kis.KisPriceClient;
@@ -37,6 +38,7 @@ public class SellOrderServiceImpl implements SellOrderService{
     private final ForeignProductMapper foreignProductMapper;
     private final SellLimitService sellLimitService;
     private final BusinessClockService businessClockService;
+    private final ProvisionalExchangeService provisionalExchangeService;
 
     @Override
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -100,6 +102,8 @@ public class SellOrderServiceImpl implements SellOrderService{
                     .build();
             sellOrderMapper.insertSellOrder(executed);
             executeOrders.add(executed);
+
+            provisionalExchangeService.createProvisionalExchange(executed);
 
             remainingQty = remainingQty.subtract(qtyFromThisLot);
 
