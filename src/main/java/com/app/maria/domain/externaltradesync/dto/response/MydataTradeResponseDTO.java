@@ -12,7 +12,7 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
-@Builder(toBuilder = true)
+@Builder
 @EqualsAndHashCode(of = "tradeId")
 public class MydataTradeResponseDTO {
 

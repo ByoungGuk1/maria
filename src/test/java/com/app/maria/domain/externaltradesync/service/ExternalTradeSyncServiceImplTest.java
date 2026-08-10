@@ -334,7 +334,16 @@ class ExternalTradeSyncServiceImplTest {
     @DisplayName("고객이 여러 명이면 고객마다 각각 mydata를 조회하고 서로의 결과에 영향을 주지 않는다")
     void syncsMultipleCustomersIndependently() {
         MydataTradeResponseDTO customer1Trade = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
-        MydataTradeResponseDTO customer2Trade = trade(200L, "ETF", null, LocalDate.of(2026, 4, 1));
+        MydataTradeResponseDTO customer2Trade = MydataTradeResponseDTO.builder()
+                .tradeId(200L)
+                .ciHash("ci-2")
+                .brokerName("증권사A")
+                .tradeType("BUY")
+                .stockType("ETF")
+                .qty(BigDecimal.TEN)
+                .tradeDate(LocalDate.of(2026, 4, 1))
+                .amount(BigDecimal.valueOf(1_000_000))
+                .build();
 
         when(customerMapper.selectActiveRiaCustomers())
                 .thenReturn(List.of(customer(1L, "ci-1"), customer(2L, "ci-2")));
@@ -415,20 +424,56 @@ class ExternalTradeSyncServiceImplTest {
     }
 
     @Test
-    @DisplayName("mydata 응답의 ciHash가 요청한 고객과 다르더라도, judge()에는 우리가 요청에 사용한 고객의 ciHash로 덮어써서 전달한다")
-    void judgeReceivesRequestedCustomerCiHashEvenWhenMydataResponseHasDifferentCiHash() {
-        MydataTradeResponseDTO mismatchedCiHash = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5))
-                .toBuilder().ciHash("ci-attacker-or-stale").build();
+    @DisplayName("mydata 응답의 ciHash가 요청한 고객과 다르면 해당 거래는 판정하지 않고 스킵한다")
+    void judgeSkipsTradeWhenMydataResponseCiHashDoesNotMatchRequestedCustomer() {
+        MydataTradeResponseDTO mismatched = MydataTradeResponseDTO.builder()
+                .tradeId(100L)
+                .ciHash("ci-other-customer")
+                .brokerName("증권사A")
+                .tradeType("BUY")
+                .stockType("FOREIGN_STOCK")
+                .qty(BigDecimal.TEN)
+                .tradeDate(LocalDate.of(2026, 3, 5))
+                .amount(BigDecimal.valueOf(1_000_000))
+                .build();
 
         when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
         when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
-        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(mismatchedCiHash));
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(mismatched));
+
+        externalTradeSyncService.syncAll();
+
+        verifyNoInteractions(targetProductService);
+        verify(cursorMapper, never()).upsertCursor(any());
+    }
+
+    @Test
+    @DisplayName("ciHash가 일치하는 거래와 불일치하는 거래가 섞여 있으면 일치하는 거래만 판정한다")
+    void judgeProcessesOnlyMatchingCiHashTradesWhenMixedWithMismatched() {
+        MydataTradeResponseDTO matching = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
+        MydataTradeResponseDTO mismatched = MydataTradeResponseDTO.builder()
+                .tradeId(101L)
+                .ciHash("ci-other-customer")
+                .brokerName("증권사A")
+                .tradeType("BUY")
+                .stockType("FOREIGN_STOCK")
+                .qty(BigDecimal.TEN)
+                .tradeDate(LocalDate.of(2026, 3, 6))
+                .amount(BigDecimal.valueOf(1_000_000))
+                .build();
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(matching, mismatched));
         when(targetProductMapper.existsByMydataTradeId(100L)).thenReturn(false);
 
         externalTradeSyncService.syncAll();
 
-        ArgumentCaptor<MydataTradeResponseDTO> captor = ArgumentCaptor.forClass(MydataTradeResponseDTO.class);
-        verify(targetProductService).judge(captor.capture());
-        assertThat(captor.getValue().getCiHash()).isEqualTo("ci-1");
+        verify(targetProductService).judge(matching);
+        verify(targetProductService, never()).judge(mismatched);
+
+        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor = ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
+        verify(cursorMapper).upsertCursor(captor.capture());
+        assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(LocalDate.of(2026, 3, 5));
     }
 }
