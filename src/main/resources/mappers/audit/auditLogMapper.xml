@@ -7,10 +7,10 @@
 
     <insert id="insertLog">
     INSERT INTO audit_log(admin_id, target_table, target_pk, before_value, after_value, reason_code)
-    VALUES(#{adminId}, #{targetTable}, #{targetPk}, #{beforeValue}, #{afterValue}, #{reasonCode}
+    VALUES(#{adminId}, #{targetTable}, #{targetPk}, #{beforeValue}, #{afterValue}, #{reasonCode})
     </insert>
 
-    <select id="selectAuditLogs" parameterType="AuditLogSearchRequestDTO" resultType="AuditLogDTO">
+    <select id="selectAuditLogs" parameterType="com.app.maria.global.audit.dto.request.AuditLogSearchRequestDTO" resultType="com.app.maria.global.audit.dto.AuditLogDTO">
         SELECT audit_id, admin_id, target_table, target_pk, before_value, after_value, reason_code, processed_at
         FROM audit_log
         <where>

@@ -24,7 +24,8 @@ public class AuditLogResponseDTO {
     private LocalDateTime processedAt;
 
     public AuditLogResponseDTO(AuditLogDTO dto) {
-        this.auditId = dto.getAuditId();  // 관리자 이름으로 변환 예정
+        this.auditId = dto.getAuditId();
+        this.adminId = dto.getAdminId();
         this.targetTable = dto.getTargetTable();
         this.targetPk = dto.getTargetPk();
         this.beforeValue = dto.getBeforeValue();

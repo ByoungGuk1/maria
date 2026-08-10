@@ -17,8 +17,6 @@ public class AuditLogSearchRequestDTO {
     private String targetTable;
     private String targetPk;
     private ReasonCode reasonCode;
-    private String beforeValue;
-    private String afterValue;
 
     private LocalDateTime startDate;
     private LocalDateTime endDate;
