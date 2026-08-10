@@ -1,9 +1,7 @@
-package com.app.maria.global.audit.dto;
+package com.app.maria.global.audit.dto.request;
 
 import com.app.maria.global.audit.type.ReasonCode;
 import lombok.*;
-
-import java.time.LocalDateTime;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -11,15 +9,13 @@ import java.time.LocalDateTime;
 @Setter
 @ToString
 @Builder
-public class AuditLogDTO {
+public class AuditLogSearchRequestDTO {
 
-    private Long auditId;
     private Long adminId;
     private String targetTable;
     private String targetPk;
+    private ReasonCode reasonCode;
     private String beforeValue;
     private String afterValue;
-    private ReasonCode reasonCode;
-    private LocalDateTime processedAt;
 
 }
