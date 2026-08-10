@@ -53,4 +53,7 @@ public interface AccountMapper {
 
   // customerId를 통해 ci_hash 값 가져오기
   Optional<String> selectCiHashByCustomerId(Long customerId);
+
+  // 계좌 잔액 변경
+  int updateProvisionalAmount(AccountDTO newAmountAccount);
 }

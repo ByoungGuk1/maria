@@ -131,4 +131,11 @@
         FROM customer
         WHERE customer_id = #{customerId}
     </select>
+
+    <update id="updateProvisionalAmount" parameterType="AccountDTO">
+        UPDATE account
+        SET amount = amount + #{amount}
+        WHERE account_id = #{accountId}
+        AND status IN ('OPENED', 'CLOSURE_REQUESTED')
+    </update>
 </mapper>
