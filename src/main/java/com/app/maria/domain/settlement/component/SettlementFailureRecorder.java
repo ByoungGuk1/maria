@@ -1,6 +1,8 @@
 package com.app.maria.domain.settlement.component;
 
 import com.app.maria.domain.settlement.dto.SettlementItemDTO;
+import com.app.maria.domain.settlement.exception.SettlementAccountMismatchException;
+import com.app.maria.domain.settlement.exception.SettlementAccountNotFoundException;
 import com.app.maria.domain.settlement.exception.SettlementStateConflictException;
 import com.app.maria.domain.settlement.exception.ExchangeRateExternalApiException;
 import com.app.maria.domain.settlement.exception.InvalidSettlementException;
@@ -51,14 +53,14 @@ public class SettlementFailureRecorder {
     if (exception instanceof KrwExchangeNotFoundException) {
       return SettlementFailureCode.EXCHANGE_NOT_FOUND;
     }
-    if (exception instanceof InvalidSettlementException) {
-      if (exception.getMessage() != null && exception.getMessage().contains("계좌 조회")) {
-        return SettlementFailureCode.ACCOUNT_NOT_FOUND;
-      }
-      return SettlementFailureCode.INVALID_ORDER_STATUS;
+    if (exception instanceof SettlementAccountNotFoundException) {
+      return SettlementFailureCode.ACCOUNT_NOT_FOUND;
     }
-    if (exception instanceof SettlementStateConflictException && exception.getMessage() != null && exception.getMessage().contains("계좌 미일치")) {
+    if (exception instanceof SettlementAccountMismatchException) {
       return SettlementFailureCode.ACCOUNT_MISMATCH;
+    }
+    if (exception instanceof InvalidSettlementException) {
+      return SettlementFailureCode.INVALID_ORDER_STATUS;
     }
     if (exception instanceof SettlementCalculationException) {
       return SettlementFailureCode.CALCULATION_ERROR;

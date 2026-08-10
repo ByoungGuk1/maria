@@ -1,6 +1,8 @@
 package com.app.maria.domain.settlement.component;
 
 import com.app.maria.domain.settlement.dto.SettlementItemDTO;
+import com.app.maria.domain.settlement.exception.SettlementAccountMismatchException;
+import com.app.maria.domain.settlement.exception.SettlementAccountNotFoundException;
 import com.app.maria.domain.settlement.exception.SettlementStateConflictException;
 import com.app.maria.domain.settlement.exception.SettlementCalculationException;
 import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
@@ -69,6 +71,26 @@ class SettlementFailureRecorderTest {
   }
 
   @Test
+  void classifiesAccountNotFoundByExceptionTypeRegardlessOfMessage() {
+    when(settlementItemMapper.updateItemResult(any(SettlementItemDTO.class))).thenReturn(1);
+    SettlementFailureRecorder recorder = new SettlementFailureRecorder(settlementItemMapper, clockService);
+
+    recorder.markFailed(10L, new SettlementAccountNotFoundException("문구가 변경되어도 분류돼야 합니다."));
+
+    assertRecordedFailureCode(SettlementFailureCode.ACCOUNT_NOT_FOUND);
+  }
+
+  @Test
+  void classifiesAccountMismatchByExceptionTypeRegardlessOfMessage() {
+    when(settlementItemMapper.updateItemResult(any(SettlementItemDTO.class))).thenReturn(1);
+    SettlementFailureRecorder recorder = new SettlementFailureRecorder(settlementItemMapper, clockService);
+
+    recorder.markFailed(10L, new SettlementAccountMismatchException("문구가 변경되어도 분류돼야 합니다."));
+
+    assertRecordedFailureCode(SettlementFailureCode.ACCOUNT_MISMATCH);
+  }
+
+  @Test
   void rejectsNullItemIdWithoutMapperCall() {
     SettlementFailureRecorder recorder = new SettlementFailureRecorder(settlementItemMapper, clockService);
 
@@ -76,5 +98,11 @@ class SettlementFailureRecorderTest {
         .isInstanceOf(SettlementStateConflictException.class);
 
     verify(settlementItemMapper, never()).updateItemResult(any());
+  }
+
+  private void assertRecordedFailureCode(SettlementFailureCode expectedFailureCode) {
+    ArgumentCaptor<SettlementItemDTO> captor = ArgumentCaptor.forClass(SettlementItemDTO.class);
+    verify(settlementItemMapper).updateItemResult(captor.capture());
+    assertThat(captor.getValue().getFailureCode()).isEqualTo(expectedFailureCode);
   }
 }
