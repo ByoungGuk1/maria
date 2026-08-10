@@ -223,11 +223,6 @@ class TaxMapperTest {
         assertThat(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, CALC_BASE)).isEmpty();
     }
 
-    // ──────────────────── findExternalBuysByAccountAndYear ────────────────────
-    // 계좌 → 고객 → ci_hash → 판정건 으로 이어지는 2단 조인이 정확한지 확인한다.
-    // 조인 조건이 틀리면(예: account.account_id = customer.account_id) 남의 순매수가
-    // 세액 계산에 섞여 들어가므로, 격리 검증이 이 쿼리의 핵심이다.
-
     private static final String CI_HASH = "a".repeat(64);
     private static final String OTHER_CI_HASH = "b".repeat(64);
 

@@ -76,8 +76,7 @@ CREATE TABLE account (
     benefit      VARCHAR(12)
 );
 
--- account_id와 customer_id가 우연히 같은 값이 되면 조인 조건이 틀려도 테스트가 통과해버린다.
--- 시작값을 벌려 두 키를 구조적으로 구분한다.
+-- account_id와 customer_id가 같은 값이면 조인 조건이 틀려도 테스트가 통과한다
 ALTER TABLE account ALTER COLUMN account_id RESTART WITH 1000;
 
 CREATE TABLE target_product_judgement (

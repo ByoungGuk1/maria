@@ -202,8 +202,6 @@ class TaxCalculatorTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    // ────────────────────────────── ➋ 외부 순매수 가중합산 ──────────────────────────────
-
     @Test
     @DisplayName("골든 시나리오 - 외부 순매수까지 §3 검증 예시와 일치한다")
     void 골든시나리오_외부순매수() {
@@ -212,7 +210,6 @@ class TaxCalculatorTest {
                 lot(LocalDate.of(2026, 6, 15), "10000000", "100", "1000", "40"),
                 lot(LocalDate.of(2026, 9, 20), "10000000", "100", "1000", "40"));
 
-        // §3 예시: 매수 2,000만(6~7월 80%) − 매도 1,000만(8~12월 50%) = 1,600만 − 500만 = 1,100만
         List<ExternalBuyDTO> external = List.of(
                 externalBuy(LocalDate.of(2026, 6, 15), "20000000"),
                 externalBuy(LocalDate.of(2026, 9, 20), "-10000000"));
@@ -220,7 +217,6 @@ class TaxCalculatorTest {
         TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
 
         assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("11000000");
-        // ➊ 값이 외부 순매수 때문에 흔들리지 않아야 한다
         assertThat(result.getWeightedSell()).isEqualByComparingTo("43000000");
         assertThat(result.getWeightedGain()).isEqualByComparingTo("27800000");
         assertThat(result.getOriginalGainAmount()).isEqualByComparingTo("32000000");
@@ -259,9 +255,9 @@ class TaxCalculatorTest {
     void 외부_매수매도_상계() {
         List<SellLotDTO> lots = List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
         List<ExternalBuyDTO> external = List.of(
-                externalBuy(LocalDate.of(2026, 3, 10), "10000000"),    // 100% → +1,000만
-                externalBuy(LocalDate.of(2026, 6, 15), "10000000"),    //  80% →   +800만
-                externalBuy(LocalDate.of(2026, 9, 20), "-10000000"));  //  50% →   −500만
+                externalBuy(LocalDate.of(2026, 3, 10), "10000000"),
+                externalBuy(LocalDate.of(2026, 6, 15), "10000000"),
+                externalBuy(LocalDate.of(2026, 9, 20), "-10000000"));
 
         TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
 
@@ -278,7 +274,6 @@ class TaxCalculatorTest {
 
         TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
 
-        // 가중 합계는 −1,000만이지만 0에서 잘린다. 음수가 그대로 새어나가면 뒷단에서 공제가 부풀어오른다.
         assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("0");
         assertThat(result.getWeightedExternalAmount().signum()).isZero();
     }
@@ -300,7 +295,6 @@ class TaxCalculatorTest {
     @DisplayName("금액은 소수점 2자리로 반올림된다")
     void 외부_금액_스케일() {
         List<SellLotDTO> lots = List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
-        // 1,000,000.005 × 0.5 = 500,000.0025 → 500,000.00
         List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 9, 20), "1000000.005"));
 
         TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);

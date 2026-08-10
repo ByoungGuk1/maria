@@ -38,7 +38,6 @@ public final class TaxFixtures {
         return new TaxRuleDTO(null, ruleType, new BigDecimal(value), validFrom, validTo);
     }
 
-    /** RIA 외 계좌 감시대상 거래 1건. netBuyAmount는 SELL이면 음수로 넣는다(G2가 부호를 처리해 저장하므로). */
     public static ExternalBuyDTO externalBuy(LocalDate tradeDate, String netBuyAmount) {
         return ExternalBuyDTO.builder()
                 .tradeDate(tradeDate)

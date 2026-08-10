@@ -74,7 +74,6 @@ public class TaxTestFixture {
                 """.formatted(accountId, orderId, finalAmount, finalAmount, settlementStatus));
     }
 
-    /** 고객 1명 + 그 고객의 RIA 계좌 1개를 만들고 account_id를 돌려준다. */
     public Long insertCustomerWithAccount(String ciHash) {
         Long customerId = insertReturningId("""
                 INSERT INTO customer (name, birth_date, investor_type, ci_hash)
@@ -87,7 +86,6 @@ public class TaxTestFixture {
                 """.formatted(customerId));
     }
 
-    /** 계좌 없이 고객만 만든다(계좌 미개설 고객의 판정건이 새어나오는지 확인용). */
     public void insertCustomerOnly(String ciHash) {
         execute("""
                 INSERT INTO customer (name, birth_date, investor_type, ci_hash)
