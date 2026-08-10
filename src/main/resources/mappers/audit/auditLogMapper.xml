@@ -23,10 +23,9 @@
             <if test="targetPk != null and targetPk != ''">
                 AND target_pk = #{targetPk}
             </if>
-            <if test="reasonCode != null">
+            <if test="reasonCode != null and reasonCode != ''">
                 AND reason_code = #{reasonCode}
             </if>
-
             <if test="startDate != null">
                 AND processed_at &gt;= #{startDate}
             </if>
