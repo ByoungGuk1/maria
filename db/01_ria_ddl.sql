@@ -236,6 +236,7 @@ CREATE TABLE inbound_min (
 CREATE TABLE target_product_judgement (
     judgement_id         BIGINT        NOT NULL AUTO_INCREMENT,
     mydata_trade_id      BIGINT        NOT NULL COMMENT 'mydata_trade.trade_id 참조(다른 DB, FK 불가)',
+    ci_hash              VARCHAR(64)   NOT NULL COMMENT '판정 대상 고객(customer.ci_hash와 매칭)',
     fund_code            VARCHAR(12)   NULL COMMENT 'stock_type=FUND인 경우만',
     fund_name            VARCHAR(100)  NULL COMMENT '판정 시점 스냅샷',
     is_target            BOOLEAN       NOT NULL COMMENT 'G2 판정 결과(대상상품 여부)',

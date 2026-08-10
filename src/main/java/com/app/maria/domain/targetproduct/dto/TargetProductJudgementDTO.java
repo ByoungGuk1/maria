@@ -13,6 +13,7 @@ public class TargetProductJudgementDTO {
 
     private Long judgementId;
     private Long mydataTradeId;
+    private String ciHash;
     private String fundCode;
     private String fundName;
     private Boolean isTarget;
