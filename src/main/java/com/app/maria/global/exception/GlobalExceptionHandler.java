@@ -6,6 +6,8 @@ import com.app.maria.domain.account.exception.DuplicateAccountException;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.admin.exception.AdminException;
 import com.app.maria.domain.admin.exception.AdminNotFoundException;
+import com.app.maria.domain.domestic.exception.DomesticProductException;
+import com.app.maria.domain.domestic.exception.DomesticProductNotFoundException;
 import com.app.maria.domain.foreignproduct.exception.ForeignProductException;
 import com.app.maria.domain.foreignproduct.exception.ForeignProductNotFoundException;
 import com.app.maria.domain.inbound.exception.InboundException;
@@ -228,4 +230,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponseDTO.of(e.getMessage()));
     }
 
+    //13. DomesticProduct 예외
+    @ExceptionHandler(DomesticProductException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleDomesticProductException(DomesticProductException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(DomesticProductNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleDomesticProductNotFound(DomesticProductNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
+    }
 }
