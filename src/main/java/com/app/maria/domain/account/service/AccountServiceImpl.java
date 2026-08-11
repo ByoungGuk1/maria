@@ -1,6 +1,7 @@
 package com.app.maria.domain.account.service;
 
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
@@ -18,6 +19,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -220,5 +222,23 @@ public class AccountServiceImpl implements AccountService {
 
     private String normalizeReason(String reason) {
         return reason.trim();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public int getAppliedAccountCount() {
+        return accountMapper.countByStatus(Status.APPLIED);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AccountLimitUsageDTO> selectAccountLimitUsage() {
+        return accountMapper.selectAccountLimitUsage();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AccountLimitUsageDTO> getAppliedAccounts() {
+        return accountMapper.selectAppliedAccounts();
     }
 }
