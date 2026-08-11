@@ -9,12 +9,16 @@
         account_id,
         requested_amount,
         destination_account_no,
-        destination_general_account_id
+        destination_general_account_id,
+        processed_at,
+        status
         ) VALUES(
         #{accountId},
         #{requestedAmount},
         #{destinationAccountNo},
-        #{destinationGeneralAccountId}
+        #{destinationGeneralAccountId},
+        #{processedAt},
+        #{status}
         )
     </insert>
 

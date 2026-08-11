@@ -7,7 +7,7 @@ import static org.mockito.Mockito.*;
 
 import com.app.maria.global.audit.dto.AuditLogDTO;
 import com.app.maria.global.audit.exception.AuditLogInsertException;
-import com.app.maria.global.audit.mapper.AuditLogMapper;
+import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.clock.dto.SystemClockDTO;
 import com.app.maria.global.clock.dto.request.SystemClockChangeRequestDTO;
 import com.app.maria.global.clock.exception.SystemClockNotInitializedException;
@@ -28,7 +28,7 @@ class SystemClockManagementServiceImplTest {
 
     @Mock private SystemClockMapper systemClockMapper;
 
-    @Mock private AuditLogMapper auditLogMapper;
+    @Mock private AuditLogService auditLogService;
 
     @InjectMocks private SystemClockManagementServiceImpl systemClockManagementService;
 
@@ -49,7 +49,7 @@ class SystemClockManagementServiceImplTest {
         verify(systemClockMapper).selectSystemClock();
         verify(systemClockMapper, never())
                 .updateSystemClock(any(LocalDateTime.class), any(LocalDateTime.class));
-        verifyNoInteractions(auditLogMapper);
+        verifyNoInteractions(auditLogService);
     }
 
     @Test
@@ -69,7 +69,7 @@ class SystemClockManagementServiceImplTest {
         verify(systemClockMapper).selectSystemClock();
         verify(systemClockMapper, never())
                 .updateSystemClock(any(LocalDateTime.class), any(LocalDateTime.class));
-        verifyNoInteractions(auditLogMapper);
+        verifyNoInteractions(auditLogService);
     }
 
     @Test
@@ -84,15 +84,13 @@ class SystemClockManagementServiceImplTest {
 
         when(systemClockMapper.selectSystemClock()).thenReturn(Optional.of(currentClock));
         when(systemClockMapper.updateSystemClock(newDatetime, currentDatetime)).thenReturn(1);
-        when(auditLogMapper.insertLog(any(AuditLogDTO.class))).thenReturn(1);
-
         LocalDateTime result =
                 systemClockManagementService.changeSystemTime(
                         adminId, request(newDatetime, reasonCode));
 
         ArgumentCaptor<AuditLogDTO> auditLogCaptor = ArgumentCaptor.forClass(AuditLogDTO.class);
 
-        verify(auditLogMapper).insertLog(auditLogCaptor.capture());
+        verify(auditLogService).log(auditLogCaptor.capture());
 
         AuditLogDTO savedLog = auditLogCaptor.getValue();
 
@@ -105,11 +103,11 @@ class SystemClockManagementServiceImplTest {
         assertThat(savedLog.getProcessedAt()).isNull();
         assertThat(result).isEqualTo(newDatetime);
 
-        InOrder callOrder = inOrder(systemClockMapper, auditLogMapper);
+        InOrder callOrder = inOrder(systemClockMapper, auditLogService);
 
         callOrder.verify(systemClockMapper).selectSystemClock();
         callOrder.verify(systemClockMapper).updateSystemClock(newDatetime, currentDatetime);
-        callOrder.verify(auditLogMapper).insertLog(any(AuditLogDTO.class));
+        callOrder.verify(auditLogService).log(any(AuditLogDTO.class));
     }
 
     @Test
@@ -132,7 +130,7 @@ class SystemClockManagementServiceImplTest {
                 .hasMessage("다른 관리자가 업무시각을 먼저 변경했습니다. 다시 조회해 주세요.");
 
         verify(systemClockMapper).updateSystemClock(newDatetime, currentDatetime);
-        verifyNoInteractions(auditLogMapper);
+        verifyNoInteractions(auditLogService);
     }
 
     @Test
@@ -146,7 +144,9 @@ class SystemClockManagementServiceImplTest {
                                 new SystemClockDTO(
                                         1L, currentDatetime, currentDatetime, currentDatetime)));
         when(systemClockMapper.updateSystemClock(newDatetime, currentDatetime)).thenReturn(1);
-        when(auditLogMapper.insertLog(any(AuditLogDTO.class))).thenReturn(0);
+        doThrow(new AuditLogInsertException("AUDIT_LOG 저장에 실패했습니다."))
+                .when(auditLogService)
+                .log(any(AuditLogDTO.class));
 
         assertThatThrownBy(
                         () ->
@@ -156,7 +156,7 @@ class SystemClockManagementServiceImplTest {
                 .hasMessage("AUDIT_LOG 저장에 실패했습니다.");
 
         verify(systemClockMapper).updateSystemClock(newDatetime, currentDatetime);
-        verify(auditLogMapper).insertLog(any(AuditLogDTO.class));
+        verify(auditLogService).log(any(AuditLogDTO.class));
     }
 
     private static SystemClockChangeRequestDTO request(
