@@ -2,6 +2,7 @@ package com.app.maria.domain.tax.mapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
 import com.app.maria.domain.tax.fixture.TaxTestFixture;
@@ -220,5 +221,119 @@ class TaxMapperTest {
     @DisplayName("매도 이력이 없으면 빈 목록을 반환한다")
     void findLots_없으면_빈목록() {
         assertThat(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, CALC_BASE)).isEmpty();
+    }
+
+    private static final String CI_HASH = "a".repeat(64);
+    private static final String OTHER_CI_HASH = "b".repeat(64);
+
+    @Test
+    @DisplayName("판정건의 컬럼이 DTO 필드로 매핑된다")
+    void findExternal_컬럼매핑() {
+        Long accountId = fixture.insertCustomerWithAccount(CI_HASH);
+        fixture.insertJudgement(1L, CI_HASH, true, "2026-06-15", "20000000.00");
+
+        List<ExternalBuyDTO> result = taxMapper.findExternalBuysByAccountAndYear(accountId, TAX_YEAR);
+
+        assertThat(result).singleElement().satisfies(external -> {
+            assertThat(external.getTradeDate()).isEqualTo(LocalDate.of(2026, 6, 15));
+            assertThat(external.getNetBuyAmount()).isEqualByComparingTo("20000000");
+        });
+    }
+
+    @Test
+    @DisplayName("SELL 판정건은 net_buy_amount가 음수 그대로 조회된다")
+    void findExternal_매도는_음수() {
+        Long accountId = fixture.insertCustomerWithAccount(CI_HASH);
+        fixture.insertJudgement(1L, CI_HASH, true, "2026-09-20", "-10000000.00");
+
+        List<ExternalBuyDTO> result = taxMapper.findExternalBuysByAccountAndYear(accountId, TAX_YEAR);
+
+        assertThat(result).singleElement()
+                .satisfies(external -> assertThat(external.getNetBuyAmount()).isEqualByComparingTo("-10000000"));
+    }
+
+    @Test
+    @DisplayName("다른 고객(ci_hash)의 판정건은 조회되지 않는다")
+    void findExternal_타고객_제외() {
+        Long accountId = fixture.insertCustomerWithAccount(CI_HASH);
+        Long otherAccountId = fixture.insertCustomerWithAccount(OTHER_CI_HASH);
+        fixture.insertJudgement(1L, CI_HASH, true, "2026-06-15", "20000000.00");
+        fixture.insertJudgement(2L, OTHER_CI_HASH, true, "2026-06-15", "70000000.00");
+
+        assertThat(taxMapper.findExternalBuysByAccountAndYear(accountId, TAX_YEAR))
+                .extracting(ExternalBuyDTO::getNetBuyAmount)
+                .usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(new BigDecimal("20000000"));
+
+        assertThat(taxMapper.findExternalBuysByAccountAndYear(otherAccountId, TAX_YEAR))
+                .extracting(ExternalBuyDTO::getNetBuyAmount)
+                .usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(new BigDecimal("70000000"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 계좌로 조회하면 빈 목록이다")
+    void findExternal_없는계좌() {
+        fixture.insertCustomerWithAccount(CI_HASH);
+        fixture.insertJudgement(1L, CI_HASH, true, "2026-06-15", "20000000.00");
+
+        assertThat(taxMapper.findExternalBuysByAccountAndYear(999L, TAX_YEAR)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("계좌가 없는 고객의 판정건은 조회되지 않는다")
+    void findExternal_계좌미개설고객_제외() {
+        Long accountId = fixture.insertCustomerWithAccount(CI_HASH);
+        fixture.insertCustomerOnly(OTHER_CI_HASH);
+        fixture.insertJudgement(1L, OTHER_CI_HASH, true, "2026-06-15", "70000000.00");
+
+        assertThat(taxMapper.findExternalBuysByAccountAndYear(accountId, TAX_YEAR)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("is_target=false인 판정건은 조회되지 않는다")
+    void findExternal_비대상_제외() {
+        Long accountId = fixture.insertCustomerWithAccount(CI_HASH);
+        fixture.insertJudgement(1L, CI_HASH, false, "2026-06-15", "20000000.00");
+
+        assertThat(taxMapper.findExternalBuysByAccountAndYear(accountId, TAX_YEAR)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("과세연도가 다른 판정건은 조회되지 않는다")
+    void findExternal_타연도_제외() {
+        Long accountId = fixture.insertCustomerWithAccount(CI_HASH);
+        fixture.insertJudgement(1L, CI_HASH, true, "2025-12-31", "20000000.00");
+        fixture.insertJudgement(2L, CI_HASH, true, "2027-01-01", "30000000.00");
+        fixture.insertJudgement(3L, CI_HASH, true, "2026-01-01", "10000000.00");
+
+        assertThat(taxMapper.findExternalBuysByAccountAndYear(accountId, TAX_YEAR))
+                .extracting(ExternalBuyDTO::getNetBuyAmount)
+                .usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(new BigDecimal("10000000"));
+    }
+
+    @Test
+    @DisplayName("여러 판정건이 있으면 합산 없이 건별로 조회된다(가중치는 계산기가 건별로 적용)")
+    void findExternal_건별조회() {
+        Long accountId = fixture.insertCustomerWithAccount(CI_HASH);
+        fixture.insertJudgement(1L, CI_HASH, true, "2026-03-10", "10000000.00");
+        fixture.insertJudgement(2L, CI_HASH, true, "2026-06-15", "20000000.00");
+        fixture.insertJudgement(3L, CI_HASH, true, "2026-09-20", "-10000000.00");
+
+        List<ExternalBuyDTO> result = taxMapper.findExternalBuysByAccountAndYear(accountId, TAX_YEAR);
+
+        assertThat(result).hasSize(3);
+        assertThat(result).extracting(ExternalBuyDTO::getTradeDate)
+                .containsExactlyInAnyOrder(
+                        LocalDate.of(2026, 3, 10), LocalDate.of(2026, 6, 15), LocalDate.of(2026, 9, 20));
+    }
+
+    @Test
+    @DisplayName("판정건이 없으면 빈 목록을 반환한다")
+    void findExternal_없으면_빈목록() {
+        Long accountId = fixture.insertCustomerWithAccount(CI_HASH);
+
+        assertThat(taxMapper.findExternalBuysByAccountAndYear(accountId, TAX_YEAR)).isEmpty();
     }
 }

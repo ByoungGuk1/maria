@@ -3,9 +3,11 @@ package com.app.maria.domain.tax.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationResultDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
+import static com.app.maria.domain.tax.fixture.TaxFixtures.externalBuy;
 import static com.app.maria.domain.tax.fixture.TaxFixtures.lot;
 import static com.app.maria.domain.tax.fixture.TaxFixtures.reliefRate;
 import static com.app.maria.domain.tax.fixture.TaxFixtures.reliefRates;
@@ -29,7 +31,7 @@ class TaxCalculatorTest {
                 lot(LocalDate.of(2026, 6, 15), "10000000", "100", "1000", "40"),
                 lot(LocalDate.of(2026, 9, 20), "10000000", "100", "1000", "40"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates());
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), List.of());
 
         assertThat(result.getWeightedSell()).isEqualByComparingTo("43000000");
         assertThat(result.getWeightedGain()).isEqualByComparingTo("27800000");
@@ -40,9 +42,9 @@ class TaxCalculatorTest {
     @DisplayName("구간 경계 - 5/31은 100%, 6/1은 80%")
     void 구간경계_5월말_6월초() {
         TaxCalculationResultDTO may = calculator.calculate(
-                List.of(lot(LocalDate.of(2026, 5, 31), "10000000", "100", "1000", "40")), reliefRates());
+                List.of(lot(LocalDate.of(2026, 5, 31), "10000000", "100", "1000", "40")), reliefRates(), List.of());
         TaxCalculationResultDTO jun = calculator.calculate(
-                List.of(lot(LocalDate.of(2026, 6, 1), "10000000", "100", "1000", "40")), reliefRates());
+                List.of(lot(LocalDate.of(2026, 6, 1), "10000000", "100", "1000", "40")), reliefRates(), List.of());
 
         assertThat(may.getWeightedSell()).isEqualByComparingTo("10000000");
         assertThat(may.getWeightedGain()).isEqualByComparingTo("6000000");
@@ -58,9 +60,9 @@ class TaxCalculatorTest {
     @DisplayName("구간 경계 - 7/31은 80%, 8/1은 50%")
     void 구간경계_7월말_8월초() {
         TaxCalculationResultDTO jul = calculator.calculate(
-                List.of(lot(LocalDate.of(2026, 7, 31), "10000000", "100", "1000", "40")), reliefRates());
+                List.of(lot(LocalDate.of(2026, 7, 31), "10000000", "100", "1000", "40")), reliefRates(), List.of());
         TaxCalculationResultDTO aug = calculator.calculate(
-                List.of(lot(LocalDate.of(2026, 8, 1), "10000000", "100", "1000", "40")), reliefRates());
+                List.of(lot(LocalDate.of(2026, 8, 1), "10000000", "100", "1000", "40")), reliefRates(), List.of());
 
         assertThat(jul.getWeightedSell()).isEqualByComparingTo("8000000");
         assertThat(jul.getWeightedGain()).isEqualByComparingTo("4800000");
@@ -73,9 +75,9 @@ class TaxCalculatorTest {
     @DisplayName("과세연도 첫날·마지막날도 가중치를 찾는다")
     void 구간경계_연초_연말() {
         TaxCalculationResultDTO first = calculator.calculate(
-                List.of(lot(LocalDate.of(2026, 1, 1), "10000000", "100", "1000", "40")), reliefRates());
+                List.of(lot(LocalDate.of(2026, 1, 1), "10000000", "100", "1000", "40")), reliefRates(), List.of());
         TaxCalculationResultDTO last = calculator.calculate(
-                List.of(lot(LocalDate.of(2026, 12, 31), "10000000", "100", "1000", "40")), reliefRates());
+                List.of(lot(LocalDate.of(2026, 12, 31), "10000000", "100", "1000", "40")), reliefRates(), List.of());
 
         assertThat(first.getWeightedSell()).isEqualByComparingTo("10000000");
         assertThat(last.getWeightedSell()).isEqualByComparingTo("5000000");
@@ -104,7 +106,7 @@ class TaxCalculatorTest {
         List<SellLotDTO> lots = List.of(
                 lot(LocalDate.parse(sellDate), "10000000", "100", "1000", "40"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates());
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), List.of());
 
         assertThat(result.getWeightedSell()).isEqualByComparingTo(expectedWeightedSell);
         assertThat(result.getWeightedGain()).isEqualByComparingTo(expectedWeightedGain);
@@ -118,7 +120,7 @@ class TaxCalculatorTest {
                 lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"),
                 lot(LocalDate.of(2026, 3, 10), "5000000", "100", "1000", "100"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates());
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), List.of());
 
         assertThat(result.getOriginalGainAmount()).isEqualByComparingTo("15000000");
         assertThat(result.getWeightedGain()).isEqualByComparingTo("15000000");
@@ -131,7 +133,7 @@ class TaxCalculatorTest {
         List<SellLotDTO> lots = List.of(
                 lot(LocalDate.of(2026, 3, 10), "5000000", "100", "1000", "100"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates());
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), List.of());
 
         assertThat(result.getOriginalGainAmount()).isEqualByComparingTo("-5000000");
         assertThat(result.getWeightedGain()).isEqualByComparingTo("-5000000");
@@ -140,7 +142,7 @@ class TaxCalculatorTest {
     @Test
     @DisplayName("매도 lot이 없으면 전부 0")
     void 매도없음() {
-        TaxCalculationResultDTO result = calculator.calculate(List.of(), reliefRates());
+        TaxCalculationResultDTO result = calculator.calculate(List.of(), reliefRates(), List.of());
 
         assertThat(result.getWeightedSell()).isEqualByComparingTo("0");
         assertThat(result.getWeightedGain()).isEqualByComparingTo("0");
@@ -153,7 +155,7 @@ class TaxCalculatorTest {
         List<SellLotDTO> lots = List.of(
                 lot(LocalDate.of(2027, 1, 5), "10000000", "100", "1000", "40"));
 
-        assertThatThrownBy(() -> calculator.calculate(lots, reliefRates()))
+        assertThatThrownBy(() -> calculator.calculate(lots, reliefRates(), List.of()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -171,7 +173,7 @@ class TaxCalculatorTest {
         List<SellLotDTO> lots = List.of(
                 lot(LocalDate.of(2026, 9, 20), "10000000", "100", "1000", "40"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, mixed);
+        TaxCalculationResultDTO result = calculator.calculate(lots, mixed, List.of());
 
         assertThat(result.getWeightedSell()).isEqualByComparingTo("5000000");
         assertThat(result.getWeightedGain()).isEqualByComparingTo("3000000");
@@ -186,7 +188,7 @@ class TaxCalculatorTest {
         List<SellLotDTO> lots = List.of(
                 lot(LocalDate.of(2026, 3, 10), "10000000", "100", "1000", "40"));
 
-        assertThatThrownBy(() -> calculator.calculate(lots, onlyConstants))
+        assertThatThrownBy(() -> calculator.calculate(lots, onlyConstants, List.of()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -196,7 +198,130 @@ class TaxCalculatorTest {
         List<SellLotDTO> lots = List.of(
                 lot(LocalDate.of(2026, 3, 10), "10000000", "100", "1000", "40"));
 
-        assertThatThrownBy(() -> calculator.calculate(lots, List.of()))
+        assertThatThrownBy(() -> calculator.calculate(lots, List.of(), List.of()))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("골든 시나리오 - 외부 순매수까지 §3 검증 예시와 일치한다")
+    void 골든시나리오_외부순매수() {
+        List<SellLotDTO> lots = List.of(
+                lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"),
+                lot(LocalDate.of(2026, 6, 15), "10000000", "100", "1000", "40"),
+                lot(LocalDate.of(2026, 9, 20), "10000000", "100", "1000", "40"));
+
+        List<ExternalBuyDTO> external = List.of(
+                externalBuy(LocalDate.of(2026, 6, 15), "20000000"),
+                externalBuy(LocalDate.of(2026, 9, 20), "-10000000"));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+
+        assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("11000000");
+        assertThat(result.getWeightedSell()).isEqualByComparingTo("43000000");
+        assertThat(result.getWeightedGain()).isEqualByComparingTo("27800000");
+        assertThat(result.getOriginalGainAmount()).isEqualByComparingTo("32000000");
+    }
+
+    @Test
+    @DisplayName("외부 거래가 없으면 순매수는 0")
+    void 외부거래_없음() {
+        List<SellLotDTO> lots = List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), List.of());
+
+        assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("0");
+    }
+
+    @ParameterizedTest(name = "{0} 매수 1,000만 → 가중 {1}")
+    @CsvSource({
+            "2026-01-01, 10000000",
+            "2026-05-31, 10000000",
+            "2026-06-01,  8000000",
+            "2026-07-31,  8000000",
+            "2026-08-01,  5000000",
+            "2026-12-31,  5000000"})
+    @DisplayName("외부 순매수도 거래일별 구간 가중치가 그대로 적용된다")
+    void 외부_구간가중치(String tradeDate, String expected) {
+        List<SellLotDTO> lots = List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
+        List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.parse(tradeDate), "10000000"));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+
+        assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo(expected);
+    }
+
+    @Test
+    @DisplayName("매수·매도가 섞이면 각 거래일 가중치를 적용해 상계한다")
+    void 외부_매수매도_상계() {
+        List<SellLotDTO> lots = List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
+        List<ExternalBuyDTO> external = List.of(
+                externalBuy(LocalDate.of(2026, 3, 10), "10000000"),
+                externalBuy(LocalDate.of(2026, 6, 15), "10000000"),
+                externalBuy(LocalDate.of(2026, 9, 20), "-10000000"));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+
+        assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("13000000");
+    }
+
+    @Test
+    @DisplayName("외부에서 순매도면 조정할 순매수가 없으므로 0으로 본다")
+    void 외부_순매도는_0() {
+        List<SellLotDTO> lots = List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
+        List<ExternalBuyDTO> external = List.of(
+                externalBuy(LocalDate.of(2026, 3, 10), "20000000"),
+                externalBuy(LocalDate.of(2026, 3, 10), "-30000000"));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+
+        assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("0");
+        assertThat(result.getWeightedExternalAmount().signum()).isZero();
+    }
+
+    @Test
+    @DisplayName("매수·매도가 정확히 상쇄되면 0")
+    void 외부_완전상쇄() {
+        List<SellLotDTO> lots = List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
+        List<ExternalBuyDTO> external = List.of(
+                externalBuy(LocalDate.of(2026, 6, 15), "10000000"),
+                externalBuy(LocalDate.of(2026, 6, 15), "-10000000"));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+
+        assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    @DisplayName("금액은 소수점 2자리로 반올림된다")
+    void 외부_금액_스케일() {
+        List<SellLotDTO> lots = List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
+        List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 9, 20), "1000000.005"));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+
+        assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("500000.00");
+        assertThat(result.getWeightedExternalAmount().scale()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("매도 lot이 없어도 외부 순매수는 독립적으로 집계된다")
+    void 외부_매도없어도_집계() {
+        List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "10000000"));
+
+        TaxCalculationResultDTO result = calculator.calculate(List.of(), reliefRates(), external);
+
+        assertThat(result.getWeightedSell()).isEqualByComparingTo("0");
+        assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("10000000");
+    }
+
+    @Test
+    @DisplayName("외부 거래일이 가중치 구간 밖이면 예외")
+    void 외부_가중치없는날짜() {
+        List<SellLotDTO> lots = List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
+        List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2027, 1, 5), "10000000"));
+
+        assertThatThrownBy(() -> calculator.calculate(lots, reliefRates(), external))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("RELIEF_RATE");
     }
 }

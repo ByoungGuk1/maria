@@ -53,3 +53,44 @@ CREATE TABLE krw_exchange (
     final_at           DATETIME,
     settlement_status  VARCHAR(12)   NOT NULL
 );
+
+CREATE TABLE customer (
+    customer_id   BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name          VARCHAR(50)  NOT NULL,
+    birth_date    DATE         NOT NULL,
+    phone         VARCHAR(20),
+    investor_type VARCHAR(20)  NOT NULL,
+    ci_hash       VARCHAR(64)  NOT NULL UNIQUE,
+    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE account (
+    account_id   BIGINT PRIMARY KEY AUTO_INCREMENT,
+    customer_id  BIGINT        NOT NULL UNIQUE,
+    status       VARCHAR(20)   NOT NULL,
+    opened_at    DATETIME,
+    created_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    account_no   VARCHAR(10),
+    limit_amount DECIMAL(15,0) NOT NULL,
+    amount       DECIMAL(15,0) NOT NULL DEFAULT 0,
+    benefit      VARCHAR(12)
+);
+
+-- account_id와 customer_id가 같은 값이면 조인 조건이 틀려도 테스트가 통과한다
+ALTER TABLE account ALTER COLUMN account_id RESTART WITH 1000;
+
+CREATE TABLE target_product_judgement (
+    judgement_id        BIGINT PRIMARY KEY AUTO_INCREMENT,
+    mydata_trade_id     BIGINT        NOT NULL UNIQUE,
+    ci_hash             VARCHAR(64)   NOT NULL,
+    fund_code           VARCHAR(12),
+    fund_name           VARCHAR(100),
+    is_target           BOOLEAN       NOT NULL,
+    foreign_stock_ratio DECIMAL(5,2),
+    inception_date      DATE,
+    judged_at           DATETIME      NOT NULL,
+    trade_type          VARCHAR(15)   NOT NULL,
+    amount              DECIMAL(15,2) NOT NULL,
+    trade_date          DATE          NOT NULL,
+    net_buy_amount      DECIMAL(15,2) NOT NULL
+);
