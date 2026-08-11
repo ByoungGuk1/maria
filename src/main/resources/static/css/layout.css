@@ -1,0 +1,333 @@
+/* 리턴증권 RIA 관리자 시스템 - 공용 레이아웃(사이드바 + 헤더) 스타일
+   claudedesign-handoff의 t4 목업 디자인 토큰을 CSS 커스텀 프로퍼티로 옮김 */
+
+:root {
+    --pageBg: #efeeec;
+    --headerBg: #ffffff;
+    --cardBg: #ffffff;
+    --cardBorder: rgba(0, 0, 0, 0.08);
+    --divider: rgba(0, 0, 0, 0.08);
+    --tableHeaderBg: #f5f4f2;
+    --trackBg: #eceae7;
+    --inputBg: #ffffff;
+    --inputBorder: rgba(0, 0, 0, 0.14);
+    --textPrimary: #1a1a1a;
+    --textSecondary: #45484d;
+    --textMuted: rgba(0, 0, 0, 0.5);
+    --accent: #2a78d6;
+    --accentBg: #eaf1fb;
+    --success: #1f8a4c;
+    --successBg: #e7f5ec;
+    --danger: #c53030;
+    --dangerBg: #fbe9e9;
+    --dangerRowBg: #fdf3f3;
+}
+
+:root[data-theme="dark"] {
+    --pageBg: #14171c;
+    --headerBg: #1b1f27;
+    --cardBg: #1f2430;
+    --cardBorder: rgba(255, 255, 255, 0.1);
+    --divider: rgba(255, 255, 255, 0.1);
+    --tableHeaderBg: #262c39;
+    --trackBg: #2a3140;
+    --inputBg: #1b1f27;
+    --inputBorder: rgba(255, 255, 255, 0.16);
+    --textPrimary: #e8eaed;
+    --textSecondary: #b7bfc9;
+    --textMuted: rgba(255, 255, 255, 0.5);
+    --accent: #5b9bf0;
+    --accentBg: rgba(91, 155, 240, 0.16);
+    --success: #4cc785;
+    --successBg: rgba(76, 199, 133, 0.14);
+    --danger: #e2685f;
+    --dangerBg: rgba(226, 104, 95, 0.14);
+    --dangerRowBg: rgba(226, 104, 95, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --pageBg: #14171c;
+        --headerBg: #1b1f27;
+        --cardBg: #1f2430;
+        --cardBorder: rgba(255, 255, 255, 0.1);
+        --divider: rgba(255, 255, 255, 0.1);
+        --tableHeaderBg: #262c39;
+        --trackBg: #2a3140;
+        --inputBg: #1b1f27;
+        --inputBorder: rgba(255, 255, 255, 0.16);
+        --textPrimary: #e8eaed;
+        --textSecondary: #b7bfc9;
+        --textMuted: rgba(255, 255, 255, 0.5);
+        --accent: #5b9bf0;
+        --accentBg: rgba(91, 155, 240, 0.16);
+        --success: #4cc785;
+        --successBg: rgba(76, 199, 133, 0.14);
+        --danger: #e2685f;
+        --dangerBg: rgba(226, 104, 95, 0.14);
+        --dangerRowBg: rgba(226, 104, 95, 0.08);
+    }
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
+body {
+    font-family: 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+    background: var(--pageBg);
+    color: var(--textPrimary);
+    font-size: 13px;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.card {
+    background: var(--cardBg);
+    border: 1px solid var(--cardBorder);
+    border-radius: 6px;
+}
+
+.btn {
+    font: 600 12px 'Noto Sans KR', sans-serif;
+    border-radius: 4px;
+    padding: 7px 14px;
+    cursor: pointer;
+    border: 1px solid var(--inputBorder);
+    background: var(--cardBg);
+    color: var(--textSecondary);
+}
+
+.btn:hover {
+    border-color: var(--accent);
+    background: var(--accentBg);
+}
+
+.btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.btn-primary:hover {
+    filter: brightness(1.05);
+}
+
+/* ---------- 앱 셸 레이아웃 ---------- */
+
+.app-shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 216px;
+    flex: none;
+    background: #2c3444;
+    border-right: 1px solid rgba(255, 255, 255, 0.16);
+    display: flex;
+    flex-direction: column;
+    padding: 16px 0;
+    overflow-y: auto;
+}
+
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 0 18px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+    margin-bottom: 10px;
+}
+
+.sidebar-brand-mark {
+    width: 24px;
+    height: 24px;
+    background: #4a6690;
+    border-radius: 4px;
+    flex: none;
+}
+
+.sidebar-brand-name {
+    font: 700 13px 'Noto Sans KR', sans-serif;
+    color: #e2e8f0;
+}
+
+.sidebar-group-label {
+    padding: 14px 18px 4px;
+    font: 600 10.5px 'Noto Sans KR', sans-serif;
+    color: #9aa3b2;
+    letter-spacing: 0.04em;
+}
+
+.sidebar-group:first-of-type .sidebar-group-label {
+    padding-top: 8px;
+}
+
+.sidebar-items {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 0 10px;
+}
+
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 9px;
+    padding: 7px 10px;
+    border-radius: 4px;
+    color: #e2e8f0;
+    font: 500 12.5px 'Noto Sans KR', sans-serif;
+    cursor: default;
+}
+
+.sidebar-item-label {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+a.sidebar-item {
+    cursor: pointer;
+}
+
+a.sidebar-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-item.active {
+    background: #4a6690;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.sidebar-item.disabled {
+    color: #6c7688;
+}
+
+.sidebar-badge {
+    font: 700 10.5px 'Noto Sans KR', sans-serif;
+    color: #1f3a5f;
+    background: #e6e8eb;
+    border-radius: 4px;
+    padding: 1px 6px;
+}
+
+/* ---------- 메인 영역 ---------- */
+
+.main-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.topbar {
+    height: 52px;
+    flex: none;
+    background: var(--headerBg);
+    border-bottom: 1px solid var(--divider);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+}
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font: 500 12.5px 'Noto Sans KR', sans-serif;
+    color: var(--textMuted);
+}
+
+.breadcrumb-current {
+    color: var(--textPrimary);
+    font-weight: 600;
+}
+
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.topbar-divider {
+    width: 1px;
+    height: 18px;
+    background: var(--divider);
+}
+
+.clock-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--inputBorder);
+    border-radius: 4px;
+    padding: 5px 9px;
+}
+
+.clock-badge-label {
+    font: 500 11px 'Noto Sans KR', sans-serif;
+    color: var(--textMuted);
+}
+
+.clock-badge-value {
+    font: 600 12px 'Noto Sans KR', sans-serif;
+    color: var(--textPrimary);
+}
+
+.admin-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font: 600 12px 'Noto Sans KR', sans-serif;
+    color: var(--textSecondary);
+}
+
+.admin-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 4px;
+    background: var(--inputBorder);
+}
+
+.theme-toggle {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--inputBorder);
+    border-radius: 4px;
+    background: var(--inputBg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.logout-link {
+    font: 500 12px 'Noto Sans KR', sans-serif;
+    color: var(--textMuted);
+    cursor: pointer;
+}
+
+.logout-link:hover {
+    color: var(--danger);
+}
+
+.content {
+    flex: 1;
+    padding: 16px 20px;
+    overflow: auto;
+}

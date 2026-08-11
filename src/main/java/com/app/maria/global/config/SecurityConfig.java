@@ -30,6 +30,10 @@ public class SecurityConfig {
         "/js/**",
         "/images/**",
 
+        // Thymeleaf 페이지 셸: 페이지 자체는 공개, 데이터는 JS가 JWT로 API 호출 시 검증
+        "/login",
+        "/admin/**",
+
         // JWT 인증 API
         "/api/auth/admin/login",
         "/api/auth/admin/refresh",
