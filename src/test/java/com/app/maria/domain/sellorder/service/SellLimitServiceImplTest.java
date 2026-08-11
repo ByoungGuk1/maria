@@ -1,18 +1,5 @@
 package com.app.maria.domain.sellorder.service;
 
-import com.app.maria.domain.sellorder.exception.SellOrderException;
-import com.app.maria.domain.sellorder.mapper.SellLimitMapper;
-import com.app.maria.global.client.mydata.MydataClient;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.math.BigDecimal;
-import java.util.Optional;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -21,22 +8,39 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.app.maria.domain.sellorder.exception.SellOrderException;
+import com.app.maria.domain.sellorder.mapper.SellLimitMapper;
+import com.app.maria.global.client.mydata.MydataClient;
+import java.math.BigDecimal;
+import java.util.Optional;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 @ExtendWith(MockitoExtension.class)
 class SellLimitServiceImplTest {
 
-    @Mock
-    SellLimitMapper sellLimitMapper;
+    @Mock SellLimitMapper sellLimitMapper;
 
-    @Mock
-    MydataClient mydataClient;
+    @Mock MydataClient mydataClient;
 
-    @InjectMocks
-    SellLimitServiceImpl sellLimitService;
+    @InjectMocks SellLimitServiceImpl sellLimitService;
 
-    private void stubAccount(Long accountId, String limitAmount, String finalizedSum, String pendingSum, String ciHash) {
-        when(sellLimitMapper.selectAccountLimitForUpdate(accountId)).thenReturn(Optional.of(new BigDecimal(limitAmount)));
-        when(sellLimitMapper.sumFinalizedExchangeAmount(accountId)).thenReturn(new BigDecimal(finalizedSum));
-        when(sellLimitMapper.sumPendingSellOrderAmount(accountId)).thenReturn(new BigDecimal(pendingSum));
+    private void stubAccount(
+            Long accountId,
+            String limitAmount,
+            String finalizedSum,
+            String pendingSum,
+            String ciHash) {
+        when(sellLimitMapper.selectAccountLimitForUpdate(accountId))
+                .thenReturn(Optional.of(new BigDecimal(limitAmount)));
+        when(sellLimitMapper.sumFinalizedExchangeAmount(accountId))
+                .thenReturn(new BigDecimal(finalizedSum));
+        when(sellLimitMapper.sumPendingSellOrderAmount(accountId))
+                .thenReturn(new BigDecimal(pendingSum));
         when(sellLimitMapper.selectCiHashByAccountId(accountId)).thenReturn(Optional.of(ciHash));
     }
 
@@ -122,7 +126,8 @@ class SellLimitServiceImplTest {
     @Test
     @DisplayName("ci_hash를 찾을 수 없으면 예외를 던지고 myData는 조회하지 않는다")
     void isWithinSellLimitThrowsWhenCiHashNotFound() {
-        when(sellLimitMapper.selectAccountLimitForUpdate(100L)).thenReturn(Optional.of(new BigDecimal("50000000")));
+        when(sellLimitMapper.selectAccountLimitForUpdate(100L))
+                .thenReturn(Optional.of(new BigDecimal("50000000")));
         when(sellLimitMapper.sumFinalizedExchangeAmount(100L)).thenReturn(new BigDecimal("0"));
         when(sellLimitMapper.sumPendingSellOrderAmount(100L)).thenReturn(new BigDecimal("0"));
         when(sellLimitMapper.selectCiHashByAccountId(100L)).thenReturn(Optional.empty());

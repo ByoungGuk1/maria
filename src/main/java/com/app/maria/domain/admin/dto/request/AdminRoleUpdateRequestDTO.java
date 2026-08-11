@@ -14,5 +14,4 @@ public class AdminRoleUpdateRequestDTO {
 
     @NotNull(message = "역할을 입력하세요.")
     private AdminRole role;
-
 }

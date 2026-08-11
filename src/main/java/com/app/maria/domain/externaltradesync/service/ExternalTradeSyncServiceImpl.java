@@ -3,20 +3,19 @@ package com.app.maria.domain.externaltradesync.service;
 import com.app.maria.domain.customer.dto.CustomerCiHashDTO;
 import com.app.maria.domain.customer.mapper.CustomerMapper;
 import com.app.maria.domain.externaltradesync.dto.ExternalTradeSyncCursorDTO;
-import com.app.maria.domain.externaltradesync.mapper.ExternalTradeSyncCursorMapper;
-import com.app.maria.domain.externaltradesync.dto.response.MydataTradeResponseDTO;
 import com.app.maria.domain.externaltradesync.dto.request.MydataTradeRequestDTO;
+import com.app.maria.domain.externaltradesync.dto.response.MydataTradeResponseDTO;
+import com.app.maria.domain.externaltradesync.mapper.ExternalTradeSyncCursorMapper;
 import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
 import com.app.maria.domain.targetproduct.service.TargetProductService;
 import com.app.maria.global.client.mydatatrade.MydataTradeClient;
 import com.app.maria.global.clock.service.BusinessClockService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
@@ -43,29 +42,36 @@ public class ExternalTradeSyncServiceImpl implements ExternalTradeSyncService {
     }
 
     private void syncCustomer(CustomerCiHashDTO customer) {
-        LocalDate fromDate = cursorMapper.selectByCustomerId(customer.getCustomerId())
-                .map(ExternalTradeSyncCursorDTO::getLastSyncedTradeDate)
-                .orElse(null);
+        LocalDate fromDate =
+                cursorMapper
+                        .selectByCustomerId(customer.getCustomerId())
+                        .map(ExternalTradeSyncCursorDTO::getLastSyncedTradeDate)
+                        .orElse(null);
 
-        MydataTradeRequestDTO request = MydataTradeRequestDTO.builder()
-                .ciHash(customer.getCiHash())
-                .fromDate(fromDate)
-                .build();
+        MydataTradeRequestDTO request =
+                MydataTradeRequestDTO.builder()
+                        .ciHash(customer.getCiHash())
+                        .fromDate(fromDate)
+                        .build();
 
         List<MydataTradeResponseDTO> trades = mydataTradeClient.getTrades(request);
         LocalDate today = businessClockService.now().toLocalDate();
-        trades = trades.stream()
-                .filter(trade -> !trade.getTradeDate().isAfter(today))
-                .filter(trade -> {
-                    boolean match = customer.getCiHash().equals(trade.getCiHash());
-                    if (!match) {
-                        log.warn("요청과 다른 ci_hash 응답, 스킵합니다. customerId={}, tradeId={}",
-                                customer.getCustomerId(), trade.getTradeId());
-                    }
-                    return match;
-                })
-                .sorted(Comparator.comparing(MydataTradeResponseDTO::getTradeDate))
-                .toList();
+        trades =
+                trades.stream()
+                        .filter(trade -> !trade.getTradeDate().isAfter(today))
+                        .filter(
+                                trade -> {
+                                    boolean match = customer.getCiHash().equals(trade.getCiHash());
+                                    if (!match) {
+                                        log.warn(
+                                                "요청과 다른 ci_hash 응답, 스킵합니다. customerId={}, tradeId={}",
+                                                customer.getCustomerId(),
+                                                trade.getTradeId());
+                                    }
+                                    return match;
+                                })
+                        .sorted(Comparator.comparing(MydataTradeResponseDTO::getTradeDate))
+                        .toList();
 
         LocalDate cursor = fromDate;
         boolean allSucceededSoFar = true;
@@ -78,10 +84,11 @@ public class ExternalTradeSyncServiceImpl implements ExternalTradeSyncService {
         }
 
         if (cursor != null) {
-            cursorMapper.upsertCursor(ExternalTradeSyncCursorDTO.builder()
-                    .customerId(customer.getCustomerId())
-                    .lastSyncedTradeDate(cursor)
-                    .build());
+            cursorMapper.upsertCursor(
+                    ExternalTradeSyncCursorDTO.builder()
+                            .customerId(customer.getCustomerId())
+                            .lastSyncedTradeDate(cursor)
+                            .build());
         }
     }
 

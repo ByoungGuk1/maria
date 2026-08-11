@@ -5,5 +5,4 @@ public class KisTokenIssueException extends RuntimeException {
     public KisTokenIssueException(String message) {
         super(message);
     }
-
 }

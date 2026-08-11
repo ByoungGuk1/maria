@@ -9,5 +9,4 @@ public class ExchangeRateNotFoundException extends RuntimeException {
     public ExchangeRateNotFoundException(String message, Throwable cause) {
         super(message, cause);
     }
-
 }

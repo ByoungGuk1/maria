@@ -15,21 +15,23 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class SettlementBatchLauncher {
 
-  private final JobLauncher jobLauncher;
-  private final Job settlementJob;
-  private final SettlementBatchStatusUpdater statusUpdater;
+    private final JobLauncher jobLauncher;
+    private final Job settlementJob;
+    private final SettlementBatchStatusUpdater statusUpdater;
 
-  @Async("settlementBatchTaskExecutor")
-  public void launch(SettlementBatchDTO batch) {
-    JobParameters parameters = new JobParametersBuilder()
-        .addLong("batchId", batch.getBatchId())
-        .addString("runId", batch.getRunId())
-        .toJobParameters();
-    try {
-      jobLauncher.run(settlementJob, parameters);
-    } catch (Exception e) {
-      statusUpdater.markFailed(batch.getBatchId());
-      throw new SettlementStateConflictException("확정산 Batch 실행 실패 : batchId="+batch.getBatchId());
+    @Async("settlementBatchTaskExecutor")
+    public void launch(SettlementBatchDTO batch) {
+        JobParameters parameters =
+                new JobParametersBuilder()
+                        .addLong("batchId", batch.getBatchId())
+                        .addString("runId", batch.getRunId())
+                        .toJobParameters();
+        try {
+            jobLauncher.run(settlementJob, parameters);
+        } catch (Exception e) {
+            statusUpdater.markFailed(batch.getBatchId());
+            throw new SettlementStateConflictException(
+                    "확정산 Batch 실행 실패 : batchId=" + batch.getBatchId());
+        }
     }
-  }
 }

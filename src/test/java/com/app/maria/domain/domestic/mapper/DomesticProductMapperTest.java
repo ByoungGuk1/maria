@@ -1,7 +1,16 @@
 package com.app.maria.domain.domestic.mapper;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.app.maria.domain.domestic.dto.DomesticProductDTO;
 import com.app.maria.domain.domestic.type.Type;
+import java.io.IOException;
+import java.io.Reader;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.LocalDate;
+import java.util.Optional;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
@@ -14,16 +23,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-import java.io.Reader;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.LocalDate;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
 class DomesticProductMapperTest {
 
     private static PooledDataSource dataSource;
@@ -34,13 +33,13 @@ class DomesticProductMapperTest {
 
     @BeforeAll
     static void configureMyBatis() throws IOException {
-        try (Reader reader = Resources.getResourceAsReader("mybatis-domesticproduct-test-config.xml")) {
+        try (Reader reader =
+                Resources.getResourceAsReader("mybatis-domesticproduct-test-config.xml")) {
             sqlSessionFactory = new SqlSessionFactoryBuilder().build(reader);
         }
-        dataSource = (PooledDataSource) sqlSessionFactory
-                .getConfiguration()
-                .getEnvironment()
-                .getDataSource();
+        dataSource =
+                (PooledDataSource)
+                        sqlSessionFactory.getConfiguration().getEnvironment().getDataSource();
     }
 
     @BeforeEach
@@ -67,8 +66,14 @@ class DomesticProductMapperTest {
     @Test
     @DisplayName("FUND 종목을 저장한 대로 모든 필드가 정확히 조회된다")
     void selectByIdReturnsAllFieldsExactlyForFund() throws SQLException {
-        insertProduct(1L, "448630", "TIGER 미국배당다우존스", "KOSPI", "FUND",
-                "85.50", LocalDate.of(2023, 5, 10));
+        insertProduct(
+                1L,
+                "448630",
+                "TIGER 미국배당다우존스",
+                "KOSPI",
+                "FUND",
+                "85.50",
+                LocalDate.of(2023, 5, 10));
 
         Optional<DomesticProductDTO> result = domesticProductMapper.selectById(1L);
 
@@ -104,25 +109,47 @@ class DomesticProductMapperTest {
         assertThat(result).isEmpty();
     }
 
-    private void insertProduct(Long id, String ticker, String name, String market, String type,
-                                String domesticStockRatio, LocalDate inceptionDate) throws SQLException {
+    private void insertProduct(
+            Long id,
+            String ticker,
+            String name,
+            String market,
+            String type,
+            String domesticStockRatio,
+            LocalDate inceptionDate)
+            throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
-            String ratioValue = domesticStockRatio == null ? "NULL" : "'" + domesticStockRatio + "'";
+                Statement statement = connection.createStatement()) {
+            String ratioValue =
+                    domesticStockRatio == null ? "NULL" : "'" + domesticStockRatio + "'";
             String inceptionValue = inceptionDate == null ? "NULL" : "'" + inceptionDate + "'";
             statement.execute(
-                    "INSERT INTO domestic_product " +
-                            "(domestic_product_id, ticker, name, market, type, domestic_stock_ratio, inception_date) " +
-                            "VALUES (" + id + ", '" + ticker + "', '" + name + "', '" + market + "', '" + type + "', "
-                            + ratioValue + ", " + inceptionValue + ")");
+                    "INSERT INTO domestic_product "
+                            + "(domestic_product_id, ticker, name, market, type, domestic_stock_ratio, inception_date) "
+                            + "VALUES ("
+                            + id
+                            + ", '"
+                            + ticker
+                            + "', '"
+                            + name
+                            + "', '"
+                            + market
+                            + "', '"
+                            + type
+                            + "', "
+                            + ratioValue
+                            + ", "
+                            + inceptionValue
+                            + ")");
         }
     }
 
     private void resetSchema() throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute("DROP ALL OBJECTS");
-            statement.execute("""
+            statement.execute(
+                    """
                     CREATE TABLE domestic_product (
                         domestic_product_id BIGINT PRIMARY KEY,
                         ticker VARCHAR(20) NOT NULL,

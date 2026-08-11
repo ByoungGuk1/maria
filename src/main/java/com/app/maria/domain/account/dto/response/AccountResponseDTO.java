@@ -3,11 +3,10 @@ package com.app.maria.domain.account.dto.response;
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
-import lombok.*;
-
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import lombok.*;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -17,25 +16,25 @@ import java.time.LocalDateTime;
 @Builder
 @EqualsAndHashCode(of = "accountId")
 public class AccountResponseDTO implements Serializable {
-  private Long accountId;
-  private Long customerId;
-  private Status status;
-  private LocalDateTime openedAt;
-  private LocalDateTime createdAt;
-  private String accountNo;
-  private BigDecimal limitAmount;
-  private BigDecimal amount;
-  private BenefitType benefit;
+    private Long accountId;
+    private Long customerId;
+    private Status status;
+    private LocalDateTime openedAt;
+    private LocalDateTime createdAt;
+    private String accountNo;
+    private BigDecimal limitAmount;
+    private BigDecimal amount;
+    private BenefitType benefit;
 
-  public AccountResponseDTO(AccountDTO accountDTO) {
-    this.accountId = accountDTO.getAccountId();
-    this.customerId = accountDTO.getCustomerId();
-    this.status = accountDTO.getStatus();
-    this.openedAt = accountDTO.getOpenedAt();
-    this.createdAt = accountDTO.getCreatedAt();
-    this.accountNo = accountDTO.getAccountNo();
-    this.limitAmount = accountDTO.getLimitAmount();
-    this.amount = accountDTO.getAmount();
-    this.benefit = accountDTO.getBenefit();
-  }
+    public AccountResponseDTO(AccountDTO accountDTO) {
+        this.accountId = accountDTO.getAccountId();
+        this.customerId = accountDTO.getCustomerId();
+        this.status = accountDTO.getStatus();
+        this.openedAt = accountDTO.getOpenedAt();
+        this.createdAt = accountDTO.getCreatedAt();
+        this.accountNo = accountDTO.getAccountNo();
+        this.limitAmount = accountDTO.getLimitAmount();
+        this.amount = accountDTO.getAmount();
+        this.benefit = accountDTO.getBenefit();
+    }
 }
