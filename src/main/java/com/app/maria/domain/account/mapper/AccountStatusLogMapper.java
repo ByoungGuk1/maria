@@ -1,6 +1,7 @@
 package com.app.maria.domain.account.mapper;
 
 import com.app.maria.domain.account.dto.AccountStatusLogDTO;
+import com.app.maria.domain.account.type.Status;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.time.LocalDateTime;
@@ -23,4 +24,8 @@ public interface AccountStatusLogMapper {
 
   //반려 후 재신청 구조에서 현재 신청일 조회
   LocalDateTime selectLatestApplicationAt(Long accountId);
+
+  // 처리된 계좌 분류
+  int countByNewStatusBetween(Status newStatus, LocalDateTime start, LocalDateTime end);
+
 }

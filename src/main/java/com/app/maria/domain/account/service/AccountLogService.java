@@ -27,4 +27,6 @@ public interface AccountLogService {
 
   List<AccountBenefitLogDTO> getBenefitLogs(Long accountId);
 
+  int getTodayProcessedAccountCount(Status newStatus);
+
 }

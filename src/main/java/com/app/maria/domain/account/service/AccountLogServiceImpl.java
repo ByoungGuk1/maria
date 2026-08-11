@@ -9,6 +9,7 @@ import com.app.maria.domain.account.mapper.AccountBenefitLogMapper;
 import com.app.maria.domain.account.mapper.AccountStatusLogMapper;
 import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
+import com.app.maria.global.clock.service.BusinessClockService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -23,6 +24,7 @@ public class AccountLogServiceImpl implements AccountLogService {
   private final AccountStatusLogMapper accountStatusLogMapper;
   private final AccountBenefitLogMapper accountBenefitLogMapper;
   private final String PREFIX = "LIMIT_CHANGE|";
+  private final BusinessClockService businessClockService;
 
   @Override
   public void recordStatusChange(AccountDTO account, Status previousStatus, LocalDateTime changedAt, String reason) {
@@ -69,5 +71,12 @@ public class AccountLogServiceImpl implements AccountLogService {
   public List<AccountBenefitLogDTO> getBenefitLogs(Long accountId) {
     return accountBenefitLogMapper.selectByAccountId(accountId);
   }
+
+@Override
+public int getTodayProcessedAccountCount(Status newStatus) {
+    LocalDateTime start = businessClockService.now().toLocalDate().atStartOfDay();
+    LocalDateTime end = start.plusDays(1);
+    return accountStatusLogMapper.countByNewStatusBetween(newStatus, start, end);
+}
 
 }
