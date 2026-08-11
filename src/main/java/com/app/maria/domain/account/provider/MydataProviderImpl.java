@@ -3,11 +3,8 @@ package com.app.maria.domain.account.provider;
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.dto.response.MydataRiaAccountsResponseDTO;
 import com.app.maria.global.exception.MydataApiException;
-import java.math.BigDecimal;
-import java.util.HashMap;
-import java.util.Map;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -16,14 +13,20 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
+
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class MydataProviderImpl implements MydataProvider {
     private static final String RIA_ACCOUNTS_PATH = "/api/mydata/ria-accounts";
     private static final String SYNC_RIA_ACCOUNT_PATH = RIA_ACCOUNTS_PATH + "/save";
-
     private final RestClient restClient;
+
+    public MydataProviderImpl(@Qualifier("mydataRestClient") RestClient restClient) {
+        this.restClient = restClient;
+    }
 
     @Value("${custom.mydata.url}")
     private String myDataUrl;
