@@ -29,4 +29,6 @@ public interface SettlementService {
     SettlementBatchDTO retryFailedSettlementBatch(Long batchId);
 
     KrwExchangeDTO getKrwExchange(Long exchangeId);
+
+    int getProvisionalExchangeCount();
 }

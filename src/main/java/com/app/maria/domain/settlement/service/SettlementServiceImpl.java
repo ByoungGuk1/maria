@@ -15,6 +15,7 @@ import com.app.maria.domain.settlement.mapper.SettlementBatchMapper;
 import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
 import com.app.maria.domain.settlement.mapper.SettlementJoinMapper;
 import com.app.maria.domain.settlement.type.BatchStatus;
+import com.app.maria.domain.settlement.type.SettlementStatus;
 import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -303,5 +304,11 @@ public class SettlementServiceImpl implements SettlementService {
         settlementBatchStatusUpdater.markFailedIfRunning(
                 batchId, "확정산 Batch 작업 제출 실패: " + exception.getMessage());
         throw new SettlementStateConflictException("확정산 Batch 작업 제출에 실패했습니다.");
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public int getProvisionalExchangeCount() {
+        return krwExchangeMapper.countByStatus(SettlementStatus.PROVISIONAL);
     }
 }
