@@ -1,5 +1,6 @@
 package com.app.maria.domain.tax.service;
 
+import static com.app.maria.domain.tax.fixture.TaxFixtures.allSeedRules;
 import static com.app.maria.domain.tax.fixture.TaxFixtures.externalBuy;
 import static com.app.maria.domain.tax.fixture.TaxFixtures.lot;
 import static com.app.maria.domain.tax.fixture.TaxFixtures.reliefRate;
@@ -13,6 +14,7 @@ import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationResultDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -33,7 +35,8 @@ class TaxCalculatorTest {
                         lot(LocalDate.of(2026, 6, 15), "10000000", "100", "1000", "40"),
                         lot(LocalDate.of(2026, 9, 20), "10000000", "100", "1000", "40"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), List.of());
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), List.of(), false);
 
         assertThat(result.getWeightedSell()).isEqualByComparingTo("43000000");
         assertThat(result.getWeightedGain()).isEqualByComparingTo("27800000");
@@ -46,13 +49,15 @@ class TaxCalculatorTest {
         TaxCalculationResultDTO may =
                 calculator.calculate(
                         List.of(lot(LocalDate.of(2026, 5, 31), "10000000", "100", "1000", "40")),
-                        reliefRates(),
-                        List.of());
+                        allSeedRules(),
+                        List.of(),
+                        false);
         TaxCalculationResultDTO jun =
                 calculator.calculate(
                         List.of(lot(LocalDate.of(2026, 6, 1), "10000000", "100", "1000", "40")),
-                        reliefRates(),
-                        List.of());
+                        allSeedRules(),
+                        List.of(),
+                        false);
 
         assertThat(may.getWeightedSell()).isEqualByComparingTo("10000000");
         assertThat(may.getWeightedGain()).isEqualByComparingTo("6000000");
@@ -70,13 +75,15 @@ class TaxCalculatorTest {
         TaxCalculationResultDTO jul =
                 calculator.calculate(
                         List.of(lot(LocalDate.of(2026, 7, 31), "10000000", "100", "1000", "40")),
-                        reliefRates(),
-                        List.of());
+                        allSeedRules(),
+                        List.of(),
+                        false);
         TaxCalculationResultDTO aug =
                 calculator.calculate(
                         List.of(lot(LocalDate.of(2026, 8, 1), "10000000", "100", "1000", "40")),
-                        reliefRates(),
-                        List.of());
+                        allSeedRules(),
+                        List.of(),
+                        false);
 
         assertThat(jul.getWeightedSell()).isEqualByComparingTo("8000000");
         assertThat(jul.getWeightedGain()).isEqualByComparingTo("4800000");
@@ -91,13 +98,15 @@ class TaxCalculatorTest {
         TaxCalculationResultDTO first =
                 calculator.calculate(
                         List.of(lot(LocalDate.of(2026, 1, 1), "10000000", "100", "1000", "40")),
-                        reliefRates(),
-                        List.of());
+                        allSeedRules(),
+                        List.of(),
+                        false);
         TaxCalculationResultDTO last =
                 calculator.calculate(
                         List.of(lot(LocalDate.of(2026, 12, 31), "10000000", "100", "1000", "40")),
-                        reliefRates(),
-                        List.of());
+                        allSeedRules(),
+                        List.of(),
+                        false);
 
         assertThat(first.getWeightedSell()).isEqualByComparingTo("10000000");
         assertThat(last.getWeightedSell()).isEqualByComparingTo("5000000");
@@ -129,7 +138,8 @@ class TaxCalculatorTest {
         List<SellLotDTO> lots =
                 List.of(lot(LocalDate.parse(sellDate), "10000000", "100", "1000", "40"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), List.of());
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), List.of(), false);
 
         assertThat(result.getWeightedSell()).isEqualByComparingTo(expectedWeightedSell);
         assertThat(result.getWeightedGain()).isEqualByComparingTo(expectedWeightedGain);
@@ -144,7 +154,8 @@ class TaxCalculatorTest {
                         lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"),
                         lot(LocalDate.of(2026, 3, 10), "5000000", "100", "1000", "100"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), List.of());
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), List.of(), false);
 
         assertThat(result.getOriginalGainAmount()).isEqualByComparingTo("15000000");
         assertThat(result.getWeightedGain()).isEqualByComparingTo("15000000");
@@ -157,7 +168,8 @@ class TaxCalculatorTest {
         List<SellLotDTO> lots =
                 List.of(lot(LocalDate.of(2026, 3, 10), "5000000", "100", "1000", "100"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), List.of());
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), List.of(), false);
 
         assertThat(result.getOriginalGainAmount()).isEqualByComparingTo("-5000000");
         assertThat(result.getWeightedGain()).isEqualByComparingTo("-5000000");
@@ -166,7 +178,8 @@ class TaxCalculatorTest {
     @Test
     @DisplayName("매도 lot이 없으면 전부 0")
     void 매도없음() {
-        TaxCalculationResultDTO result = calculator.calculate(List.of(), reliefRates(), List.of());
+        TaxCalculationResultDTO result =
+                calculator.calculate(List.of(), allSeedRules(), List.of(), false);
 
         assertThat(result.getWeightedSell()).isEqualByComparingTo("0");
         assertThat(result.getWeightedGain()).isEqualByComparingTo("0");
@@ -179,7 +192,7 @@ class TaxCalculatorTest {
         List<SellLotDTO> lots =
                 List.of(lot(LocalDate.of(2027, 1, 5), "10000000", "100", "1000", "40"));
 
-        assertThatThrownBy(() -> calculator.calculate(lots, reliefRates(), List.of()))
+        assertThatThrownBy(() -> calculator.calculate(lots, allSeedRules(), List.of(), false))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -210,7 +223,7 @@ class TaxCalculatorTest {
         List<SellLotDTO> lots =
                 List.of(lot(LocalDate.of(2026, 9, 20), "10000000", "100", "1000", "40"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, mixed, List.of());
+        TaxCalculationResultDTO result = calculator.calculate(lots, mixed, List.of(), false);
 
         assertThat(result.getWeightedSell()).isEqualByComparingTo("5000000");
         assertThat(result.getWeightedGain()).isEqualByComparingTo("3000000");
@@ -230,7 +243,7 @@ class TaxCalculatorTest {
         List<SellLotDTO> lots =
                 List.of(lot(LocalDate.of(2026, 3, 10), "10000000", "100", "1000", "40"));
 
-        assertThatThrownBy(() -> calculator.calculate(lots, onlyConstants, List.of()))
+        assertThatThrownBy(() -> calculator.calculate(lots, onlyConstants, List.of(), false))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -240,7 +253,7 @@ class TaxCalculatorTest {
         List<SellLotDTO> lots =
                 List.of(lot(LocalDate.of(2026, 3, 10), "10000000", "100", "1000", "40"));
 
-        assertThatThrownBy(() -> calculator.calculate(lots, List.of(), List.of()))
+        assertThatThrownBy(() -> calculator.calculate(lots, List.of(), List.of(), false))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -258,7 +271,8 @@ class TaxCalculatorTest {
                         externalBuy(LocalDate.of(2026, 6, 15), "20000000"),
                         externalBuy(LocalDate.of(2026, 9, 20), "-10000000"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), external, false);
 
         assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("11000000");
         assertThat(result.getWeightedSell()).isEqualByComparingTo("43000000");
@@ -272,7 +286,8 @@ class TaxCalculatorTest {
         List<SellLotDTO> lots =
                 List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), List.of());
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), List.of(), false);
 
         assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("0");
     }
@@ -293,7 +308,8 @@ class TaxCalculatorTest {
         List<ExternalBuyDTO> external =
                 List.of(externalBuy(LocalDate.parse(tradeDate), "10000000"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), external, false);
 
         assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo(expected);
     }
@@ -309,7 +325,8 @@ class TaxCalculatorTest {
                         externalBuy(LocalDate.of(2026, 6, 15), "10000000"),
                         externalBuy(LocalDate.of(2026, 9, 20), "-10000000"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), external, false);
 
         assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("13000000");
     }
@@ -324,7 +341,8 @@ class TaxCalculatorTest {
                         externalBuy(LocalDate.of(2026, 3, 10), "20000000"),
                         externalBuy(LocalDate.of(2026, 3, 10), "-30000000"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), external, false);
 
         assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("0");
         assertThat(result.getWeightedExternalAmount().signum()).isZero();
@@ -340,7 +358,8 @@ class TaxCalculatorTest {
                         externalBuy(LocalDate.of(2026, 6, 15), "10000000"),
                         externalBuy(LocalDate.of(2026, 6, 15), "-10000000"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), external, false);
 
         assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("0");
     }
@@ -353,7 +372,8 @@ class TaxCalculatorTest {
         List<ExternalBuyDTO> external =
                 List.of(externalBuy(LocalDate.of(2026, 9, 20), "1000000.005"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), external, false);
 
         assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("500000.00");
         assertThat(result.getWeightedExternalAmount().scale()).isEqualTo(2);
@@ -364,7 +384,8 @@ class TaxCalculatorTest {
     void 외부_매도없어도_집계() {
         List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "10000000"));
 
-        TaxCalculationResultDTO result = calculator.calculate(List.of(), reliefRates(), external);
+        TaxCalculationResultDTO result =
+                calculator.calculate(List.of(), allSeedRules(), external, false);
 
         assertThat(result.getWeightedSell()).isEqualByComparingTo("0");
         assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("10000000");
@@ -377,7 +398,7 @@ class TaxCalculatorTest {
                 List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
         List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2027, 1, 5), "10000000"));
 
-        assertThatThrownBy(() -> calculator.calculate(lots, reliefRates(), external))
+        assertThatThrownBy(() -> calculator.calculate(lots, allSeedRules(), external, false))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("RELIEF_RATE");
     }
@@ -395,7 +416,8 @@ class TaxCalculatorTest {
                         externalBuy(LocalDate.of(2026, 6, 15), "20000000"),
                         externalBuy(LocalDate.of(2026, 9, 20), "-10000000"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), external, false);
 
         assertThat(result.getAdjustRatio()).isEqualByComparingTo("0.7442");
     }
@@ -406,7 +428,8 @@ class TaxCalculatorTest {
         List<SellLotDTO> lots =
                 List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), List.of());
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), List.of(), false);
 
         assertThat(result.getAdjustRatio()).isEqualByComparingTo("1.0000");
     }
@@ -419,7 +442,8 @@ class TaxCalculatorTest {
         List<ExternalBuyDTO> external =
                 List.of(externalBuy(LocalDate.of(2026, 3, 10), "-10000000"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), external, false);
 
         assertThat(result.getAdjustRatio()).isEqualByComparingTo("1.0000");
     }
@@ -431,7 +455,8 @@ class TaxCalculatorTest {
                 List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
         List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "30000000"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), external, false);
 
         assertThat(result.getWeightedSell()).isEqualByComparingTo("30000000");
         assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("30000000");
@@ -445,7 +470,8 @@ class TaxCalculatorTest {
                 List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
         List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "50000000"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), external, false);
 
         assertThat(result.getAdjustRatio()).isEqualByComparingTo("0.0000");
         assertThat(result.getAdjustRatio().signum()).isNotNegative();
@@ -456,7 +482,8 @@ class TaxCalculatorTest {
     void 조정비율_매도없음() {
         List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "10000000"));
 
-        TaxCalculationResultDTO result = calculator.calculate(List.of(), reliefRates(), external);
+        TaxCalculationResultDTO result =
+                calculator.calculate(List.of(), allSeedRules(), external, false);
 
         assertThat(result.getWeightedSell()).isEqualByComparingTo("0");
         assertThat(result.getAdjustRatio()).isEqualByComparingTo("0.0000");
@@ -480,7 +507,8 @@ class TaxCalculatorTest {
         List<ExternalBuyDTO> external =
                 List.of(externalBuy(LocalDate.of(2026, 3, 10), externalAmount));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), external, false);
 
         assertThat(result.getWeightedSell()).isEqualByComparingTo("43000000");
         assertThat(result.getAdjustRatio()).isEqualByComparingTo(expected);
@@ -493,7 +521,8 @@ class TaxCalculatorTest {
                 List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
         List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "10000000"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), external, false);
 
         assertThat(result.getAdjustRatio().scale()).isEqualTo(4);
         assertThat(result.getAdjustRatio()).isEqualByComparingTo("0.6667");
@@ -509,7 +538,8 @@ class TaxCalculatorTest {
                         lot(LocalDate.of(2026, 9, 20), "10000000", "100", "1000", "40"));
         List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "2150"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), external, false);
 
         assertThat(result.getWeightedSell()).isEqualByComparingTo("43000000");
         assertThat(result.getAdjustRatio()).isEqualByComparingTo("1.0000");
@@ -525,7 +555,8 @@ class TaxCalculatorTest {
                         lot(LocalDate.of(2026, 9, 20), "10000000", "100", "1000", "40"));
         List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "6450"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), external, false);
 
         assertThat(result.getAdjustRatio()).isEqualByComparingTo("0.9999");
     }
@@ -540,10 +571,190 @@ class TaxCalculatorTest {
                         externalBuy(LocalDate.of(2026, 3, 10), "10000000"),
                         externalBuy(LocalDate.of(2026, 3, 10), "-40000000"));
 
-        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), external, false);
 
         assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("0");
         assertThat(result.getAdjustRatio()).isEqualByComparingTo("1.0000");
         assertThat(result.getAdjustRatio()).isLessThanOrEqualTo(new BigDecimal("1.0000"));
+    }
+
+    private static final List<SellLotDTO> GOLDEN_LOTS =
+            List.of(
+                    lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"),
+                    lot(LocalDate.of(2026, 6, 15), "10000000", "100", "1000", "40"),
+                    lot(LocalDate.of(2026, 9, 20), "10000000", "100", "1000", "40"));
+
+    private static final List<ExternalBuyDTO> GOLDEN_EXTERNAL =
+            List.of(
+                    externalBuy(LocalDate.of(2026, 6, 15), "20000000"),
+                    externalBuy(LocalDate.of(2026, 9, 20), "-10000000"));
+
+    @Test
+    @DisplayName("골든 시나리오 - 최종공제액과 최종세액이 §3 검증 예시와 일치한다")
+    void 골든시나리오_공제와세액() {
+        TaxCalculationResultDTO result =
+                calculator.calculate(GOLDEN_LOTS, allSeedRules(), GOLDEN_EXTERNAL, false);
+
+        assertThat(result.getAdjustRatio()).isEqualByComparingTo("0.7442");
+        assertThat(result.getFinalDeduction()).isEqualByComparingTo("20688760.00");
+        assertThat(result.getFinalTax()).isEqualByComparingTo("1938472.80");
+    }
+
+    @Test
+    @DisplayName("최종공제액 = 조정전공제액 × 조정비율")
+    void 최종공제액_산식() {
+        TaxCalculationResultDTO result =
+                calculator.calculate(GOLDEN_LOTS, allSeedRules(), GOLDEN_EXTERNAL, false);
+
+        assertThat(result.getFinalDeduction())
+                .isEqualByComparingTo(
+                        result.getWeightedGain()
+                                .multiply(result.getAdjustRatio())
+                                .setScale(2, RoundingMode.HALF_UP));
+    }
+
+    @Test
+    @DisplayName("최종세액 = (비가중 총양도소득 − 기본공제 − 최종공제액) × 세율")
+    void 최종세액_산식() {
+        TaxCalculationResultDTO result =
+                calculator.calculate(GOLDEN_LOTS, allSeedRules(), GOLDEN_EXTERNAL, false);
+
+        BigDecimal expected =
+                result.getOriginalGainAmount()
+                        .subtract(new BigDecimal("2500000"))
+                        .subtract(result.getFinalDeduction())
+                        .multiply(new BigDecimal("0.22"))
+                        .setScale(2, RoundingMode.HALF_UP);
+        assertThat(result.getFinalTax()).isEqualByComparingTo(expected);
+    }
+
+    @Test
+    @DisplayName("혜택 배제 계좌는 공제 없이 기본공제·세율만 적용된다")
+    void 혜택배제() {
+        TaxCalculationResultDTO result =
+                calculator.calculate(GOLDEN_LOTS, allSeedRules(), GOLDEN_EXTERNAL, true);
+
+        assertThat(result.getAdjustRatio()).isEqualByComparingTo("0.0000");
+        assertThat(result.getFinalDeduction()).isEqualByComparingTo("0");
+        assertThat(result.getFinalTax()).isEqualByComparingTo("6490000.00");
+    }
+
+    @Test
+    @DisplayName("혜택 배제여도 조정전공제액은 그대로 남는다 - 받았다면 얼마였는지 보여주기 위해")
+    void 혜택배제_조정전공제액은_유지() {
+        TaxCalculationResultDTO result =
+                calculator.calculate(GOLDEN_LOTS, allSeedRules(), GOLDEN_EXTERNAL, true);
+
+        assertThat(result.getWeightedGain()).isEqualByComparingTo("27800000");
+        assertThat(result.getWeightedSell()).isEqualByComparingTo("43000000");
+    }
+
+    @Test
+    @DisplayName("혜택 배제는 정상 계산보다 세액이 크다")
+    void 혜택배제_세액이_더_크다() {
+        BigDecimal normal =
+                calculator
+                        .calculate(GOLDEN_LOTS, allSeedRules(), GOLDEN_EXTERNAL, false)
+                        .getFinalTax();
+        BigDecimal excluded =
+                calculator
+                        .calculate(GOLDEN_LOTS, allSeedRules(), GOLDEN_EXTERNAL, true)
+                        .getFinalTax();
+
+        assertThat(excluded).isGreaterThan(normal);
+    }
+
+    @Test
+    @DisplayName("외부 순매수가 없으면 조정전공제액이 전액 공제된다")
+    void 외부순매수_없으면_전액공제() {
+        TaxCalculationResultDTO result =
+                calculator.calculate(GOLDEN_LOTS, allSeedRules(), List.of(), false);
+
+        assertThat(result.getAdjustRatio()).isEqualByComparingTo("1.0000");
+        assertThat(result.getFinalDeduction()).isEqualByComparingTo("27800000.00");
+        assertThat(result.getFinalTax()).isEqualByComparingTo("374000.00");
+    }
+
+    @Test
+    @DisplayName("조정비율이 0이면 공제도 0이다")
+    void 조정비율0이면_공제0() {
+        List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "50000000"));
+
+        TaxCalculationResultDTO result =
+                calculator.calculate(GOLDEN_LOTS, allSeedRules(), external, false);
+
+        assertThat(result.getAdjustRatio()).isEqualByComparingTo("0.0000");
+        assertThat(result.getFinalDeduction()).isEqualByComparingTo("0");
+        assertThat(result.getFinalTax()).isEqualByComparingTo("6490000.00");
+    }
+
+    @Test
+    @DisplayName("양도소득이 기본공제보다 작으면 세액은 0이다")
+    void 양도소득이_기본공제보다_작으면_세액0() {
+        List<SellLotDTO> lots =
+                List.of(lot(LocalDate.of(2026, 3, 10), "12000000", "100", "1000", "100"));
+
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), List.of(), false);
+
+        assertThat(result.getOriginalGainAmount()).isEqualByComparingTo("2000000");
+        assertThat(result.getFinalTax()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    @DisplayName("전부 손실이면 공제도 세액도 0이다")
+    void 전부손실이면_공제0_세액0() {
+        List<SellLotDTO> lots =
+                List.of(lot(LocalDate.of(2026, 3, 10), "5000000", "100", "1000", "100"));
+
+        TaxCalculationResultDTO result =
+                calculator.calculate(lots, allSeedRules(), List.of(), false);
+
+        assertThat(result.getWeightedGain()).isNegative();
+        assertThat(result.getFinalDeduction()).isEqualByComparingTo("0");
+        assertThat(result.getFinalTax()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    @DisplayName("매도가 없으면 공제도 세액도 0이다")
+    void 매도없으면_공제0_세액0() {
+        TaxCalculationResultDTO result =
+                calculator.calculate(List.of(), allSeedRules(), GOLDEN_EXTERNAL, false);
+
+        assertThat(result.getFinalDeduction()).isEqualByComparingTo("0");
+        assertThat(result.getFinalTax()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    @DisplayName("기본공제 규칙이 없으면 예외")
+    void 기본공제규칙_없음() {
+        assertThatThrownBy(() -> calculator.calculate(GOLDEN_LOTS, reliefRates(), List.of(), false))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("BASIC_DEDUCTION");
+    }
+
+    @Test
+    @DisplayName("세율 규칙이 없으면 예외")
+    void 세율규칙_없음() {
+        List<TaxRuleDTO> withoutTaxRate =
+                allSeedRules().stream()
+                        .filter(rule -> !"TAX_RATE".equals(rule.getRuleType()))
+                        .toList();
+
+        assertThatThrownBy(
+                        () -> calculator.calculate(GOLDEN_LOTS, withoutTaxRate, List.of(), false))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("TAX_RATE");
+    }
+
+    @Test
+    @DisplayName("공제액과 세액은 소수점 2자리로 확정된다")
+    void 공제와세액_스케일() {
+        TaxCalculationResultDTO result =
+                calculator.calculate(GOLDEN_LOTS, allSeedRules(), GOLDEN_EXTERNAL, false);
+
+        assertThat(result.getFinalDeduction().scale()).isEqualTo(2);
+        assertThat(result.getFinalTax().scale()).isEqualTo(2);
     }
 }
