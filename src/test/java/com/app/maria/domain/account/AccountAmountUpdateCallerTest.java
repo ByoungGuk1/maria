@@ -1,7 +1,6 @@
 package com.app.maria.domain.account;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -13,23 +12,21 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * D2(현금 직접입금 차단): account.amount를 실제로 바꾸는 3개 매퍼 메서드
- * (updateProvisionalAmount/replaceAccountAmount/deductAccountAmount)는
- * 각각 정해진 서비스 하나에서만 호출되어야 한다.
- * AccountMapper/KrwExchangeMapper는 여러 서비스에 주입돼 있어서, 서비스 계층을
- * 건너뛰고 매퍼를 직접 호출하는 새 코드가 생기면 이 테스트가 잡아낸다.
+ * (updateProvisionalAmount/replaceAccountAmount/deductAccountAmount)는 각각 정해진 서비스 하나에서만 호출되어야 한다.
+ * AccountMapper/KrwExchangeMapper는 여러 서비스에 주입돼 있어서, 서비스 계층을 건너뛰고 매퍼를 직접 호출하는 새 코드가 생기면 이 테스트가 잡아낸다.
  */
 class AccountAmountUpdateCallerTest {
 
-    private static final Map<String, Set<String>> ALLOWED_CALLERS_BY_METHOD = Map.of(
-            "updateProvisionalAmount", Set.of("AccountTransactionalServiceImpl"),
-            "replaceAccountAmount", Set.of("SettlementTransactionExecutor"),
-            "deductAccountAmount", Set.of()
-    );
+    private static final Map<String, Set<String>> ALLOWED_CALLERS_BY_METHOD =
+            Map.of(
+                    "updateProvisionalAmount", Set.of("AccountTransactionalServiceImpl"),
+                    "replaceAccountAmount", Set.of("SettlementTransactionExecutor"),
+                    "deductAccountAmount", Set.of());
 
     @Test
     @DisplayName("account.amount를 바꾸는 매퍼 메서드는 정해진 클래스에서만 호출된다")
@@ -42,16 +39,18 @@ class AccountAmountUpdateCallerTest {
         Path mainSourceRoot = Path.of("src/main/java");
         try (Stream<Path> paths = Files.walk(mainSourceRoot)) {
             paths.filter(p -> p.toString().endsWith(".java"))
-                    .forEach(path -> {
-                        String content = readQuietly(path);
-                        String className = className(path);
-                        for (String methodName : ALLOWED_CALLERS_BY_METHOD.keySet()) {
-                            Pattern callSite = Pattern.compile("\\w+\\." + methodName + "\\(");
-                            if (callSite.matcher(content).find()) {
-                                actualCallersByMethod.get(methodName).add(className);
-                            }
-                        }
-                    });
+                    .forEach(
+                            path -> {
+                                String content = readQuietly(path);
+                                String className = className(path);
+                                for (String methodName : ALLOWED_CALLERS_BY_METHOD.keySet()) {
+                                    Pattern callSite =
+                                            Pattern.compile("\\w+\\." + methodName + "\\(");
+                                    if (callSite.matcher(content).find()) {
+                                        actualCallersByMethod.get(methodName).add(className);
+                                    }
+                                }
+                            });
         }
 
         for (String methodName : ALLOWED_CALLERS_BY_METHOD.keySet()) {
