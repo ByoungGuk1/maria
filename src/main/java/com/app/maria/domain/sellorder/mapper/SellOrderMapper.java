@@ -18,5 +18,4 @@ public interface SellOrderMapper {
     List<SellOrderDTO> selectSellOrdersByAccountId(@Param("accountId") Long accountId);
 
     BigDecimal sumSellAmountBetween(LocalDateTime start, LocalDateTime end);
-
 }

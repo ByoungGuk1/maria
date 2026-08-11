@@ -72,8 +72,7 @@ class ExchangeRestTemplateConfigTest {
         SimpleClientHttpRequestFactory settlementFactory =
                 (SimpleClientHttpRequestFactory) settlementRestTemplate.getRequestFactory();
 
-        assertThat(ReflectionTestUtils.getField(defaultFactory, "connectTimeout"))
-                .isEqualTo(3_000);
+        assertThat(ReflectionTestUtils.getField(defaultFactory, "connectTimeout")).isEqualTo(3_000);
         assertThat(ReflectionTestUtils.getField(defaultFactory, "readTimeout")).isEqualTo(5_000);
         assertThat(ReflectionTestUtils.getField(settlementFactory, "connectTimeout"))
                 .isEqualTo(3_000);

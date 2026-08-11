@@ -1,5 +1,11 @@
 package com.app.maria.domain.dashboard.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.service.AccountLogService;
 import com.app.maria.domain.account.service.AccountService;
@@ -11,47 +17,38 @@ import com.app.maria.domain.settlement.service.SettlementService;
 import com.app.maria.global.audit.dto.response.AuditLogResponseDTO;
 import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.clock.service.BusinessClockService;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class DashboardServiceImplTest {
 
-    @Mock
-    private AccountService accountService;
+    @Mock private AccountService accountService;
 
-    @Mock
-    private AccountLogService accountLogService;
+    @Mock private AccountLogService accountLogService;
 
-    @Mock
-    private SellOrderService sellOrderService;
+    @Mock private SellOrderService sellOrderService;
 
-    @Mock
-    private SettlementService settlementService;
+    @Mock private SettlementService settlementService;
 
-    @Mock
-    private AuditLogService auditLogService;
+    @Mock private AuditLogService auditLogService;
 
-    @Mock
-    private BusinessClockService businessClockService;
+    @Mock private BusinessClockService businessClockService;
 
     private DashboardServiceImpl newService() {
         return new DashboardServiceImpl(
-                accountService, accountLogService, sellOrderService,
-                settlementService, auditLogService, businessClockService);
+                accountService,
+                accountLogService,
+                sellOrderService,
+                settlementService,
+                auditLogService,
+                businessClockService);
     }
 
     @Test
@@ -158,8 +155,14 @@ class DashboardServiceImplTest {
     void getDashboardSummaryLimitsRecentAuditLogsToFourEvenWhenMoreExist() {
         DashboardServiceImpl service = newService();
         stubUnrelatedDependencies();
-        List<AuditLogResponseDTO> sixLogs = List.of(
-                auditLog(1L), auditLog(2L), auditLog(3L), auditLog(4L), auditLog(5L), auditLog(6L));
+        List<AuditLogResponseDTO> sixLogs =
+                List.of(
+                        auditLog(1L),
+                        auditLog(2L),
+                        auditLog(3L),
+                        auditLog(4L),
+                        auditLog(5L),
+                        auditLog(6L));
         when(auditLogService.searchAuditLogs(any())).thenReturn(sixLogs);
 
         DashboardSummaryDTO result = service.getDashboardSummary();
@@ -199,7 +202,8 @@ class DashboardServiceImplTest {
         when(auditLogService.searchAuditLogs(any())).thenReturn(List.of());
     }
 
-    private AccountLimitUsageDTO accountUsage(Long accountId, Status status, String usedAmount, String limitAmount) {
+    private AccountLimitUsageDTO accountUsage(
+            Long accountId, Status status, String usedAmount, String limitAmount) {
         return AccountLimitUsageDTO.builder()
                 .accountId(accountId)
                 .accountNo("110-" + accountId)

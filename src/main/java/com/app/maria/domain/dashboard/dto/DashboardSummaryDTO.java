@@ -3,11 +3,10 @@ package com.app.maria.domain.dashboard.dto;
 import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
 import com.app.maria.global.audit.dto.response.AuditLogResponseDTO;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import lombok.*;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -27,5 +26,4 @@ public class DashboardSummaryDTO {
     private SettlementBatchDTO latestSettlementBatch;
     private List<AccountLimitUsageDTO> priorityAccounts;
     private List<AuditLogResponseDTO> recentAuditLogs;
-
 }

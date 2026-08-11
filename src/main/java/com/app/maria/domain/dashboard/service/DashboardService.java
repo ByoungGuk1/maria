@@ -5,5 +5,4 @@ import com.app.maria.domain.dashboard.dto.DashboardSummaryDTO;
 public interface DashboardService {
 
     DashboardSummaryDTO getDashboardSummary();
-
 }

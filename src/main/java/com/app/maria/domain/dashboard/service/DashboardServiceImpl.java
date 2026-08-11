@@ -12,13 +12,12 @@ import com.app.maria.global.audit.dto.request.AuditLogSearchRequestDTO;
 import com.app.maria.global.audit.dto.response.AuditLogResponseDTO;
 import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.clock.service.BusinessClockService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
@@ -35,22 +34,24 @@ public class DashboardServiceImpl implements DashboardService {
     private static final int RATIO_SCALE = 4;
     private static final int RECENT_AUDIT_LOG_LIMIT = 4;
 
-
     @Override
     public DashboardSummaryDTO getDashboardSummary() {
         List<AccountLimitUsageDTO> openAccountUsages = accountService.selectAccountLimitUsage();
 
-        List<AccountLimitUsageDTO> nearLimitAccounts = openAccountUsages.stream().filter(this::isNearLimit).toList();
+        List<AccountLimitUsageDTO> nearLimitAccounts =
+                openAccountUsages.stream().filter(this::isNearLimit).toList();
 
         List<AccountLimitUsageDTO> priorityAccounts = new ArrayList<>();
         priorityAccounts.addAll(accountService.getAppliedAccounts());
         priorityAccounts.addAll(nearLimitAccounts);
 
         List<SettlementBatchDTO> batches = settlementService.getSettlementBatches();
-        SettlementBatchDTO latestBatch = batches.isEmpty()? null:batches.get(0);
+        SettlementBatchDTO latestBatch = batches.isEmpty() ? null : batches.get(0);
 
-        List<AuditLogResponseDTO> recentAuditLogs = auditLogService.searchAuditLogs(AuditLogSearchRequestDTO.builder().build())
-                .stream().limit(RECENT_AUDIT_LOG_LIMIT).toList();
+        List<AuditLogResponseDTO> recentAuditLogs =
+                auditLogService.searchAuditLogs(AuditLogSearchRequestDTO.builder().build()).stream()
+                        .limit(RECENT_AUDIT_LOG_LIMIT)
+                        .toList();
 
         return DashboardSummaryDTO.builder()
                 .referenceDateTime(businessClockService.now())
@@ -59,7 +60,8 @@ public class DashboardServiceImpl implements DashboardService {
                 .nearLimitAccountCount(nearLimitAccounts.size())
                 .todaySellAmount(sellOrderService.getTodaySellAmount())
                 .todayApprovedCount(accountLogService.getTodayProcessedAccountCount(Status.OPENED))
-                .todayRejectedCount(accountLogService.getTodayProcessedAccountCount(Status.REJECTED))
+                .todayRejectedCount(
+                        accountLogService.getTodayProcessedAccountCount(Status.REJECTED))
                 .latestSettlementBatch(latestBatch)
                 .priorityAccounts(priorityAccounts)
                 .recentAuditLogs(recentAuditLogs)
@@ -70,7 +72,9 @@ public class DashboardServiceImpl implements DashboardService {
         if (usageDTO.getLimitAmount() == null || usageDTO.getLimitAmount().signum() <= 0) {
             return false;
         }
-        BigDecimal ratio = usageDTO.getUsedAmount().divide(usageDTO.getLimitAmount(), RATIO_SCALE, RoundingMode.HALF_UP);
+        BigDecimal ratio =
+                usageDTO.getUsedAmount()
+                        .divide(usageDTO.getLimitAmount(), RATIO_SCALE, RoundingMode.HALF_UP);
         return ratio.compareTo(NEAR_LIMIT_RATIO_THRESHOLD) >= 0;
     }
 }

@@ -18,8 +18,8 @@ public class DashboardApi {
 
     @GetMapping
     public ResponseEntity<ApiResponseDTO<DashboardSummaryResponseDTO>> getDashboard() {
-        DashboardSummaryResponseDTO response = new DashboardSummaryResponseDTO(dashboardService.getDashboardSummary());
+        DashboardSummaryResponseDTO response =
+                new DashboardSummaryResponseDTO(dashboardService.getDashboardSummary());
         return ResponseEntity.ok(ApiResponseDTO.of("대시보드 조회 성공", response));
     }
-
 }

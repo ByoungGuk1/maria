@@ -1,9 +1,8 @@
 package com.app.maria.domain.account.dto;
 
 import com.app.maria.domain.account.type.Status;
-import lombok.*;
-
 import java.math.BigDecimal;
+import lombok.*;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -19,5 +18,4 @@ public class AccountLimitUsageDTO {
     private Status status;
     private BigDecimal limitAmount;
     private BigDecimal usedAmount;
-
 }
