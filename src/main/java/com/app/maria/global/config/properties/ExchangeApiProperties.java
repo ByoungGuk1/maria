@@ -14,5 +14,4 @@ public class ExchangeApiProperties {
     private String name;
     private String url;
     private String apiKey;
-
 }

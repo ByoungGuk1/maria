@@ -4,7 +4,7 @@ import lombok.NoArgsConstructor;
 
 @NoArgsConstructor
 public class InvalidAccountRequestException extends AccountException {
-  public InvalidAccountRequestException(String message) {
-    super(message);
-  }
+    public InvalidAccountRequestException(String message) {
+        super(message);
+    }
 }

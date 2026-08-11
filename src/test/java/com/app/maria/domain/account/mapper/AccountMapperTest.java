@@ -1,8 +1,19 @@
 package com.app.maria.domain.account.mapper;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.dto.AccountStatusLogDTO;
 import com.app.maria.domain.account.type.Status;
+import java.io.IOException;
+import java.io.Reader;
+import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
 import org.apache.ibatis.exceptions.PersistenceException;
 import org.apache.ibatis.io.Resources;
@@ -16,378 +27,394 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-import java.io.Reader;
-import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.LocalDateTime;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 class AccountMapperTest {
 
-  private static final LocalDateTime CREATED_AT = LocalDateTime.of(2026, 8, 2, 10, 0);
-  private static final BigDecimal DEFAULT_LIMIT = BigDecimal.valueOf(30_000_000L);
+    private static final LocalDateTime CREATED_AT = LocalDateTime.of(2026, 8, 2, 10, 0);
+    private static final BigDecimal DEFAULT_LIMIT = BigDecimal.valueOf(30_000_000L);
 
-  private static PooledDataSource dataSource;
-  private static SqlSessionFactory sqlSessionFactory;
+    private static PooledDataSource dataSource;
+    private static SqlSessionFactory sqlSessionFactory;
 
-  private SqlSession sqlSession;
-  private AccountMapper accountMapper;
-  private AccountStatusLogMapper accountStatusLogMapper;
+    private SqlSession sqlSession;
+    private AccountMapper accountMapper;
+    private AccountStatusLogMapper accountStatusLogMapper;
 
-  @BeforeAll
-  static void configureMyBatis() throws IOException {
-    try (Reader reader = Resources.getResourceAsReader("mybatis-account-test-config.xml")) {
-      sqlSessionFactory = new SqlSessionFactoryBuilder().build(reader);
+    @BeforeAll
+    static void configureMyBatis() throws IOException {
+        try (Reader reader = Resources.getResourceAsReader("mybatis-account-test-config.xml")) {
+            sqlSessionFactory = new SqlSessionFactoryBuilder().build(reader);
+        }
+        dataSource =
+                (PooledDataSource)
+                        sqlSessionFactory.getConfiguration().getEnvironment().getDataSource();
     }
-    dataSource = (PooledDataSource) sqlSessionFactory
-        .getConfiguration()
-        .getEnvironment()
-        .getDataSource();
-  }
 
-  @BeforeEach
-  void setUpDatabase() throws SQLException {
-    resetSchema();
-    sqlSession = sqlSessionFactory.openSession(true);
-    accountMapper = sqlSession.getMapper(AccountMapper.class);
-    accountStatusLogMapper = sqlSession.getMapper(AccountStatusLogMapper.class);
-  }
-
-  @AfterEach
-  void closeSession() {
-    if (sqlSession != null) {
-      sqlSession.close();
+    @BeforeEach
+    void setUpDatabase() throws SQLException {
+        resetSchema();
+        sqlSession = sqlSessionFactory.openSession(true);
+        accountMapper = sqlSession.getMapper(AccountMapper.class);
+        accountStatusLogMapper = sqlSession.getMapper(AccountStatusLogMapper.class);
     }
-  }
 
-  @AfterAll
-  static void closeDataSource() {
-    if (dataSource != null) {
-      dataSource.forceCloseAll();
+    @AfterEach
+    void closeSession() {
+        if (sqlSession != null) {
+            sqlSession.close();
+        }
     }
-  }
 
-  @Test
-  @DisplayName("고객과 고객 계좌 존재 여부를 구분해 조회한다")
-  void existsQueriesReturnExpectedValues() {
-    assertThat(accountMapper.existsCustomerById(1L)).isTrue();
-    assertThat(accountMapper.existsCustomerById(999L)).isFalse();
-    assertThat(accountMapper.existsByCustomerId(1L)).isFalse();
+    @AfterAll
+    static void closeDataSource() {
+        if (dataSource != null) {
+            dataSource.forceCloseAll();
+        }
+    }
 
-    insertApplication(1L, DEFAULT_LIMIT);
+    @Test
+    @DisplayName("고객과 고객 계좌 존재 여부를 구분해 조회한다")
+    void existsQueriesReturnExpectedValues() {
+        assertThat(accountMapper.existsCustomerById(1L)).isTrue();
+        assertThat(accountMapper.existsCustomerById(999L)).isFalse();
+        assertThat(accountMapper.existsByCustomerId(1L)).isFalse();
 
-    assertThat(accountMapper.existsByCustomerId(1L)).isTrue();
-  }
+        insertApplication(1L, DEFAULT_LIMIT);
 
-  @Test
-  @DisplayName("신규 신청은 APPLIED 상태와 계좌 기본값으로 저장한다")
-  void insertApplicationStoresAppliedAccount() {
-    int affectedRows = accountMapper.insertApplication(application(1L, DEFAULT_LIMIT));
+        assertThat(accountMapper.existsByCustomerId(1L)).isTrue();
+    }
 
-    assertThat(affectedRows).isOne();
-    AccountDTO savedAccount = accountMapper.selectByCustomerId(1L).orElseThrow();
-    assertThat(savedAccount.getAccountId()).isNotNull();
-    assertThat(savedAccount.getCustomerId()).isEqualTo(1L);
-    assertThat(savedAccount.getStatus()).isEqualTo(Status.APPLIED);
-    assertThat(savedAccount.getAccountNo()).isNull();
-    assertThat(savedAccount.getOpenedAt()).isNull();
-    assertThat(savedAccount.getCreatedAt()).isEqualTo(CREATED_AT);
-    assertThat(savedAccount.getLimitAmount()).isEqualByComparingTo(DEFAULT_LIMIT);
-    assertThat(savedAccount.getAmount()).isEqualByComparingTo(BigDecimal.ZERO);
-    assertThat(savedAccount.getBenefit()).isNull();
-  }
+    @Test
+    @DisplayName("신규 신청은 APPLIED 상태와 계좌 기본값으로 저장한다")
+    void insertApplicationStoresAppliedAccount() {
+        int affectedRows = accountMapper.insertApplication(application(1L, DEFAULT_LIMIT));
 
-  @Test
-  @DisplayName("동일 고객의 두 번째 계좌는 DB unique 제약조건으로 차단한다")
-  void insertApplicationRejectsDuplicateCustomer() {
-    insertApplication(1L, DEFAULT_LIMIT);
+        assertThat(affectedRows).isOne();
+        AccountDTO savedAccount = accountMapper.selectByCustomerId(1L).orElseThrow();
+        assertThat(savedAccount.getAccountId()).isNotNull();
+        assertThat(savedAccount.getCustomerId()).isEqualTo(1L);
+        assertThat(savedAccount.getStatus()).isEqualTo(Status.APPLIED);
+        assertThat(savedAccount.getAccountNo()).isNull();
+        assertThat(savedAccount.getOpenedAt()).isNull();
+        assertThat(savedAccount.getCreatedAt()).isEqualTo(CREATED_AT);
+        assertThat(savedAccount.getLimitAmount()).isEqualByComparingTo(DEFAULT_LIMIT);
+        assertThat(savedAccount.getAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(savedAccount.getBenefit()).isNull();
+    }
 
-    assertThatThrownBy(() -> accountMapper.insertApplication(
-        application(1L, BigDecimal.valueOf(20_000_000L))
-    )).isInstanceOf(PersistenceException.class);
-  }
+    @Test
+    @DisplayName("동일 고객의 두 번째 계좌는 DB unique 제약조건으로 차단한다")
+    void insertApplicationRejectsDuplicateCustomer() {
+        insertApplication(1L, DEFAULT_LIMIT);
 
-  @Test
-  @DisplayName("승인은 APPLIED 계좌에 계좌번호와 개설일을 한 번만 설정한다")
-  void approveUpdatesOnlyAppliedAccount() {
-    Long accountId = insertApplication(1L, DEFAULT_LIMIT);
-    LocalDateTime openedAt = CREATED_AT.plusMinutes(1);
-    String accountNo = "1234567890";
-    AccountDTO approval = AccountDTO.builder()
-        .accountId(accountId)
-        .accountNo(accountNo)
-        .openedAt(openedAt)
-        .limitAmount(DEFAULT_LIMIT)
-        .build();
+        assertThatThrownBy(
+                        () ->
+                                accountMapper.insertApplication(
+                                        application(1L, BigDecimal.valueOf(20_000_000L))))
+                .isInstanceOf(PersistenceException.class);
+    }
 
-    assertThat(accountMapper.approve(approval)).isOne();
-    assertThat(accountMapper.approve(approval)).isZero();
+    @Test
+    @DisplayName("승인은 APPLIED 계좌에 계좌번호와 개설일을 한 번만 설정한다")
+    void approveUpdatesOnlyAppliedAccount() {
+        Long accountId = insertApplication(1L, DEFAULT_LIMIT);
+        LocalDateTime openedAt = CREATED_AT.plusMinutes(1);
+        String accountNo = "1234567890";
+        AccountDTO approval =
+                AccountDTO.builder()
+                        .accountId(accountId)
+                        .accountNo(accountNo)
+                        .openedAt(openedAt)
+                        .limitAmount(DEFAULT_LIMIT)
+                        .build();
 
-    AccountDTO openedAccount = accountMapper.selectByAccountId(accountId).orElseThrow();
-    assertThat(openedAccount.getStatus()).isEqualTo(Status.OPENED);
-    assertThat(openedAccount.getAccountNo()).isEqualTo(accountNo);
-    assertThat(openedAccount.getOpenedAt()).isEqualTo(openedAt);
-  }
+        assertThat(accountMapper.approve(approval)).isOne();
+        assertThat(accountMapper.approve(approval)).isZero();
 
-  @Test
-  @DisplayName("승인은 심사에 사용한 한도와 현재 한도가 다르면 처리하지 않는다")
-  void approveDoesNotUpdateWhenExpectedLimitIsStale() {
-    Long accountId = insertApplication(1L, DEFAULT_LIMIT);
-    AccountDTO approval = AccountDTO.builder()
-        .accountId(accountId)
-        .accountNo("1234567890")
-        .openedAt(CREATED_AT.plusMinutes(1))
-        .limitAmount(BigDecimal.valueOf(20_000_000L))
-        .build();
+        AccountDTO openedAccount = accountMapper.selectByAccountId(accountId).orElseThrow();
+        assertThat(openedAccount.getStatus()).isEqualTo(Status.OPENED);
+        assertThat(openedAccount.getAccountNo()).isEqualTo(accountNo);
+        assertThat(openedAccount.getOpenedAt()).isEqualTo(openedAt);
+    }
 
-    assertThat(accountMapper.approve(approval)).isZero();
-    assertThat(accountMapper.selectByAccountId(accountId).orElseThrow().getStatus()).isEqualTo(Status.APPLIED);
-  }
+    @Test
+    @DisplayName("승인은 심사에 사용한 한도와 현재 한도가 다르면 처리하지 않는다")
+    void approveDoesNotUpdateWhenExpectedLimitIsStale() {
+        Long accountId = insertApplication(1L, DEFAULT_LIMIT);
+        AccountDTO approval =
+                AccountDTO.builder()
+                        .accountId(accountId)
+                        .accountNo("1234567890")
+                        .openedAt(CREATED_AT.plusMinutes(1))
+                        .limitAmount(BigDecimal.valueOf(20_000_000L))
+                        .build();
 
-  @Test
-  @DisplayName("APPLIED 계좌를 반려하고 변경된 한도로 재신청한다")
-  void rejectAndReapplyAccount() {
-    Long accountId = insertApplication(1L, DEFAULT_LIMIT);
-    AccountDTO target = AccountDTO.builder().accountId(accountId).build();
+        assertThat(accountMapper.approve(approval)).isZero();
+        assertThat(accountMapper.selectByAccountId(accountId).orElseThrow().getStatus())
+                .isEqualTo(Status.APPLIED);
+    }
 
-    assertThat(accountMapper.reject(target)).isOne();
-    assertThat(accountMapper.reject(target)).isZero();
-    assertThat(accountMapper.selectByAccountId(accountId).orElseThrow().getStatus())
-        .isEqualTo(Status.REJECTED);
+    @Test
+    @DisplayName("APPLIED 계좌를 반려하고 변경된 한도로 재신청한다")
+    void rejectAndReapplyAccount() {
+        Long accountId = insertApplication(1L, DEFAULT_LIMIT);
+        AccountDTO target = AccountDTO.builder().accountId(accountId).build();
 
-    BigDecimal changedLimit = BigDecimal.valueOf(20_000_000L);
-    AccountDTO reapplication = AccountDTO.builder()
-        .accountId(accountId)
-        .limitAmount(changedLimit)
-        .build();
+        assertThat(accountMapper.reject(target)).isOne();
+        assertThat(accountMapper.reject(target)).isZero();
+        assertThat(accountMapper.selectByAccountId(accountId).orElseThrow().getStatus())
+                .isEqualTo(Status.REJECTED);
 
-    assertThat(accountMapper.reapply(reapplication)).isOne();
+        BigDecimal changedLimit = BigDecimal.valueOf(20_000_000L);
+        AccountDTO reapplication =
+                AccountDTO.builder().accountId(accountId).limitAmount(changedLimit).build();
 
-    AccountDTO reappliedAccount = accountMapper.selectByAccountId(accountId).orElseThrow();
-    assertThat(reappliedAccount.getStatus()).isEqualTo(Status.APPLIED);
-    assertThat(reappliedAccount.getLimitAmount()).isEqualByComparingTo(changedLimit);
-    assertThat(reappliedAccount.getAccountNo()).isNull();
-    assertThat(reappliedAccount.getOpenedAt()).isNull();
-  }
+        assertThat(accountMapper.reapply(reapplication)).isOne();
 
-  @Test
-  @DisplayName("이미 OPENED인 계좌는 재신청할 수 없다")
-  void reapplyDoesNotUpdateOpenedAccount() {
-    Long accountId = insertApplication(1L, DEFAULT_LIMIT);
-    openAccount(accountId, "1234567890");
+        AccountDTO reappliedAccount = accountMapper.selectByAccountId(accountId).orElseThrow();
+        assertThat(reappliedAccount.getStatus()).isEqualTo(Status.APPLIED);
+        assertThat(reappliedAccount.getLimitAmount()).isEqualByComparingTo(changedLimit);
+        assertThat(reappliedAccount.getAccountNo()).isNull();
+        assertThat(reappliedAccount.getOpenedAt()).isNull();
+    }
 
-    AccountDTO reapplication = AccountDTO.builder()
-        .accountId(accountId)
-        .limitAmount(BigDecimal.valueOf(10_000_000L))
-        .build();
+    @Test
+    @DisplayName("이미 OPENED인 계좌는 재신청할 수 없다")
+    void reapplyDoesNotUpdateOpenedAccount() {
+        Long accountId = insertApplication(1L, DEFAULT_LIMIT);
+        openAccount(accountId, "1234567890");
 
-    assertThat(accountMapper.reapply(reapplication)).isZero();
-    assertThat(accountMapper.selectByAccountId(accountId).orElseThrow().getStatus())
-        .isEqualTo(Status.OPENED);
-  }
+        AccountDTO reapplication =
+                AccountDTO.builder()
+                        .accountId(accountId)
+                        .limitAmount(BigDecimal.valueOf(10_000_000L))
+                        .build();
 
-  @Test
-  @DisplayName("APPLIED 계좌의 한도 변경은 재신청 Mapper로 처리하지 않는다")
-  void reapplyDoesNotUpdateAppliedAccount() {
-    Long accountId = insertApplication(1L, DEFAULT_LIMIT);
-    AccountDTO reapplication = AccountDTO.builder()
-        .accountId(accountId)
-        .limitAmount(BigDecimal.valueOf(20_000_000L))
-        .build();
+        assertThat(accountMapper.reapply(reapplication)).isZero();
+        assertThat(accountMapper.selectByAccountId(accountId).orElseThrow().getStatus())
+                .isEqualTo(Status.OPENED);
+    }
 
-    assertThat(accountMapper.reapply(reapplication)).isZero();
-    assertThat(accountMapper.selectByAccountId(accountId).orElseThrow().getLimitAmount())
-        .isEqualByComparingTo(DEFAULT_LIMIT);
-  }
+    @Test
+    @DisplayName("APPLIED 계좌의 한도 변경은 재신청 Mapper로 처리하지 않는다")
+    void reapplyDoesNotUpdateAppliedAccount() {
+        Long accountId = insertApplication(1L, DEFAULT_LIMIT);
+        AccountDTO reapplication =
+                AccountDTO.builder()
+                        .accountId(accountId)
+                        .limitAmount(BigDecimal.valueOf(20_000_000L))
+                        .build();
 
-  @Test
-  @DisplayName("한도 조건부 UPDATE는 APPLIED와 OPENED 상태에서 현재 한도가 일치할 때만 성공한다")
-  void updateLimitUpdatesOnlyAllowedStatusWithExpectedValue() {
-    Long appliedAccountId = insertApplication(1L, DEFAULT_LIMIT);
-    Long openedAccountId = insertApplication(2L, DEFAULT_LIMIT);
-    Long rejectedAccountId = insertApplication(3L, DEFAULT_LIMIT);
-    openAccount(openedAccountId, "1234567890");
-    accountMapper.reject(AccountDTO.builder().accountId(rejectedAccountId).build());
-    BigDecimal changedLimit = BigDecimal.valueOf(40_000_000L);
+        assertThat(accountMapper.reapply(reapplication)).isZero();
+        assertThat(accountMapper.selectByAccountId(accountId).orElseThrow().getLimitAmount())
+                .isEqualByComparingTo(DEFAULT_LIMIT);
+    }
 
-    assertThat(accountMapper.updateLimit(
-        appliedAccountId,
-        Status.APPLIED,
-        DEFAULT_LIMIT,
-        changedLimit
-    )).isOne();
-    assertThat(accountMapper.updateLimit(
-        openedAccountId,
-        Status.OPENED,
-        DEFAULT_LIMIT,
-        changedLimit
-    )).isOne();
-    assertThat(accountMapper.updateLimit(
-        rejectedAccountId,
-        Status.REJECTED,
-        DEFAULT_LIMIT,
-        changedLimit
-    )).isZero();
-    assertThat(accountMapper.updateLimit(
-        appliedAccountId,
-        Status.APPLIED,
-        DEFAULT_LIMIT,
-        BigDecimal.valueOf(45_000_000L)
-    )).isZero();
+    @Test
+    @DisplayName("한도 조건부 UPDATE는 APPLIED와 OPENED 상태에서 현재 한도가 일치할 때만 성공한다")
+    void updateLimitUpdatesOnlyAllowedStatusWithExpectedValue() {
+        Long appliedAccountId = insertApplication(1L, DEFAULT_LIMIT);
+        Long openedAccountId = insertApplication(2L, DEFAULT_LIMIT);
+        Long rejectedAccountId = insertApplication(3L, DEFAULT_LIMIT);
+        openAccount(openedAccountId, "1234567890");
+        accountMapper.reject(AccountDTO.builder().accountId(rejectedAccountId).build());
+        BigDecimal changedLimit = BigDecimal.valueOf(40_000_000L);
 
-    assertThat(accountMapper.selectByAccountId(appliedAccountId).orElseThrow().getLimitAmount())
-        .isEqualByComparingTo(changedLimit);
-    assertThat(accountMapper.selectByAccountId(openedAccountId).orElseThrow().getLimitAmount())
-        .isEqualByComparingTo(changedLimit);
-    assertThat(accountMapper.selectByAccountId(rejectedAccountId).orElseThrow().getLimitAmount())
-        .isEqualByComparingTo(DEFAULT_LIMIT);
-  }
+        assertThat(
+                        accountMapper.updateLimit(
+                                appliedAccountId, Status.APPLIED, DEFAULT_LIMIT, changedLimit))
+                .isOne();
+        assertThat(
+                        accountMapper.updateLimit(
+                                openedAccountId, Status.OPENED, DEFAULT_LIMIT, changedLimit))
+                .isOne();
+        assertThat(
+                        accountMapper.updateLimit(
+                                rejectedAccountId, Status.REJECTED, DEFAULT_LIMIT, changedLimit))
+                .isZero();
+        assertThat(
+                        accountMapper.updateLimit(
+                                appliedAccountId,
+                                Status.APPLIED,
+                                DEFAULT_LIMIT,
+                                BigDecimal.valueOf(45_000_000L)))
+                .isZero();
 
-  @Test
-  @DisplayName("자사 확정 사용액과 진행 주문 예약액을 합산한다")
-  void selectOwnUsedAndReservedAmountSumsFinalizedAndPendingOrders() throws SQLException {
-    Long accountId = insertApplication(1L, DEFAULT_LIMIT);
-    insertSellLimitData(accountId);
+        assertThat(accountMapper.selectByAccountId(appliedAccountId).orElseThrow().getLimitAmount())
+                .isEqualByComparingTo(changedLimit);
+        assertThat(accountMapper.selectByAccountId(openedAccountId).orElseThrow().getLimitAmount())
+                .isEqualByComparingTo(changedLimit);
+        assertThat(
+                        accountMapper
+                                .selectByAccountId(rejectedAccountId)
+                                .orElseThrow()
+                                .getLimitAmount())
+                .isEqualByComparingTo(DEFAULT_LIMIT);
+    }
 
-    assertThat(accountMapper.selectOwnUsedAndReservedAmount(accountId))
-        .isEqualByComparingTo(BigDecimal.valueOf(1_050L));
-  }
+    @Test
+    @DisplayName("자사 확정 사용액과 진행 주문 예약액을 합산한다")
+    void selectOwnUsedAndReservedAmountSumsFinalizedAndPendingOrders() throws SQLException {
+        Long accountId = insertApplication(1L, DEFAULT_LIMIT);
+        insertSellLimitData(accountId);
 
-  @Test
-  @DisplayName("관리자 오버라이드는 REJECTED 계좌만 OPENED로 변경한다")
-  void overrideOpensOnlyRejectedAccount() {
-    Long rejectedAccountId = insertApplication(1L, DEFAULT_LIMIT);
-    Long appliedAccountId = insertApplication(2L, DEFAULT_LIMIT);
-    accountMapper.reject(AccountDTO.builder().accountId(rejectedAccountId).build());
+        assertThat(accountMapper.selectOwnUsedAndReservedAmount(accountId))
+                .isEqualByComparingTo(BigDecimal.valueOf(1_050L));
+    }
 
-    LocalDateTime openedAt = CREATED_AT.plusMinutes(5);
-    AccountDTO rejectedOverride = AccountDTO.builder()
-        .accountId(rejectedAccountId)
-        .accountNo("2345678901")
-        .openedAt(openedAt)
-        .build();
-    AccountDTO appliedOverride = AccountDTO.builder()
-        .accountId(appliedAccountId)
-        .accountNo("3456789012")
-        .openedAt(openedAt)
-        .build();
+    @Test
+    @DisplayName("관리자 오버라이드는 REJECTED 계좌만 OPENED로 변경한다")
+    void overrideOpensOnlyRejectedAccount() {
+        Long rejectedAccountId = insertApplication(1L, DEFAULT_LIMIT);
+        Long appliedAccountId = insertApplication(2L, DEFAULT_LIMIT);
+        accountMapper.reject(AccountDTO.builder().accountId(rejectedAccountId).build());
 
-    assertThat(accountMapper.overrideToOpened(rejectedOverride)).isOne();
-    assertThat(accountMapper.overrideToOpened(appliedOverride)).isZero();
+        LocalDateTime openedAt = CREATED_AT.plusMinutes(5);
+        AccountDTO rejectedOverride =
+                AccountDTO.builder()
+                        .accountId(rejectedAccountId)
+                        .accountNo("2345678901")
+                        .openedAt(openedAt)
+                        .build();
+        AccountDTO appliedOverride =
+                AccountDTO.builder()
+                        .accountId(appliedAccountId)
+                        .accountNo("3456789012")
+                        .openedAt(openedAt)
+                        .build();
 
-    AccountDTO openedAccount = accountMapper.selectByAccountId(rejectedAccountId).orElseThrow();
-    assertThat(openedAccount.getStatus()).isEqualTo(Status.OPENED);
-    assertThat(openedAccount.getAccountNo()).isEqualTo(rejectedOverride.getAccountNo());
-    assertThat(openedAccount.getOpenedAt()).isEqualTo(openedAt);
-    assertThat(accountMapper.selectByAccountId(appliedAccountId).orElseThrow().getStatus())
-        .isEqualTo(Status.APPLIED);
-  }
+        assertThat(accountMapper.overrideToOpened(rejectedOverride)).isOne();
+        assertThat(accountMapper.overrideToOpened(appliedOverride)).isZero();
 
-  @Test
-  @DisplayName("같은 계좌번호 발급은 DB unique 제약조건으로 차단한다")
-  void approveRejectsDuplicateAccountNumber() {
-    Long firstAccountId = insertApplication(1L, DEFAULT_LIMIT);
-    Long secondAccountId = insertApplication(2L, DEFAULT_LIMIT);
-    String duplicatedAccountNo = "1234567890";
+        AccountDTO openedAccount = accountMapper.selectByAccountId(rejectedAccountId).orElseThrow();
+        assertThat(openedAccount.getStatus()).isEqualTo(Status.OPENED);
+        assertThat(openedAccount.getAccountNo()).isEqualTo(rejectedOverride.getAccountNo());
+        assertThat(openedAccount.getOpenedAt()).isEqualTo(openedAt);
+        assertThat(accountMapper.selectByAccountId(appliedAccountId).orElseThrow().getStatus())
+                .isEqualTo(Status.APPLIED);
+    }
 
-    openAccount(firstAccountId, duplicatedAccountNo);
+    @Test
+    @DisplayName("같은 계좌번호 발급은 DB unique 제약조건으로 차단한다")
+    void approveRejectsDuplicateAccountNumber() {
+        Long firstAccountId = insertApplication(1L, DEFAULT_LIMIT);
+        Long secondAccountId = insertApplication(2L, DEFAULT_LIMIT);
+        String duplicatedAccountNo = "1234567890";
 
-    AccountDTO secondApproval = AccountDTO.builder()
-        .accountId(secondAccountId)
-        .accountNo(duplicatedAccountNo)
-        .openedAt(CREATED_AT.plusMinutes(2))
-        .limitAmount(DEFAULT_LIMIT)
-        .build();
+        openAccount(firstAccountId, duplicatedAccountNo);
 
-    assertThatThrownBy(() -> accountMapper.approve(secondApproval))
-        .isInstanceOf(PersistenceException.class);
-  }
+        AccountDTO secondApproval =
+                AccountDTO.builder()
+                        .accountId(secondAccountId)
+                        .accountNo(duplicatedAccountNo)
+                        .openedAt(CREATED_AT.plusMinutes(2))
+                        .limitAmount(DEFAULT_LIMIT)
+                        .build();
 
-  @Test
-  @DisplayName("전체 계좌를 status 내림차순으로 조회한다")
-  void selectAllAccountsOrdersByStatusDescending() {
-    Long openedAccountId = insertApplication(1L, DEFAULT_LIMIT);
-    Long rejectedAccountId = insertApplication(2L, DEFAULT_LIMIT);
-    insertApplication(3L, DEFAULT_LIMIT);
-    openAccount(openedAccountId, "1234567890");
-    accountMapper.reject(AccountDTO.builder().accountId(rejectedAccountId).build());
+        assertThatThrownBy(() -> accountMapper.approve(secondApproval))
+                .isInstanceOf(PersistenceException.class);
+    }
 
-    List<AccountDTO> result = accountMapper.selectAllAccount();
+    @Test
+    @DisplayName("전체 계좌를 status 내림차순으로 조회한다")
+    void selectAllAccountsOrdersByStatusDescending() {
+        Long openedAccountId = insertApplication(1L, DEFAULT_LIMIT);
+        Long rejectedAccountId = insertApplication(2L, DEFAULT_LIMIT);
+        insertApplication(3L, DEFAULT_LIMIT);
+        openAccount(openedAccountId, "1234567890");
+        accountMapper.reject(AccountDTO.builder().accountId(rejectedAccountId).build());
 
-    assertThat(result).hasSize(3);
-    assertThat(result).extracting(AccountDTO::getStatus)
-        .containsExactly(Status.REJECTED, Status.OPENED, Status.APPLIED);
-  }
+        List<AccountDTO> result = accountMapper.selectAllAccount();
 
-  @Test
-  @DisplayName("상태 이력을 시간순으로 조회하고 최신 신청 시각을 반환한다")
-  void statusLogMapperStoresAndSelectsHistory() {
-    Long accountId = insertApplication(1L, DEFAULT_LIMIT);
-    LocalDateTime firstAppliedAt = CREATED_AT;
-    LocalDateTime rejectedAt = CREATED_AT.plusMinutes(1);
-    LocalDateTime reappliedAt = CREATED_AT.plusMinutes(2);
+        assertThat(result).hasSize(3);
+        assertThat(result)
+                .extracting(AccountDTO::getStatus)
+                .containsExactly(Status.REJECTED, Status.OPENED, Status.APPLIED);
+    }
 
-    assertThat(accountStatusLogMapper.insertLog(statusLog(
-        accountId, null, Status.APPLIED, firstAppliedAt, "최초 개설 신청"
-    ))).isOne();
-    assertThat(accountStatusLogMapper.insertLog(statusLog(
-        accountId, Status.APPLIED, Status.REJECTED, rejectedAt, "서류 확인 필요"
-    ))).isOne();
-    assertThat(accountStatusLogMapper.insertLog(statusLog(
-        accountId, Status.REJECTED, Status.APPLIED, reappliedAt, "사용자 계좌 개설 재신청"
-    ))).isOne();
-    LocalDateTime limitChangedAt = CREATED_AT.plusMinutes(3);
-    assertThat(accountStatusLogMapper.insertLog(statusLog(
-        accountId,
-        Status.APPLIED,
-        Status.APPLIED,
-        limitChangedAt,
-        "LIMIT_CHANGE|from=30000000|to=40000000"
-    ))).isOne();
+    @Test
+    @DisplayName("상태 이력을 시간순으로 조회하고 최신 신청 시각을 반환한다")
+    void statusLogMapperStoresAndSelectsHistory() {
+        Long accountId = insertApplication(1L, DEFAULT_LIMIT);
+        LocalDateTime firstAppliedAt = CREATED_AT;
+        LocalDateTime rejectedAt = CREATED_AT.plusMinutes(1);
+        LocalDateTime reappliedAt = CREATED_AT.plusMinutes(2);
 
-    List<AccountStatusLogDTO> logs = accountStatusLogMapper.selectByAccountId(accountId);
+        assertThat(
+                        accountStatusLogMapper.insertLog(
+                                statusLog(
+                                        accountId,
+                                        null,
+                                        Status.APPLIED,
+                                        firstAppliedAt,
+                                        "최초 개설 신청")))
+                .isOne();
+        assertThat(
+                        accountStatusLogMapper.insertLog(
+                                statusLog(
+                                        accountId,
+                                        Status.APPLIED,
+                                        Status.REJECTED,
+                                        rejectedAt,
+                                        "서류 확인 필요")))
+                .isOne();
+        assertThat(
+                        accountStatusLogMapper.insertLog(
+                                statusLog(
+                                        accountId,
+                                        Status.REJECTED,
+                                        Status.APPLIED,
+                                        reappliedAt,
+                                        "사용자 계좌 개설 재신청")))
+                .isOne();
+        LocalDateTime limitChangedAt = CREATED_AT.plusMinutes(3);
+        assertThat(
+                        accountStatusLogMapper.insertLog(
+                                statusLog(
+                                        accountId,
+                                        Status.APPLIED,
+                                        Status.APPLIED,
+                                        limitChangedAt,
+                                        "LIMIT_CHANGE|from=30000000|to=40000000")))
+                .isOne();
 
-    assertThat(logs).hasSize(4);
-    assertThat(logs).extracting(AccountStatusLogDTO::getNewStatus)
-        .containsExactly(Status.APPLIED, Status.REJECTED, Status.APPLIED, Status.APPLIED);
-    assertThat(logs).extracting(AccountStatusLogDTO::getReason)
-        .containsExactly(
-            "최초 개설 신청",
-            "서류 확인 필요",
-            "사용자 계좌 개설 재신청",
-            "LIMIT_CHANGE|from=30000000|to=40000000"
-        );
+        List<AccountStatusLogDTO> logs = accountStatusLogMapper.selectByAccountId(accountId);
 
-    AccountStatusLogDTO latestLog = accountStatusLogMapper
-        .selectLatestByAccountId(accountId)
-        .orElseThrow();
-    assertThat(latestLog.getPrevStatus()).isEqualTo(Status.APPLIED);
-    assertThat(latestLog.getNewStatus()).isEqualTo(Status.APPLIED);
-    assertThat(latestLog.getChangedAt()).isEqualTo(limitChangedAt);
-    assertThat(accountStatusLogMapper.selectLatestApplicationAt(accountId))
-        .isEqualTo(reappliedAt);
+        assertThat(logs).hasSize(4);
+        assertThat(logs)
+                .extracting(AccountStatusLogDTO::getNewStatus)
+                .containsExactly(Status.APPLIED, Status.REJECTED, Status.APPLIED, Status.APPLIED);
+        assertThat(logs)
+                .extracting(AccountStatusLogDTO::getReason)
+                .containsExactly(
+                        "최초 개설 신청",
+                        "서류 확인 필요",
+                        "사용자 계좌 개설 재신청",
+                        "LIMIT_CHANGE|from=30000000|to=40000000");
 
-    List<AccountStatusLogDTO> limitChanges =
-        accountStatusLogMapper.selectLimitChangesByAccountId(accountId);
-    assertThat(limitChanges).hasSize(1);
-    assertThat(limitChanges.get(0).getPrevStatus()).isEqualTo(Status.APPLIED);
-    assertThat(limitChanges.get(0).getNewStatus()).isEqualTo(Status.APPLIED);
-    assertThat(limitChanges.get(0).getChangedAt()).isEqualTo(limitChangedAt);
-    assertThat(limitChanges.get(0).getReason())
-        .isEqualTo("LIMIT_CHANGE|from=30000000|to=40000000");
-  }
+        AccountStatusLogDTO latestLog =
+                accountStatusLogMapper.selectLatestByAccountId(accountId).orElseThrow();
+        assertThat(latestLog.getPrevStatus()).isEqualTo(Status.APPLIED);
+        assertThat(latestLog.getNewStatus()).isEqualTo(Status.APPLIED);
+        assertThat(latestLog.getChangedAt()).isEqualTo(limitChangedAt);
+        assertThat(accountStatusLogMapper.selectLatestApplicationAt(accountId))
+                .isEqualTo(reappliedAt);
 
-  private void resetSchema() throws SQLException {
-    try (Connection connection = dataSource.getConnection();
-         Statement statement = connection.createStatement()) {
-      statement.execute("DROP ALL OBJECTS");
-      statement.execute("""
+        List<AccountStatusLogDTO> limitChanges =
+                accountStatusLogMapper.selectLimitChangesByAccountId(accountId);
+        assertThat(limitChanges).hasSize(1);
+        assertThat(limitChanges.get(0).getPrevStatus()).isEqualTo(Status.APPLIED);
+        assertThat(limitChanges.get(0).getNewStatus()).isEqualTo(Status.APPLIED);
+        assertThat(limitChanges.get(0).getChangedAt()).isEqualTo(limitChangedAt);
+        assertThat(limitChanges.get(0).getReason())
+                .isEqualTo("LIMIT_CHANGE|from=30000000|to=40000000");
+    }
+
+    private void resetSchema() throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("DROP ALL OBJECTS");
+            statement.execute(
+                    """
           CREATE TABLE customer (
               customer_id BIGINT PRIMARY KEY AUTO_INCREMENT,
               name VARCHAR(50) NOT NULL,
@@ -398,7 +425,8 @@ class AccountMapperTest {
               created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
           )
           """);
-      statement.execute("""
+            statement.execute(
+                    """
           CREATE TABLE account (
               account_id BIGINT PRIMARY KEY AUTO_INCREMENT,
               customer_id BIGINT NOT NULL,
@@ -421,7 +449,8 @@ class AccountMapperTest {
                   REFERENCES customer(customer_id)
           )
           """);
-      statement.execute("""
+            statement.execute(
+                    """
           CREATE TABLE account_status_log (
               log_id BIGINT PRIMARY KEY AUTO_INCREMENT,
               account_id BIGINT NOT NULL,
@@ -433,19 +462,22 @@ class AccountMapperTest {
                   REFERENCES account(account_id)
           )
           """);
-      statement.execute("""
+            statement.execute(
+                    """
           CREATE TABLE inbound (
               inbound_id BIGINT PRIMARY KEY,
               account_id BIGINT NOT NULL
           )
           """);
-      statement.execute("""
+            statement.execute(
+                    """
           CREATE TABLE inbound_detail (
               inbound_detail_id BIGINT PRIMARY KEY,
               inbound_id BIGINT NOT NULL
           )
           """);
-      statement.execute("""
+            statement.execute(
+                    """
           CREATE TABLE sell_order (
               order_id BIGINT PRIMARY KEY,
               inbound_detail_id BIGINT NOT NULL,
@@ -454,7 +486,8 @@ class AccountMapperTest {
               status VARCHAR(10) NOT NULL
           )
           """);
-      statement.execute("""
+            statement.execute(
+                    """
           CREATE TABLE krw_exchange (
               exchange_id BIGINT PRIMARY KEY,
               order_id BIGINT NOT NULL UNIQUE,
@@ -463,7 +496,8 @@ class AccountMapperTest {
               settlement_status VARCHAR(12) NOT NULL
           )
           """);
-      statement.execute("""
+            statement.execute(
+                    """
           INSERT INTO customer (
               customer_id, name, birth_date, phone, investor_type, ci_hash
           ) VALUES
@@ -471,64 +505,68 @@ class AccountMapperTest {
               (2, '김리아', DATE '1990-01-01', '010-2222-2222', '위험중립형', 'customer-2'),
               (3, '이투자', DATE '1985-05-15', '010-3333-3333', '적극투자형', 'customer-3')
           """);
+        }
     }
-  }
 
-  private Long insertApplication(Long customerId, BigDecimal limitAmount) {
-    assertThat(accountMapper.insertApplication(application(customerId, limitAmount))).isOne();
-    return accountMapper.selectByCustomerId(customerId).orElseThrow().getAccountId();
-  }
+    private Long insertApplication(Long customerId, BigDecimal limitAmount) {
+        assertThat(accountMapper.insertApplication(application(customerId, limitAmount))).isOne();
+        return accountMapper.selectByCustomerId(customerId).orElseThrow().getAccountId();
+    }
 
-  private AccountDTO application(Long customerId, BigDecimal limitAmount) {
-    return AccountDTO.builder()
-        .customerId(customerId)
-        .createdAt(CREATED_AT)
-        .limitAmount(limitAmount)
-        .build();
-  }
+    private AccountDTO application(Long customerId, BigDecimal limitAmount) {
+        return AccountDTO.builder()
+                .customerId(customerId)
+                .createdAt(CREATED_AT)
+                .limitAmount(limitAmount)
+                .build();
+    }
 
-  private void openAccount(Long accountId, String accountNo) {
-    AccountDTO approval = AccountDTO.builder()
-        .accountId(accountId)
-        .accountNo(accountNo)
-        .openedAt(CREATED_AT.plusMinutes(1))
-        .limitAmount(DEFAULT_LIMIT)
-        .build();
-    assertThat(accountMapper.approve(approval)).isOne();
-  }
+    private void openAccount(Long accountId, String accountNo) {
+        AccountDTO approval =
+                AccountDTO.builder()
+                        .accountId(accountId)
+                        .accountNo(accountNo)
+                        .openedAt(CREATED_AT.plusMinutes(1))
+                        .limitAmount(DEFAULT_LIMIT)
+                        .build();
+        assertThat(accountMapper.approve(approval)).isOne();
+    }
 
-  private void insertSellLimitData(Long accountId) throws SQLException {
-    try (Connection connection = dataSource.getConnection();
-         Statement statement = connection.createStatement()) {
-      statement.executeUpdate("INSERT INTO inbound (inbound_id, account_id) VALUES (1, " + accountId + ")");
-      statement.executeUpdate("INSERT INTO inbound_detail (inbound_detail_id, inbound_id) VALUES (1, 1), (2, 1), (3, 1)");
-      statement.executeUpdate("""
+    private void insertSellLimitData(Long accountId) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.executeUpdate(
+                    "INSERT INTO inbound (inbound_id, account_id) VALUES (1, " + accountId + ")");
+            statement.executeUpdate(
+                    "INSERT INTO inbound_detail (inbound_detail_id, inbound_id) VALUES (1, 1), (2, 1), (3, 1)");
+            statement.executeUpdate(
+                    """
           INSERT INTO sell_order (order_id, inbound_detail_id, sell_qty, base_price, status) VALUES
           (1, 1, 3, 100, 'RECEIVED'),
           (2, 2, 2, 100, 'EXECUTED'),
           (3, 3, 4, 100, 'EXECUTED')
           """);
-      statement.executeUpdate("""
+            statement.executeUpdate(
+                    """
           INSERT INTO krw_exchange (exchange_id, order_id, provisional_amount, final_amount, settlement_status) VALUES
           (1, 2, 250, NULL, 'PROVISIONAL'),
           (2, 3, 400, 500, 'FINALIZED')
           """);
+        }
     }
-  }
 
-  private AccountStatusLogDTO statusLog(
-      Long accountId,
-      Status prevStatus,
-      Status newStatus,
-      LocalDateTime changedAt,
-      String reason
-  ) {
-    return AccountStatusLogDTO.builder()
-        .accountId(accountId)
-        .prevStatus(prevStatus)
-        .newStatus(newStatus)
-        .changedAt(changedAt)
-        .reason(reason)
-        .build();
-  }
+    private AccountStatusLogDTO statusLog(
+            Long accountId,
+            Status prevStatus,
+            Status newStatus,
+            LocalDateTime changedAt,
+            String reason) {
+        return AccountStatusLogDTO.builder()
+                .accountId(accountId)
+                .prevStatus(prevStatus)
+                .newStatus(newStatus)
+                .changedAt(changedAt)
+                .reason(reason)
+                .build();
+    }
 }

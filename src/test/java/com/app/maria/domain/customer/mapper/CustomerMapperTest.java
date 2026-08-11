@@ -1,6 +1,14 @@
 package com.app.maria.domain.customer.mapper;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.app.maria.domain.customer.dto.CustomerCiHashDTO;
+import java.io.IOException;
+import java.io.Reader;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.List;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
@@ -12,15 +20,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.io.Reader;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class CustomerMapperTest {
 
@@ -35,10 +34,9 @@ class CustomerMapperTest {
         try (Reader reader = Resources.getResourceAsReader("mybatis-customer-test-config.xml")) {
             sqlSessionFactory = new SqlSessionFactoryBuilder().build(reader);
         }
-        dataSource = (PooledDataSource) sqlSessionFactory
-                .getConfiguration()
-                .getEnvironment()
-                .getDataSource();
+        dataSource =
+                (PooledDataSource)
+                        sqlSessionFactory.getConfiguration().getEnvironment().getDataSource();
     }
 
     @BeforeEach
@@ -119,29 +117,41 @@ class CustomerMapperTest {
 
     private void insertCustomer(Long customerId, String ciHash) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
-            statement.execute("INSERT INTO customer (customer_id, ci_hash) VALUES (" + customerId + ", '" + ciHash + "')");
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "INSERT INTO customer (customer_id, ci_hash) VALUES ("
+                            + customerId
+                            + ", '"
+                            + ciHash
+                            + "')");
         }
     }
 
     private void insertAccount(Long customerId, String status) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
-            statement.execute("INSERT INTO account (customer_id, status) VALUES (" + customerId + ", '" + status + "')");
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "INSERT INTO account (customer_id, status) VALUES ("
+                            + customerId
+                            + ", '"
+                            + status
+                            + "')");
         }
     }
 
     private void resetSchema() throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute("DROP ALL OBJECTS");
-            statement.execute("""
+            statement.execute(
+                    """
                     CREATE TABLE customer (
                         customer_id BIGINT PRIMARY KEY,
                         ci_hash VARCHAR(64) NOT NULL
                     )
                     """);
-            statement.execute("""
+            statement.execute(
+                    """
                     CREATE TABLE account (
                         account_id BIGINT PRIMARY KEY AUTO_INCREMENT,
                         customer_id BIGINT NOT NULL,

@@ -1,12 +1,14 @@
 package com.app.maria.domain.externaltradesync.dto;
 
-import lombok.*;
-
 import java.time.LocalDate;
+import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor
-@Getter @Setter @ToString @Builder
+@Getter
+@Setter
+@ToString
+@Builder
 public class ExternalTradeSyncCursorDTO {
 
     private Long cursorId;

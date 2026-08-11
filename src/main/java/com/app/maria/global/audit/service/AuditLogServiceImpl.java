@@ -6,11 +6,10 @@ import com.app.maria.global.audit.dto.request.AuditLogSearchRequestDTO;
 import com.app.maria.global.audit.dto.response.AuditLogResponseDTO;
 import com.app.maria.global.audit.exception.AuditLogInsertException;
 import com.app.maria.global.audit.mapper.AuditLogMapper;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -33,5 +32,4 @@ public class AuditLogServiceImpl implements AuditLogService {
             throw new AuditLogInsertException("AUDIT_LOG 저장에 실패했습니다.");
         }
     }
-
 }

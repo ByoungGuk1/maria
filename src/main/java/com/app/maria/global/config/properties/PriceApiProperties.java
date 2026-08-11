@@ -15,5 +15,4 @@ public class PriceApiProperties {
     private String url;
     private String appKey;
     private String appSecret;
-
 }

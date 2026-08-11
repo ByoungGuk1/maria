@@ -4,7 +4,7 @@ import lombok.NoArgsConstructor;
 
 @NoArgsConstructor
 public class AccountNotFoundException extends AccountException {
-  public AccountNotFoundException(String message) {
-    super(message);
-  }
+    public AccountNotFoundException(String message) {
+        super(message);
+    }
 }

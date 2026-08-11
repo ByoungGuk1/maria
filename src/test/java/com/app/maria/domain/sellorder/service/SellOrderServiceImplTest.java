@@ -1,5 +1,11 @@
 package com.app.maria.domain.sellorder.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+
 import com.app.maria.domain.foreignproduct.dto.ForeignProductDTO;
 import com.app.maria.domain.foreignproduct.exception.ForeignProductNotFoundException;
 import com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper;
@@ -19,6 +25,10 @@ import com.app.maria.global.client.exchange.ExchangeRateClient;
 import com.app.maria.global.client.kis.KisPriceClient;
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.exception.KisPriceNotFoundException;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,52 +37,31 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class SellOrderServiceImplTest {
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 9, 12, 0);
     private static final Long ACTOR_ADMIN_ID = 99L;
 
-    @Mock
-    SellOrderMapper sellOrderMapper;
+    @Mock SellOrderMapper sellOrderMapper;
 
-    @Mock
-    KisPriceClient kisPriceClient;
+    @Mock KisPriceClient kisPriceClient;
 
-    @Mock
-    ExchangeRateClient exchangeRateClient;
+    @Mock ExchangeRateClient exchangeRateClient;
 
-    @Mock
-    InboundMapper inboundMapper;
+    @Mock InboundMapper inboundMapper;
 
-    @Mock
-    ForeignProductMapper foreignProductMapper;
+    @Mock ForeignProductMapper foreignProductMapper;
 
-    @Mock
-    SellLimitService sellLimitService;
+    @Mock SellLimitService sellLimitService;
 
-    @Mock
-    BusinessClockService businessClockService;
+    @Mock BusinessClockService businessClockService;
 
-    @Mock
-    AuditLogService auditLogService;
+    @Mock AuditLogService auditLogService;
 
-    @Mock
-    ProvisionalExchangeService provisionalExchangeService;
+    @Mock ProvisionalExchangeService provisionalExchangeService;
 
-    @InjectMocks
-    SellOrderServiceImpl sellOrderService;
+    @InjectMocks SellOrderServiceImpl sellOrderService;
 
     private SellOrderRequestDTO.SellOrderRequestDTOBuilder validRequestBuilder() {
         return SellOrderRequestDTO.builder()
@@ -81,7 +70,8 @@ class SellOrderServiceImplTest {
                 .sellQty(new BigDecimal("10"));
     }
 
-    private InboundDetailDTO lot(Long inboundDetailId, String currentQty, LocalDateTime purchaseDate) {
+    private InboundDetailDTO lot(
+            Long inboundDetailId, String currentQty, LocalDateTime purchaseDate) {
         return InboundDetailDTO.builder()
                 .inboundDetailId(inboundDetailId)
                 .foreignProductId(10L)
@@ -118,7 +108,8 @@ class SellOrderServiceImplTest {
         when(businessClockService.now()).thenReturn(NOW);
         BigDecimal expectedBasePrice = new BigDecimal("308.91").multiply(new BigDecimal("1433.6"));
 
-        List<SellOrderResponseDTO> result = sellOrderService.placeSellOrder(ACTOR_ADMIN_ID, request);
+        List<SellOrderResponseDTO> result =
+                sellOrderService.placeSellOrder(ACTOR_ADMIN_ID, request);
 
         assertThat(result).hasSize(1);
         SellOrderResponseDTO first = result.get(0);
@@ -164,14 +155,16 @@ class SellOrderServiceImplTest {
         when(inboundMapper.decreaseCurrentQty(2L, new BigDecimal("4"))).thenReturn(1);
         when(businessClockService.now()).thenReturn(NOW);
 
-        List<SellOrderResponseDTO> result = sellOrderService.placeSellOrder(ACTOR_ADMIN_ID, request);
+        List<SellOrderResponseDTO> result =
+                sellOrderService.placeSellOrder(ACTOR_ADMIN_ID, request);
 
         assertThat(result).hasSize(2);
         assertThat(result.get(0).getInboundDetailId()).isEqualTo(1L);
         assertThat(result.get(0).getSellQty()).isEqualByComparingTo("6");
         assertThat(result.get(1).getInboundDetailId()).isEqualTo(2L);
         assertThat(result.get(1).getSellQty()).isEqualByComparingTo("4");
-        assertThat(result).allSatisfy(r -> assertThat(r.getStatus()).isEqualTo(SellOrderStatus.EXECUTED));
+        assertThat(result)
+                .allSatisfy(r -> assertThat(r.getStatus()).isEqualTo(SellOrderStatus.EXECUTED));
 
         verify(inboundMapper, times(1)).decreaseCurrentQty(1L, new BigDecimal("6"));
         verify(inboundMapper, times(1)).decreaseCurrentQty(2L, new BigDecimal("4"));
@@ -192,8 +185,9 @@ class SellOrderServiceImplTest {
         when(sellLimitService.isWithinSellLimit(any(), any())).thenReturn(true);
         when(inboundMapper.decreaseCurrentQty(any(), any())).thenReturn(1);
         when(businessClockService.now()).thenReturn(NOW);
-        BigDecimal expectedOrderAmount = new BigDecimal("10")
-                .multiply(new BigDecimal("308.91").multiply(new BigDecimal("1433.6")));
+        BigDecimal expectedOrderAmount =
+                new BigDecimal("10")
+                        .multiply(new BigDecimal("308.91").multiply(new BigDecimal("1433.6")));
 
         sellOrderService.placeSellOrder(ACTOR_ADMIN_ID, request);
 
@@ -203,7 +197,8 @@ class SellOrderServiceImplTest {
     }
 
     @Test
-    @DisplayName("한도초과로 확인되면 lot 차감 없이 inboundDetailId가 없는 REJECTED 단건으로 저장한다 (basePrice/fxRate는 그대로 기록)")
+    @DisplayName(
+            "한도초과로 확인되면 lot 차감 없이 inboundDetailId가 없는 REJECTED 단건으로 저장한다 (basePrice/fxRate는 그대로 기록)")
     void placeSellOrderSavesAsRejectedWithoutDecreasingAnyLotWhenSellLimitExceeded() {
         SellOrderRequestDTO request = validRequestBuilder().build();
 
@@ -216,7 +211,8 @@ class SellOrderServiceImplTest {
         when(businessClockService.now()).thenReturn(NOW);
         BigDecimal expectedBasePrice = new BigDecimal("308.91").multiply(new BigDecimal("1433.6"));
 
-        List<SellOrderResponseDTO> result = sellOrderService.placeSellOrder(ACTOR_ADMIN_ID, request);
+        List<SellOrderResponseDTO> result =
+                sellOrderService.placeSellOrder(ACTOR_ADMIN_ID, request);
 
         assertThat(result).hasSize(1);
         SellOrderResponseDTO rejected = result.get(0);
@@ -272,7 +268,13 @@ class SellOrderServiceImplTest {
                 .hasMessage("매도 가능 수량을 초과했습니다.");
 
         verify(inboundMapper, never()).decreaseCurrentQty(any(), any());
-        verifyNoInteractions(kisPriceClient, exchangeRateClient, sellOrderMapper, foreignProductMapper, sellLimitService, auditLogService);
+        verifyNoInteractions(
+                kisPriceClient,
+                exchangeRateClient,
+                sellOrderMapper,
+                foreignProductMapper,
+                sellLimitService,
+                auditLogService);
     }
 
     @Test
@@ -287,7 +289,13 @@ class SellOrderServiceImplTest {
                 .hasMessage("매도 가능 수량을 초과했습니다.");
 
         verify(inboundMapper, never()).decreaseCurrentQty(any(), any());
-        verifyNoInteractions(kisPriceClient, exchangeRateClient, sellOrderMapper, foreignProductMapper, sellLimitService, auditLogService);
+        verifyNoInteractions(
+                kisPriceClient,
+                exchangeRateClient,
+                sellOrderMapper,
+                foreignProductMapper,
+                sellLimitService,
+                auditLogService);
     }
 
     @Test
@@ -304,7 +312,12 @@ class SellOrderServiceImplTest {
                 .hasMessage("종목 정보를 찾을 수 없습니다.");
 
         verify(inboundMapper, never()).decreaseCurrentQty(any(), any());
-        verifyNoInteractions(kisPriceClient, exchangeRateClient, sellOrderMapper, sellLimitService, auditLogService);
+        verifyNoInteractions(
+                kisPriceClient,
+                exchangeRateClient,
+                sellOrderMapper,
+                sellLimitService,
+                auditLogService);
     }
 
     @Test
@@ -327,7 +340,8 @@ class SellOrderServiceImplTest {
     }
 
     @Test
-    @DisplayName("두 번째 lot 처리 중 동시성 충돌이 나면 첫 번째 lot은 이미 저장된 채로 예외가 전파된다 (트랜잭션 롤백은 @Transactional이 담당)")
+    @DisplayName(
+            "두 번째 lot 처리 중 동시성 충돌이 나면 첫 번째 lot은 이미 저장된 채로 예외가 전파된다 (트랜잭션 롤백은 @Transactional이 담당)")
     void placeSellOrderPropagatesExceptionAfterFirstLotAlreadySavedWhenSecondLotConflicts() {
         SellOrderRequestDTO request = validRequestBuilder().build();
 
@@ -352,12 +366,13 @@ class SellOrderServiceImplTest {
     @Test
     @DisplayName("존재하면 조회 결과를 반환한다")
     void getSellOrderReturnsResultWhenExists() {
-        SellOrderDTO saved = SellOrderDTO.builder()
-                .orderId(100L)
-                .inboundDetailId(1L)
-                .sellQty(new BigDecimal("10"))
-                .status(SellOrderStatus.EXECUTED)
-                .build();
+        SellOrderDTO saved =
+                SellOrderDTO.builder()
+                        .orderId(100L)
+                        .inboundDetailId(1L)
+                        .sellQty(new BigDecimal("10"))
+                        .status(SellOrderStatus.EXECUTED)
+                        .build();
         when(sellOrderMapper.selectSellOrderById(100L)).thenReturn(Optional.of(saved));
 
         SellOrderResponseDTO result = sellOrderService.getSellOrder(100L);

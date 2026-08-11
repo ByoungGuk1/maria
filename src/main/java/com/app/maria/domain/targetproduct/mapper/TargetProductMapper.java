@@ -7,5 +7,6 @@ import org.apache.ibatis.annotations.Mapper;
 public interface TargetProductMapper {
 
     void insertJudgement(TargetProductJudgementDTO judgementDTO);
+
     boolean existsByMydataTradeId(Long mydataTradeId);
 }

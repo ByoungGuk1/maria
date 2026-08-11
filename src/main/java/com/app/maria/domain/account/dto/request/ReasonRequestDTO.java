@@ -11,7 +11,7 @@ import lombok.*;
 @ToString
 @Builder
 public class ReasonRequestDTO {
-  @NotBlank(message = "사유를 입력해야 합니다.")
-  @Size(max = 200, message = "사유는 200자 이하로 입력해야 합니다.")
-  private String reason;
+    @NotBlank(message = "사유를 입력해야 합니다.")
+    @Size(max = 200, message = "사유는 200자 이하로 입력해야 합니다.")
+    private String reason;
 }

@@ -15,12 +15,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class TaxApi {
     private final TaxCalculationService taxCalculationService;
+
     @GetMapping("/preview/{accountId}")
-    public ResponseEntity<ApiResponseDTO<TaxCalculationResponseDTO>> preview(@PathVariable Long accountId){
-        return ResponseEntity.ok(ApiResponseDTO.of("세금계산 성공",
-                taxCalculationService.taxCalculate(accountId)
-                ));
-
+    public ResponseEntity<ApiResponseDTO<TaxCalculationResponseDTO>> preview(
+            @PathVariable Long accountId) {
+        return ResponseEntity.ok(
+                ApiResponseDTO.of("세금계산 성공", taxCalculationService.taxCalculate(accountId)));
     }
-
 }
