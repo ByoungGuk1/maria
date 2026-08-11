@@ -13,5 +13,11 @@ public interface AccountTransactionalService {
   AccountDTO reject(Long accountId, String reason, LocalDateTime changedAt);
   AccountDTO reapply(Long accountId, AccountReapplyRequestDTO request, LocalDateTime appliedAt);
   AccountDTO override(Long accountId, String reason, LocalDateTime openedAt);
+
+  /*
+  * account.amount를 직접 변경하는 유일한 정당 진입점.
+  * RIA 내 현금 직접입금은 금지되어 있음.(D2), 이 메서드는 매도대금 가환전에서만 호출됨.
+  * 새로운 호출자를 추가하기 전에 AccountAmountWritePathTest를 반드시 확인할 것.
+  * */
   void updateAmount(AccountDTO newAmountAccount);
 }
