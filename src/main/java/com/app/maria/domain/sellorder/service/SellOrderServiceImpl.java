@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -151,6 +152,14 @@ public class SellOrderServiceImpl implements SellOrderService{
         return orders.stream()
                 .map(SellOrderResponseDTO::new)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal getTodaySellAmount() {
+        LocalDateTime start = businessClockService.now().toLocalDate().atStartOfDay();
+        LocalDateTime end = start.plusDays(1);
+        return sellOrderMapper.sumSellAmountBetween(start, end);
     }
 
 }
