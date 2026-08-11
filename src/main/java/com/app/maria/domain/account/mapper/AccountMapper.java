@@ -69,4 +69,7 @@ public interface AccountMapper {
   // 계좌별 한도 사용률
   List<AccountLimitUsageDTO> selectAccountLimitUsage();
 
+  // applied 계좌 목록
+  List<AccountLimitUsageDTO> selectAppliedAccounts();
+
 }

@@ -198,4 +198,10 @@ public class AccountServiceImpl implements AccountService {
       return accountMapper.selectAccountLimitUsage();
   }
 
+  @Override
+  @Transactional(readOnly = true)
+  public List<AccountLimitUsageDTO> getAppliedAccounts() {
+      return accountMapper.selectAppliedAccounts();
+  }
+
 }

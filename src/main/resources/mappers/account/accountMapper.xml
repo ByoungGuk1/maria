@@ -167,4 +167,17 @@
         GROUP BY a.account_id, a.account_no, c.name, a.status, a.limit_amount
     </select>
 
+    <select id="selectAppliedAccounts" resultType="AccountLimitUsageDTO">
+        SELECT
+        a.account_id   AS accountId,
+        a.account_no   AS accountNo,
+        c.name         AS customerName,
+        a.status       AS status,
+        a.limit_amount AS limitAmount,
+        0              AS usedAmount
+        FROM account a
+        JOIN customer c ON c.customer_id = a.customer_id
+        WHERE a.status = 'APPLIED'
+    </select>
+
 </mapper>

@@ -40,4 +40,6 @@ public interface AccountService {
 
   List<AccountLimitUsageDTO> selectAccountLimitUsage();
 
+  List<AccountLimitUsageDTO> getAppliedAccounts();
+
 }
