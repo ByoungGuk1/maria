@@ -12,6 +12,7 @@ import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationResultDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -496,5 +497,53 @@ class TaxCalculatorTest {
 
         assertThat(result.getAdjustRatio().scale()).isEqualTo(4);
         assertThat(result.getAdjustRatio()).isEqualByComparingTo("0.6667");
+    }
+
+    @Test
+    @DisplayName("나눗셈 몫이 반올림 경계여도 마지막에 한 번만 반올림한다")
+    void 조정비율_반올림_경계_상향() {
+        List<SellLotDTO> lots =
+                List.of(
+                        lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"),
+                        lot(LocalDate.of(2026, 6, 15), "10000000", "100", "1000", "40"),
+                        lot(LocalDate.of(2026, 9, 20), "10000000", "100", "1000", "40"));
+        List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "2150"));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+
+        assertThat(result.getWeightedSell()).isEqualByComparingTo("43000000");
+        assertThat(result.getAdjustRatio()).isEqualByComparingTo("1.0000");
+    }
+
+    @Test
+    @DisplayName("반올림 경계가 중간 자리일 때도 마지막 반올림 결과를 따른다")
+    void 조정비율_반올림_경계_중간자리() {
+        List<SellLotDTO> lots =
+                List.of(
+                        lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"),
+                        lot(LocalDate.of(2026, 6, 15), "10000000", "100", "1000", "40"),
+                        lot(LocalDate.of(2026, 9, 20), "10000000", "100", "1000", "40"));
+        List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "6450"));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+
+        assertThat(result.getAdjustRatio()).isEqualByComparingTo("0.9999");
+    }
+
+    @Test
+    @DisplayName("조정비율은 1을 넘지 않는다")
+    void 조정비율_상한() {
+        List<SellLotDTO> lots =
+                List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
+        List<ExternalBuyDTO> external =
+                List.of(
+                        externalBuy(LocalDate.of(2026, 3, 10), "10000000"),
+                        externalBuy(LocalDate.of(2026, 3, 10), "-40000000"));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+
+        assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("0");
+        assertThat(result.getAdjustRatio()).isEqualByComparingTo("1.0000");
+        assertThat(result.getAdjustRatio()).isLessThanOrEqualTo(new BigDecimal("1.0000"));
     }
 }
