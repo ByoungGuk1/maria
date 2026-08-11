@@ -8,9 +8,9 @@ import com.app.maria.domain.inbound.dto.response.InboundResponseDTO;
 import com.app.maria.domain.inbound.exception.InboundNotFoundException;
 import com.app.maria.domain.inbound.mapper.InboundMapper;
 import com.app.maria.domain.registrablestock.dto.RegistrableStockResponseDTO;
+import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.response.ApiResponseDTO;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
@@ -24,6 +24,7 @@ public class InboundServiceImpl implements InboundService {
 
     private final InboundMapper inboundMapper;
     private final RestClient restClient;
+    private final BusinessClockService businessClockService;
 
     @Override
     public InboundResponseDTO processInbound(InboundRequestDTO request) {
@@ -67,7 +68,7 @@ public class InboundServiceImpl implements InboundService {
                         .requestedQty(requestedQty)
                         .currentHoldingAtRequest(currentHoldingAtRequest)
                         .approvedQty(approvedQty)
-                        .processedAt(LocalDateTime.now())
+                        .processedAt(businessClockService.now())
                         .build();
         inboundMapper.insertInbound(inboundDTO);
 
