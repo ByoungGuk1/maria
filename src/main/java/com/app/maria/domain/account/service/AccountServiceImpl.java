@@ -2,9 +2,9 @@ package com.app.maria.domain.account.service;
 
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
+import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
-import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
@@ -15,6 +15,7 @@ import com.app.maria.domain.account.type.Status;
 import com.app.maria.global.clock.service.BusinessClockService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -186,13 +187,15 @@ public class AccountServiceImpl implements AccountService {
   }
 
   @Override
+  @Transactional(readOnly = true)
   public int getAppliedAccountCount() {
       return accountMapper.countByStatus(Status.APPLIED);
   }
 
-    @Override
-    public List<AccountLimitUsageDTO> selectAccountLimitUsage() {
-        return accountMapper.selectAccountLimitUsage();
-    }
+  @Override
+  @Transactional(readOnly = true)
+  public List<AccountLimitUsageDTO> selectAccountLimitUsage() {
+      return accountMapper.selectAccountLimitUsage();
+  }
 
 }

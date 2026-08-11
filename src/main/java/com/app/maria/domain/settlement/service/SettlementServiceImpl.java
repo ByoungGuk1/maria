@@ -130,8 +130,9 @@ public class SettlementServiceImpl implements SettlementService {
     return krwExchangeMapper.selectExchangeById(exchangeId).orElseThrow(()->new KrwExchangeNotFoundException("환전 조회 실패"));
   }
 
-    @Override
-    public int getProvisionalExchangeCount() {
-        return krwExchangeMapper.countByStatus(SettlementStatus.PROVISIONAL);
-    }
+  @Override
+  @Transactional(readOnly = true)
+  public int getProvisionalExchangeCount() {
+      return krwExchangeMapper.countByStatus(SettlementStatus.PROVISIONAL);
+  }
 }

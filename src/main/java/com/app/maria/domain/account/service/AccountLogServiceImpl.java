@@ -12,6 +12,7 @@ import com.app.maria.domain.account.type.Status;
 import com.app.maria.global.clock.service.BusinessClockService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -73,6 +74,7 @@ public class AccountLogServiceImpl implements AccountLogService {
   }
 
 @Override
+@Transactional(readOnly = true)
 public int getTodayProcessedAccountCount(Status newStatus) {
     LocalDateTime start = businessClockService.now().toLocalDate().atStartOfDay();
     LocalDateTime end = start.plusDays(1);
