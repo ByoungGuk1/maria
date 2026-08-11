@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import com.app.maria.domain.inbound.dto.request.InboundRequestDTO;
@@ -11,6 +12,7 @@ import com.app.maria.domain.inbound.dto.response.InboundResponseDTO;
 import com.app.maria.domain.inbound.exception.InboundNotFoundException;
 import com.app.maria.domain.inbound.mapper.InboundMapper;
 import com.app.maria.domain.registrablestock.dto.RegistrableStockResponseDTO;
+import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.response.ApiResponseDTO;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -38,7 +40,11 @@ class InboundServiceImplTest {
 
     @Mock private RestClient.ResponseSpec responseSpec;
 
+    @Mock private BusinessClockService businessClockService;
+
     @InjectMocks private InboundServiceImpl inboundService;
+
+    private static final LocalDateTime FIXED_NOW = LocalDateTime.of(2026, 3, 5, 10, 0);
 
     @BeforeEach
     @SuppressWarnings("unchecked")
@@ -51,6 +57,7 @@ class InboundServiceImplTest {
                         eq(FOREIGN_PRODUCT_ID)))
                 .thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        lenient().when(businessClockService.now()).thenReturn(FIXED_NOW);
     }
 
     @Test

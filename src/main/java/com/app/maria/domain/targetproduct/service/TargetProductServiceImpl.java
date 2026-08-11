@@ -4,6 +4,8 @@ import com.app.maria.domain.externaltradesync.dto.response.MydataTradeResponseDT
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
 import com.app.maria.domain.targetproduct.dto.response.MydataFundResponseDTO;
 import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
+import com.app.maria.domain.targetproduct.type.StockType;
+import com.app.maria.domain.targetproduct.type.TradeType;
 import com.app.maria.global.client.mydatafund.MydataFundClient;
 import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
@@ -35,7 +37,10 @@ public class TargetProductServiceImpl implements TargetProductService {
         LocalDateTime now = businessClockService.now();
         LocalDate today = now.toLocalDate();
 
-        if ("FUND".equals(trade.getStockType())) {
+        StockType stockType = StockType.valueOf(trade.getStockType());
+        TradeType tradeType = TradeType.valueOf(trade.getTradeType());
+
+        if (stockType == StockType.FUND) {
             MydataFundResponseDTO fund = mydataFundClient.getFund(trade.getFundCode());
 
             if (fund.getForeignStockRatio() != null) {
@@ -46,26 +51,23 @@ public class TargetProductServiceImpl implements TargetProductService {
 
             isTarget = isForeignStockRatioMet(fund) && isInceptionPeriodMet(fund, today);
         } else {
-            // FOREIGN_STOCK / ETF / ETN: 비중요건 없이 전부 대상
             isTarget = true;
         }
 
         BigDecimal netBuyAmount =
-                "SELL".equals(trade.getTradeType())
-                        ? trade.getAmount().negate()
-                        : trade.getAmount();
+                tradeType == TradeType.SELL ? trade.getAmount().negate() : trade.getAmount();
 
         TargetProductJudgementDTO dto = new TargetProductJudgementDTO();
         dto.setMydataTradeId(trade.getTradeId());
         dto.setCiHash(trade.getCiHash());
-        dto.setStockType(trade.getStockType());
+        dto.setStockType(stockType);
         dto.setFundCode(trade.getFundCode());
         dto.setFundName(fundName);
         dto.setTicker(trade.getTicker());
         dto.setIsTarget(isTarget);
         dto.setForeignStockRatio(foreignStockRatio);
         dto.setInceptionDate(inceptionDate);
-        dto.setTradeType(trade.getTradeType());
+        dto.setTradeType(tradeType);
         dto.setAmount(trade.getAmount());
         dto.setTradeDate(trade.getTradeDate());
         dto.setNetBuyAmount(netBuyAmount);

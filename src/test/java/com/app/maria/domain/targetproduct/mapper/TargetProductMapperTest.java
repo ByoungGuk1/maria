@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
+import com.app.maria.domain.targetproduct.type.StockType;
+import com.app.maria.domain.targetproduct.type.TradeType;
 import java.io.IOException;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -70,9 +72,9 @@ class TargetProductMapperTest {
         return TargetProductJudgementDTO.builder()
                 .mydataTradeId(mydataTradeId)
                 .ciHash("ci-1")
-                .stockType("FOREIGN_STOCK")
+                .stockType(StockType.FOREIGN_STOCK)
                 .isTarget(true)
-                .tradeType("BUY")
+                .tradeType(TradeType.BUY)
                 .amount(new BigDecimal("1000000.00"))
                 .tradeDate(LocalDate.of(2026, 3, 5))
                 .netBuyAmount(new BigDecimal("1000000.00"))
@@ -84,7 +86,7 @@ class TargetProductMapperTest {
     void insertJudgementSavesRow() throws SQLException {
         TargetProductJudgementDTO dto =
                 baseBuilder(1L)
-                        .stockType("FUND")
+                        .stockType(StockType.FUND)
                         .fundCode("448630")
                         .fundName("TIGER 미국배당다우존스")
                         .foreignStockRatio(new BigDecimal("72.50"))
@@ -124,7 +126,7 @@ class TargetProductMapperTest {
     void insertJudgementSavesNegativeNetBuyAmountForSellTrade() throws SQLException {
         TargetProductJudgementDTO dto =
                 baseBuilder(11L)
-                        .tradeType("SELL")
+                        .tradeType(TradeType.SELL)
                         .amount(new BigDecimal("300000.00"))
                         .netBuyAmount(new BigDecimal("-300000.00"))
                         .build();
