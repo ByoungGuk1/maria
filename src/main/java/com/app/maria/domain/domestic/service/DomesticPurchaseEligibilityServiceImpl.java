@@ -5,11 +5,10 @@ import com.app.maria.domain.domestic.exception.DomesticProductNotFoundException;
 import com.app.maria.domain.domestic.mapper.DomesticProductMapper;
 import com.app.maria.domain.domestic.type.Type;
 import com.app.maria.global.clock.service.BusinessClockService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
@@ -23,8 +22,11 @@ public class DomesticPurchaseEligibilityServiceImpl implements DomesticPurchaseE
 
     @Override
     public boolean isPurchasable(Long domesticProductId) {
-        DomesticProductDTO product = domesticProductMapper.selectById(domesticProductId)
-                .orElseThrow(() -> new DomesticProductNotFoundException("종목 정보를 찾을 수 없습니다."));
+        DomesticProductDTO product =
+                domesticProductMapper
+                        .selectById(domesticProductId)
+                        .orElseThrow(
+                                () -> new DomesticProductNotFoundException("종목 정보를 찾을 수 없습니다."));
 
         if (product.getType() == Type.STOCK) {
             return true;
@@ -36,11 +38,14 @@ public class DomesticPurchaseEligibilityServiceImpl implements DomesticPurchaseE
 
     private boolean isDomesticStockRatioMet(DomesticProductDTO product) {
         return product.getDomesticStockRatio() != null
-                && product.getDomesticStockRatio().compareTo(BigDecimal.valueOf(DOMESTIC_STOCK_RATIO_THRESHOLD)) >= 0;
+                && product.getDomesticStockRatio()
+                                .compareTo(BigDecimal.valueOf(DOMESTIC_STOCK_RATIO_THRESHOLD))
+                        >= 0;
     }
 
     private boolean isInceptionPeriodMet(DomesticProductDTO product, LocalDate today) {
         return product.getInceptionDate() != null
-                && !product.getInceptionDate().isAfter(today.minusMonths(INCEPTION_GRACE_PERIOD_MONTHS));
+                && !product.getInceptionDate()
+                        .isAfter(today.minusMonths(INCEPTION_GRACE_PERIOD_MONTHS));
     }
 }

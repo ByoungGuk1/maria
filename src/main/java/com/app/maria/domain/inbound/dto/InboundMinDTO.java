@@ -1,11 +1,14 @@
 package com.app.maria.domain.inbound.dto;
 
-import lombok.*;
 import java.math.BigDecimal;
+import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor
-@Getter @Setter @ToString @Builder
+@Getter
+@Setter
+@ToString
+@Builder
 public class InboundMinDTO {
     private Long inboundMinId;
     private Long inboundDetailId;

@@ -1,20 +1,19 @@
 package com.app.maria.domain.targetproduct.service;
 
 import com.app.maria.domain.externaltradesync.dto.response.MydataTradeResponseDTO;
-import com.app.maria.domain.targetproduct.dto.response.MydataFundResponseDTO;
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
+import com.app.maria.domain.targetproduct.dto.response.MydataFundResponseDTO;
 import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
 import com.app.maria.domain.targetproduct.type.StockType;
 import com.app.maria.domain.targetproduct.type.TradeType;
 import com.app.maria.global.client.mydatafund.MydataFundClient;
 import com.app.maria.global.clock.service.BusinessClockService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -55,9 +54,8 @@ public class TargetProductServiceImpl implements TargetProductService {
             isTarget = true;
         }
 
-        BigDecimal netBuyAmount = tradeType == TradeType.SELL
-                ? trade.getAmount().negate()
-                : trade.getAmount();
+        BigDecimal netBuyAmount =
+                tradeType == TradeType.SELL ? trade.getAmount().negate() : trade.getAmount();
 
         TargetProductJudgementDTO dto = new TargetProductJudgementDTO();
         dto.setMydataTradeId(trade.getTradeId());
@@ -82,11 +80,14 @@ public class TargetProductServiceImpl implements TargetProductService {
 
     private boolean isForeignStockRatioMet(MydataFundResponseDTO fund) {
         return fund.getForeignStockRatio() != null
-                && fund.getForeignStockRatio().compareTo(BigDecimal.valueOf(FOREIGN_STOCK_RATIO_THRESHOLD)) >= 0;
+                && fund.getForeignStockRatio()
+                                .compareTo(BigDecimal.valueOf(FOREIGN_STOCK_RATIO_THRESHOLD))
+                        >= 0;
     }
 
     private boolean isInceptionPeriodMet(MydataFundResponseDTO fund, LocalDate today) {
         return fund.getInceptionDate() != null
-                && !fund.getInceptionDate().isAfter(today.minusMonths(INCEPTION_GRACE_PERIOD_MONTHS));
+                && !fund.getInceptionDate()
+                        .isAfter(today.minusMonths(INCEPTION_GRACE_PERIOD_MONTHS));
     }
 }

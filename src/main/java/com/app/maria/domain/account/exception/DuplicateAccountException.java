@@ -4,7 +4,7 @@ import lombok.NoArgsConstructor;
 
 @NoArgsConstructor
 public class DuplicateAccountException extends AccountException {
-  public DuplicateAccountException(String message) {
-    super(message);
-  }
+    public DuplicateAccountException(String message) {
+        super(message);
+    }
 }

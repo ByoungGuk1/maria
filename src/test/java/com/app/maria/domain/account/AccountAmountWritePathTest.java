@@ -38,6 +38,10 @@ class AccountAmountWritePathTest {
     // \b는 '_'를 단어문자로 취급하므로 limit_amount/final_amount 등은 매칭되지 않는다
     private static final Pattern TOUCHES_AMOUNT_COLUMN = Pattern.compile("(?i)\\bamount\\b");
 
+    private static final Pattern INSERT_INTO_ACCOUNT =
+            Pattern.compile("(?i)insert\\s+into\\s+account\\s*\\(([^)]*)\\)\\s*values\\s*\\(([^)]*)\\)");
+    private static final Pattern PARAMETER_PLACEHOLDER = Pattern.compile("^#\\{.*}$");
+
     @Test
     @DisplayName("account.amount를 변경하는 <update>는 정해진 3개(가환전/확정산/인출 차감)뿐이다")
     void onlyKnownWritersModifyAccountAmount() throws Exception {
@@ -56,6 +60,44 @@ class AccountAmountWritePathTest {
         }
 
         assertThat(actualWriters).containsExactlyInAnyOrderElementsOf(ALLOWED_ACCOUNT_AMOUNT_WRITERS);
+    }
+
+    @Test
+    @DisplayName("account를 생성하는 <insert>는 amount 컬럼에 파라미터를 바인딩하지 않고 리터럴만 쓴다")
+    void noInsertBindsParameterToAccountAmount() throws Exception {
+        for (Resource resource : findMapperXmlResources()) {
+            Document document = parse(resource);
+            NodeList inserts = document.getElementsByTagName("insert");
+            for (int i = 0; i < inserts.getLength(); i++) {
+                Element insert = (Element) inserts.item(i);
+                String sql = insert.getTextContent();
+                String amountValue = extractAmountValueToken(sql);
+                if (amountValue == null) {
+                    continue;
+                }
+                assertThat(PARAMETER_PLACEHOLDER.matcher(amountValue).matches())
+                        .as("%s의 INSERT가 amount 컬럼에 파라미터(%s)를 바인딩하고 있습니다. " +
+                                        "account 생성 시 amount는 반드시 리터럴(0 등)이어야 합니다.",
+                                insert.getAttribute("id"), amountValue)
+                        .isFalse();
+            }
+        }
+    }
+
+    // account 테이블 INSERT의 컬럼 목록과 VALUES 목록을 같은 순서로 매칭해 amount 위치의 실제 값을 찾는다
+    private String extractAmountValueToken(String sql) {
+        java.util.regex.Matcher matcher = INSERT_INTO_ACCOUNT.matcher(sql);
+        if (!matcher.find()) {
+            return null;
+        }
+        String[] columns = matcher.group(1).split(",");
+        String[] values = matcher.group(2).split(",");
+        for (int i = 0; i < columns.length && i < values.length; i++) {
+            if (columns[i].trim().equalsIgnoreCase("amount")) {
+                return values[i].trim();
+            }
+        }
+        return null;
     }
 
     private Resource[] findMapperXmlResources() throws IOException {

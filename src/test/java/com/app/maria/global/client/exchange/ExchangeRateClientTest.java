@@ -1,10 +1,20 @@
 package com.app.maria.global.client.exchange;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.config.properties.ExchangeApiProperties;
 import com.app.maria.global.exception.ExchangeRateNotFoundException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,28 +23,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.client.RestTemplate;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class ExchangeRateClientTest {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Mock
-    RestTemplate restTemplate;
+    @Mock RestTemplate restTemplate;
 
-    @Mock
-    BusinessClockService businessClockService;
+    @Mock BusinessClockService businessClockService;
 
     ExchangeRateClient exchangeRateClient;
 
@@ -53,12 +50,15 @@ class ExchangeRateClientTest {
 
     private String buildUrl(LocalDate date) {
         return "https://oapi.koreaexim.go.kr/site/program/financial/exchangeJSON?authkey=test-auth-key&searchdate="
-                + date.format(DATE_FORMAT) + "&data=AP01";
+                + date.format(DATE_FORMAT)
+                + "&data=AP01";
     }
 
     @Test
     void getBaseRate_통화를_찾으면_콤마를_제거하고_BigDecimal로_반환한다() throws Exception {
-        JsonNode response = json("""
+        JsonNode response =
+                json(
+                        """
                 [
                   {"cur_unit":"AED","deal_bas_r":"390.33"},
                   {"cur_unit":"USD","deal_bas_r":"1,433.6"}
@@ -75,7 +75,8 @@ class ExchangeRateClientTest {
     void getBaseRate_요청URL에_authkey_searchdate_data파라미터가_들어간다() throws Exception {
         JsonNode response = json("[{\"cur_unit\":\"USD\",\"deal_bas_r\":\"1,433.6\"}]");
         ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
-        when(restTemplate.getForObject(urlCaptor.capture(), eq(JsonNode.class))).thenReturn(response);
+        when(restTemplate.getForObject(urlCaptor.capture(), eq(JsonNode.class)))
+                .thenReturn(response);
 
         LocalDate today = LocalDate.now();
         exchangeRateClient.getBaseRate("USD", today);
@@ -136,10 +137,12 @@ class ExchangeRateClientTest {
     void getBaseRate_날짜없는_오버로드는_오늘날짜로_조회한다() throws Exception {
         JsonNode response = json("[{\"cur_unit\":\"USD\",\"deal_bas_r\":\"1,433.6\"}]");
         ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
-        when(restTemplate.getForObject(urlCaptor.capture(), eq(JsonNode.class))).thenReturn(response);
+        when(restTemplate.getForObject(urlCaptor.capture(), eq(JsonNode.class)))
+                .thenReturn(response);
 
         exchangeRateClient.getBaseRate("USD");
 
-        assertThat(urlCaptor.getValue()).contains("searchdate=" + LocalDate.now().format(DATE_FORMAT));
+        assertThat(urlCaptor.getValue())
+                .contains("searchdate=" + LocalDate.now().format(DATE_FORMAT));
     }
 }

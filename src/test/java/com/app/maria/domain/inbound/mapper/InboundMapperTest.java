@@ -1,7 +1,18 @@
 package com.app.maria.domain.inbound.mapper;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.app.maria.domain.inbound.dto.InboundDTO;
 import com.app.maria.domain.inbound.dto.InboundDetailDTO;
+import java.io.IOException;
+import java.io.Reader;
+import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
@@ -13,18 +24,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.io.Reader;
-import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.LocalDateTime;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class InboundMapperTest {
 
@@ -43,10 +42,9 @@ class InboundMapperTest {
         try (Reader reader = Resources.getResourceAsReader("mybatis-inbound-test-config.xml")) {
             sqlSessionFactory = new SqlSessionFactoryBuilder().build(reader);
         }
-        dataSource = (PooledDataSource) sqlSessionFactory
-                .getConfiguration()
-                .getEnvironment()
-                .getDataSource();
+        dataSource =
+                (PooledDataSource)
+                        sqlSessionFactory.getConfiguration().getEnvironment().getDataSource();
     }
 
     @BeforeEach
@@ -140,13 +138,16 @@ class InboundMapperTest {
     @Test
     @DisplayName("여러 lot이 있으면 purchase_date 오래된 순으로 반환한다")
     void selectFifoLotsReturnsLotsOrderedByPurchaseDateAscending() {
-        Long newer = insertApprovedInbound(1L, 1L, BigDecimal.valueOf(30), PURCHASE_DATE.plusMonths(2));
+        Long newer =
+                insertApprovedInbound(1L, 1L, BigDecimal.valueOf(30), PURCHASE_DATE.plusMonths(2));
         Long oldest = insertApprovedInbound(1L, 1L, BigDecimal.valueOf(10), PURCHASE_DATE);
-        Long middle = insertApprovedInbound(1L, 1L, BigDecimal.valueOf(20), PURCHASE_DATE.plusMonths(1));
+        Long middle =
+                insertApprovedInbound(1L, 1L, BigDecimal.valueOf(20), PURCHASE_DATE.plusMonths(1));
 
         List<InboundDetailDTO> lots = inboundMapper.selectFifoLots(1L, 1L);
 
-        assertThat(lots).extracting(InboundDetailDTO::getInboundDetailId)
+        assertThat(lots)
+                .extracting(InboundDetailDTO::getInboundDetailId)
                 .containsExactly(oldest, middle, newer);
     }
 
@@ -155,11 +156,13 @@ class InboundMapperTest {
     void selectFifoLotsExcludesLotsWithZeroCurrentQty() {
         Long depleted = insertApprovedInbound(1L, 1L, BigDecimal.valueOf(10), PURCHASE_DATE);
         reduceCurrentQty(depleted, BigDecimal.ZERO);
-        Long remaining = insertApprovedInbound(1L, 1L, BigDecimal.valueOf(20), PURCHASE_DATE.plusMonths(1));
+        Long remaining =
+                insertApprovedInbound(1L, 1L, BigDecimal.valueOf(20), PURCHASE_DATE.plusMonths(1));
 
         List<InboundDetailDTO> lots = inboundMapper.selectFifoLots(1L, 1L);
 
-        assertThat(lots).extracting(InboundDetailDTO::getInboundDetailId)
+        assertThat(lots)
+                .extracting(InboundDetailDTO::getInboundDetailId)
                 .containsExactly(remaining);
     }
 
@@ -172,8 +175,7 @@ class InboundMapperTest {
 
         List<InboundDetailDTO> lots = inboundMapper.selectFifoLots(1L, 1L);
 
-        assertThat(lots).extracting(InboundDetailDTO::getInboundDetailId)
-                .containsExactly(matching);
+        assertThat(lots).extracting(InboundDetailDTO::getInboundDetailId).containsExactly(matching);
     }
 
     @Test
@@ -186,9 +188,10 @@ class InboundMapperTest {
 
     private void resetSchema() throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute("DROP ALL OBJECTS");
-            statement.execute("""
+            statement.execute(
+                    """
           CREATE TABLE inbound (
               inbound_id BIGINT PRIMARY KEY AUTO_INCREMENT,
               account_id BIGINT NOT NULL,
@@ -198,7 +201,8 @@ class InboundMapperTest {
               processed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
           )
           """);
-            statement.execute("""
+            statement.execute(
+                    """
           CREATE TABLE inbound_detail (
               inbound_detail_id BIGINT PRIMARY KEY AUTO_INCREMENT,
               inbound_id BIGINT NOT NULL,
@@ -219,30 +223,37 @@ class InboundMapperTest {
         }
     }
 
-    private Long insertApprovedInbound(Long accountId, Long foreignProductId, BigDecimal approvedQty) {
+    private Long insertApprovedInbound(
+            Long accountId, Long foreignProductId, BigDecimal approvedQty) {
         return insertApprovedInbound(accountId, foreignProductId, approvedQty, PURCHASE_DATE);
     }
 
-    private Long insertApprovedInbound(Long accountId, Long foreignProductId, BigDecimal approvedQty, LocalDateTime purchaseDate) {
-        InboundDTO inboundDTO = InboundDTO.builder()
-                .accountId(accountId)
-                .requestedQty(approvedQty)
-                .currentHoldingAtRequest(approvedQty)
-                .approvedQty(approvedQty)
-                .build();
+    private Long insertApprovedInbound(
+            Long accountId,
+            Long foreignProductId,
+            BigDecimal approvedQty,
+            LocalDateTime purchaseDate) {
+        InboundDTO inboundDTO =
+                InboundDTO.builder()
+                        .accountId(accountId)
+                        .requestedQty(approvedQty)
+                        .currentHoldingAtRequest(approvedQty)
+                        .approvedQty(approvedQty)
+                        .build();
         inboundMapper.insertInbound(inboundDTO);
 
-        InboundDetailDTO inboundDetailDTO = InboundDetailDTO.builder()
-                .inboundId(inboundDTO.getInboundId())
-                .foreignProductId(foreignProductId)
-                .qty(approvedQty)
-                .currentQty(approvedQty)
-                .purchaseDate(purchaseDate)
-                .purchasePrice(PURCHASE_PRICE)
-                .purchaseCurrency("USD")
-                .purchaseFxRate(PURCHASE_FX_RATE)
-                .sourceGeneralAccountId(accountId)
-                .build();
+        InboundDetailDTO inboundDetailDTO =
+                InboundDetailDTO.builder()
+                        .inboundId(inboundDTO.getInboundId())
+                        .foreignProductId(foreignProductId)
+                        .qty(approvedQty)
+                        .currentQty(approvedQty)
+                        .purchaseDate(purchaseDate)
+                        .purchasePrice(PURCHASE_PRICE)
+                        .purchaseCurrency("USD")
+                        .purchaseFxRate(PURCHASE_FX_RATE)
+                        .sourceGeneralAccountId(accountId)
+                        .build();
         inboundMapper.insertInboundDetail(inboundDetailDTO);
 
         return inboundDetailDTO.getInboundDetailId();
@@ -250,8 +261,9 @@ class InboundMapperTest {
 
     private void reduceCurrentQty(Long inboundDetailId, BigDecimal newCurrentQty) {
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(
-                     "UPDATE inbound_detail SET current_qty = ? WHERE inbound_detail_id = ?")) {
+                PreparedStatement statement =
+                        connection.prepareStatement(
+                                "UPDATE inbound_detail SET current_qty = ? WHERE inbound_detail_id = ?")) {
             statement.setBigDecimal(1, newCurrentQty);
             statement.setLong(2, inboundDetailId);
             statement.executeUpdate();

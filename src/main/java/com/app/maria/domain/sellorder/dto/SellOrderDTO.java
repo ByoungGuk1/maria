@@ -1,10 +1,9 @@
 package com.app.maria.domain.sellorder.dto;
 
 import com.app.maria.domain.sellorder.type.SellOrderStatus;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import lombok.*;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -24,5 +23,4 @@ public class SellOrderDTO {
     private BigDecimal settlementFxRate;
     private SellOrderStatus status;
     private LocalDateTime processedAt;
-
 }

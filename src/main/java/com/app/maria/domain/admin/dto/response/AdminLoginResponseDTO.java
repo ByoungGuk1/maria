@@ -12,5 +12,4 @@ public class AdminLoginResponseDTO {
 
     private String accessToken;
     private String refreshToken;
-
 }

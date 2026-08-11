@@ -1,6 +1,5 @@
 package com.app.maria.domain.inbound.api;
 
-
 import com.app.maria.domain.inbound.dto.request.InboundRequestDTO;
 import com.app.maria.domain.inbound.dto.response.InboundResponseDTO;
 import com.app.maria.domain.inbound.service.InboundService;

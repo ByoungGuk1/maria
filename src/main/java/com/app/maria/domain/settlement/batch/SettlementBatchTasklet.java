@@ -12,6 +12,12 @@ import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
 import com.app.maria.domain.settlement.mapper.SettlementJoinMapper;
 import com.app.maria.domain.settlement.provider.ExchangeRateProvider;
 import com.app.maria.domain.settlement.type.BatchStatus;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.StepContribution;
 import org.springframework.batch.core.scope.context.ChunkContext;
@@ -19,99 +25,114 @@ import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
 @Component
 @RequiredArgsConstructor
 public class SettlementBatchTasklet implements Tasklet {
 
-  private static final String LAST_ITEM_ID = "settlement.lastItemId";
-  private static final long INITIAL_ITEM_ID = 0L;
+    private static final String LAST_ITEM_ID = "settlement.lastItemId";
+    private static final long INITIAL_ITEM_ID = 0L;
 
-  private final SettlementBatchMapper settlementBatchMapper;
-  private final SettlementItemMapper settlementItemMapper;
-  private final SettlementJoinMapper settlementJoinMapper;
-  private final ExchangeRateProvider exchangeRateProvider;
-  private final SettlementTransactionExecutor settlementTransactionExecutor;
-  private final SettlementFailureRecorder settlementFailureRecorder;
+    private final SettlementBatchMapper settlementBatchMapper;
+    private final SettlementItemMapper settlementItemMapper;
+    private final SettlementJoinMapper settlementJoinMapper;
+    private final ExchangeRateProvider exchangeRateProvider;
+    private final SettlementTransactionExecutor settlementTransactionExecutor;
+    private final SettlementFailureRecorder settlementFailureRecorder;
 
-  @Override
-  public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
-    Object batchParameter = chunkContext.getStepContext().getJobParameters().get("batchId");
-    Long batchId = batchParameter instanceof Number ? ((Number) batchParameter).longValue() : null;
-    Object runParameter = chunkContext.getStepContext().getJobParameters().get("runId");
-    String runId = runParameter instanceof String ? (String) runParameter : null;
-    if (batchId == null || runId == null || runId.isBlank()) {
-      throw new SettlementStateConflictException("확정산 Job Parameter가 올바르지 않습니다.");
+    @Override
+    public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
+        Object batchParameter = chunkContext.getStepContext().getJobParameters().get("batchId");
+        Long batchId =
+                batchParameter instanceof Number ? ((Number) batchParameter).longValue() : null;
+        Object runParameter = chunkContext.getStepContext().getJobParameters().get("runId");
+        String runId = runParameter instanceof String ? (String) runParameter : null;
+        if (batchId == null || runId == null || runId.isBlank()) {
+            throw new SettlementStateConflictException("확정산 Job Parameter가 올바르지 않습니다.");
+        }
+
+        SettlementBatchDTO batch =
+                settlementBatchMapper
+                        .selectBatchById(batchId)
+                        .orElseThrow(
+                                () ->
+                                        new SettlementBatchNotFoundException(
+                                                "Batch를 찾을 수 없습니다. batchId=" + batchId));
+        if (!runId.equals(batch.getRunId()) || batch.getStatus() != BatchStatus.RUNNING) {
+            throw new SettlementStateConflictException(
+                    "확정산 Batch 상태가 실행 가능하지 않습니다. batchId=" + batchId);
+        }
+
+        var executionContext =
+                chunkContext.getStepContext().getStepExecution().getExecutionContext();
+        long lastItemId = executionContext.getLong(LAST_ITEM_ID, INITIAL_ITEM_ID);
+        SettlementItemDTO cursor =
+                SettlementItemDTO.builder().batchId(batchId).itemId(lastItemId).build();
+        List<SettlementItemDTO> items = settlementItemMapper.selectPendingItems(cursor);
+
+        if (items.isEmpty()) {
+            finalizeBatch(batchId);
+            return RepeatStatus.FINISHED;
+        }
+
+        LocalDate rateDate = batch.getExecutedAt().toLocalDate();
+        Map<String, BigDecimal> rateCache = new HashMap<>();
+        for (SettlementItemDTO item : items) {
+            processItem(batchId, item, rateDate, rateCache);
+            executionContext.putLong(LAST_ITEM_ID, item.getItemId());
+        }
+
+        return RepeatStatus.CONTINUABLE;
     }
 
-    SettlementBatchDTO batch = settlementBatchMapper.selectBatchById(batchId).orElseThrow(() -> new SettlementBatchNotFoundException("Batch를 찾을 수 없습니다. batchId=" + batchId));
-    if (!runId.equals(batch.getRunId()) || batch.getStatus() != BatchStatus.RUNNING) {
-      throw new SettlementStateConflictException("확정산 Batch 상태가 실행 가능하지 않습니다. batchId=" + batchId);
+    private void processItem(
+            Long batchId,
+            SettlementItemDTO item,
+            LocalDate rateDate,
+            Map<String, BigDecimal> rateCache) {
+        try {
+            SettlementJoinDTO query =
+                    SettlementJoinDTO.builder().batchId(batchId).itemId(item.getItemId()).build();
+            Optional<SettlementJoinDTO> target = settlementJoinMapper.selectTargetByItemId(query);
+            if (target.isEmpty()) {
+                throw new SettlementStateConflictException(
+                        "확정산 대상을 찾을 수 없습니다. itemId=" + item.getItemId());
+            }
+
+            SettlementJoinDTO value = target.get();
+            String rateKey = value.getPurchaseCurrency() + ":" + rateDate;
+            BigDecimal finalRate =
+                    rateCache.computeIfAbsent(
+                            rateKey,
+                            ignored ->
+                                    exchangeRateProvider.getFinalRate(
+                                            value.getPurchaseCurrency(), rateDate));
+            settlementTransactionExecutor.execute(value, finalRate);
+        } catch (Exception e) {
+            settlementFailureRecorder.markFailed(item.getItemId());
+        }
     }
 
-    var executionContext = chunkContext.getStepContext().getStepExecution().getExecutionContext();
-    long lastItemId = executionContext.getLong(LAST_ITEM_ID, INITIAL_ITEM_ID);
-    SettlementItemDTO cursor = SettlementItemDTO.builder()
-        .batchId(batchId)
-        .itemId(lastItemId)
-        .build();
-    List<SettlementItemDTO> items = settlementItemMapper.selectPendingItems(cursor);
+    private void finalizeBatch(Long batchId) {
+        int pendingCount = settlementItemMapper.countPendingItems(batchId);
+        if (pendingCount > 0) {
+            throw new SettlementStateConflictException(
+                    "미처리 Item이 남아 있어 Batch를 종료할 수 없습니다. batchId="
+                            + batchId
+                            + ", pending="
+                            + pendingCount);
+        }
 
-    if (items.isEmpty()) {
-      finalizeBatch(batchId);
-      return RepeatStatus.FINISHED;
+        SettlementBatchDTO result =
+                SettlementBatchDTO.builder()
+                        .batchId(batchId)
+                        .status(
+                                settlementItemMapper.countFailedItems(batchId) == 0
+                                        ? BatchStatus.COMPLETED
+                                        : BatchStatus.FAILED)
+                        .build();
+        if (settlementBatchMapper.updateBatchStatus(result) != 1) {
+            throw new SettlementStateConflictException(
+                    "확정산 Batch 최종 상태 변경에 실패했습니다. batchId=" + batchId);
+        }
     }
-
-    LocalDate rateDate = batch.getExecutedAt().toLocalDate();
-    Map<String, BigDecimal> rateCache = new HashMap<>();
-    for (SettlementItemDTO item : items) {
-      processItem(batchId, item, rateDate, rateCache);
-      executionContext.putLong(LAST_ITEM_ID, item.getItemId());
-    }
-
-    return RepeatStatus.CONTINUABLE;
-  }
-
-  private void processItem(Long batchId, SettlementItemDTO item, LocalDate rateDate, Map<String, BigDecimal> rateCache) {
-    try {
-      SettlementJoinDTO query = SettlementJoinDTO.builder()
-          .batchId(batchId)
-          .itemId(item.getItemId())
-          .build();
-      Optional<SettlementJoinDTO> target = settlementJoinMapper.selectTargetByItemId(query);
-      if (target.isEmpty()) {
-        throw new SettlementStateConflictException("확정산 대상을 찾을 수 없습니다. itemId=" + item.getItemId());
-      }
-
-      SettlementJoinDTO value = target.get();
-      String rateKey = value.getPurchaseCurrency() + ":" + rateDate;
-      BigDecimal finalRate = rateCache.computeIfAbsent(rateKey, ignored -> exchangeRateProvider.getFinalRate(value.getPurchaseCurrency(), rateDate));
-      settlementTransactionExecutor.execute(value, finalRate);
-    } catch (Exception e) {
-      settlementFailureRecorder.markFailed(item.getItemId());
-    }
-  }
-
-  private void finalizeBatch(Long batchId) {
-    int pendingCount = settlementItemMapper.countPendingItems(batchId);
-    if (pendingCount > 0) {
-      throw new SettlementStateConflictException(
-          "미처리 Item이 남아 있어 Batch를 종료할 수 없습니다. batchId="
-              + batchId + ", pending=" + pendingCount);
-    }
-
-    SettlementBatchDTO result = SettlementBatchDTO.builder()
-        .batchId(batchId)
-        .status(settlementItemMapper.countFailedItems(batchId) == 0 ? BatchStatus.COMPLETED : BatchStatus.FAILED)
-        .build();
-    if (settlementBatchMapper.updateBatchStatus(result) != 1) {
-      throw new SettlementStateConflictException("확정산 Batch 최종 상태 변경에 실패했습니다. batchId=" + batchId);
-    }
-  }
 }
