@@ -13,5 +13,4 @@ public class AdminRefreshRequestDTO {
 
     @NotNull(message = "재인증을 위한 토큰 정보가 없습니다.")
     private String refreshToken;
-
 }

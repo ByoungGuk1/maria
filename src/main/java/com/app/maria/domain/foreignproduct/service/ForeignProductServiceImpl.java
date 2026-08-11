@@ -4,11 +4,10 @@ import com.app.maria.domain.foreignproduct.dto.ForeignProductDTO;
 import com.app.maria.domain.foreignproduct.dto.response.ForeignProductResponseDTO;
 import com.app.maria.domain.foreignproduct.exception.ForeignProductNotFoundException;
 import com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -21,16 +20,17 @@ public class ForeignProductServiceImpl implements ForeignProductService {
     public List<ForeignProductResponseDTO> getAllForeignProducts() {
         List<ForeignProductDTO> products = foreignProductMapper.selectAll();
 
-        return products.stream()
-                .map(ForeignProductResponseDTO::new)
-                .toList();
+        return products.stream().map(ForeignProductResponseDTO::new).toList();
     }
 
     @Override
     public ForeignProductResponseDTO getForeignProduct(Long foreignProductId) {
-        return foreignProductMapper.selectById(foreignProductId)
+        return foreignProductMapper
+                .selectById(foreignProductId)
                 .map(ForeignProductResponseDTO::new)
-                .orElseThrow(() -> new ForeignProductNotFoundException(
-                        "존재하지 않는 종목입니다. foreignProductId=" + foreignProductId));
+                .orElseThrow(
+                        () ->
+                                new ForeignProductNotFoundException(
+                                        "존재하지 않는 종목입니다. foreignProductId=" + foreignProductId));
     }
 }

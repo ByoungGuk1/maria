@@ -22,7 +22,7 @@ public class TaxTestFixture {
 
     public void resetSchema() throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute("DROP ALL OBJECTS");
             for (String ddl : readSchema().split(";")) {
                 if (!ddl.isBlank()) {
@@ -33,7 +33,8 @@ public class TaxTestFixture {
     }
 
     public void insertSeedTaxRules() {
-        execute("""
+        execute(
+                """
                 INSERT INTO tax_rule (rule_type, rule_value, valid_from, valid_to) VALUES
                 ('DEPOSIT_LIMIT',   50000000.0000, '2026-01-01', '9999-12-31'),
                 ('HOLDING_PERIOD',         1.0000, '2026-01-01', '9999-12-31'),
@@ -46,62 +47,91 @@ public class TaxTestFixture {
     }
 
     public Long insertLot(Long accountId, String purchasePrice, String purchaseFxRate, String qty) {
-        Long inboundId = insertReturningId("""
+        Long inboundId =
+                insertReturningId(
+                        """
                 INSERT INTO inbound (account_id, requested_qty, approved_qty)
                 VALUES (%d, %s, %s)
-                """.formatted(accountId, qty, qty));
+                """
+                                .formatted(accountId, qty, qty));
 
-        return insertReturningId("""
+        return insertReturningId(
+                """
                 INSERT INTO inbound_detail
                     (inbound_id, foreign_product_id, purchase_date, purchase_price,
                      purchase_currency, purchase_fx_rate, qty, current_qty)
                 VALUES (%d, 1, '2024-03-10 00:00:00', %s, 'USD', %s, %s, %s)
-                """.formatted(inboundId, purchasePrice, purchaseFxRate, qty, qty));
+                """
+                        .formatted(inboundId, purchasePrice, purchaseFxRate, qty, qty));
     }
 
-    public Long insertSellOrder(Long inboundDetailId, String status, LocalDateTime processedAt, String sellQty) {
-        return insertReturningId("""
+    public Long insertSellOrder(
+            Long inboundDetailId, String status, LocalDateTime processedAt, String sellQty) {
+        return insertReturningId(
+                """
                 INSERT INTO sell_order (inbound_detail_id, sell_qty, base_price, status, processed_at)
                 VALUES (%d, %s, 200000.0000, '%s', '%s')
-                """.formatted(inboundDetailId, sellQty, status, processedAt));
+                """
+                        .formatted(inboundDetailId, sellQty, status, processedAt));
     }
 
-    public void insertKrwExchange(Long accountId, Long orderId, String settlementStatus, String finalAmount) {
-        execute("""
+    public void insertKrwExchange(
+            Long accountId, Long orderId, String settlementStatus, String finalAmount) {
+        execute(
+                """
                 INSERT INTO krw_exchange
                     (account_id, order_id, provisional_amount, provisional_at, final_amount, settlement_status)
                 VALUES (%d, %d, %s, '2026-03-10 10:00:00', %s, '%s')
-                """.formatted(accountId, orderId, finalAmount, finalAmount, settlementStatus));
+                """
+                        .formatted(accountId, orderId, finalAmount, finalAmount, settlementStatus));
     }
 
     public Long insertCustomerWithAccount(String ciHash) {
-        Long customerId = insertReturningId("""
+        Long customerId =
+                insertReturningId(
+                        """
                 INSERT INTO customer (name, birth_date, investor_type, ci_hash)
                 VALUES ('테스트고객', '1990-01-01', 'NEUTRAL', '%s')
-                """.formatted(ciHash));
+                """
+                                .formatted(ciHash));
 
-        return insertReturningId("""
+        return insertReturningId(
+                """
                 INSERT INTO account (customer_id, status, limit_amount, amount, benefit)
                 VALUES (%d, 'OPENED', 50000000, 0, 'POSSIBLE')
-                """.formatted(customerId));
+                """
+                        .formatted(customerId));
     }
 
     public void insertCustomerOnly(String ciHash) {
-        execute("""
+        execute(
+                """
                 INSERT INTO customer (name, birth_date, investor_type, ci_hash)
                 VALUES ('계좌없는고객', '1990-01-01', 'NEUTRAL', '%s')
-                """.formatted(ciHash));
+                """
+                        .formatted(ciHash));
     }
 
-    public void insertJudgement(Long mydataTradeId, String ciHash, boolean isTarget,
-                                String tradeDate, String netBuyAmount) {
-        execute("""
+    public void insertJudgement(
+            Long mydataTradeId,
+            String ciHash,
+            boolean isTarget,
+            String tradeDate,
+            String netBuyAmount) {
+        execute(
+                """
                 INSERT INTO target_product_judgement
                     (mydata_trade_id, ci_hash, is_target, judged_at, trade_type, amount, trade_date, net_buy_amount)
                 VALUES (%d, '%s', %b, '2026-12-31 01:00:00', '%s', %s, '%s', %s)
-                """.formatted(mydataTradeId, ciHash, isTarget,
-                netBuyAmount.startsWith("-") ? "SELL" : "BUY",
-                netBuyAmount.replace("-", ""), tradeDate, netBuyAmount));
+                """
+                        .formatted(
+                                mydataTradeId,
+                                ciHash,
+                                isTarget,
+                                netBuyAmount.startsWith("-") ? "SELL" : "BUY",
+                                netBuyAmount.replace("-", ""),
+                                tradeDate,
+                                netBuyAmount));
     }
 
     private String readSchema() {
@@ -117,7 +147,7 @@ public class TaxTestFixture {
 
     private Long insertReturningId(String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.executeUpdate(sql, Statement.RETURN_GENERATED_KEYS);
             try (ResultSet keys = statement.getGeneratedKeys()) {
                 keys.next();
@@ -130,7 +160,7 @@ public class TaxTestFixture {
 
     private void execute(String sql) {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
         } catch (SQLException e) {
             throw new IllegalStateException(e);

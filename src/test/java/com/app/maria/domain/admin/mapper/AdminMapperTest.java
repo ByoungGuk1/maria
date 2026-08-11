@@ -1,7 +1,16 @@
 package com.app.maria.domain.admin.mapper;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.app.maria.domain.admin.dto.AdminUserDTO;
 import com.app.maria.domain.admin.type.AdminRole;
+import java.io.IOException;
+import java.io.Reader;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Optional;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
@@ -13,16 +22,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.io.Reader;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AdminMapperTest {
 
@@ -37,10 +36,9 @@ class AdminMapperTest {
         try (Reader reader = Resources.getResourceAsReader("mybatis-admin-test-config.xml")) {
             sqlSessionFactory = new SqlSessionFactoryBuilder().build(reader);
         }
-        dataSource = (PooledDataSource) sqlSessionFactory
-                .getConfiguration()
-                .getEnvironment()
-                .getDataSource();
+        dataSource =
+                (PooledDataSource)
+                        sqlSessionFactory.getConfiguration().getEnvironment().getDataSource();
     }
 
     @BeforeEach
@@ -90,8 +88,9 @@ class AdminMapperTest {
     @DisplayName("role을 지정하지 않고 생성하면 기본값 VIEWER로 저장된다")
     void insertAdminWithoutRoleDefaultsToViewer() throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
-            statement.execute("""
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    """
                     INSERT INTO admin_user (admin_id, login_id, name, password_hash)
                     VALUES (1, 'newbie', '신입 관리자', 'encoded-password')
                     """);
@@ -106,7 +105,8 @@ class AdminMapperTest {
     @Test
     @DisplayName("정의되지 않은 role 값은 CHECK 제약조건으로 저장 자체가 막힌다")
     void invalidRoleValueIsRejectedByCheckConstraint() {
-        assertThatThrownBy(() -> insertAdmin(1L, "reviewer1", "리뷰어1", "encoded-password", "SUPERUSER"))
+        assertThatThrownBy(
+                        () -> insertAdmin(1L, "reviewer1", "리뷰어1", "encoded-password", "SUPERUSER"))
                 .isInstanceOf(SQLException.class);
     }
 
@@ -115,15 +115,23 @@ class AdminMapperTest {
     void loginIdMustBeUnique() throws SQLException {
         insertAdmin(1L, "reviewer1", "리뷰어1", "encoded-password", "REVIEWER");
 
-        assertThatThrownBy(() -> insertAdmin(2L, "reviewer1", "리뷰어1(다른 계정)", "another-password", "VIEWER"))
+        assertThatThrownBy(
+                        () ->
+                                insertAdmin(
+                                        2L,
+                                        "reviewer1",
+                                        "리뷰어1(다른 계정)",
+                                        "another-password",
+                                        "VIEWER"))
                 .isInstanceOf(SQLException.class);
     }
 
     private void resetSchema() throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute("DROP ALL OBJECTS");
-            statement.execute("""
+            statement.execute(
+                    """
                     CREATE TABLE admin_user (
                         admin_id BIGINT PRIMARY KEY AUTO_INCREMENT,
                         login_id VARCHAR(50) NOT NULL,
@@ -139,13 +147,17 @@ class AdminMapperTest {
         }
     }
 
-    private void insertAdmin(Long adminId, String loginId, String name, String passwordHash, String role) throws SQLException {
+    private void insertAdmin(
+            Long adminId, String loginId, String name, String passwordHash, String role)
+            throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
-            statement.execute("""
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    """
                     INSERT INTO admin_user (admin_id, login_id, name, password_hash, role)
                     VALUES (%d, '%s', '%s', '%s', '%s')
-                    """.formatted(adminId, loginId, name, passwordHash, role));
+                    """
+                            .formatted(adminId, loginId, name, passwordHash, role));
         }
     }
 }

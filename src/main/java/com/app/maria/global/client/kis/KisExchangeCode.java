@@ -7,7 +7,6 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum KisExchangeCode {
-
     NASDAQ("NAS"),
     NYSE("NYS"),
     HKEX("HKS"),
@@ -24,5 +23,4 @@ public enum KisExchangeCode {
 
         throw new UnsupportedExchangeException("지원하지 않는 거래소입니다.");
     }
-
 }

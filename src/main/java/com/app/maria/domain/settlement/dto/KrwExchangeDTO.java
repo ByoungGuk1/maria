@@ -1,10 +1,9 @@
 package com.app.maria.domain.settlement.dto;
 
 import com.app.maria.domain.settlement.type.SettlementStatus;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import lombok.*;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -14,13 +13,13 @@ import java.time.LocalDateTime;
 @Builder
 @EqualsAndHashCode(of = "exchangeId")
 public class KrwExchangeDTO {
-  private Long exchangeId;
-  private Long accountId;
-  private Long orderId;
-  private BigDecimal provisionalAmount;
-  private LocalDateTime provisionalAt;
-  private BigDecimal finalRate;
-  private BigDecimal finalAmount;
-  private LocalDateTime finalAt;
-  private SettlementStatus settlementStatus;
+    private Long exchangeId;
+    private Long accountId;
+    private Long orderId;
+    private BigDecimal provisionalAmount;
+    private LocalDateTime provisionalAt;
+    private BigDecimal finalRate;
+    private BigDecimal finalAmount;
+    private LocalDateTime finalAt;
+    private SettlementStatus settlementStatus;
 }

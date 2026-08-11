@@ -1,9 +1,8 @@
 package com.app.maria.global.audit.dto.response;
 
 import com.app.maria.global.audit.dto.AuditLogDTO;
-import lombok.*;
-
 import java.time.LocalDateTime;
+import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -32,5 +31,4 @@ public class AuditLogResponseDTO {
         this.reasonCode = dto.getReasonCode();
         this.processedAt = dto.getProcessedAt();
     }
-
 }

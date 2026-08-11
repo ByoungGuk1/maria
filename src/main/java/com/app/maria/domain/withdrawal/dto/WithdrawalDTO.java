@@ -1,10 +1,10 @@
 package com.app.maria.domain.withdrawal.dto;
 
 import com.app.maria.domain.withdrawal.type.WithdrawalStatus;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import lombok.*;
+
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter

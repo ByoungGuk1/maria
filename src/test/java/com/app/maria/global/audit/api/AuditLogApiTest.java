@@ -1,10 +1,21 @@
 package com.app.maria.global.audit.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.app.maria.global.audit.dto.request.AuditLogSearchRequestDTO;
 import com.app.maria.global.audit.dto.response.AuditLogResponseDTO;
 import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.config.SecurityConfig;
 import com.app.maria.global.jwt.JwtTokenProvider;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -15,30 +26,15 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 @WebMvcTest(AuditLogApi.class)
 @Import(SecurityConfig.class)
 class AuditLogApiTest {
 
-    @Autowired
-    MockMvc mockMvc;
+    @Autowired MockMvc mockMvc;
 
-    @MockitoBean
-    AuditLogService auditLogService;
+    @MockitoBean AuditLogService auditLogService;
 
-    @MockitoBean
-    JwtTokenProvider jwtTokenProvider;
+    @MockitoBean JwtTokenProvider jwtTokenProvider;
 
     private AuditLogResponseDTO auditLog(Long auditId) {
         return AuditLogResponseDTO.builder()
@@ -57,7 +53,8 @@ class AuditLogApiTest {
     @DisplayName("필터 없이 조회하면 200과 전체 목록을 반환한다")
     @WithMockUser(roles = "VIEWER")
     void searchAuditLogsReturns200WithFullListWhenNoFilters() throws Exception {
-        when(auditLogService.searchAuditLogs(any())).thenReturn(List.of(auditLog(1L), auditLog(2L)));
+        when(auditLogService.searchAuditLogs(any()))
+                .thenReturn(List.of(auditLog(1L), auditLog(2L)));
 
         mockMvc.perform(get("/api/admin/audit-logs"))
                 .andExpect(status().isOk())
@@ -72,8 +69,7 @@ class AuditLogApiTest {
     void searchAuditLogsReturns200ForViewerRole() throws Exception {
         when(auditLogService.searchAuditLogs(any())).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/admin/audit-logs"))
-                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/admin/audit-logs")).andExpect(status().isOk());
     }
 
     @Test
@@ -82,16 +78,18 @@ class AuditLogApiTest {
     void searchAuditLogsBindsQueryParamsIntoRequestDto() throws Exception {
         when(auditLogService.searchAuditLogs(any())).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/admin/audit-logs")
-                        .param("adminId", "1")
-                        .param("targetTable", "ADMIN_USER")
-                        .param("targetPk", "2")
-                        .param("reasonCode", "ADMIN_ROLE_UPDATE")
-                        .param("startDate", "2026-01-01T00:00:00")
-                        .param("endDate", "2026-12-31T23:59:59"))
+        mockMvc.perform(
+                        get("/api/admin/audit-logs")
+                                .param("adminId", "1")
+                                .param("targetTable", "ADMIN_USER")
+                                .param("targetPk", "2")
+                                .param("reasonCode", "ADMIN_ROLE_UPDATE")
+                                .param("startDate", "2026-01-01T00:00:00")
+                                .param("endDate", "2026-12-31T23:59:59"))
                 .andExpect(status().isOk());
 
-        ArgumentCaptor<AuditLogSearchRequestDTO> captor = ArgumentCaptor.forClass(AuditLogSearchRequestDTO.class);
+        ArgumentCaptor<AuditLogSearchRequestDTO> captor =
+                ArgumentCaptor.forClass(AuditLogSearchRequestDTO.class);
         verify(auditLogService).searchAuditLogs(captor.capture());
         AuditLogSearchRequestDTO bound = captor.getValue();
         assertThat(bound.getAdminId()).isEqualTo(1L);
@@ -106,9 +104,10 @@ class AuditLogApiTest {
     @DisplayName("시작일이 종료일보다 늦으면 400을 반환하고 서비스는 호출되지 않는다")
     @WithMockUser(roles = "VIEWER")
     void searchAuditLogsReturns400WhenStartDateAfterEndDate() throws Exception {
-        mockMvc.perform(get("/api/admin/audit-logs")
-                        .param("startDate", "2026-08-10T00:00:00")
-                        .param("endDate", "2026-08-01T00:00:00"))
+        mockMvc.perform(
+                        get("/api/admin/audit-logs")
+                                .param("startDate", "2026-08-10T00:00:00")
+                                .param("endDate", "2026-08-01T00:00:00"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("시작일은 종료일보다 늦을 수 없습니다."));
 
@@ -118,8 +117,7 @@ class AuditLogApiTest {
     @Test
     @DisplayName("인증되지 않은 요청이면 401을 반환하고 서비스는 호출되지 않는다")
     void searchAuditLogsReturns401WhenNotAuthenticated() throws Exception {
-        mockMvc.perform(get("/api/admin/audit-logs"))
-                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/admin/audit-logs")).andExpect(status().isUnauthorized());
 
         verify(auditLogService, never()).searchAuditLogs(any());
     }

@@ -10,13 +10,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional(rollbackFor = Exception.class)
-public class MemberServiceImpl implements  MemberService {
+public class MemberServiceImpl implements MemberService {
 
-  private final MemberMapper memberMapper;
+    private final MemberMapper memberMapper;
 
-
-  @Override
-  public MemberResponseDTO getMemberById(String id) {
-    return memberMapper.selectById(id).map(MemberResponseDTO::new).orElseThrow(() -> new MemberNotFoundException("회원 조회 실패"));
-  }
+    @Override
+    public MemberResponseDTO getMemberById(String id) {
+        return memberMapper
+                .selectById(id)
+                .map(MemberResponseDTO::new)
+                .orElseThrow(() -> new MemberNotFoundException("회원 조회 실패"));
+    }
 }

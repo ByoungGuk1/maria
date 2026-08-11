@@ -1,9 +1,17 @@
 package com.app.maria.global.client.kis;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+
 import com.app.maria.global.config.properties.PriceApiProperties;
 import com.app.maria.global.exception.KisPriceNotFoundException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,25 +25,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
-import java.math.BigDecimal;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class KisPriceClientTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Mock
-    RestTemplate restTemplate;
+    @Mock RestTemplate restTemplate;
 
-    @Mock
-    KisTokenService kisTokenService;
+    @Mock KisTokenService kisTokenService;
 
     KisPriceClient kisPriceClient;
 
@@ -56,10 +53,13 @@ class KisPriceClientTest {
     @Test
     void getPreviousClose_성공응답이면_output의_base값을_BigDecimal로_반환한다() throws Exception {
         when(kisTokenService.getAccessToken()).thenReturn("token-value");
-        JsonNode response = json("""
+        JsonNode response =
+                json(
+                        """
                 {"output":{"base":"308.9100"},"rt_cd":"0","msg1":"정상처리 되었습니다."}
                 """);
-        when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(JsonNode.class)))
+        when(restTemplate.exchange(
+                        anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(JsonNode.class)))
                 .thenReturn(new ResponseEntity<>(response, HttpStatus.OK));
 
         BigDecimal base = kisPriceClient.getPreviousClose("NAS", "AAPL");
@@ -70,7 +70,8 @@ class KisPriceClientTest {
     @Test
     void getPreviousClose_응답이_null이면_예외를던진다() {
         when(kisTokenService.getAccessToken()).thenReturn("token-value");
-        when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(JsonNode.class)))
+        when(restTemplate.exchange(
+                        anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(JsonNode.class)))
                 .thenReturn(new ResponseEntity<>(null, HttpStatus.OK));
 
         assertThatThrownBy(() -> kisPriceClient.getPreviousClose("NAS", "AAPL"))
@@ -80,10 +81,13 @@ class KisPriceClientTest {
     @Test
     void getPreviousClose_rt_cd가_0이아니면_예외를던진다() throws Exception {
         when(kisTokenService.getAccessToken()).thenReturn("token-value");
-        JsonNode response = json("""
+        JsonNode response =
+                json(
+                        """
                 {"rt_cd":"1","msg1":"실전투자 도메인은 모의투자 앱키로 호출하실 수 없습니다.","msg_cd":"EGW02004"}
                 """);
-        when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(JsonNode.class)))
+        when(restTemplate.exchange(
+                        anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(JsonNode.class)))
                 .thenReturn(new ResponseEntity<>(response, HttpStatus.OK));
 
         assertThatThrownBy(() -> kisPriceClient.getPreviousClose("NAS", "AAPL"))
@@ -96,7 +100,11 @@ class KisPriceClientTest {
         JsonNode response = json("{\"output\":{\"base\":\"1\"},\"rt_cd\":\"0\"}");
 
         ArgumentCaptor<HttpEntity> entityCaptor = ArgumentCaptor.forClass(HttpEntity.class);
-        when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), entityCaptor.capture(), eq(JsonNode.class)))
+        when(restTemplate.exchange(
+                        anyString(),
+                        eq(HttpMethod.GET),
+                        entityCaptor.capture(),
+                        eq(JsonNode.class)))
                 .thenReturn(new ResponseEntity<>(response, HttpStatus.OK));
 
         kisPriceClient.getPreviousClose("NAS", "AAPL");
@@ -115,7 +123,11 @@ class KisPriceClientTest {
         JsonNode response = json("{\"output\":{\"base\":\"1\"},\"rt_cd\":\"0\"}");
 
         ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
-        when(restTemplate.exchange(urlCaptor.capture(), eq(HttpMethod.GET), any(HttpEntity.class), eq(JsonNode.class)))
+        when(restTemplate.exchange(
+                        urlCaptor.capture(),
+                        eq(HttpMethod.GET),
+                        any(HttpEntity.class),
+                        eq(JsonNode.class)))
                 .thenReturn(new ResponseEntity<>(response, HttpStatus.OK));
 
         kisPriceClient.getPreviousClose("NAS", "AAPL");

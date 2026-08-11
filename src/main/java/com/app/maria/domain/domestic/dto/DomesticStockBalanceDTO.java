@@ -1,14 +1,16 @@
 package com.app.maria.domain.domestic.dto;
 
 import com.app.maria.domain.domestic.type.DomesticStockStatus;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor
-@Getter @Setter @ToString @Builder
+@Getter
+@Setter
+@ToString
+@Builder
 public class DomesticStockBalanceDTO {
     private Long domesticStockBalanceId;
     private Long accountId;

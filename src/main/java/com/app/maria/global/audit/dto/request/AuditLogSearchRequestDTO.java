@@ -2,9 +2,8 @@ package com.app.maria.global.audit.dto.request;
 
 import com.app.maria.global.audit.dto.AuditLogSearchDTO;
 import jakarta.validation.constraints.AssertTrue;
-import lombok.*;
-
 import java.time.LocalDateTime;
+import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -37,5 +36,4 @@ public class AuditLogSearchRequestDTO {
                 .endDate(endDate)
                 .build();
     }
-
 }

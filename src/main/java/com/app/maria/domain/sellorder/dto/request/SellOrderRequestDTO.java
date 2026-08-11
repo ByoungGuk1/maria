@@ -3,9 +3,8 @@ package com.app.maria.domain.sellorder.dto.request;
 import com.app.maria.domain.sellorder.dto.SellOrderDTO;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
-import lombok.*;
-
 import java.math.BigDecimal;
+import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -32,5 +31,4 @@ public class SellOrderRequestDTO {
                 .sellQty(sellQty)
                 .build();
     }
-
 }

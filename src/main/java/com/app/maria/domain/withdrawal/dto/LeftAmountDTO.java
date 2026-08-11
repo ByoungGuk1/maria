@@ -1,9 +1,8 @@
 package com.app.maria.domain.withdrawal.dto;
 
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor

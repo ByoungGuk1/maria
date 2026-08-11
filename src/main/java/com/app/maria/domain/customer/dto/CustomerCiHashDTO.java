@@ -4,7 +4,10 @@ import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor
-@Getter @Setter @ToString @Builder
+@Getter
+@Setter
+@ToString
+@Builder
 public class CustomerCiHashDTO {
 
     private Long customerId;

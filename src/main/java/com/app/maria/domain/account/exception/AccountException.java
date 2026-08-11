@@ -4,7 +4,7 @@ import lombok.NoArgsConstructor;
 
 @NoArgsConstructor
 public class AccountException extends RuntimeException {
-  public AccountException(String message) {
-    super(message);
-  }
+    public AccountException(String message) {
+        super(message);
+    }
 }

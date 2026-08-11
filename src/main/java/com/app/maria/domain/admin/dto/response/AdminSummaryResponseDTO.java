@@ -23,5 +23,4 @@ public class AdminSummaryResponseDTO {
         this.role = dto.getRole();
         this.name = dto.getName();
     }
-
 }
