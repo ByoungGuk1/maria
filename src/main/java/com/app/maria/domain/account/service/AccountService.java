@@ -1,8 +1,8 @@
 package com.app.maria.domain.account.service;
 
-import com.app.maria.domain.account.dto.request.AccountRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
+import com.app.maria.domain.account.dto.request.AccountRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 
@@ -34,4 +34,6 @@ public interface AccountService {
   List<AccountLogResponseDTO> getStatusLogsByAccountId(Long accountId);
 
   AccountResponseDTO overrideAccount(Long accountId, String reason);
+
+  int getAppliedAccountCount();
 }

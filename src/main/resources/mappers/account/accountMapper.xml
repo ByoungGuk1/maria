@@ -138,4 +138,11 @@
         WHERE account_id = #{accountId}
         AND status IN ('OPENED', 'CLOSURE_REQUESTED')
     </update>
+
+    <select id="countByStatus" resultType="int">
+        SELECT COUNT(*)
+        FROM account
+        WHERE status = #{status}
+    </select>
+
 </mapper>

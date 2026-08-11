@@ -61,4 +61,7 @@ public interface AccountMapper {
    * @return 성공시 1, 실패시 0
    */
   int updateProvisionalAmount(AccountDTO provisionalAmountDelta);
+
+  // 심사대기 건수
+  int countByStatus(Status status);
 }

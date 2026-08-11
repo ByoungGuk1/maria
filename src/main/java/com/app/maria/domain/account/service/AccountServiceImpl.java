@@ -183,4 +183,10 @@ public class AccountServiceImpl implements AccountService {
   private String normalizeReason(String reason) {
     return reason.trim();
   }
+
+  @Override
+  public int getAppliedAccountCount() {
+      return accountMapper.countByStatus(Status.APPLIED);
+  }
+
 }
