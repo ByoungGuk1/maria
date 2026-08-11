@@ -6,9 +6,9 @@
 
     <insert id="insertJudgement" parameterType="TargetProductJudgementDTO" useGeneratedKeys="true" keyProperty="judgementId">
         INSERT INTO target_product_judgement
-        (mydata_trade_id, ci_hash, fund_code, fund_name, is_target, foreign_stock_ratio, inception_date, judged_at, trade_type, amount, trade_date, net_buy_amount)
+        (mydata_trade_id, ci_hash, stock_type, fund_code, fund_name, ticker, is_target, foreign_stock_ratio, inception_date, judged_at, trade_type, amount, trade_date, net_buy_amount)
         VALUES
-        (#{mydataTradeId}, #{ciHash}, #{fundCode}, #{fundName}, #{isTarget}, #{foreignStockRatio}, #{inceptionDate}, #{judgedAt}, #{tradeType}, #{amount}, #{tradeDate}, #{netBuyAmount})
+        (#{mydataTradeId}, #{ciHash}, #{stockType}, #{fundCode}, #{fundName}, #{ticker}, #{isTarget}, #{foreignStockRatio}, #{inceptionDate}, #{judgedAt}, #{tradeType}, #{amount}, #{tradeDate}, #{netBuyAmount})
     </insert>
 
     <select id="existsByMydataTradeId" resultType="boolean">
