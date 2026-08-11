@@ -1,15 +1,33 @@
 package com.app.maria.domain.externaltradesync.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.groups.Tuple.tuple;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
 import com.app.maria.domain.customer.dto.CustomerCiHashDTO;
 import com.app.maria.domain.customer.mapper.CustomerMapper;
 import com.app.maria.domain.externaltradesync.dto.ExternalTradeSyncCursorDTO;
-import com.app.maria.domain.externaltradesync.mapper.ExternalTradeSyncCursorMapper;
-import com.app.maria.domain.externaltradesync.dto.response.MydataTradeResponseDTO;
 import com.app.maria.domain.externaltradesync.dto.request.MydataTradeRequestDTO;
+import com.app.maria.domain.externaltradesync.dto.response.MydataTradeResponseDTO;
+import com.app.maria.domain.externaltradesync.mapper.ExternalTradeSyncCursorMapper;
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
 import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
 import com.app.maria.domain.targetproduct.service.TargetProductService;
 import com.app.maria.global.client.mydatatrade.MydataTradeClient;
+import com.app.maria.global.clock.service.BusinessClockService;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,48 +36,38 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.groups.Tuple.tuple;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class ExternalTradeSyncServiceImplTest {
 
-    @Mock
-    private CustomerMapper customerMapper;
+    private static final LocalDate TODAY = LocalDate.of(2026, 12, 31);
 
-    @Mock
-    private ExternalTradeSyncCursorMapper cursorMapper;
+    @Mock private CustomerMapper customerMapper;
 
-    @Mock
-    private MydataTradeClient mydataTradeClient;
+    @Mock private ExternalTradeSyncCursorMapper cursorMapper;
 
-    @Mock
-    private TargetProductMapper targetProductMapper;
+    @Mock private MydataTradeClient mydataTradeClient;
 
-    @Mock
-    private TargetProductService targetProductService;
+    @Mock private TargetProductMapper targetProductMapper;
 
-    @InjectMocks
-    private ExternalTradeSyncServiceImpl externalTradeSyncService;
+    @Mock private TargetProductService targetProductService;
+
+    @Mock private BusinessClockService businessClockService;
+
+    @InjectMocks private ExternalTradeSyncServiceImpl externalTradeSyncService;
+
+    @BeforeEach
+    void setUpClock() {
+        // 대부분의 테스트가 syncCustomer()를 거쳐 now()를 호출하지만,
+        // 고객이 아예 없는 테스트(syncAllDoesNothingWhenNoCustomers)는 호출하지 않으므로 lenient 처리
+        lenient().when(businessClockService.now()).thenReturn(TODAY.atStartOfDay());
+    }
 
     private static CustomerCiHashDTO customer(Long customerId, String ciHash) {
         return CustomerCiHashDTO.builder().customerId(customerId).ciHash(ciHash).build();
     }
 
-    private static MydataTradeResponseDTO trade(Long tradeId, String stockType, String fundCode, LocalDate tradeDate) {
+    private static MydataTradeResponseDTO trade(
+            Long tradeId, String stockType, String fundCode, LocalDate tradeDate) {
         return MydataTradeResponseDTO.builder()
                 .tradeId(tradeId)
                 .ciHash("ci-1")
@@ -92,7 +100,8 @@ class ExternalTradeSyncServiceImplTest {
 
         externalTradeSyncService.syncAll();
 
-        ArgumentCaptor<MydataTradeRequestDTO> captor = ArgumentCaptor.forClass(MydataTradeRequestDTO.class);
+        ArgumentCaptor<MydataTradeRequestDTO> captor =
+                ArgumentCaptor.forClass(MydataTradeRequestDTO.class);
         verify(mydataTradeClient).getTrades(captor.capture());
         assertThat(captor.getValue().getCiHash()).isEqualTo("ci-1");
         assertThat(captor.getValue().getFromDate()).isNull();
@@ -103,13 +112,19 @@ class ExternalTradeSyncServiceImplTest {
     void resumedSyncQueriesWithLastSyncedTradeDate() {
         LocalDate lastSynced = LocalDate.of(2026, 3, 1);
         when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
-        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.of(
-                ExternalTradeSyncCursorDTO.builder().customerId(1L).lastSyncedTradeDate(lastSynced).build()));
+        when(cursorMapper.selectByCustomerId(1L))
+                .thenReturn(
+                        Optional.of(
+                                ExternalTradeSyncCursorDTO.builder()
+                                        .customerId(1L)
+                                        .lastSyncedTradeDate(lastSynced)
+                                        .build()));
         when(mydataTradeClient.getTrades(any())).thenReturn(List.of());
 
         externalTradeSyncService.syncAll();
 
-        ArgumentCaptor<MydataTradeRequestDTO> captor = ArgumentCaptor.forClass(MydataTradeRequestDTO.class);
+        ArgumentCaptor<MydataTradeRequestDTO> captor =
+                ArgumentCaptor.forClass(MydataTradeRequestDTO.class);
         verify(mydataTradeClient).getTrades(captor.capture());
         assertThat(captor.getValue().getFromDate()).isEqualTo(lastSynced);
     }
@@ -117,7 +132,8 @@ class ExternalTradeSyncServiceImplTest {
     @Test
     @DisplayName("신규 거래는 각 거래 객체 그대로 judge()에 전달된다")
     void newTradesAreJudgedWithTheirOwnArguments() {
-        MydataTradeResponseDTO foreignStock = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
+        MydataTradeResponseDTO foreignStock =
+                trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
         MydataTradeResponseDTO fund = trade(101L, "FUND", "448630", LocalDate.of(2026, 3, 10));
 
         when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
@@ -134,7 +150,8 @@ class ExternalTradeSyncServiceImplTest {
     @Test
     @DisplayName("이미 판정된 거래(mydata_trade_id 존재)는 judge()를 다시 호출하지 않는다")
     void alreadyJudgedTradeIsSkippedWithoutCallingJudge() {
-        MydataTradeResponseDTO alreadyJudged = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
+        MydataTradeResponseDTO alreadyJudged =
+                trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
         MydataTradeResponseDTO newTrade = trade(101L, "ETF", null, LocalDate.of(2026, 3, 6));
 
         when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
@@ -153,7 +170,8 @@ class ExternalTradeSyncServiceImplTest {
     @DisplayName("한 거래의 판정이 실패해도 나머지 거래는 계속 처리된다")
     void oneTradeFailureDoesNotStopProcessingOtherTrades() {
         MydataTradeResponseDTO failing = trade(100L, "FUND", "BADCODE", LocalDate.of(2026, 3, 5));
-        MydataTradeResponseDTO succeeding = trade(101L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 6));
+        MydataTradeResponseDTO succeeding =
+                trade(101L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 6));
 
         when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
         when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
@@ -183,7 +201,8 @@ class ExternalTradeSyncServiceImplTest {
 
         externalTradeSyncService.syncAll();
 
-        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor = ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
+        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor =
+                ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
         verify(cursorMapper).upsertCursor(captor.capture());
         assertThat(captor.getValue().getCustomerId()).isEqualTo(1L);
         assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(LocalDate.of(2026, 3, 20));
@@ -192,7 +211,8 @@ class ExternalTradeSyncServiceImplTest {
     @Test
     @DisplayName("mydata가 거래를 날짜순이 아니라 뒤섞어서 반환해도, 실제 날짜 기준 최댓값으로 커서가 잡힌다")
     void cursorAdvancesToTheLatestTradeDateEvenWhenMydataReturnsTradesOutOfOrder() {
-        MydataTradeResponseDTO latest = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 20));
+        MydataTradeResponseDTO latest =
+                trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 20));
         MydataTradeResponseDTO earliest = trade(101L, "ETF", null, LocalDate.of(2026, 3, 5));
         MydataTradeResponseDTO middle = trade(102L, "ETN", null, LocalDate.of(2026, 3, 10));
 
@@ -204,7 +224,8 @@ class ExternalTradeSyncServiceImplTest {
 
         externalTradeSyncService.syncAll();
 
-        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor = ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
+        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor =
+                ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
         verify(cursorMapper).upsertCursor(captor.capture());
         assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(LocalDate.of(2026, 3, 20));
     }
@@ -213,7 +234,8 @@ class ExternalTradeSyncServiceImplTest {
     @DisplayName("뒤섞인 순서로 와도 날짜 기준 실패 지점 이전까지만 커서가 전진한다")
     void cursorStopsAtDateOrderFailurePointEvenWhenMydataReturnsTradesOutOfOrder() {
         MydataTradeResponseDTO late = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 20));
-        MydataTradeResponseDTO failingMiddle = trade(101L, "FUND", "BADCODE", LocalDate.of(2026, 3, 10));
+        MydataTradeResponseDTO failingMiddle =
+                trade(101L, "FUND", "BADCODE", LocalDate.of(2026, 3, 10));
         MydataTradeResponseDTO early = trade(102L, "ETF", null, LocalDate.of(2026, 3, 5));
 
         when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
@@ -232,7 +254,8 @@ class ExternalTradeSyncServiceImplTest {
 
         // 날짜순 정렬 후 처리 순서는 early(3/5) -> failingMiddle(3/10, 실패) -> late(3/20)
         // 실패 직전인 3/5에서 커서가 멈춰야 하며, 리스트상 첫 원소였던 3/20으로 잘못 잡히면 안 된다
-        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor = ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
+        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor =
+                ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
         verify(cursorMapper).upsertCursor(captor.capture());
         assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(LocalDate.of(2026, 3, 5));
     }
@@ -258,7 +281,8 @@ class ExternalTradeSyncServiceImplTest {
     @Test
     @DisplayName("성공-실패-성공 순서로 거래가 와도 커서는 실패한 거래 이전 지점에서 멈춘다")
     void cursorStopsAtFirstFailureEvenIfLaterTradesSucceed() {
-        MydataTradeResponseDTO success1 = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
+        MydataTradeResponseDTO success1 =
+                trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
         MydataTradeResponseDTO failing = trade(101L, "FUND", "BADCODE", LocalDate.of(2026, 3, 10));
         MydataTradeResponseDTO success2 = trade(102L, "ETF", null, LocalDate.of(2026, 3, 20));
 
@@ -276,7 +300,8 @@ class ExternalTradeSyncServiceImplTest {
         externalTradeSyncService.syncAll();
 
         // 실패한 거래(3/10) 이후의 성공(3/20)은 커서에 반영되지 않고, 실패 직전(3/5)에서 멈춘다
-        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor = ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
+        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor =
+                ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
         verify(cursorMapper).upsertCursor(captor.capture());
         assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(LocalDate.of(2026, 3, 5));
 
@@ -304,13 +329,19 @@ class ExternalTradeSyncServiceImplTest {
     void cursorIsReupsertedWithSameValueWhenNoNewTrades() {
         LocalDate lastSynced = LocalDate.of(2026, 3, 1);
         when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
-        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.of(
-                ExternalTradeSyncCursorDTO.builder().customerId(1L).lastSyncedTradeDate(lastSynced).build()));
+        when(cursorMapper.selectByCustomerId(1L))
+                .thenReturn(
+                        Optional.of(
+                                ExternalTradeSyncCursorDTO.builder()
+                                        .customerId(1L)
+                                        .lastSyncedTradeDate(lastSynced)
+                                        .build()));
         when(mydataTradeClient.getTrades(any())).thenReturn(List.of());
 
         externalTradeSyncService.syncAll();
 
-        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor = ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
+        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor =
+                ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
         verify(cursorMapper).upsertCursor(captor.capture());
         assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(lastSynced);
     }
@@ -318,8 +349,19 @@ class ExternalTradeSyncServiceImplTest {
     @Test
     @DisplayName("고객이 여러 명이면 고객마다 각각 mydata를 조회하고 서로의 결과에 영향을 주지 않는다")
     void syncsMultipleCustomersIndependently() {
-        MydataTradeResponseDTO customer1Trade = trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
-        MydataTradeResponseDTO customer2Trade = trade(200L, "ETF", null, LocalDate.of(2026, 4, 1));
+        MydataTradeResponseDTO customer1Trade =
+                trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
+        MydataTradeResponseDTO customer2Trade =
+                MydataTradeResponseDTO.builder()
+                        .tradeId(200L)
+                        .ciHash("ci-2")
+                        .brokerName("증권사A")
+                        .tradeType("BUY")
+                        .stockType("ETF")
+                        .qty(BigDecimal.TEN)
+                        .tradeDate(LocalDate.of(2026, 4, 1))
+                        .amount(BigDecimal.valueOf(1_000_000))
+                        .build();
 
         when(customerMapper.selectActiveRiaCustomers())
                 .thenReturn(List.of(customer(1L, "ci-1"), customer(2L, "ci-2")));
@@ -338,13 +380,124 @@ class ExternalTradeSyncServiceImplTest {
         verify(targetProductService).judge(customer2Trade);
         verify(mydataTradeClient, times(2)).getTrades(any());
 
-        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor = ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
+        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor =
+                ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
         verify(cursorMapper, times(2)).upsertCursor(captor.capture());
         assertThat(captor.getAllValues())
-                .extracting(ExternalTradeSyncCursorDTO::getCustomerId, ExternalTradeSyncCursorDTO::getLastSyncedTradeDate)
+                .extracting(
+                        ExternalTradeSyncCursorDTO::getCustomerId,
+                        ExternalTradeSyncCursorDTO::getLastSyncedTradeDate)
                 .containsExactlyInAnyOrder(
-                        tuple(1L, LocalDate.of(2026, 3, 5)),
-                        tuple(2L, LocalDate.of(2026, 4, 1))
-                );
+                        tuple(1L, LocalDate.of(2026, 3, 5)), tuple(2L, LocalDate.of(2026, 4, 1)));
+    }
+
+    @Test
+    @DisplayName("시스템 시간(오늘) 이후 거래는 판정하지 않고, 커서도 그 이전 거래에서 멈춘다")
+    void syncCustomerExcludesTradesAfterSystemToday() {
+        MydataTradeResponseDTO past = trade(100L, "FOREIGN_STOCK", null, TODAY.minusDays(5));
+        MydataTradeResponseDTO future = trade(101L, "FOREIGN_STOCK", null, TODAY.plusDays(1));
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(past, future));
+        when(targetProductMapper.existsByMydataTradeId(anyLong())).thenReturn(false);
+
+        externalTradeSyncService.syncAll();
+
+        verify(targetProductService).judge(past);
+        verify(targetProductService, never()).judge(future);
+
+        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor =
+                ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
+        verify(cursorMapper).upsertCursor(captor.capture());
+        assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(TODAY.minusDays(5));
+    }
+
+    @Test
+    @DisplayName("거래일이 시스템 시간과 정확히 같으면 필터링되지 않고 판정된다")
+    void syncCustomerIncludesTradeExactlyOnSystemToday() {
+        MydataTradeResponseDTO onToday = trade(100L, "FOREIGN_STOCK", null, TODAY);
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(onToday));
+        when(targetProductMapper.existsByMydataTradeId(anyLong())).thenReturn(false);
+
+        externalTradeSyncService.syncAll();
+
+        verify(targetProductService).judge(onToday);
+    }
+
+    @Test
+    @DisplayName("모든 거래가 시스템 시간 이후면 아무것도 판정하지 않고 커서도 만들지 않는다")
+    void syncCustomerUpsertsNoCursorWhenAllTradesAreAfterSystemToday() {
+        MydataTradeResponseDTO future = trade(100L, "FOREIGN_STOCK", null, TODAY.plusDays(3));
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(future));
+
+        externalTradeSyncService.syncAll();
+
+        verifyNoInteractions(targetProductService);
+        verify(cursorMapper, never()).upsertCursor(any());
+    }
+
+    @Test
+    @DisplayName("mydata 응답의 ciHash가 요청한 고객과 다르면 해당 거래는 판정하지 않고 스킵한다")
+    void judgeSkipsTradeWhenMydataResponseCiHashDoesNotMatchRequestedCustomer() {
+        MydataTradeResponseDTO mismatched =
+                MydataTradeResponseDTO.builder()
+                        .tradeId(100L)
+                        .ciHash("ci-other-customer")
+                        .brokerName("증권사A")
+                        .tradeType("BUY")
+                        .stockType("FOREIGN_STOCK")
+                        .qty(BigDecimal.TEN)
+                        .tradeDate(LocalDate.of(2026, 3, 5))
+                        .amount(BigDecimal.valueOf(1_000_000))
+                        .build();
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(mismatched));
+
+        externalTradeSyncService.syncAll();
+
+        verifyNoInteractions(targetProductService);
+        verify(cursorMapper, never()).upsertCursor(any());
+    }
+
+    @Test
+    @DisplayName("ciHash가 일치하는 거래와 불일치하는 거래가 섞여 있으면 일치하는 거래만 판정한다")
+    void judgeProcessesOnlyMatchingCiHashTradesWhenMixedWithMismatched() {
+        MydataTradeResponseDTO matching =
+                trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
+        MydataTradeResponseDTO mismatched =
+                MydataTradeResponseDTO.builder()
+                        .tradeId(101L)
+                        .ciHash("ci-other-customer")
+                        .brokerName("증권사A")
+                        .tradeType("BUY")
+                        .stockType("FOREIGN_STOCK")
+                        .qty(BigDecimal.TEN)
+                        .tradeDate(LocalDate.of(2026, 3, 6))
+                        .amount(BigDecimal.valueOf(1_000_000))
+                        .build();
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any())).thenReturn(List.of(matching, mismatched));
+        when(targetProductMapper.existsByMydataTradeId(100L)).thenReturn(false);
+
+        externalTradeSyncService.syncAll();
+
+        verify(targetProductService).judge(matching);
+        verify(targetProductService, never()).judge(mismatched);
+
+        ArgumentCaptor<ExternalTradeSyncCursorDTO> captor =
+                ArgumentCaptor.forClass(ExternalTradeSyncCursorDTO.class);
+        verify(cursorMapper).upsertCursor(captor.capture());
+        assertThat(captor.getValue().getLastSyncedTradeDate()).isEqualTo(LocalDate.of(2026, 3, 5));
     }
 }

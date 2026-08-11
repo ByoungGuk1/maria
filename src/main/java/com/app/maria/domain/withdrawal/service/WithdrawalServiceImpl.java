@@ -17,14 +17,13 @@ import com.app.maria.domain.withdrawal.exception.WithdrawalNotAllowedException;
 import com.app.maria.domain.withdrawal.mapper.WithdrawalMapper;
 import com.app.maria.domain.withdrawal.type.WithdrawalType;
 import com.app.maria.global.clock.service.BusinessClockService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -41,28 +40,21 @@ public class WithdrawalServiceImpl implements WithdrawalService {
         Long accountId = requestDTO.getAccountId();
         BigDecimal requestedAmount = requestDTO.getRequestedAmount();
 
-        AccountDTO account = accountMapper
-                .selectByAccountIdForUpdate(accountId)
-                .orElseThrow(() -> new AccountNotFoundException(
-                        "인출 대상 계좌가 존재하지 않습니다."
-                ));
+        AccountDTO account =
+                accountMapper
+                        .selectByAccountIdForUpdate(accountId)
+                        .orElseThrow(() -> new AccountNotFoundException("인출 대상 계좌가 존재하지 않습니다."));
 
         if (account.getStatus() != Status.OPENED) {
-            throw new WithdrawalNotAllowedException(
-                    "개설 완료된 계좌만 인출할 수 있습니다."
-            );
+            throw new WithdrawalNotAllowedException("개설 완료된 계좌만 인출할 수 있습니다.");
         }
 
         if (requestedAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new WithdrawalNotAllowedException(
-                    "인출 요청금액은 0보다 커야 합니다."
-            );
+            throw new WithdrawalNotAllowedException("인출 요청금액은 0보다 커야 합니다.");
         }
 
         if (account.getAmount().compareTo(requestedAmount) < 0) {
-            throw new InsufficientWithdrawalAmountException(
-                    "계좌 잔액보다 많은 금액을 인출할 수 없습니다."
-            );
+            throw new InsufficientWithdrawalAmountException("계좌 잔액보다 많은 금액을 인출할 수 없습니다.");
         }
 
         List<LeftAmountDTO> leftAmounts =
@@ -86,19 +78,17 @@ public class WithdrawalServiceImpl implements WithdrawalService {
                         .isAfter(currentDatetime))
                 .toList();
 
-
-
-
         List<WithdrawalAllocationDTO> allocations = new ArrayList<>();
 
         // 요청액 중 수익금으로 충당할 수 있는 금액을 가장 먼저 배분한다.
         if (earningsAllocation.compareTo(BigDecimal.ZERO) > 0) {
-            allocations.add(WithdrawalAllocationDTO.builder()
-                    .leftAmountId(null)
-                    .allocatedAmount(earningsAllocation)
-                    .withdrawalAt(currentDatetime)
-                    .type(WithdrawalType.EARNINGS_ONLY)
-                    .build());
+            allocations.add(
+                    WithdrawalAllocationDTO.builder()
+                            .leftAmountId(null)
+                            .allocatedAmount(earningsAllocation)
+                            .withdrawalAt(currentDatetime)
+                            .type(WithdrawalType.EARNINGS_ONLY)
+                            .build());
         }
 
         // 수익금 배분 후 남은 요청액을 오래된 경과 원금부터 FIFO로 배분한다.
@@ -175,8 +165,7 @@ public class WithdrawalServiceImpl implements WithdrawalService {
     private List<WithdrawalAllocationDTO> allocateMaturedPrincipalFifo(
             BigDecimal amountToAllocate,
             List<LeftAmountDTO> maturedLeftAmounts,
-            LocalDateTime currentDatetime
-    ) {
+            LocalDateTime currentDatetime) {
         List<WithdrawalAllocationDTO> allocations = new ArrayList<>();
         BigDecimal remainingAmount = amountToAllocate;
 
@@ -185,15 +174,15 @@ public class WithdrawalServiceImpl implements WithdrawalService {
                 break;
             }
 
-            BigDecimal allocatedAmount =
-                    remainingAmount.min(leftAmount.getCurAmount());
+            BigDecimal allocatedAmount = remainingAmount.min(leftAmount.getCurAmount());
 
-            allocations.add(WithdrawalAllocationDTO.builder()
-                    .leftAmountId(leftAmount.getLeftAmountId())
-                    .allocatedAmount(allocatedAmount)
-                    .withdrawalAt(currentDatetime)
-                    .type(WithdrawalType.MATURED_PRINCIPAL_INCLUDED)
-                    .build());
+            allocations.add(
+                    WithdrawalAllocationDTO.builder()
+                            .leftAmountId(leftAmount.getLeftAmountId())
+                            .allocatedAmount(allocatedAmount)
+                            .withdrawalAt(currentDatetime)
+                            .type(WithdrawalType.MATURED_PRINCIPAL_INCLUDED)
+                            .build());
 
             remainingAmount = remainingAmount.subtract(allocatedAmount);
         }

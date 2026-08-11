@@ -1,5 +1,11 @@
 package com.app.maria.domain.withdrawal.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
 import com.app.maria.domain.account.dto.AccountBenefitLogDTO;
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.exception.AccountException;
@@ -17,6 +23,10 @@ import com.app.maria.domain.withdrawal.exception.WithdrawalNotAllowedException;
 import com.app.maria.domain.withdrawal.mapper.WithdrawalMapper;
 import com.app.maria.domain.withdrawal.type.WithdrawalType;
 import com.app.maria.global.clock.service.BusinessClockService;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
@@ -52,8 +62,7 @@ class WithdrawalServiceImplTest {
 
     @Test
     void accountNotFound_stopsBeforeLoadingWithdrawalSources() {
-        when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
-                .thenReturn(Optional.empty());
+        when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> withdrawalService.withdraw(request("100")))
                 .isInstanceOf(AccountNotFoundException.class);
@@ -76,16 +85,20 @@ class WithdrawalServiceImplTest {
 
         List<WithdrawalAllocationDTO> result = withdrawalService.withdraw(request("200"));
 
-        assertThat(result).singleElement().satisfies(allocation -> {
-            assertThat(allocation.getLeftAmountId()).isEqualTo(11L);
-            assertThat(allocation.getAllocatedAmount()).isEqualByComparingTo("200");
-            assertThat(allocation.getWithdrawalAt()).isEqualTo(NOW);
-            assertThat(allocation.getType())
-                    .isEqualTo(WithdrawalType.MATURED_PRINCIPAL_INCLUDED);
-        });
+        assertThat(result)
+                .singleElement()
+                .satisfies(
+                        allocation -> {
+                            assertThat(allocation.getLeftAmountId()).isEqualTo(11L);
+                            assertThat(allocation.getAllocatedAmount()).isEqualByComparingTo("200");
+                            assertThat(allocation.getWithdrawalAt()).isEqualTo(NOW);
+                            assertThat(allocation.getType())
+                                    .isEqualTo(WithdrawalType.MATURED_PRINCIPAL_INCLUDED);
+                        });
     }
 
     @Test
+
     void oneSecondBeforeOneYear_requiresEarlyWithdrawalConsent() {
         prepareOpenedAccount(List.of(leftAmount(
                 12L, "300", NOW.minusYears(1).plusSeconds(1))));
@@ -175,16 +188,18 @@ class WithdrawalServiceImplTest {
 
     @Test
     void multipleSources_areAllocatedInFifoOrderWithPartialLastSource() {
-        prepareOpenedAccount(List.of(
-                leftAmount(21L, "300", NOW.minusYears(2)),
-                leftAmount(22L, "500", NOW.minusYears(1).minusDays(1))
-        ));
+        prepareOpenedAccount(
+                List.of(
+                        leftAmount(21L, "300", NOW.minusYears(2)),
+                        leftAmount(22L, "500", NOW.minusYears(1).minusDays(1))));
 
         List<WithdrawalAllocationDTO> result = withdrawalService.withdraw(request("700"));
 
-        assertThat(result).extracting(WithdrawalAllocationDTO::getLeftAmountId)
+        assertThat(result)
+                .extracting(WithdrawalAllocationDTO::getLeftAmountId)
                 .containsExactly(21L, 22L);
-        assertThat(result).extracting(WithdrawalAllocationDTO::getAllocatedAmount)
+        assertThat(result)
+                .extracting(WithdrawalAllocationDTO::getAllocatedAmount)
                 .containsExactly(new BigDecimal("300"), new BigDecimal("400"));
 
         InOrder order = inOrder(accountMapper, withdrawalMapper, businessClockService);
@@ -195,54 +210,59 @@ class WithdrawalServiceImplTest {
 
     @Test
     void requestWithinEarnings_isAllocatedWithoutAPrincipalSource() {
-        prepareOpenedAccount("1000", List.of(
-                leftAmount(31L, "700", NOW.minusYears(2))
-        ));
+        prepareOpenedAccount("1000", List.of(leftAmount(31L, "700", NOW.minusYears(2))));
 
         List<WithdrawalAllocationDTO> result = withdrawalService.withdraw(request("200"));
 
-        assertThat(result).singleElement().satisfies(allocation -> {
-            assertThat(allocation.getLeftAmountId()).isNull();
-            assertThat(allocation.getAllocatedAmount()).isEqualByComparingTo("200");
-            assertThat(allocation.getType()).isEqualTo(WithdrawalType.EARNINGS_ONLY);
-            assertThat(allocation.getWithdrawalAt()).isEqualTo(NOW);
-        });
+        assertThat(result)
+                .singleElement()
+                .satisfies(
+                        allocation -> {
+                            assertThat(allocation.getLeftAmountId()).isNull();
+                            assertThat(allocation.getAllocatedAmount()).isEqualByComparingTo("200");
+                            assertThat(allocation.getType())
+                                    .isEqualTo(WithdrawalType.EARNINGS_ONLY);
+                            assertThat(allocation.getWithdrawalAt()).isEqualTo(NOW);
+                        });
     }
 
     @Test
     void requestExceedingEarnings_allocatesEarningsThenMaturedPrincipal() {
-        prepareOpenedAccount("1000", List.of(
-                leftAmount(41L, "300", NOW.minusYears(2)),
-                leftAmount(42L, "500", NOW.minusYears(1).minusDays(1))
-        ));
+        prepareOpenedAccount(
+                "1000",
+                List.of(
+                        leftAmount(41L, "300", NOW.minusYears(2)),
+                        leftAmount(42L, "500", NOW.minusYears(1).minusDays(1))));
 
         List<WithdrawalAllocationDTO> result = withdrawalService.withdraw(request("450"));
 
-        assertThat(result).extracting(WithdrawalAllocationDTO::getLeftAmountId)
+        assertThat(result)
+                .extracting(WithdrawalAllocationDTO::getLeftAmountId)
                 .containsExactly(null, 41L);
-        assertThat(result).extracting(WithdrawalAllocationDTO::getAllocatedAmount)
+        assertThat(result)
+                .extracting(WithdrawalAllocationDTO::getAllocatedAmount)
                 .containsExactly(new BigDecimal("200"), new BigDecimal("250"));
-        assertThat(result).extracting(WithdrawalAllocationDTO::getType)
+        assertThat(result)
+                .extracting(WithdrawalAllocationDTO::getType)
                 .containsExactly(
-                        WithdrawalType.EARNINGS_ONLY,
-                        WithdrawalType.MATURED_PRINCIPAL_INCLUDED
-                );
+                        WithdrawalType.EARNINGS_ONLY, WithdrawalType.MATURED_PRINCIPAL_INCLUDED);
     }
 
     @Test
     void negativeCalculatedEarnings_isTreatedAsZero() {
-        prepareOpenedAccount("500", List.of(
-                leftAmount(51L, "600", NOW.minusYears(2))
-        ));
+        prepareOpenedAccount("500", List.of(leftAmount(51L, "600", NOW.minusYears(2))));
 
         List<WithdrawalAllocationDTO> result = withdrawalService.withdraw(request("100"));
 
-        assertThat(result).singleElement().satisfies(allocation -> {
-            assertThat(allocation.getLeftAmountId()).isEqualTo(51L);
-            assertThat(allocation.getAllocatedAmount()).isEqualByComparingTo("100");
-            assertThat(allocation.getType())
-                    .isEqualTo(WithdrawalType.MATURED_PRINCIPAL_INCLUDED);
-        });
+        assertThat(result)
+                .singleElement()
+                .satisfies(
+                        allocation -> {
+                            assertThat(allocation.getLeftAmountId()).isEqualTo(51L);
+                            assertThat(allocation.getAllocatedAmount()).isEqualByComparingTo("100");
+                            assertThat(allocation.getType())
+                                    .isEqualTo(WithdrawalType.MATURED_PRINCIPAL_INCLUDED);
+                        });
     }
 
     @Test
@@ -266,9 +286,10 @@ class WithdrawalServiceImplTest {
     }
 
     private void prepareOpenedAccount(List<LeftAmountDTO> leftAmounts) {
-        BigDecimal principal = leftAmounts.stream()
-                .map(LeftAmountDTO::getCurAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal principal =
+                leftAmounts.stream()
+                        .map(LeftAmountDTO::getCurAmount)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
         prepareOpenedAccount(principal.toPlainString(), leftAmounts);
     }
 

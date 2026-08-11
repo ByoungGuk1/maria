@@ -1,5 +1,9 @@
 package com.app.maria.domain.admin.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.*;
+
 import com.app.maria.domain.admin.dto.AdminUserDTO;
 import com.app.maria.domain.admin.dto.request.AdminLoginRequestDTO;
 import com.app.maria.domain.admin.dto.response.AdminLoginResponseDTO;
@@ -7,40 +11,35 @@ import com.app.maria.domain.admin.exception.AdminException;
 import com.app.maria.domain.admin.exception.AdminNotFoundException;
 import com.app.maria.domain.admin.mapper.AdminMapper;
 import com.app.maria.domain.admin.type.AdminRole;
+import com.app.maria.global.audit.dto.AuditLogDTO;
+import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.jwt.JwtTokenProvider;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class AdminServiceImplTest {
 
-    @Mock
-    AdminMapper adminMapper;
+    @Mock AdminMapper adminMapper;
 
-    @Mock
-    PasswordEncoder passwordEncoder;
+    @Mock PasswordEncoder passwordEncoder;
 
-    @Mock
-    JwtTokenProvider jwtTokenProvider;
+    @Mock JwtTokenProvider jwtTokenProvider;
 
-    @Mock
-    Claims claims;
+    @Mock Claims claims;
 
-    @InjectMocks
-    AdminServiceImpl adminService;
+    @Mock AuditLogService auditLogService;
+
+    @InjectMocks AdminServiceImpl adminService;
 
     private AdminUserDTO admin() {
         return AdminUserDTO.builder()
@@ -54,14 +53,16 @@ class AdminServiceImplTest {
     @Test
     @DisplayName("정상 요청이면 토큰을 발급한다")
     void loginIssuesTokensOnSuccess() {
-        AdminLoginRequestDTO request = AdminLoginRequestDTO.builder()
-                .loginId("reviewer1")
-                .password("raw-password")
-                .build();
+        AdminLoginRequestDTO request =
+                AdminLoginRequestDTO.builder()
+                        .loginId("reviewer1")
+                        .password("raw-password")
+                        .build();
 
         when(adminMapper.selectAdminByLoginId("reviewer1")).thenReturn(Optional.of(admin()));
         when(passwordEncoder.matches("raw-password", "encoded-password")).thenReturn(true);
-        when(jwtTokenProvider.createAccessToken(1L, "reviewer1", AdminRole.REVIEWER)).thenReturn("access-token");
+        when(jwtTokenProvider.createAccessToken(1L, "reviewer1", AdminRole.REVIEWER))
+                .thenReturn("access-token");
         when(jwtTokenProvider.createRefreshToken(1L)).thenReturn("refresh-token");
 
         AdminLoginResponseDTO result = adminService.login(request);
@@ -73,10 +74,8 @@ class AdminServiceImplTest {
     @Test
     @DisplayName("존재하지 않는 아이디면 예외를 던지고 토큰을 발급하지 않는다")
     void loginThrowsWhenLoginIdNotFound() {
-        AdminLoginRequestDTO request = AdminLoginRequestDTO.builder()
-                .loginId("nobody")
-                .password("raw-password")
-                .build();
+        AdminLoginRequestDTO request =
+                AdminLoginRequestDTO.builder().loginId("nobody").password("raw-password").build();
 
         when(adminMapper.selectAdminByLoginId("nobody")).thenReturn(Optional.empty());
 
@@ -90,10 +89,11 @@ class AdminServiceImplTest {
     @Test
     @DisplayName("비밀번호가 틀리면 예외를 던지고 토큰을 발급하지 않는다")
     void loginThrowsWhenPasswordIncorrect() {
-        AdminLoginRequestDTO request = AdminLoginRequestDTO.builder()
-                .loginId("reviewer1")
-                .password("wrong-password")
-                .build();
+        AdminLoginRequestDTO request =
+                AdminLoginRequestDTO.builder()
+                        .loginId("reviewer1")
+                        .password("wrong-password")
+                        .build();
 
         when(adminMapper.selectAdminByLoginId("reviewer1")).thenReturn(Optional.of(admin()));
         when(passwordEncoder.matches("wrong-password", "encoded-password")).thenReturn(false);
@@ -108,45 +108,53 @@ class AdminServiceImplTest {
     @Test
     @DisplayName("아이디 없음과 비밀번호 틀림의 에러 메시지가 동일하다")
     void loginReturnsSameMessageForMissingIdAndWrongPassword() {
-        AdminLoginRequestDTO noSuchUser = AdminLoginRequestDTO.builder()
-                .loginId("nobody")
-                .password("x")
-                .build();
-        AdminLoginRequestDTO wrongPassword = AdminLoginRequestDTO.builder()
-                .loginId("reviewer1")
-                .password("wrong")
-                .build();
+        AdminLoginRequestDTO noSuchUser =
+                AdminLoginRequestDTO.builder().loginId("nobody").password("x").build();
+        AdminLoginRequestDTO wrongPassword =
+                AdminLoginRequestDTO.builder().loginId("reviewer1").password("wrong").build();
 
         when(adminMapper.selectAdminByLoginId("nobody")).thenReturn(Optional.empty());
         when(adminMapper.selectAdminByLoginId("reviewer1")).thenReturn(Optional.of(admin()));
         when(passwordEncoder.matches("wrong", "encoded-password")).thenReturn(false);
 
-        String messageForMissingUser = catchAdminExceptionMessage(() -> adminService.login(noSuchUser));
-        String messageForWrongPassword = catchAdminExceptionMessage(() -> adminService.login(wrongPassword));
+        String messageForMissingUser =
+                catchAdminExceptionMessage(() -> adminService.login(noSuchUser));
+        String messageForWrongPassword =
+                catchAdminExceptionMessage(() -> adminService.login(wrongPassword));
 
         assertThat(messageForMissingUser).isEqualTo(messageForWrongPassword);
     }
 
     @Test
-    @DisplayName("대상 관리자가 존재하면 역할을 변경한다")
+    @DisplayName("대상 관리자가 존재하면 역할을 변경하고 감사로그를 남긴다")
     void updateRoleUpdatesRoleWhenAdminExists() {
         when(adminMapper.selectAdminByAdminId(1L)).thenReturn(Optional.of(admin()));
 
-        adminService.updateRole(1L, AdminRole.ADMIN);
+        adminService.updateRole(99L, 1L, AdminRole.ADMIN);
 
         verify(adminMapper).updateRole(1L, AdminRole.ADMIN);
+
+        ArgumentCaptor<AuditLogDTO> captor = ArgumentCaptor.forClass(AuditLogDTO.class);
+        verify(auditLogService).log(captor.capture());
+        AuditLogDTO auditLog = captor.getValue();
+        assertThat(auditLog.getAdminId()).isEqualTo(99L);
+        assertThat(auditLog.getTargetTable()).isEqualTo("ADMIN_USER");
+        assertThat(auditLog.getTargetPk()).isEqualTo("1");
+        assertThat(auditLog.getBeforeValue()).isEqualTo("REVIEWER");
+        assertThat(auditLog.getAfterValue()).isEqualTo("ADMIN");
     }
 
     @Test
-    @DisplayName("대상 관리자가 없으면 예외를 던지고 역할을 변경하지 않는다")
+    @DisplayName("대상 관리자가 없으면 예외를 던지고 역할 변경도 감사로그 저장도 하지 않는다")
     void updateRoleThrowsAdminNotFoundExceptionWhenAdminDoesNotExist() {
         when(adminMapper.selectAdminByAdminId(1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> adminService.updateRole(1L, AdminRole.ADMIN))
+        assertThatThrownBy(() -> adminService.updateRole(99L, 1L, AdminRole.ADMIN))
                 .isInstanceOf(AdminNotFoundException.class)
                 .hasMessage("대상 관리자가 없습니다.");
 
         verify(adminMapper, never()).updateRole(anyLong(), any());
+        verifyNoInteractions(auditLogService);
     }
 
     @Test
@@ -155,7 +163,8 @@ class AdminServiceImplTest {
         when(jwtTokenProvider.parseClaims("valid-refresh-token")).thenReturn(claims);
         when(claims.getSubject()).thenReturn("1");
         when(adminMapper.selectAdminByAdminId(1L)).thenReturn(Optional.of(admin()));
-        when(jwtTokenProvider.createAccessToken(1L, "reviewer1", AdminRole.REVIEWER)).thenReturn("new-access-token");
+        when(jwtTokenProvider.createAccessToken(1L, "reviewer1", AdminRole.REVIEWER))
+                .thenReturn("new-access-token");
 
         AdminLoginResponseDTO result = adminService.refresh("valid-refresh-token");
 

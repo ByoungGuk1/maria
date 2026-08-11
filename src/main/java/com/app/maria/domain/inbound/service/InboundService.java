@@ -4,6 +4,5 @@ import com.app.maria.domain.inbound.dto.request.InboundRequestDTO;
 import com.app.maria.domain.inbound.dto.response.InboundResponseDTO;
 
 public interface InboundService {
-    InboundResponseDTO processInbound(
-            InboundRequestDTO request);
+    InboundResponseDTO processInbound(InboundRequestDTO request);
 }

@@ -1,8 +1,7 @@
 package com.app.maria.global.audit.dto;
 
-import lombok.*;
-
 import java.time.LocalDateTime;
+import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -11,6 +10,7 @@ import java.time.LocalDateTime;
 @ToString
 @Builder
 public class AuditLogDTO {
+
     private Long auditId;
     private Long adminId;
     private String targetTable;
@@ -19,5 +19,4 @@ public class AuditLogDTO {
     private String afterValue;
     private String reasonCode;
     private LocalDateTime processedAt;
-
 }

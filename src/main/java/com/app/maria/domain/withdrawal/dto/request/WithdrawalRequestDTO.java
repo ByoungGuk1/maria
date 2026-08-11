@@ -1,8 +1,7 @@
 package com.app.maria.domain.withdrawal.dto.request;
 
-import lombok.*;
-
 import java.math.BigDecimal;
+import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor

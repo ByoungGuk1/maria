@@ -1,35 +1,38 @@
 package com.app.maria.domain.settlement.component;
 
 import com.app.maria.domain.settlement.exception.SettlementCalculationException;
-import org.springframework.stereotype.Component;
-
+import com.app.maria.domain.settlement.type.ProvisionalRate;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import org.springframework.stereotype.Component;
 
 @Component
 public class SettlementCalculator {
-  private static final int FOREIGN_SCALE = 8;
-  private static final int KRW_SCALE = 2;
-  private static final RoundingMode ROUNDING_MODE = RoundingMode.HALF_UP;
+    private static final int FOREIGN_SCALE = 8;
+    private static final int KRW_SCALE = 2;
+    private static final RoundingMode ROUNDING_MODE = RoundingMode.HALF_UP;
 
-  public BigDecimal calculateFinalAmount(BigDecimal provisionalAmount, BigDecimal purchaseFxRate, BigDecimal finalRate) {
-    validatePositive(provisionalAmount, "provisionalAmount");
-    validatePositive(purchaseFxRate, "purchaseFxRate");
-    validatePositive(finalRate, "finalRate");
+    public BigDecimal calculateFinalAmount(
+            BigDecimal provisionalAmount, BigDecimal purchaseFxRate, BigDecimal finalRate) {
+        validatePositive(provisionalAmount, "provisionalAmount");
+        validatePositive(purchaseFxRate, "purchaseFxRate");
+        validatePositive(finalRate, "finalRate");
 
-    BigDecimal provisionalRate = purchaseFxRate.multiply(new BigDecimal("0.99"));
+        BigDecimal provisionalRate =
+                purchaseFxRate.multiply(ProvisionalRate.PROVISIONAL_RATE.getValue());
 
-    BigDecimal foreignAmount = provisionalAmount.divide(provisionalRate, FOREIGN_SCALE, ROUNDING_MODE);
+        BigDecimal foreignAmount =
+                provisionalAmount.divide(provisionalRate, FOREIGN_SCALE, ROUNDING_MODE);
 
-    return foreignAmount.multiply(finalRate).setScale(KRW_SCALE, ROUNDING_MODE);
-  }
-
-  private void validatePositive(BigDecimal value, String fieldName) {
-    if (value == null) {
-      throw new SettlementCalculationException(fieldName + " - 요청 값 오류");
+        return foreignAmount.multiply(finalRate).setScale(KRW_SCALE, ROUNDING_MODE);
     }
-    if (value.signum() <= 0) {
-      throw new SettlementCalculationException(fieldName + "은 0보다 커야 합니다.");
+
+    private void validatePositive(BigDecimal value, String fieldName) {
+        if (value == null) {
+            throw new SettlementCalculationException(fieldName + " - 요청 값 오류");
+        }
+        if (value.signum() <= 0) {
+            throw new SettlementCalculationException(fieldName + "은 0보다 커야 합니다.");
+        }
     }
-  }
 }

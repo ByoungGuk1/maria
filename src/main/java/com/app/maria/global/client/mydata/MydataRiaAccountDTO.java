@@ -1,8 +1,7 @@
 package com.app.maria.global.client.mydata;
 
-import lombok.*;
-
 import java.math.BigDecimal;
+import lombok.*;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -17,5 +16,4 @@ public class MydataRiaAccountDTO {
     private String brokerName;
     private BigDecimal riaLimit;
     private BigDecimal riaCumulativeSell;
-
 }

@@ -1,6 +1,16 @@
 package com.app.maria.domain.foreignproduct.mapper;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.app.maria.domain.foreignproduct.dto.ForeignProductDTO;
+import java.io.IOException;
+import java.io.Reader;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.List;
+import java.util.Optional;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
@@ -13,17 +23,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-import java.io.Reader;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
 class ForeignProductMapperTest {
 
     private static PooledDataSource dataSource;
@@ -34,13 +33,13 @@ class ForeignProductMapperTest {
 
     @BeforeAll
     static void configureMyBatis() throws IOException {
-        try (Reader reader = Resources.getResourceAsReader("mybatis-foreignproduct-test-config.xml")) {
+        try (Reader reader =
+                Resources.getResourceAsReader("mybatis-foreignproduct-test-config.xml")) {
             sqlSessionFactory = new SqlSessionFactoryBuilder().build(reader);
         }
-        dataSource = (PooledDataSource) sqlSessionFactory
-                .getConfiguration()
-                .getEnvironment()
-                .getDataSource();
+        dataSource =
+                (PooledDataSource)
+                        sqlSessionFactory.getConfiguration().getEnvironment().getDataSource();
     }
 
     @BeforeEach
@@ -73,7 +72,8 @@ class ForeignProductMapperTest {
         List<ForeignProductDTO> result = foreignProductMapper.selectAll();
 
         assertThat(result).hasSize(2);
-        assertThat(result).extracting(ForeignProductDTO::getTicker)
+        assertThat(result)
+                .extracting(ForeignProductDTO::getTicker)
                 .containsExactlyInAnyOrder("AAPL", "TSLA");
     }
 
@@ -137,9 +137,10 @@ class ForeignProductMapperTest {
 
     private void resetSchema() throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute("DROP ALL OBJECTS");
-            statement.execute("""
+            statement.execute(
+                    """
                     CREATE TABLE foreign_product (
                         foreign_product_id BIGINT PRIMARY KEY AUTO_INCREMENT,
                         ticker VARCHAR(20) NOT NULL,
@@ -152,10 +153,13 @@ class ForeignProductMapperTest {
         }
     }
 
-    private void insertProduct(String ticker, String name, String market, String currency, String type) throws SQLException {
-        String sql = "INSERT INTO foreign_product (ticker, name, market, currency, type) VALUES (?, ?, ?, ?, ?)";
+    private void insertProduct(
+            String ticker, String name, String market, String currency, String type)
+            throws SQLException {
+        String sql =
+                "INSERT INTO foreign_product (ticker, name, market, currency, type) VALUES (?, ?, ?, ?, ?)";
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+                PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, ticker);
             statement.setString(2, name);
             statement.setString(3, market);

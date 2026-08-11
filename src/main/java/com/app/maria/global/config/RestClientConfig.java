@@ -11,16 +11,12 @@ public class RestClientConfig {
     @Bean
     @Qualifier("registrableStockRestClient")
     public RestClient restClient(RestClient.Builder builder) {
-        return builder
-                .baseUrl("http://localhost:10001")
-                .build();
+        return builder.baseUrl("http://localhost:10001").build();
     }
 
     @Bean
     @Qualifier("mydataRestClient")
     public RestClient mydataRestClient(RestClient.Builder builder) {
-        return builder
-                .baseUrl("http://localhost:10002")
-                .build();
+        return builder.baseUrl("http://localhost:10002").build();
     }
 }

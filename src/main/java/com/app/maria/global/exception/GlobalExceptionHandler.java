@@ -6,6 +6,8 @@ import com.app.maria.domain.account.exception.DuplicateAccountException;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.admin.exception.AdminException;
 import com.app.maria.domain.admin.exception.AdminNotFoundException;
+import com.app.maria.domain.domestic.exception.DomesticProductException;
+import com.app.maria.domain.domestic.exception.DomesticProductNotFoundException;
 import com.app.maria.domain.foreignproduct.exception.ForeignProductException;
 import com.app.maria.domain.foreignproduct.exception.ForeignProductNotFoundException;
 import com.app.maria.domain.inbound.exception.InboundException;
@@ -16,7 +18,9 @@ import com.app.maria.domain.sellorder.exception.SellOrderException;
 import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.domain.settlement.exception.*;
 import com.app.maria.domain.withdrawal.exception.WithdrawalException;
+import com.app.maria.global.audit.exception.AuditLogException;
 import com.app.maria.global.audit.exception.AuditLogInsertException;
+import com.app.maria.global.audit.exception.AuditLogNotFoundException;
 import com.app.maria.global.clock.exception.SystemClockNotInitializedException;
 import com.app.maria.global.clock.exception.SystemClockUpdateException;
 import com.app.maria.global.response.ApiResponseDTO;
@@ -36,36 +40,43 @@ public class GlobalExceptionHandler {
 
     // 1. DTO Valid 검증 예외
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
-        String message = e.getBindingResult().getFieldErrors().stream()
-                .findFirst()
-                .map(DefaultMessageSourceResolvable::getDefaultMessage)
-                .orElse("요청값이 올바르지 않습니다.");
+    public ResponseEntity<ApiResponseDTO<Void>> handleMethodArgumentNotValidException(
+            MethodArgumentNotValidException e) {
+        String message =
+                e.getBindingResult().getFieldErrors().stream()
+                        .findFirst()
+                        .map(DefaultMessageSourceResolvable::getDefaultMessage)
+                        .orElse("요청값이 올바르지 않습니다.");
         return ResponseEntity.badRequest().body(ApiResponseDTO.of(message));
     }
 
     @ExceptionHandler(HandlerMethodValidationException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleMethodValidationException(HandlerMethodValidationException e) {
-        String message = e.getAllErrors().stream()
-                .findFirst()
-                .map(MessageSourceResolvable::getDefaultMessage)
-                .orElse("요청값이 올바르지 않습니다.");
+    public ResponseEntity<ApiResponseDTO<Void>> handleMethodValidationException(
+            HandlerMethodValidationException e) {
+        String message =
+                e.getAllErrors().stream()
+                        .findFirst()
+                        .map(MessageSourceResolvable::getDefaultMessage)
+                        .orElse("요청값이 올바르지 않습니다.");
         return ResponseEntity.badRequest().body(ApiResponseDTO.of(message));
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleConstraintViolationException(ConstraintViolationException e) {
-        String message = e.getConstraintViolations().stream()
-                .findFirst()
-                .map(ConstraintViolation::getMessage)
-                .orElse("요청값이 올바르지 않습니다.");
+    public ResponseEntity<ApiResponseDTO<Void>> handleConstraintViolationException(
+            ConstraintViolationException e) {
+        String message =
+                e.getConstraintViolations().stream()
+                        .findFirst()
+                        .map(ConstraintViolation::getMessage)
+                        .orElse("요청값이 올바르지 않습니다.");
         return ResponseEntity.badRequest().body(ApiResponseDTO.of(message));
     }
 
     // 2. Member 예외
     @ExceptionHandler(MemberException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleException(MemberException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(MemberNotFoundException.class)
@@ -76,104 +87,132 @@ public class GlobalExceptionHandler {
     // 3. SellOrder 예외
     @ExceptionHandler(SellOrderException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleSellOrderException(SellOrderException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(SellOrderNotFoundException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleSellOrderNotFound(SellOrderNotFoundException e) {
+    public ResponseEntity<ApiResponseDTO<Void>> handleSellOrderNotFound(
+            SellOrderNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(ExchangeRateNotFoundException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleExchangeRateNotFoundException(ExchangeRateNotFoundException e) {
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
+    public ResponseEntity<ApiResponseDTO<Void>> handleExchangeRateNotFoundException(
+            ExchangeRateNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(KisTokenIssueException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleKisTokenIssueException(KisTokenIssueException e) {
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
+    public ResponseEntity<ApiResponseDTO<Void>> handleKisTokenIssueException(
+            KisTokenIssueException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(KisPriceNotFoundException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleKisPriceNotFoundException(KisPriceNotFoundException e) {
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
+    public ResponseEntity<ApiResponseDTO<Void>> handleKisPriceNotFoundException(
+            KisPriceNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
+
     @ExceptionHandler(UnsupportedExchangeException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleUnsupportedExchangeException(UnsupportedExchangeException e) {
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
+    public ResponseEntity<ApiResponseDTO<Void>> handleUnsupportedExchangeException(
+            UnsupportedExchangeException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
 
     // 4. Account 예외
     @ExceptionHandler(AccountException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleAccountException(AccountException e) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponseDTO.of(e.getMessage()));
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(AccountNotFoundException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleAccountNotFoundException(AccountNotFoundException e) {
+    public ResponseEntity<ApiResponseDTO<Void>> handleAccountNotFoundException(
+            AccountNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(DuplicateAccountException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleDuplicateAccountException(DuplicateAccountException e) {
+    public ResponseEntity<ApiResponseDTO<Void>> handleDuplicateAccountException(
+            DuplicateAccountException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(InvalidAccountRequestException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleInvalidAccountRequestException(InvalidAccountRequestException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
+    public ResponseEntity<ApiResponseDTO<Void>> handleInvalidAccountRequestException(
+            InvalidAccountRequestException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
 
     // 5. Admin 예외
     @ExceptionHandler(AdminException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleAdminException(AdminException e) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponseDTO.of(e.getMessage()));
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(AdminNotFoundException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleAdminNotFoundException(AdminNotFoundException e) {
+    public ResponseEntity<ApiResponseDTO<Void>> handleAdminNotFoundException(
+            AdminNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 
     // 6. Inbound 예외
     @ExceptionHandler(InboundException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleInboundException(InboundException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(InboundNotFoundException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleInboundNotFoundException(InboundNotFoundException e) {
+    public ResponseEntity<ApiResponseDTO<Void>> handleInboundNotFoundException(
+            InboundNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 
     // 7. Settlement 예외
     @ExceptionHandler(SettlementException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleSettlementException(SettlementException e) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponseDTO.of(e.getMessage()));
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(InvalidSettlementException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleInvalidSettlementException(InvalidSettlementException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
+    public ResponseEntity<ApiResponseDTO<Void>> handleInvalidSettlementException(
+            InvalidSettlementException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(SettlementBatchNotFoundException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleSettlementBatchNotFoundException(SettlementBatchNotFoundException e) {
+    public ResponseEntity<ApiResponseDTO<Void>> handleSettlementBatchNotFoundException(
+            SettlementBatchNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(SettlementItemNotFoundException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleSettlementItemNotFoundException(SettlementItemNotFoundException e) {
+    public ResponseEntity<ApiResponseDTO<Void>> handleSettlementItemNotFoundException(
+            SettlementItemNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(SettlementCalculationException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleSettlementCalculationException(SettlementCalculationException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
+    public ResponseEntity<ApiResponseDTO<Void>> handleSettlementCalculationException(
+            SettlementCalculationException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(SettlementStateConflictException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleSettlementStateConflictException(SettlementStateConflictException e) {
+    public ResponseEntity<ApiResponseDTO<Void>> handleSettlementStateConflictException(
+            SettlementStateConflictException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
     }
 
@@ -184,50 +223,93 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(KrwExchangeNotFoundException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleKrwExchangeNotFoundException(KrwExchangeNotFoundException e) {
+    public ResponseEntity<ApiResponseDTO<Void>> handleKrwExchangeNotFoundException(
+            KrwExchangeNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 
     // 8. mydata 예외
     @ExceptionHandler(MydataApiException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleMydataApiException(MydataApiException e) {
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
 
     // 9. ForeignProduct 예외
     @ExceptionHandler(ForeignProductException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleForeignProductException(ForeignProductException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
+    public ResponseEntity<ApiResponseDTO<Void>> handleForeignProductException(
+            ForeignProductException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(ForeignProductNotFoundException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleForeignProductNotFound(ForeignProductNotFoundException e) {
+    public ResponseEntity<ApiResponseDTO<Void>> handleForeignProductNotFound(
+            ForeignProductNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 
-    //10.Withdrawal 예외
+    // 10. Withdrawal 예외
     @ExceptionHandler(WithdrawalException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleWithdrawalException(WithdrawalException e){
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDTO.of(e.getMessage()));
+    public ResponseEntity<ApiResponseDTO<Void>> handleWithdrawalException(WithdrawalException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
 
-    //11. Clock 예외
+    // 11. Clock 예외
     @ExceptionHandler(SystemClockNotInitializedException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleSystemClockNotInitializedException(SystemClockNotInitializedException e){
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponseDTO.of(e.getMessage()));
+    public ResponseEntity<ApiResponseDTO<Void>> handleSystemClockNotInitializedException(
+            SystemClockNotInitializedException e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
 
     @ExceptionHandler(SystemClockUpdateException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleSystemClockUpdateException(SystemClockUpdateException e){
+    public ResponseEntity<ApiResponseDTO<Void>> handleSystemClockUpdateException(
+            SystemClockUpdateException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
     }
 
-    //12. Audit 예외
-    @ExceptionHandler(AuditLogInsertException.class)
-    public ResponseEntity<ApiResponseDTO<Void>> handleAuditLogInsertException(AuditLogInsertException e){
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponseDTO.of(e.getMessage()));
+    // 12. Audit 예외
+    @ExceptionHandler(AuditLogException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleAuditLogException(AuditLogException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponseDTO.of(e.getMessage()));
     }
 
+    @ExceptionHandler(AuditLogInsertException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleAuditLogInsertException(
+            AuditLogInsertException e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(AuditLogNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleAuditLogNotFoundException(
+            AuditLogNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    // 13. DomesticProduct 예외
+    @ExceptionHandler(DomesticProductException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleDomesticProductException(
+            DomesticProductException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(DomesticProductNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleDomesticProductNotFound(
+            DomesticProductNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    // 14. 가환전 처리 예외
+    @ExceptionHandler(ProvisionalException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleProvisionalException(ProvisionalException e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponseDTO.of(e.getMessage()));
+    }
     //GeneralAccount 예외
     @ExceptionHandler(GeneralAccountApiException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleGeneralAccountApiException(GeneralAccountApiException e){
