@@ -14,21 +14,23 @@ public class TaxCalculationResultDTO {
     private BigDecimal originalGainAmount;
     private BigDecimal weightedGain;
     private BigDecimal weightedSell;
+    private BigDecimal weightedExternalAmount;
 //    private BigDecimal adjustRatio;
 //    private BigDecimal tax;
 //    private BigDecimal finalDeduction;
-//    private BigDecimal externalPurchaseWeighted;
+
 
     public static TaxCalculationResultDTO of(
-            RiaSellAggregateDTO riaSellAggregate) {
+            RiaSellAggregateDTO riaSell,
+            BigDecimal weightedExternalAmount) {
         return TaxCalculationResultDTO.builder()
-                .originalGainAmount(riaSellAggregate.getOriginalGainAmount())
-                .weightedGain(riaSellAggregate.getWeightedGain())
-                .weightedSell(riaSellAggregate.getWeightedSell())
+                .originalGainAmount(riaSell.getOriginalGainAmount())
+                .weightedGain(riaSell.getWeightedGain())
+                .weightedSell(riaSell.getWeightedSell())
+                .weightedExternalAmount(weightedExternalAmount)
 //                .adjustRatio(adjustRatio)
 //                .tax(tax)
 //                .finalDeduction(finalDeduction)
-//                .externalPurchaseWeighted(externalPurchaseWeighted)
                 .build();
     }
 
