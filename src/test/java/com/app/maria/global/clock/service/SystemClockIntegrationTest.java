@@ -3,6 +3,7 @@ package com.app.maria.global.clock.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.app.maria.global.audit.mapper.AuditLogMapper;
+import com.app.maria.global.audit.service.AuditLogServiceImpl;
 import com.app.maria.global.clock.dto.SystemClockDTO;
 import com.app.maria.global.clock.dto.request.SystemClockChangeRequestDTO;
 import com.app.maria.global.clock.mapper.SystemClockMapper;
@@ -74,7 +75,8 @@ class SystemClockIntegrationTest {
 
         businessClockService = new BusinessClockServiceImpl(systemClockMapper);
         systemClockManagementService =
-                new SystemClockManagementServiceImpl(systemClockMapper, auditLogMapper);
+                new SystemClockManagementServiceImpl(
+                        systemClockMapper, new AuditLogServiceImpl(auditLogMapper));
     }
 
     @Test
