@@ -65,20 +65,35 @@ class WithdrawalServiceImplTest {
 
     @Test
     void accountNotFound_stopsBeforeLoadingWithdrawalSources() {
-        when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID)).thenReturn(Optional.empty());
+        when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> withdrawalService.withdraw(request("100")))
                 .isInstanceOf(AccountNotFoundException.class);
+        verify(accountMapper, never()).selectByAccountIdForUpdate(ACCOUNT_ID);
+        verifyNoInteractions(generalAccountClient);
         verifyNoInteractions(withdrawalMapper, businessClockService);
     }
 
     @Test
     void nonOpenedAccount_stopsBeforeFifoCalculation() {
+        prepareExternalValidation(account(Status.APPLIED), GeneralAccountStatus.ACTIVE);
         when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
                 .thenReturn(Optional.of(account(Status.APPLIED)));
 
         assertThatThrownBy(() -> withdrawalService.withdraw(request("100")))
                 .isInstanceOf(WithdrawalNotAllowedException.class);
+        verifyNoInteractions(withdrawalMapper, businessClockService);
+    }
+
+    @Test
+    void closedDestinationAccount_isRejectedBeforeAccountLockAndWithdrawalPersistence() {
+        prepareExternalValidation(account(Status.OPENED, "500"), GeneralAccountStatus.CLOSED);
+
+        assertThatThrownBy(() -> withdrawalService.withdraw(request("100")))
+                .isInstanceOf(WithdrawalNotAllowedException.class)
+                .hasMessage("활성 상태의 일반계좌로만 인출할 수 있습니다.");
+
+        verify(accountMapper, never()).selectByAccountIdForUpdate(ACCOUNT_ID);
         verifyNoInteractions(withdrawalMapper, businessClockService);
     }
 
@@ -184,7 +199,7 @@ class WithdrawalServiceImplTest {
 
         assertThatThrownBy(() -> withdrawalService.withdraw(request("200", true)))
                 .isInstanceOf(AccountException.class)
-                .hasMessage("ACCOUNT_BENEFIT_LOG저장에 실패했습니다.");
+                .hasMessage("ACCOUNT_BENEFIT_LOG 저장에 실패했습니다.");
     }
 
     @Test
@@ -203,7 +218,15 @@ class WithdrawalServiceImplTest {
                 .extracting(WithdrawalAllocationDTO::getAllocatedAmount)
                 .containsExactly(new BigDecimal("300"), new BigDecimal("400"));
 
-        InOrder order = inOrder(accountMapper, withdrawalMapper, businessClockService);
+        InOrder order =
+                inOrder(
+                        accountMapper,
+                        generalAccountClient,
+                        withdrawalMapper,
+                        businessClockService);
+        order.verify(accountMapper).selectByAccountId(ACCOUNT_ID);
+        order.verify(accountMapper).selectCiHashByCustomerId(CUSTOMER_ID);
+        order.verify(generalAccountClient).verifyGeneralAccount(any());
         order.verify(accountMapper).selectByAccountIdForUpdate(ACCOUNT_ID);
         order.verify(withdrawalMapper).selectAvailableLeftAmountsByAccountId(ACCOUNT_ID);
         order.verify(businessClockService).now();
@@ -273,6 +296,7 @@ class WithdrawalServiceImplTest {
 
     @Test
     void requestExceedingAccountAmount_isRejectedBeforeLoadingSources() {
+        prepareExternalValidation(account(Status.OPENED, "500"), GeneralAccountStatus.ACTIVE);
         when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
                 .thenReturn(Optional.of(account(Status.OPENED, "500")));
 
@@ -283,11 +307,9 @@ class WithdrawalServiceImplTest {
 
     @Test
     void zeroAmountRequest_isRejectedBeforeLoadingSources() {
-        when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
-                .thenReturn(Optional.of(account(Status.OPENED, "500")));
-
         assertThatThrownBy(() -> withdrawalService.withdraw(request("0")))
                 .isInstanceOf(WithdrawalNotAllowedException.class);
+        verifyNoInteractions(accountMapper, generalAccountClient);
         verifyNoInteractions(withdrawalMapper, businessClockService);
     }
 
@@ -298,7 +320,7 @@ class WithdrawalServiceImplTest {
 
         assertThatThrownBy(() -> withdrawalService.withdraw(request("200")))
                 .isInstanceOf(WithdrawalProcessingException.class)
-                .hasMessage("WITHDRAWAL저장에 실패했습니다.");
+                .hasMessage("WITHDRAWAL 저장에 실패했습니다.");
 
         verify(withdrawalMapper, never())
                 .insertWithdrawalAllocation(any(WithdrawalAllocationDTO.class));
@@ -316,7 +338,7 @@ class WithdrawalServiceImplTest {
 
         assertThatThrownBy(() -> withdrawalService.withdraw(request("200")))
                 .isInstanceOf(WithdrawalProcessingException.class)
-                .hasMessage("WITHDRAWAL_ALLOCATION저장에 실패했습니다.");
+                .hasMessage("WITHDRAWAL_ALLOCATION 저장에 실패했습니다.");
 
         verify(withdrawalMapper, never()).deductLeftAmount(anyLong(), any());
         verify(withdrawalMapper, never()).deductAccountAmount(anyLong(), any());
@@ -391,11 +413,20 @@ class WithdrawalServiceImplTest {
 
     private void prepareOpenedAccount(
             String accountAmount, BenefitType benefit, List<LeftAmountDTO> leftAmounts) {
+        AccountDTO openedAccount = account(Status.OPENED, accountAmount, benefit);
+        prepareExternalValidation(openedAccount, GeneralAccountStatus.ACTIVE);
         when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
-                .thenReturn(Optional.of(account(Status.OPENED, accountAmount, benefit)));
+                .thenReturn(Optional.of(openedAccount));
         when(withdrawalMapper.selectAvailableLeftAmountsByAccountId(ACCOUNT_ID))
                 .thenReturn(leftAmounts);
         when(businessClockService.now()).thenReturn(NOW);
+        preparePersistenceSuccess();
+    }
+
+    private void prepareExternalValidation(
+            AccountDTO accountBeforeLock, GeneralAccountStatus destinationStatus) {
+        when(accountMapper.selectByAccountId(ACCOUNT_ID))
+                .thenReturn(Optional.of(accountBeforeLock));
         when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID))
                 .thenReturn(Optional.of("customer-ci-hash"));
         when(generalAccountClient.verifyGeneralAccount(any()))
@@ -403,9 +434,11 @@ class WithdrawalServiceImplTest {
                         GeneralAccountResponseDTO.builder()
                                 .generalAccountId(GENERAL_ACCOUNT_ID)
                                 .accountNo("110-123-456789")
-                                .status(GeneralAccountStatus.ACTIVE)
+                                .status(destinationStatus)
                                 .build());
+    }
 
+    private void preparePersistenceSuccess() {
         lenient()
                 .doAnswer(
                         invocation -> {

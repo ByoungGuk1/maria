@@ -1,5 +1,7 @@
 package com.app.maria.domain.withdrawal.service;
 
+import static com.app.maria.global.client.generalaccount.type.GeneralAccountStatus.ACTIVE;
+
 import com.app.maria.domain.account.dto.AccountBenefitLogDTO;
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.exception.AccountException;
@@ -47,25 +49,17 @@ public class WithdrawalServiceImpl implements WithdrawalService {
         Long accountId = requestDTO.getAccountId();
         BigDecimal requestedAmount = requestDTO.getRequestedAmount();
 
-        AccountDTO account =
-                accountMapper
-                        .selectByAccountIdForUpdate(accountId)
-                        .orElseThrow(() -> new AccountNotFoundException("인출 대상 계좌가 존재하지 않습니다."));
-
-        if (account.getStatus() != Status.OPENED) {
-            throw new WithdrawalNotAllowedException("개설 완료된 계좌만 인출할 수 있습니다.");
-        }
-
         if (requestedAmount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new WithdrawalNotAllowedException("인출 요청금액은 0보다 커야 합니다.");
         }
 
-        if (account.getAmount().compareTo(requestedAmount) < 0) {
-            throw new InsufficientWithdrawalAmountException("계좌 잔액보다 많은 금액을 인출할 수 없습니다.");
-        }
+        AccountDTO accountBeforeLock =
+                accountMapper
+                        .selectByAccountId(accountId)
+                        .orElseThrow(() -> new AccountNotFoundException("인출 대상 계좌가 존재하지 않습니다."));
         String ciHash =
                 accountMapper
-                        .selectCiHashByCustomerId(account.getCustomerId())
+                        .selectCiHashByCustomerId(accountBeforeLock.getCustomerId())
                         .orElseThrow(
                                 () -> new AccountNotFoundException("인출 계좌의 고객 식별정보를 찾을 수 없습니다."));
 
@@ -76,6 +70,22 @@ public class WithdrawalServiceImpl implements WithdrawalService {
                         .build();
         GeneralAccountResponseDTO destinationGeneralAccount =
                 generalAccountClient.verifyGeneralAccount(generalAccountRequest);
+        if (destinationGeneralAccount.getStatus() != ACTIVE) {
+            throw new WithdrawalNotAllowedException("활성 상태의 일반계좌로만 인출할 수 있습니다.");
+        }
+
+        AccountDTO account =
+                accountMapper
+                        .selectByAccountIdForUpdate(accountId)
+                        .orElseThrow(() -> new AccountNotFoundException("인출 대상 계좌가 존재하지 않습니다."));
+
+        if (account.getStatus() != Status.OPENED) {
+            throw new WithdrawalNotAllowedException("개설 완료된 계좌만 인출할 수 있습니다.");
+        }
+
+        if (account.getAmount().compareTo(requestedAmount) < 0) {
+            throw new InsufficientWithdrawalAmountException("계좌 잔액보다 많은 금액을 인출할 수 없습니다.");
+        }
 
         List<LeftAmountDTO> leftAmounts =
                 withdrawalMapper.selectAvailableLeftAmountsByAccountId(accountId);
@@ -170,7 +180,7 @@ public class WithdrawalServiceImpl implements WithdrawalService {
                 int insertedLog = accountBenefitLogMapper.insertLog(benefitLog);
 
                 if (insertedLog != 1) {
-                    throw new AccountException("ACCOUNT_BENEFIT_LOG저장에 실패했습니다.");
+                    throw new AccountException("ACCOUNT_BENEFIT_LOG 저장에 실패했습니다.");
                 }
             }
         }
@@ -187,14 +197,14 @@ public class WithdrawalServiceImpl implements WithdrawalService {
                         .build();
         int insertedRows = withdrawalMapper.insertWithdrawal(withdrawal);
         if (insertedRows != 1) {
-            throw new WithdrawalProcessingException("WITHDRAWAL저장에 실패했습니다.");
+            throw new WithdrawalProcessingException("WITHDRAWAL 저장에 실패했습니다.");
         }
         // 배분내역 저장
         for (WithdrawalAllocationDTO allocation : allocations) {
             allocation.setWithdrawalId(withdrawal.getWithdrawalId());
             int insertedAllocationRows = withdrawalMapper.insertWithdrawalAllocation(allocation);
             if (insertedAllocationRows != 1) {
-                throw new WithdrawalProcessingException("WITHDRAWAL_ALLOCATION저장에 실패했습니다.");
+                throw new WithdrawalProcessingException("WITHDRAWAL_ALLOCATION 저장에 실패했습니다.");
             }
             // 원금 차감
             if (allocation.getLeftAmountId() != null) {
