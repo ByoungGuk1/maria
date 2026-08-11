@@ -1,6 +1,7 @@
 package com.app.maria.domain.account.service;
 
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
@@ -188,5 +189,10 @@ public class AccountServiceImpl implements AccountService {
   public int getAppliedAccountCount() {
       return accountMapper.countByStatus(Status.APPLIED);
   }
+
+    @Override
+    public List<AccountLimitUsageDTO> selectAccountLimitUsage() {
+        return accountMapper.selectAccountLimitUsage();
+    }
 
 }

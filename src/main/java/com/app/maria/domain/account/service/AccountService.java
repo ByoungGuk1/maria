@@ -1,5 +1,6 @@
 package com.app.maria.domain.account.service;
 
+import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
@@ -36,4 +37,7 @@ public interface AccountService {
   AccountResponseDTO overrideAccount(Long accountId, String reason);
 
   int getAppliedAccountCount();
+
+  List<AccountLimitUsageDTO> selectAccountLimitUsage();
+
 }

@@ -1,6 +1,7 @@
 package com.app.maria.domain.account.mapper;
 
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.type.Status;
 import org.apache.ibatis.annotations.Mapper;
 
@@ -64,4 +65,8 @@ public interface AccountMapper {
 
   // 심사대기 건수
   int countByStatus(Status status);
+
+  // 계좌별 한도 사용률
+  List<AccountLimitUsageDTO> selectAccountLimitUsage();
+
 }
