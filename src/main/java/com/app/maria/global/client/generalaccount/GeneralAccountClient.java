@@ -1,0 +1,47 @@
+package com.app.maria.global.client.generalaccount;
+
+import com.app.maria.domain.withdrawal.exception.WithdrawalNotAllowedException;
+import com.app.maria.global.client.generalaccount.dto.request.GeneralAccountRequestDTO;
+import com.app.maria.global.client.generalaccount.dto.response.GeneralAccountResponseDTO;
+import com.app.maria.global.exception.GeneralAccountApiException;
+import com.app.maria.global.response.ApiResponseDTO;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+
+@Component
+public class GeneralAccountClient {
+
+    private final RestClient restClient;
+
+
+    public GeneralAccountClient(@Qualifier("registrableStockRestClient") RestClient restClient) {
+        this.restClient = restClient;
+    }
+
+    public GeneralAccountResponseDTO verifyGeneralAccount(GeneralAccountRequestDTO requestDTO){
+        try {
+            ApiResponseDTO<GeneralAccountResponseDTO> apiResponse = restClient.post()
+                    .uri("/api/general-accounts/verify")
+                    .body(requestDTO)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<ApiResponseDTO<GeneralAccountResponseDTO>>() {
+                    });
+            if (apiResponse == null || apiResponse.getData() == null) {
+                throw new GeneralAccountApiException(
+                        "인출 목적지 일반계좌를 확인할 수 없습니다."
+                );
+            }
+            return apiResponse.getData();
+        }catch (HttpClientErrorException e){
+            throw new WithdrawalNotAllowedException("유효한 인출 목적지 일반계좌가 아닙니다.");
+
+        }catch (RestClientException e){
+            throw new GeneralAccountApiException("증권사 일반계좌 검증 API 호출에 실패했습니다.", e);
+
+        }
+    }
+}

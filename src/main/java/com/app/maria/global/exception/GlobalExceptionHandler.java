@@ -228,4 +228,10 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponseDTO.of(e.getMessage()));
     }
 
+    //GeneralAccount 예외
+    @ExceptionHandler(GeneralAccountApiException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleGeneralAccountApiException(GeneralAccountApiException e){
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
 }

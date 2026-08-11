@@ -16,5 +16,6 @@ public class WithdrawalRequestDTO {
     private String destinationAccountNo;
     //조기인출 동의 여부(default=false)
     private boolean earlyWithdrawalAgreed;
+    private Long destinationGeneralAccountId;
 
 }
