@@ -25,4 +25,5 @@ public class MydataTradeResponseDTO {
     private LocalDate tradeDate;
     private BigDecimal amount;
     private String fundCode;
+    private String ticker;
 }
