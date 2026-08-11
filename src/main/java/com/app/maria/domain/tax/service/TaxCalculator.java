@@ -27,9 +27,11 @@ public class TaxCalculator {
         RiaSellAggregateDTO riaSell = aggregateRiaSell(sellLots, taxRules);
 
         BigDecimal weightedExternalAmount = aggregateExternal(externalTrades, taxRules);
+        BigDecimal adjustRatio = adjustRatio(weightedExternalAmount,riaSell.getWeightedSell());
 
-        return TaxCalculationResultDTO.of(riaSell,weightedExternalAmount);
+        return TaxCalculationResultDTO.of(riaSell,weightedExternalAmount,adjustRatio);
     }
+
     private RiaSellAggregateDTO aggregateRiaSell(List<SellLotDTO> lots, List<TaxRuleDTO> taxRules) {
         BigDecimal weightedSell = BigDecimal.ZERO;
         BigDecimal weightedGain = BigDecimal.ZERO;
@@ -59,6 +61,15 @@ public class TaxCalculator {
             sum = sum.add(externalTrade.getNetBuyAmount().multiply(weight));
         }
         return sum.max(BigDecimal.ZERO).setScale(AMOUNT_SCALE,RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal adjustRatio(BigDecimal weightedExternalAmount, BigDecimal weightedSell){
+        if(weightedSell.signum() <= 0){
+            return BigDecimal.ZERO.setScale(RATIO_SCALE, RoundingMode.HALF_UP);
+        }
+
+        return BigDecimal.ONE.subtract(weightedExternalAmount.divide(weightedSell,RATIO_SCALE,RoundingMode.HALF_UP)).max(BigDecimal.ZERO)
+                .setScale(RATIO_SCALE, RoundingMode.HALF_UP);
     }
 
     private BigDecimal findWeight(List<TaxRuleDTO> taxRules,LocalDate sellAt) {
