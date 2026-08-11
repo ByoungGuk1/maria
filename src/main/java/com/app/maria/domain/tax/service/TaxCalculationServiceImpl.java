@@ -3,6 +3,7 @@ package com.app.maria.domain.tax.service;
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.mapper.AccountMapper;
+import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
@@ -43,6 +44,11 @@ public class TaxCalculationServiceImpl implements TaxCalculationService {
                         accountId, riaTaxProperties.getTaxYear());
 
         return TaxCalculationResponseDTO.of(
-                accountId, taxCalculator.calculate(sellLots, taxRules, externalTrades));
+                accountId,
+                taxCalculator.calculate(
+                        sellLots,
+                        taxRules,
+                        externalTrades,
+                        account.getBenefit() == BenefitType.IMPOSSIBLE));
     }
 }

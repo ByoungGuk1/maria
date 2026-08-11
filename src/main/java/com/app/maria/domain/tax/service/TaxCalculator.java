@@ -24,13 +24,20 @@ public class TaxCalculator {
     public TaxCalculationResultDTO calculate(
             List<SellLotDTO> sellLots,
             List<TaxRuleDTO> taxRules,
-            List<ExternalBuyDTO> externalTrades) {
+            List<ExternalBuyDTO> externalTrades,
+            boolean benefitExcluded) {
         RiaSellAggregateDTO riaSell = aggregateRiaSell(sellLots, taxRules);
 
         BigDecimal weightedExternalAmount = aggregateExternal(externalTrades, taxRules);
-        BigDecimal adjustRatio = adjustRatio(weightedExternalAmount, riaSell.getWeightedSell());
+        BigDecimal adjustRatio =
+                benefitExcluded
+                        ? BigDecimal.ZERO.setScale(RATIO_SCALE, RoundingMode.HALF_UP)
+                        : adjustRatio(weightedExternalAmount, riaSell.getWeightedSell());
+        BigDecimal finalDeduction = findDeduction(riaSell.getWeightedGain(), adjustRatio);
+        BigDecimal finalTax = finalTax(riaSell.getOriginalGainAmount(), finalDeduction, taxRules);
 
-        return TaxCalculationResultDTO.of(riaSell, weightedExternalAmount, adjustRatio);
+        return TaxCalculationResultDTO.of(
+                riaSell, weightedExternalAmount, adjustRatio, finalDeduction, finalTax);
     }
 
     private RiaSellAggregateDTO aggregateRiaSell(List<SellLotDTO> lots, List<TaxRuleDTO> taxRules) {
@@ -80,6 +87,26 @@ public class TaxCalculator {
                 .setScale(RATIO_SCALE, RoundingMode.HALF_UP);
     }
 
+    private BigDecimal findDeduction(BigDecimal weightedGain, BigDecimal adjustRatio) {
+        if (weightedGain.signum() <= 0) {
+            return BigDecimal.ZERO.setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
+        }
+        return weightedGain.multiply(adjustRatio).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal finalTax(
+            BigDecimal originalGain, BigDecimal finalDeduction, List<TaxRuleDTO> taxRules) {
+        BigDecimal taxBase =
+                originalGain
+                        .subtract(findConstantRule(taxRules, BASIC_DEDUCTION))
+                        .subtract(finalDeduction);
+        if (taxBase.signum() <= 0) {
+            return BigDecimal.ZERO.setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
+        }
+        return taxBase.multiply(findConstantRule(taxRules, TAX_RATE))
+                .setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
+    }
+
     private BigDecimal findWeight(List<TaxRuleDTO> taxRules, LocalDate sellAt) {
         return findRuleValue(taxRules, RELIEF_RATE, sellAt)
                 .divide(BigDecimal.valueOf(100), RATIO_SCALE, RoundingMode.HALF_UP);
@@ -99,5 +126,13 @@ public class TaxCalculator {
                         () ->
                                 new IllegalArgumentException(
                                         baseDate + " 에 유효한 " + ruleType + " 규칙을 찾지 못했습니다."));
+    }
+
+    private BigDecimal findConstantRule(List<TaxRuleDTO> taxRules, String ruleType) {
+        return taxRules.stream()
+                .filter(rule -> ruleType.equals(rule.getRuleType()))
+                .findFirst()
+                .map(TaxRuleDTO::getRuleValue)
+                .orElseThrow(() -> new IllegalArgumentException(ruleType + "규칙을 찾지 못했습니다"));
     }
 }
