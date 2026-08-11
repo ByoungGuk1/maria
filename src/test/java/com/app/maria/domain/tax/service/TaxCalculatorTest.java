@@ -324,4 +324,110 @@ class TaxCalculatorTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("RELIEF_RATE");
     }
+
+    @Test
+    @DisplayName("골든 시나리오 - 조정비율이 §3 검증 예시(74.4%)와 일치한다")
+    void 조정비율_골든시나리오() {
+        List<SellLotDTO> lots = List.of(
+                lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"),
+                lot(LocalDate.of(2026, 6, 15), "10000000", "100", "1000", "40"),
+                lot(LocalDate.of(2026, 9, 20), "10000000", "100", "1000", "40"));
+        List<ExternalBuyDTO> external = List.of(
+                externalBuy(LocalDate.of(2026, 6, 15), "20000000"),
+                externalBuy(LocalDate.of(2026, 9, 20), "-10000000"));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+
+        assertThat(result.getAdjustRatio()).isEqualByComparingTo("0.7442");
+    }
+
+    @Test
+    @DisplayName("외부 순매수가 없으면 조정비율은 1")
+    void 조정비율_외부없음() {
+        List<SellLotDTO> lots = List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), List.of());
+
+        assertThat(result.getAdjustRatio()).isEqualByComparingTo("1.0000");
+    }
+
+    @Test
+    @DisplayName("외부 순매도만 있어도 조정비율은 1 - 순매수가 0으로 잘리기 때문")
+    void 조정비율_외부순매도() {
+        List<SellLotDTO> lots = List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
+        List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "-10000000"));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+
+        assertThat(result.getAdjustRatio()).isEqualByComparingTo("1.0000");
+    }
+
+    @Test
+    @DisplayName("외부 순매수가 가중매도금액과 같으면 조정비율은 0")
+    void 조정비율_경계_동일() {
+        List<SellLotDTO> lots = List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
+        List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "30000000"));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+
+        assertThat(result.getWeightedSell()).isEqualByComparingTo("30000000");
+        assertThat(result.getWeightedExternalAmount()).isEqualByComparingTo("30000000");
+        assertThat(result.getAdjustRatio()).isEqualByComparingTo("0.0000");
+    }
+
+    @Test
+    @DisplayName("외부 순매수가 가중매도금액보다 크면 음수가 아니라 0이 된다")
+    void 조정비율_초과분은_0으로_잘린다() {
+        List<SellLotDTO> lots = List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
+        List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "50000000"));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+
+        assertThat(result.getAdjustRatio()).isEqualByComparingTo("0.0000");
+        assertThat(result.getAdjustRatio().signum()).isNotNegative();
+    }
+
+    @Test
+    @DisplayName("매도가 없으면 0으로 나누지 않고 조정비율 0을 반환한다")
+    void 조정비율_매도없음() {
+        List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "10000000"));
+
+        TaxCalculationResultDTO result = calculator.calculate(List.of(), reliefRates(), external);
+
+        assertThat(result.getWeightedSell()).isEqualByComparingTo("0");
+        assertThat(result.getAdjustRatio()).isEqualByComparingTo("0.0000");
+    }
+
+    @ParameterizedTest(name = "가중매도 4,300만 / 외부 {0} → {1}")
+    @CsvSource({
+            "        0, 1.0000",
+            " 10750000, 0.7500",
+            " 21500000, 0.5000",
+            " 43000000, 0.0000",
+            "  1000000, 0.9767"})
+    @DisplayName("조정비율 = 1 - (외부 순매수 / 가중매도금액)")
+    void 조정비율_산식(String externalAmount, String expected) {
+        List<SellLotDTO> lots = List.of(
+                lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"),
+                lot(LocalDate.of(2026, 6, 15), "10000000", "100", "1000", "40"),
+                lot(LocalDate.of(2026, 9, 20), "10000000", "100", "1000", "40"));
+        List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), externalAmount));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+
+        assertThat(result.getWeightedSell()).isEqualByComparingTo("43000000");
+        assertThat(result.getAdjustRatio()).isEqualByComparingTo(expected);
+    }
+
+    @Test
+    @DisplayName("조정비율은 tax_calculation.ratio(DECIMAL(7,4))에 맞춰 소수점 4자리로 확정된다")
+    void 조정비율_스케일() {
+        List<SellLotDTO> lots = List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"));
+        List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "10000000"));
+
+        TaxCalculationResultDTO result = calculator.calculate(lots, reliefRates(), external);
+
+        assertThat(result.getAdjustRatio().scale()).isEqualTo(4);
+        assertThat(result.getAdjustRatio()).isEqualByComparingTo("0.6667");
+    }
 }

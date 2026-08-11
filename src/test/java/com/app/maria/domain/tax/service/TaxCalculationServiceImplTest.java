@@ -80,6 +80,8 @@ class TaxCalculationServiceImplTest {
         assertThat(response.getTaxCalculationResultDTO().getOriginalGainAmount()).isEqualByComparingTo("20000000");
         assertThat(response.getTaxCalculationResultDTO().getWeightedExternalAmount())
                 .isEqualByComparingTo("8000000");
+        assertThat(response.getTaxCalculationResultDTO().getAdjustRatio())
+                .isEqualByComparingTo("0.7333");
     }
 
     @Test
