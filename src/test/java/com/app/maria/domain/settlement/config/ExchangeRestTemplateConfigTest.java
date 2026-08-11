@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.app.maria.domain.settlement.provider.ExchangeRateProviderImpl;
 import com.app.maria.global.client.exchange.ExchangeRateClient;
+import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.config.RestTemplateConfig;
 import com.app.maria.global.config.properties.ExchangeApiProperties;
 import org.junit.jupiter.api.DisplayName;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
@@ -26,6 +28,8 @@ import org.springframework.web.client.RestTemplate;
     ExchangeRateProviderImpl.class
 })
 class ExchangeRestTemplateConfigTest {
+
+    @MockitoBean private BusinessClockService businessClockService;
 
     @Autowired private RestTemplate defaultRestTemplate;
 
@@ -61,15 +65,15 @@ class ExchangeRestTemplateConfigTest {
     }
 
     @Test
-    @DisplayName("Settlement RestTemplate에만 연결 3초와 응답 5초 제한을 적용한다")
-    void appliesTimeoutOnlyToSettlementRestTemplate() {
+    @DisplayName("기본 RestTemplate과 Settlement RestTemplate 둘 다 연결 3초, 응답 5초 제한을 적용한다")
+    void appliesSameTimeoutToBothRestTemplates() {
         SimpleClientHttpRequestFactory defaultFactory =
                 (SimpleClientHttpRequestFactory) defaultRestTemplate.getRequestFactory();
         SimpleClientHttpRequestFactory settlementFactory =
                 (SimpleClientHttpRequestFactory) settlementRestTemplate.getRequestFactory();
 
-        assertThat(ReflectionTestUtils.getField(defaultFactory, "connectTimeout")).isEqualTo(-1);
-        assertThat(ReflectionTestUtils.getField(defaultFactory, "readTimeout")).isEqualTo(-1);
+        assertThat(ReflectionTestUtils.getField(defaultFactory, "connectTimeout")).isEqualTo(3_000);
+        assertThat(ReflectionTestUtils.getField(defaultFactory, "readTimeout")).isEqualTo(5_000);
         assertThat(ReflectionTestUtils.getField(settlementFactory, "connectTimeout"))
                 .isEqualTo(3_000);
         assertThat(ReflectionTestUtils.getField(settlementFactory, "readTimeout")).isEqualTo(5_000);

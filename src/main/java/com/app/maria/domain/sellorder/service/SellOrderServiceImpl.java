@@ -20,6 +20,7 @@ import com.app.maria.global.client.kis.KisExchangeCode;
 import com.app.maria.global.client.kis.KisPriceClient;
 import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -170,5 +171,13 @@ public class SellOrderServiceImpl implements SellOrderService {
     public List<SellOrderResponseDTO> getSellOrderByAccount(Long accountId) {
         List<SellOrderDTO> orders = sellOrderMapper.selectSellOrdersByAccountId(accountId);
         return orders.stream().map(SellOrderResponseDTO::new).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal getTodaySellAmount() {
+        LocalDateTime start = businessClockService.now().toLocalDate().atStartOfDay();
+        LocalDateTime end = start.plusDays(1);
+        return sellOrderMapper.sumSellAmountBetween(start, end);
     }
 }
