@@ -11,6 +11,7 @@
     <typeAliases>
         <typeAlias alias="SellLotDTO" type="com.app.maria.domain.tax.dto.SellLotDTO"/>
         <typeAlias alias="TaxRuleDTO" type="com.app.maria.domain.tax.dto.TaxRuleDTO"/>
+        <typeAlias alias="ExternalBuyDTO" type="com.app.maria.domain.tax.dto.ExternalBuyDTO"/>
     </typeAliases>
 
     <environments default="tax-mapper-test">
