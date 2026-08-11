@@ -1,13 +1,15 @@
 package com.app.maria.domain.tax.service;
 
+import static com.app.maria.domain.tax.fixture.TaxFixtures.allSeedRules;
 import static com.app.maria.domain.tax.fixture.TaxFixtures.externalBuy;
 import static com.app.maria.domain.tax.fixture.TaxFixtures.lot;
-import static com.app.maria.domain.tax.fixture.TaxFixtures.reliefRates;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -16,6 +18,7 @@ import static org.mockito.Mockito.when;
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.mapper.AccountMapper;
+import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
@@ -63,7 +66,7 @@ class TaxCalculationServiceImplTest {
         when(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW))
                 .thenReturn(
                         List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100")));
-        when(taxMapper.findTaxRules()).thenReturn(reliefRates());
+        when(taxMapper.findTaxRules()).thenReturn(allSeedRules());
         when(taxMapper.findExternalBuysByAccountAndYear(ACCOUNT_ID, TAX_YEAR))
                 .thenReturn(List.of(externalBuy(LocalDate.of(2026, 6, 15), "10000000")));
 
@@ -80,6 +83,10 @@ class TaxCalculationServiceImplTest {
                 .isEqualByComparingTo("8000000");
         assertThat(response.getTaxCalculationResultDTO().getAdjustRatio())
                 .isEqualByComparingTo("0.7333");
+        assertThat(response.getTaxCalculationResultDTO().getFinalDeduction())
+                .isEqualByComparingTo("14666000.00");
+        assertThat(response.getTaxCalculationResultDTO().getFinalTax())
+                .isEqualByComparingTo("623480.00");
     }
 
     @Test
@@ -101,7 +108,7 @@ class TaxCalculationServiceImplTest {
         stubTaxYearAndClock();
         when(taxMapper.findFinalizedLotsByAccountAndYear(anyLong(), anyInt(), any()))
                 .thenReturn(List.of());
-        when(taxMapper.findTaxRules()).thenReturn(reliefRates());
+        when(taxMapper.findTaxRules()).thenReturn(allSeedRules());
         when(taxMapper.findExternalBuysByAccountAndYear(anyLong(), anyInt())).thenReturn(List.of());
 
         taxCalculationService.taxCalculate(ACCOUNT_ID);
@@ -117,7 +124,7 @@ class TaxCalculationServiceImplTest {
         stubTaxYearAndClock();
         List<SellLotDTO> lots =
                 List.of(lot(LocalDate.of(2026, 6, 15), "10000000", "100", "1000", "40"));
-        List<TaxRuleDTO> rules = reliefRates();
+        List<TaxRuleDTO> rules = allSeedRules();
         List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "5000000"));
         when(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW))
                 .thenReturn(lots);
@@ -130,7 +137,11 @@ class TaxCalculationServiceImplTest {
         ArgumentCaptor<List<TaxRuleDTO>> ruleCaptor = ArgumentCaptor.forClass(List.class);
         ArgumentCaptor<List<ExternalBuyDTO>> externalCaptor = ArgumentCaptor.forClass(List.class);
         verify(taxCalculator)
-                .calculate(lotCaptor.capture(), ruleCaptor.capture(), externalCaptor.capture());
+                .calculate(
+                        lotCaptor.capture(),
+                        ruleCaptor.capture(),
+                        externalCaptor.capture(),
+                        anyBoolean());
 
         assertThat(lotCaptor.getValue()).isSameAs(lots);
         assertThat(ruleCaptor.getValue()).isSameAs(rules);
@@ -144,7 +155,7 @@ class TaxCalculationServiceImplTest {
         stubTaxYearAndClock();
         when(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW))
                 .thenReturn(List.of());
-        when(taxMapper.findTaxRules()).thenReturn(reliefRates());
+        when(taxMapper.findTaxRules()).thenReturn(allSeedRules());
         when(taxMapper.findExternalBuysByAccountAndYear(ACCOUNT_ID, TAX_YEAR))
                 .thenReturn(List.of());
 
@@ -167,5 +178,64 @@ class TaxCalculationServiceImplTest {
     private void stubTaxYearAndClock() {
         when(riaTaxProperties.getTaxYear()).thenReturn(TAX_YEAR);
         when(clockService.now()).thenReturn(NOW);
+    }
+
+    @Test
+    @DisplayName("혜택 배제 계좌면 계산기에 배제 플래그를 넘긴다")
+    void 혜택배제_전달() {
+        AccountDTO account = new AccountDTO();
+        account.setBenefit(BenefitType.IMPOSSIBLE);
+        when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(account));
+        stubTaxYearAndClock();
+        when(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW))
+                .thenReturn(
+                        List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100")));
+        when(taxMapper.findTaxRules()).thenReturn(allSeedRules());
+        when(taxMapper.findExternalBuysByAccountAndYear(ACCOUNT_ID, TAX_YEAR))
+                .thenReturn(List.of());
+
+        TaxCalculationResponseDTO response = taxCalculationService.taxCalculate(ACCOUNT_ID);
+
+        verify(taxCalculator).calculate(any(), any(), any(), eq(true));
+        assertThat(response.getTaxCalculationResultDTO().getFinalDeduction())
+                .isEqualByComparingTo("0");
+        assertThat(response.getTaxCalculationResultDTO().getFinalTax())
+                .isEqualByComparingTo("3850000.00");
+    }
+
+    @Test
+    @DisplayName("혜택 상태가 POSSIBLE이면 배제 플래그는 false다")
+    void 정상계좌는_배제아님() {
+        AccountDTO account = new AccountDTO();
+        account.setBenefit(BenefitType.POSSIBLE);
+        when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(account));
+        stubTaxYearAndClock();
+        when(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW))
+                .thenReturn(
+                        List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100")));
+        when(taxMapper.findTaxRules()).thenReturn(allSeedRules());
+        when(taxMapper.findExternalBuysByAccountAndYear(ACCOUNT_ID, TAX_YEAR))
+                .thenReturn(List.of());
+
+        taxCalculationService.taxCalculate(ACCOUNT_ID);
+
+        verify(taxCalculator).calculate(any(), any(), any(), eq(false));
+    }
+
+    @Test
+    @DisplayName("혜택 상태가 없어도(null) 배제로 보지 않는다")
+    void 혜택상태_null이면_배제아님() {
+        stubAccount();
+        stubTaxYearAndClock();
+        when(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW))
+                .thenReturn(
+                        List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100")));
+        when(taxMapper.findTaxRules()).thenReturn(allSeedRules());
+        when(taxMapper.findExternalBuysByAccountAndYear(ACCOUNT_ID, TAX_YEAR))
+                .thenReturn(List.of());
+
+        taxCalculationService.taxCalculate(ACCOUNT_ID);
+
+        verify(taxCalculator).calculate(any(), any(), any(), eq(false));
     }
 }

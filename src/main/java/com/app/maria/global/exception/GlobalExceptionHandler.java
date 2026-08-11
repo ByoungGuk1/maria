@@ -17,6 +17,8 @@ import com.app.maria.domain.member.exception.MemberNotFoundException;
 import com.app.maria.domain.sellorder.exception.SellOrderException;
 import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.domain.settlement.exception.*;
+import com.app.maria.domain.tax.exception.TaxCalculationException;
+import com.app.maria.domain.tax.exception.TaxRuleNotFoundException;
 import com.app.maria.domain.withdrawal.exception.WithdrawalException;
 import com.app.maria.domain.withdrawal.exception.WithdrawalProcessingException;
 import com.app.maria.global.audit.exception.AuditLogException;
@@ -325,5 +327,18 @@ public class GlobalExceptionHandler {
             GeneralAccountApiException e) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    // 15. 세액 계산 예외
+    @ExceptionHandler(TaxCalculationException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleTaxCalculationException(
+            TaxCalculationException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(TaxRuleNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleTaxRuleNotFound(TaxRuleNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 }
