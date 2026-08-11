@@ -1,6 +1,8 @@
 package com.app.maria.domain.targetproduct.mapper;
 
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
+import com.app.maria.domain.targetproduct.type.StockType;
+import com.app.maria.domain.targetproduct.type.TradeType;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
@@ -70,9 +72,9 @@ class TargetProductMapperTest {
         return TargetProductJudgementDTO.builder()
                 .mydataTradeId(mydataTradeId)
                 .ciHash("ci-1")
-                .stockType("FOREIGN_STOCK")
+                .stockType(StockType.FOREIGN_STOCK)
                 .isTarget(true)
-                .tradeType("BUY")
+                .tradeType(TradeType.BUY)
                 .amount(new BigDecimal("1000000.00"))
                 .tradeDate(LocalDate.of(2026, 3, 5))
                 .netBuyAmount(new BigDecimal("1000000.00"))
@@ -83,7 +85,7 @@ class TargetProductMapperTest {
     @DisplayName("판별 결과를 저장하면 저장된 행을 확인할 수 있다")
     void insertJudgementSavesRow() throws SQLException {
         TargetProductJudgementDTO dto = baseBuilder(1L)
-                .stockType("FUND")
+                .stockType(StockType.FUND)
                 .fundCode("448630")
                 .fundName("TIGER 미국배당다우존스")
                 .foreignStockRatio(new BigDecimal("72.50"))
@@ -117,7 +119,7 @@ class TargetProductMapperTest {
     @DisplayName("SELL 거래는 음수로 부호처리된 net_buy_amount가 그대로 저장된다")
     void insertJudgementSavesNegativeNetBuyAmountForSellTrade() throws SQLException {
         TargetProductJudgementDTO dto = baseBuilder(11L)
-                .tradeType("SELL")
+                .tradeType(TradeType.SELL)
                 .amount(new BigDecimal("300000.00"))
                 .netBuyAmount(new BigDecimal("-300000.00"))
                 .build();
