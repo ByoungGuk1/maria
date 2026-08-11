@@ -13,9 +13,8 @@ public class RiaSellAggregateDTO {
     private final BigDecimal weightedGain;
     private final BigDecimal originalGainAmount;
 
-    public static RiaSellAggregateDTO of(BigDecimal weightedSell,
-                                         BigDecimal weightedGain,
-                                         BigDecimal originalGainAmount) {
+    public static RiaSellAggregateDTO of(
+            BigDecimal weightedSell, BigDecimal weightedGain, BigDecimal originalGainAmount) {
         return RiaSellAggregateDTO.builder()
                 .weightedSell(weightedSell)
                 .weightedGain(weightedGain)

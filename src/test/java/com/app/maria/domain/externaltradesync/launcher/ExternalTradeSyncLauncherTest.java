@@ -1,5 +1,9 @@
 package com.app.maria.domain.externaltradesync.launcher;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+
 import com.app.maria.domain.externaltradesync.service.ExternalTradeSyncService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -8,18 +12,12 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.verify;
-
 @ExtendWith(MockitoExtension.class)
 class ExternalTradeSyncLauncherTest {
 
-    @Mock
-    private ExternalTradeSyncService externalTradeSyncService;
+    @Mock private ExternalTradeSyncService externalTradeSyncService;
 
-    @InjectMocks
-    private ExternalTradeSyncLauncher externalTradeSyncLauncher;
+    @InjectMocks private ExternalTradeSyncLauncher externalTradeSyncLauncher;
 
     @Test
     @DisplayName("syncAll()을 호출한다")

@@ -27,9 +27,9 @@ public class TaxCalculator {
         RiaSellAggregateDTO riaSell = aggregateRiaSell(sellLots, taxRules);
 
         BigDecimal weightedExternalAmount = aggregateExternal(externalTrades, taxRules);
-        BigDecimal adjustRatio = adjustRatio(weightedExternalAmount,riaSell.getWeightedSell());
+        BigDecimal adjustRatio = adjustRatio(weightedExternalAmount, riaSell.getWeightedSell());
 
-        return TaxCalculationResultDTO.of(riaSell,weightedExternalAmount,adjustRatio);
+        return TaxCalculationResultDTO.of(riaSell, weightedExternalAmount, adjustRatio);
     }
 
     private RiaSellAggregateDTO aggregateRiaSell(List<SellLotDTO> lots, List<TaxRuleDTO> taxRules) {
@@ -40,9 +40,10 @@ public class TaxCalculator {
         for (SellLotDTO lot : lots) {
             BigDecimal weight = findWeight(taxRules, lot.getSellAt());
 
-            BigDecimal purchaseCost = lot.getPurchasePrice()
-                    .multiply(lot.getPurchaseFxRate())
-                    .multiply(lot.getSellQty());
+            BigDecimal purchaseCost =
+                    lot.getPurchasePrice()
+                            .multiply(lot.getPurchaseFxRate())
+                            .multiply(lot.getSellQty());
             BigDecimal sellAmount = lot.getFinalAmount();
             BigDecimal gainAmount = sellAmount.subtract(purchaseCost);
 
@@ -51,39 +52,50 @@ public class TaxCalculator {
             originalGain = originalGain.add(gainAmount);
         }
 
-        return  RiaSellAggregateDTO.of(weightedSell,weightedGain,originalGain);
+        return RiaSellAggregateDTO.of(weightedSell, weightedGain, originalGain);
     }
 
-    private BigDecimal aggregateExternal(List<ExternalBuyDTO> externalTrades, List<TaxRuleDTO> taxRules) {
+    private BigDecimal aggregateExternal(
+            List<ExternalBuyDTO> externalTrades, List<TaxRuleDTO> taxRules) {
         BigDecimal sum = BigDecimal.ZERO;
-        for(ExternalBuyDTO externalTrade : externalTrades) {
-            BigDecimal weight = findWeight(taxRules,externalTrade.getTradeDate());
+        for (ExternalBuyDTO externalTrade : externalTrades) {
+            BigDecimal weight = findWeight(taxRules, externalTrade.getTradeDate());
             sum = sum.add(externalTrade.getNetBuyAmount().multiply(weight));
         }
-        return sum.max(BigDecimal.ZERO).setScale(AMOUNT_SCALE,RoundingMode.HALF_UP);
+        return sum.max(BigDecimal.ZERO).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
     }
 
-    private BigDecimal adjustRatio(BigDecimal weightedExternalAmount, BigDecimal weightedSell){
-        if(weightedSell.signum() <= 0){
+    private BigDecimal adjustRatio(BigDecimal weightedExternalAmount, BigDecimal weightedSell) {
+        if (weightedSell.signum() <= 0) {
             return BigDecimal.ZERO.setScale(RATIO_SCALE, RoundingMode.HALF_UP);
         }
 
-        return BigDecimal.ONE.subtract(weightedExternalAmount.divide(weightedSell,RATIO_SCALE,RoundingMode.HALF_UP)).max(BigDecimal.ZERO)
+        return BigDecimal.ONE
+                .subtract(
+                        weightedExternalAmount.divide(
+                                weightedSell, RATIO_SCALE, RoundingMode.HALF_UP))
+                .max(BigDecimal.ZERO)
                 .setScale(RATIO_SCALE, RoundingMode.HALF_UP);
     }
 
-    private BigDecimal findWeight(List<TaxRuleDTO> taxRules,LocalDate sellAt) {
+    private BigDecimal findWeight(List<TaxRuleDTO> taxRules, LocalDate sellAt) {
         return findRuleValue(taxRules, RELIEF_RATE, sellAt)
-                .divide(BigDecimal.valueOf(100),RATIO_SCALE, RoundingMode.HALF_UP);
+                .divide(BigDecimal.valueOf(100), RATIO_SCALE, RoundingMode.HALF_UP);
     }
 
-    private BigDecimal findRuleValue(List<TaxRuleDTO> taxRules, String ruleType, LocalDate baseDate) {
+    private BigDecimal findRuleValue(
+            List<TaxRuleDTO> taxRules, String ruleType, LocalDate baseDate) {
         return taxRules.stream()
                 .filter(rule -> ruleType.equals(rule.getRuleType()))
-                .filter(rule -> !baseDate.isBefore(rule.getValidFrom()) && !baseDate.isAfter(rule.getValidTo()))
+                .filter(
+                        rule ->
+                                !baseDate.isBefore(rule.getValidFrom())
+                                        && !baseDate.isAfter(rule.getValidTo()))
                 .findFirst()
                 .map(TaxRuleDTO::getRuleValue)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        baseDate + " 에 유효한 " + ruleType + " 규칙을 찾지 못했습니다."));
+                .orElseThrow(
+                        () ->
+                                new IllegalArgumentException(
+                                        baseDate + " 에 유효한 " + ruleType + " 규칙을 찾지 못했습니다."));
     }
 }

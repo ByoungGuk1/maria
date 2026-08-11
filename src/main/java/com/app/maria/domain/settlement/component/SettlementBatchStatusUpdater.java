@@ -12,19 +12,19 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 @RequiredArgsConstructor
 public class SettlementBatchStatusUpdater {
-  private final SettlementBatchMapper settlementBatchMapper;
+    private final SettlementBatchMapper settlementBatchMapper;
 
-  @Transactional(transactionManager = "transactionManager", propagation = Propagation.REQUIRES_NEW)
-  public void markFailed(Long batchId) {
-    SettlementBatchDTO command = SettlementBatchDTO.builder()
-            .batchId(batchId)
-            .status(BatchStatus.FAILED)
-            .build();
+    @Transactional(
+            transactionManager = "transactionManager",
+            propagation = Propagation.REQUIRES_NEW)
+    public void markFailed(Long batchId) {
+        SettlementBatchDTO command =
+                SettlementBatchDTO.builder().batchId(batchId).status(BatchStatus.FAILED).build();
 
-    int affectedRows = settlementBatchMapper.updateBatchStatus(command);
+        int affectedRows = settlementBatchMapper.updateBatchStatus(command);
 
-    if (affectedRows != 1) {
-      throw new SettlementStateConflictException("Batch 실패 상태 변경 실패 batchId=" + batchId);
+        if (affectedRows != 1) {
+            throw new SettlementStateConflictException("Batch 실패 상태 변경 실패 batchId=" + batchId);
+        }
     }
-  }
 }

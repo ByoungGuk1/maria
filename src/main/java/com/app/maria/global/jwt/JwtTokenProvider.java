@@ -6,11 +6,10 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import java.util.Date;
+import javax.crypto.SecretKey;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-
-import javax.crypto.SecretKey;
-import java.util.Date;
 
 @Component
 @RequiredArgsConstructor
@@ -38,7 +37,10 @@ public class JwtTokenProvider {
 
     public String createRefreshToken(Long adminId) {
         Date now = new Date();
-        Date expiry = new Date(now.getTime() + jwtProperties.getRefreshExpirationDay() * 24 * 60 * 60 * 1000);
+        Date expiry =
+                new Date(
+                        now.getTime()
+                                + jwtProperties.getRefreshExpirationDay() * 24 * 60 * 60 * 1000);
 
         return Jwts.builder()
                 .subject(String.valueOf(adminId))
@@ -55,5 +57,4 @@ public class JwtTokenProvider {
                 .parseSignedClaims(token)
                 .getPayload();
     }
-
 }

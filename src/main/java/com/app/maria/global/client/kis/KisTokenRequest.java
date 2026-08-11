@@ -13,5 +13,4 @@ public class KisTokenRequest {
 
     private String appkey;
     private String appsecret;
-
 }

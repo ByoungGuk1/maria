@@ -1,5 +1,10 @@
 package com.app.maria.global.clock.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
 import com.app.maria.global.audit.dto.AuditLogDTO;
 import com.app.maria.global.audit.exception.AuditLogInsertException;
 import com.app.maria.global.audit.mapper.AuditLogMapper;
@@ -8,6 +13,8 @@ import com.app.maria.global.clock.dto.request.SystemClockChangeRequestDTO;
 import com.app.maria.global.clock.exception.SystemClockNotInitializedException;
 import com.app.maria.global.clock.exception.SystemClockUpdateException;
 import com.app.maria.global.clock.mapper.SystemClockMapper;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -16,112 +23,74 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
-class
-SystemClockManagementServiceImplTest {
+class SystemClockManagementServiceImplTest {
 
-    @Mock
-    private SystemClockMapper systemClockMapper;
+    @Mock private SystemClockMapper systemClockMapper;
 
-    @Mock
-    private AuditLogMapper auditLogMapper;
+    @Mock private AuditLogMapper auditLogMapper;
 
-    @InjectMocks
-    private SystemClockManagementServiceImpl systemClockManagementService;
+    @InjectMocks private SystemClockManagementServiceImpl systemClockManagementService;
 
     @Test
     void 시스템_시계가_초기화되지_않으면_예외가_발생한다() {
-        when(systemClockMapper.selectSystemClock())
-                .thenReturn(Optional.empty());
+        when(systemClockMapper.selectSystemClock()).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() ->
-                systemClockManagementService.changeSystemTime(
-                        1L,
-                        request(
-                                LocalDateTime.of(2027, 8, 5, 9, 0),
-                                "DEMO_TIME_CHANGE")
-                )
-        )
+        assertThatThrownBy(
+                        () ->
+                                systemClockManagementService.changeSystemTime(
+                                        1L,
+                                        request(
+                                                LocalDateTime.of(2027, 8, 5, 9, 0),
+                                                "DEMO_TIME_CHANGE")))
                 .isInstanceOf(SystemClockNotInitializedException.class)
                 .hasMessage("SYSTEM_CLOCK 데이터가 존재하지 않습니다.");
 
         verify(systemClockMapper).selectSystemClock();
         verify(systemClockMapper, never())
-                .updateSystemClock(
-                        any(LocalDateTime.class),
-                        any(LocalDateTime.class));
+                .updateSystemClock(any(LocalDateTime.class), any(LocalDateTime.class));
         verifyNoInteractions(auditLogMapper);
     }
 
     @Test
     void 기존_시간과_같으면_변경과_감사로그_저장을_하지_않는다() {
-        LocalDateTime currentDatetime =
-                LocalDateTime.of(2026, 8, 5, 10, 0);
+        LocalDateTime currentDatetime = LocalDateTime.of(2026, 8, 5, 10, 0);
 
         SystemClockDTO currentClock =
-                new SystemClockDTO(
-                        1L,
-                        currentDatetime,
-                        currentDatetime,
-                        currentDatetime);
+                new SystemClockDTO(1L, currentDatetime, currentDatetime, currentDatetime);
 
-        when(systemClockMapper.selectSystemClock())
-                .thenReturn(Optional.of(currentClock));
+        when(systemClockMapper.selectSystemClock()).thenReturn(Optional.of(currentClock));
 
-        LocalDateTime result = systemClockManagementService.changeSystemTime(
-                1L,
-                request(currentDatetime, "DEMO_TIME_CHANGE")
-        );
+        LocalDateTime result =
+                systemClockManagementService.changeSystemTime(
+                        1L, request(currentDatetime, "DEMO_TIME_CHANGE"));
 
         assertThat(result).isEqualTo(currentDatetime);
         verify(systemClockMapper).selectSystemClock();
         verify(systemClockMapper, never())
-                .updateSystemClock(
-                        any(LocalDateTime.class),
-                        any(LocalDateTime.class));
+                .updateSystemClock(any(LocalDateTime.class), any(LocalDateTime.class));
         verifyNoInteractions(auditLogMapper);
     }
 
     @Test
     void 업무시각을_변경하고_감사로그를_저장한다() {
         Long adminId = 10L;
-        LocalDateTime currentDatetime =
-                LocalDateTime.of(2026, 8, 5, 10, 0);
-        LocalDateTime newDatetime =
-                LocalDateTime.of(2027, 8, 5, 9, 0);
+        LocalDateTime currentDatetime = LocalDateTime.of(2026, 8, 5, 10, 0);
+        LocalDateTime newDatetime = LocalDateTime.of(2027, 8, 5, 9, 0);
         String reasonCode = "DEMO_TIME_CHANGE";
 
         SystemClockDTO currentClock =
-                new SystemClockDTO(
-                        1L,
-                        currentDatetime,
-                        currentDatetime,
-                        currentDatetime);
+                new SystemClockDTO(1L, currentDatetime, currentDatetime, currentDatetime);
 
-        when(systemClockMapper.selectSystemClock())
-                .thenReturn(Optional.of(currentClock));
-        when(systemClockMapper.updateSystemClock(
-                newDatetime,
-                currentDatetime))
-                .thenReturn(1);
-        when(auditLogMapper.insertLog(any(AuditLogDTO.class)))
-                .thenReturn(1);
+        when(systemClockMapper.selectSystemClock()).thenReturn(Optional.of(currentClock));
+        when(systemClockMapper.updateSystemClock(newDatetime, currentDatetime)).thenReturn(1);
+        when(auditLogMapper.insertLog(any(AuditLogDTO.class))).thenReturn(1);
 
-        LocalDateTime result = systemClockManagementService.changeSystemTime(
-                adminId,
-                request(newDatetime, reasonCode)
-        );
+        LocalDateTime result =
+                systemClockManagementService.changeSystemTime(
+                        adminId, request(newDatetime, reasonCode));
 
-        ArgumentCaptor<AuditLogDTO> auditLogCaptor =
-                ArgumentCaptor.forClass(AuditLogDTO.class);
+        ArgumentCaptor<AuditLogDTO> auditLogCaptor = ArgumentCaptor.forClass(AuditLogDTO.class);
 
         verify(auditLogMapper).insertLog(auditLogCaptor.capture());
 
@@ -130,99 +99,68 @@ SystemClockManagementServiceImplTest {
         assertThat(savedLog.getAdminId()).isEqualTo(adminId);
         assertThat(savedLog.getTargetTable()).isEqualTo("SYSTEM_CLOCK");
         assertThat(savedLog.getTargetPk()).isEqualTo("1");
-        assertThat(savedLog.getBeforeValue())
-                .isEqualTo(currentDatetime.toString());
-        assertThat(savedLog.getAfterValue())
-                .isEqualTo(newDatetime.toString());
+        assertThat(savedLog.getBeforeValue()).isEqualTo(currentDatetime.toString());
+        assertThat(savedLog.getAfterValue()).isEqualTo(newDatetime.toString());
         assertThat(savedLog.getReasonCode()).isEqualTo(reasonCode);
         assertThat(savedLog.getProcessedAt()).isNull();
         assertThat(result).isEqualTo(newDatetime);
 
-        InOrder callOrder =
-                inOrder(systemClockMapper, auditLogMapper);
+        InOrder callOrder = inOrder(systemClockMapper, auditLogMapper);
 
         callOrder.verify(systemClockMapper).selectSystemClock();
-        callOrder.verify(systemClockMapper)
-                .updateSystemClock(newDatetime, currentDatetime);
-        callOrder.verify(auditLogMapper)
-                .insertLog(any(AuditLogDTO.class));
+        callOrder.verify(systemClockMapper).updateSystemClock(newDatetime, currentDatetime);
+        callOrder.verify(auditLogMapper).insertLog(any(AuditLogDTO.class));
     }
 
     @Test
     void 시스템_시계_UPDATE가_실패하면_감사로그를_저장하지_않는다() {
-        LocalDateTime currentDatetime =
-                LocalDateTime.of(2026, 8, 5, 10, 0);
-        LocalDateTime newDatetime =
-                LocalDateTime.of(2027, 8, 5, 9, 0);
+        LocalDateTime currentDatetime = LocalDateTime.of(2026, 8, 5, 10, 0);
+        LocalDateTime newDatetime = LocalDateTime.of(2027, 8, 5, 9, 0);
 
         when(systemClockMapper.selectSystemClock())
-                .thenReturn(Optional.of(
-                        new SystemClockDTO(
-                                1L,
-                                currentDatetime,
-                                currentDatetime,
-                                currentDatetime)
-                ));
-        when(systemClockMapper.updateSystemClock(
-                newDatetime,
-                currentDatetime))
-                .thenReturn(0);
+                .thenReturn(
+                        Optional.of(
+                                new SystemClockDTO(
+                                        1L, currentDatetime, currentDatetime, currentDatetime)));
+        when(systemClockMapper.updateSystemClock(newDatetime, currentDatetime)).thenReturn(0);
 
-        assertThatThrownBy(() ->
-                systemClockManagementService.changeSystemTime(
-                        1L,
-                        request(newDatetime, "DEMO_TIME_CHANGE")
-                )
-        )
+        assertThatThrownBy(
+                        () ->
+                                systemClockManagementService.changeSystemTime(
+                                        1L, request(newDatetime, "DEMO_TIME_CHANGE")))
                 .isInstanceOf(SystemClockUpdateException.class)
                 .hasMessage("다른 관리자가 업무시각을 먼저 변경했습니다. 다시 조회해 주세요.");
 
-        verify(systemClockMapper)
-                .updateSystemClock(newDatetime, currentDatetime);
+        verify(systemClockMapper).updateSystemClock(newDatetime, currentDatetime);
         verifyNoInteractions(auditLogMapper);
     }
 
     @Test
     void 감사로그_INSERT가_실패하면_예외가_발생한다() {
-        LocalDateTime currentDatetime =
-                LocalDateTime.of(2026, 8, 5, 10, 0);
-        LocalDateTime newDatetime =
-                LocalDateTime.of(2027, 8, 5, 9, 0);
+        LocalDateTime currentDatetime = LocalDateTime.of(2026, 8, 5, 10, 0);
+        LocalDateTime newDatetime = LocalDateTime.of(2027, 8, 5, 9, 0);
 
         when(systemClockMapper.selectSystemClock())
-                .thenReturn(Optional.of(
-                        new SystemClockDTO(
-                                1L,
-                                currentDatetime,
-                                currentDatetime,
-                                currentDatetime)
-                ));
-        when(systemClockMapper.updateSystemClock(
-                newDatetime,
-                currentDatetime))
-                .thenReturn(1);
-        when(auditLogMapper.insertLog(any(AuditLogDTO.class)))
-                .thenReturn(0);
+                .thenReturn(
+                        Optional.of(
+                                new SystemClockDTO(
+                                        1L, currentDatetime, currentDatetime, currentDatetime)));
+        when(systemClockMapper.updateSystemClock(newDatetime, currentDatetime)).thenReturn(1);
+        when(auditLogMapper.insertLog(any(AuditLogDTO.class))).thenReturn(0);
 
-        assertThatThrownBy(() ->
-                systemClockManagementService.changeSystemTime(
-                        1L,
-                        request(newDatetime, "DEMO_TIME_CHANGE")
-                )
-        )
+        assertThatThrownBy(
+                        () ->
+                                systemClockManagementService.changeSystemTime(
+                                        1L, request(newDatetime, "DEMO_TIME_CHANGE")))
                 .isInstanceOf(AuditLogInsertException.class)
                 .hasMessage("AUDIT_LOG 저장에 실패했습니다.");
 
-        verify(systemClockMapper)
-                .updateSystemClock(newDatetime, currentDatetime);
-        verify(auditLogMapper)
-                .insertLog(any(AuditLogDTO.class));
+        verify(systemClockMapper).updateSystemClock(newDatetime, currentDatetime);
+        verify(auditLogMapper).insertLog(any(AuditLogDTO.class));
     }
 
     private static SystemClockChangeRequestDTO request(
-            LocalDateTime newDatetime,
-            String reasonCode
-    ) {
+            LocalDateTime newDatetime, String reasonCode) {
         return new SystemClockChangeRequestDTO(newDatetime, reasonCode);
     }
 }
