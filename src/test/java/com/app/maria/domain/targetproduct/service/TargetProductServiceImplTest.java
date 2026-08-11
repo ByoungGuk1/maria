@@ -9,6 +9,8 @@ import com.app.maria.domain.externaltradesync.dto.response.MydataTradeResponseDT
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
 import com.app.maria.domain.targetproduct.dto.response.MydataFundResponseDTO;
 import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
+import com.app.maria.domain.targetproduct.type.StockType;
+import com.app.maria.domain.targetproduct.type.TradeType;
 import com.app.maria.global.client.mydatafund.MydataFundClient;
 import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
@@ -58,6 +60,7 @@ class TargetProductServiceImplTest {
                 .tradeDate(tradeDate)
                 .amount(amount)
                 .fundCode(fundCode)
+                .ticker("AAPL")
                 .build();
     }
 
@@ -218,8 +221,10 @@ class TargetProductServiceImplTest {
         verify(targetProductMapper).insertJudgement(captor.capture());
         assertThat(captor.getValue().getMydataTradeId()).isEqualTo(7L);
         assertThat(captor.getValue().getCiHash()).isEqualTo("ci-1");
+        assertThat(captor.getValue().getStockType()).isEqualTo(StockType.ETN);
+        assertThat(captor.getValue().getTicker()).isEqualTo("AAPL");
         assertThat(captor.getValue().getJudgedAt()).isEqualTo(FIXED_NOW);
-        assertThat(captor.getValue().getTradeType()).isEqualTo("BUY");
+        assertThat(captor.getValue().getTradeType()).isEqualTo(TradeType.BUY);
         assertThat(captor.getValue().getAmount()).isEqualByComparingTo("200000");
         assertThat(captor.getValue().getTradeDate()).isEqualTo(LocalDate.of(2026, 3, 15));
     }
