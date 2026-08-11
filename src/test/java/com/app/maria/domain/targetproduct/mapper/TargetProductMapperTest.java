@@ -70,6 +70,7 @@ class TargetProductMapperTest {
         return TargetProductJudgementDTO.builder()
                 .mydataTradeId(mydataTradeId)
                 .ciHash("ci-1")
+                .stockType("FOREIGN_STOCK")
                 .isTarget(true)
                 .tradeType("BUY")
                 .amount(new BigDecimal("1000000.00"))
@@ -82,6 +83,7 @@ class TargetProductMapperTest {
     @DisplayName("판별 결과를 저장하면 저장된 행을 확인할 수 있다")
     void insertJudgementSavesRow() throws SQLException {
         TargetProductJudgementDTO dto = baseBuilder(1L)
+                .stockType("FUND")
                 .fundCode("448630")
                 .fundName("TIGER 미국배당다우존스")
                 .foreignStockRatio(new BigDecimal("72.50"))
@@ -93,11 +95,12 @@ class TargetProductMapperTest {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(
-                     "SELECT mydata_trade_id, ci_hash, fund_code, fund_name, is_target, foreign_stock_ratio, inception_date, " +
+                     "SELECT mydata_trade_id, ci_hash, stock_type, fund_code, fund_name, is_target, foreign_stock_ratio, inception_date, " +
                              "trade_type, amount, trade_date, net_buy_amount FROM target_product_judgement WHERE mydata_trade_id = 1")) {
             assertThat(resultSet.next()).isTrue();
             assertThat(resultSet.getLong("mydata_trade_id")).isEqualTo(1L);
             assertThat(resultSet.getString("ci_hash")).isEqualTo("ci-1");
+            assertThat(resultSet.getString("stock_type")).isEqualTo("FUND");
             assertThat(resultSet.getString("fund_code")).isEqualTo("448630");
             assertThat(resultSet.getString("fund_name")).isEqualTo("TIGER 미국배당다우존스");
             assertThat(resultSet.getBoolean("is_target")).isTrue();
@@ -136,6 +139,7 @@ class TargetProductMapperTest {
     @DisplayName("FOREIGN_STOCK 등 비FUND 판정은 fund_code와 비중 정보 없이 저장된다")
     void insertJudgementSavesRowWithoutFundInfoForNonFund() throws SQLException {
         TargetProductJudgementDTO dto = baseBuilder(2L)
+                .ticker("AAPL")
                 .fundCode(null)
                 .foreignStockRatio(null)
                 .inceptionDate(null)
@@ -146,8 +150,10 @@ class TargetProductMapperTest {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(
-                     "SELECT fund_code, foreign_stock_ratio FROM target_product_judgement WHERE mydata_trade_id = 2")) {
+                     "SELECT stock_type, ticker, fund_code, foreign_stock_ratio FROM target_product_judgement WHERE mydata_trade_id = 2")) {
             assertThat(resultSet.next()).isTrue();
+            assertThat(resultSet.getString("stock_type")).isEqualTo("FOREIGN_STOCK");
+            assertThat(resultSet.getString("ticker")).isEqualTo("AAPL");
             assertThat(resultSet.getString("fund_code")).isNull();
             assertThat(resultSet.getBigDecimal("foreign_stock_ratio")).isNull();
         }
@@ -193,8 +199,10 @@ class TargetProductMapperTest {
                         judgement_id BIGINT PRIMARY KEY AUTO_INCREMENT,
                         mydata_trade_id BIGINT NOT NULL,
                         ci_hash VARCHAR(64) NOT NULL,
+                        stock_type VARCHAR(15) NOT NULL,
                         fund_code VARCHAR(12),
                         fund_name VARCHAR(100),
+                        ticker VARCHAR(20),
                         is_target BOOLEAN NOT NULL,
                         foreign_stock_ratio DECIMAL(5, 2),
                         inception_date DATE,
