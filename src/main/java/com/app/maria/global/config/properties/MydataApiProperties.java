@@ -13,5 +13,4 @@ public class MydataApiProperties {
 
     private String url;
     private String ownBrokerName;
-
 }

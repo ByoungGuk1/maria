@@ -5,5 +5,4 @@ public class AdminNotFoundException extends AdminException {
     public AdminNotFoundException(String message) {
         super(message);
     }
-
 }

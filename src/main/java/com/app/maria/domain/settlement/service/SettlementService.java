@@ -4,26 +4,25 @@ import com.app.maria.domain.settlement.dto.KrwExchangeDTO;
 import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
 import com.app.maria.domain.settlement.dto.SettlementItemDTO;
 import com.app.maria.domain.settlement.dto.SettlementJoinDTO;
-
 import java.util.List;
 
 public interface SettlementService {
 
-  SettlementBatchDTO executeSettlementBatch();
+    SettlementBatchDTO executeSettlementBatch();
 
-  List<SettlementBatchDTO> getSettlementBatches();
+    List<SettlementBatchDTO> getSettlementBatches();
 
-  SettlementBatchDTO getSettlementBatch(Long batchId);
+    SettlementBatchDTO getSettlementBatch(Long batchId);
 
-  List<SettlementJoinDTO> getSettlementBatchDetail(Long batchId);
+    List<SettlementJoinDTO> getSettlementBatchDetail(Long batchId);
 
-  List<SettlementJoinDTO> getSettlementBatchFailDetail(Long batchId);
+    List<SettlementJoinDTO> getSettlementBatchFailDetail(Long batchId);
 
-  SettlementBatchDTO getSettlementBatchByRunId(String runId);
+    SettlementBatchDTO getSettlementBatchByRunId(String runId);
 
-  List<SettlementItemDTO> getPendingSettlementItems(Long batchId, Long lastItemId);
+    List<SettlementItemDTO> getPendingSettlementItems(Long batchId, Long lastItemId);
 
-  SettlementJoinDTO getSettlementItem(Long batchId, Long itemId);
+    SettlementJoinDTO getSettlementItem(Long batchId, Long itemId);
 
-  KrwExchangeDTO getKrwExchange(Long exchangeId);
+    KrwExchangeDTO getKrwExchange(Long exchangeId);
 }

@@ -16,5 +16,4 @@ public class AdminLoginRequestDTO {
 
     @NotNull(message = "비밀번호를 입력하세요.")
     private String password;
-
 }

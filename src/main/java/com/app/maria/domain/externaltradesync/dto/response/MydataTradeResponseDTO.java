@@ -1,13 +1,12 @@
 package com.app.maria.domain.externaltradesync.dto.response;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
 
 @AllArgsConstructor
 @NoArgsConstructor

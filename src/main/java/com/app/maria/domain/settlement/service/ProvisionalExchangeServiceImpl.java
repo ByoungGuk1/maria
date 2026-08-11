@@ -8,38 +8,41 @@ import com.app.maria.domain.settlement.dto.KrwExchangeDTO;
 import com.app.maria.domain.settlement.exception.ProvisionalException;
 import com.app.maria.domain.settlement.mapper.KrwExchangeMapper;
 import com.app.maria.global.clock.service.BusinessClockService;
+import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-
 @Service
 @RequiredArgsConstructor
 public class ProvisionalExchangeServiceImpl implements ProvisionalExchangeService {
-  private final ProvisionalExchangeCalculator provisionalExchangeCalculator;
-  private final KrwExchangeMapper krwExchangeMapper;
-  private final BusinessClockService businessClockService;
-  private final AccountTransactionalService accountTransactionalService;
+    private final ProvisionalExchangeCalculator provisionalExchangeCalculator;
+    private final KrwExchangeMapper krwExchangeMapper;
+    private final BusinessClockService businessClockService;
+    private final AccountTransactionalService accountTransactionalService;
 
-  @Override
-  @Transactional(propagation = Propagation.MANDATORY)
-  public void createProvisionalExchange(SellOrderDTO sellOrderDTO) {
-    BigDecimal provisionalAmount = provisionalExchangeCalculator.calculate(sellOrderDTO.getSellQty(), sellOrderDTO.getBasePrice());
-    KrwExchangeDTO krwExchangeDTO = KrwExchangeDTO.builder()
-            .accountId(sellOrderDTO.getAccountId())
-            .orderId(sellOrderDTO.getOrderId())
-            .provisionalAmount(provisionalAmount)
-            .provisionalAt(businessClockService.now())
-            .build();
-    if(krwExchangeMapper.insertProvisional(krwExchangeDTO) != 1){
-      throw new ProvisionalException("가환전 저장 실패");
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void createProvisionalExchange(SellOrderDTO sellOrderDTO) {
+        BigDecimal provisionalAmount =
+                provisionalExchangeCalculator.calculate(
+                        sellOrderDTO.getSellQty(), sellOrderDTO.getBasePrice());
+        KrwExchangeDTO krwExchangeDTO =
+                KrwExchangeDTO.builder()
+                        .accountId(sellOrderDTO.getAccountId())
+                        .orderId(sellOrderDTO.getOrderId())
+                        .provisionalAmount(provisionalAmount)
+                        .provisionalAt(businessClockService.now())
+                        .build();
+        if (krwExchangeMapper.insertProvisional(krwExchangeDTO) != 1) {
+            throw new ProvisionalException("가환전 저장 실패");
+        }
+        AccountDTO newAmountAccount =
+                AccountDTO.builder()
+                        .accountId(sellOrderDTO.getAccountId())
+                        .amount(provisionalAmount)
+                        .build();
+        accountTransactionalService.updateAmount(newAmountAccount);
     }
-    AccountDTO newAmountAccount = AccountDTO.builder()
-            .accountId(sellOrderDTO.getAccountId())
-            .amount(provisionalAmount)
-            .build();
-    accountTransactionalService.updateAmount(newAmountAccount);
-  }
 }

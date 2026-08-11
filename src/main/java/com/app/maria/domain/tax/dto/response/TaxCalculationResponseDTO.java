@@ -14,11 +14,11 @@ public class TaxCalculationResponseDTO {
     private Long accountId;
     private TaxCalculationResultDTO taxCalculationResultDTO;
 
-    public static TaxCalculationResponseDTO of(Long accountId, TaxCalculationResultDTO taxCalculationResultDTO) {
+    public static TaxCalculationResponseDTO of(
+            Long accountId, TaxCalculationResultDTO taxCalculationResultDTO) {
         return TaxCalculationResponseDTO.builder()
                 .accountId(accountId)
                 .taxCalculationResultDTO(taxCalculationResultDTO)
                 .build();
     }
-
 }

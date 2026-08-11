@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class SellLotDTO {
-    private Long  orderId;
+    private Long orderId;
     private Long inboundDetailId;
     private BigDecimal purchaseFxRate;
     private BigDecimal purchasePrice;
@@ -20,8 +20,14 @@ public class SellLotDTO {
     private LocalDate sellAt;
     private BigDecimal finalAmount;
 
-    public static SellLotDTO of(Long orderId, Long inboundDetailId,BigDecimal purchaseFxRate, BigDecimal purchasePrice, BigDecimal sellQty,
-                                LocalDate sellAt, BigDecimal finalAmount) {
+    public static SellLotDTO of(
+            Long orderId,
+            Long inboundDetailId,
+            BigDecimal purchaseFxRate,
+            BigDecimal purchasePrice,
+            BigDecimal sellQty,
+            LocalDate sellAt,
+            BigDecimal finalAmount) {
         return SellLotDTO.builder()
                 .orderId(orderId)
                 .inboundDetailId(inboundDetailId)
@@ -33,6 +39,6 @@ public class SellLotDTO {
                 .build();
     }
 }
-//매도 (수량×단가×매도시 환율)	매도금액(원화)
+// 매도 (수량×단가×매도시 환율)	매도금액(원화)
 // 취득 (수량×단가×매수당시환율)
 // 취득원가(원화)	양도소득

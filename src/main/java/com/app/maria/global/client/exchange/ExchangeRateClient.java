@@ -4,15 +4,14 @@ import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.config.properties.ExchangeApiProperties;
 import com.app.maria.global.exception.ExchangeRateNotFoundException;
 import com.fasterxml.jackson.databind.JsonNode;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 
 @Component
 @RequiredArgsConstructor
@@ -33,11 +32,12 @@ public class ExchangeRateClient {
     }
 
     public BigDecimal getBaseRate(String currencyUnit, LocalDate searchDate) {
-        String url = UriComponentsBuilder.fromHttpUrl(exchangeApiProperties.getUrl())
-                .queryParam("authkey", exchangeApiProperties.getApiKey())
-                .queryParam("searchdate", searchDate.format(DATE_FORMAT))
-                .queryParam("data", "AP01")
-                .toUriString();
+        String url =
+                UriComponentsBuilder.fromHttpUrl(exchangeApiProperties.getUrl())
+                        .queryParam("authkey", exchangeApiProperties.getApiKey())
+                        .queryParam("searchdate", searchDate.format(DATE_FORMAT))
+                        .queryParam("data", "AP01")
+                        .toUriString();
 
         JsonNode response = restTemplate.getForObject(url, JsonNode.class);
 
@@ -46,7 +46,7 @@ public class ExchangeRateClient {
         }
 
         // 찾고있는 통화와 일치하는 항목 찾기
-        for (JsonNode node: response) {
+        for (JsonNode node : response) {
             if (currencyUnit.equals(node.path("cur_unit").asText())) {
                 // 매매기준율 deal base rate
                 String rate = node.path("deal_bas_r").asText().replace(",", "");
@@ -61,7 +61,5 @@ public class ExchangeRateClient {
         }
 
         throw new ExchangeRateNotFoundException("해당 통화의 환율 정보를 찾을 수 없습니다: " + currencyUnit);
-
     }
-
 }

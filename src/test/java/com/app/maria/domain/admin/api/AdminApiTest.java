@@ -1,5 +1,10 @@
 package com.app.maria.domain.admin.api;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import com.app.maria.domain.admin.dto.request.AdminLoginRequestDTO;
 import com.app.maria.domain.admin.dto.request.AdminRefreshRequestDTO;
 import com.app.maria.domain.admin.dto.request.AdminRoleUpdateRequestDTO;
@@ -21,60 +26,46 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
 @WebMvcTest(AdminApi.class)
 @Import(SecurityConfig.class)
 class AdminApiTest {
 
-    @Autowired
-    MockMvc mockMvc;
+    @Autowired MockMvc mockMvc;
 
-    @Autowired
-    ObjectMapper objectMapper;
+    @Autowired ObjectMapper objectMapper;
 
-    @MockitoBean
-    AdminService adminService;
+    @MockitoBean AdminService adminService;
 
-    @MockitoBean
-    JwtTokenProvider jwtTokenProvider;
+    @MockitoBean JwtTokenProvider jwtTokenProvider;
 
     private AdminLoginRequestDTO loginRequest(String loginId, String password) {
-        return AdminLoginRequestDTO.builder()
-                .loginId(loginId)
-                .password(password)
-                .build();
+        return AdminLoginRequestDTO.builder().loginId(loginId).password(password).build();
     }
 
     private AdminRoleUpdateRequestDTO roleUpdateRequest(AdminRole role) {
-        return AdminRoleUpdateRequestDTO.builder()
-                .role(role)
-                .build();
+        return AdminRoleUpdateRequestDTO.builder().role(role).build();
     }
 
     private AdminRefreshRequestDTO refreshRequest(String refreshToken) {
-        return AdminRefreshRequestDTO.builder()
-                .refreshToken(refreshToken)
-                .build();
+        return AdminRefreshRequestDTO.builder().refreshToken(refreshToken).build();
     }
 
     @Test
     @DisplayName("로그인 성공시 200과 토큰을 반환한다")
     void loginReturns200WithTokensOnSuccess() throws Exception {
         AdminLoginRequestDTO request = loginRequest("reviewer1", "raw-password");
-        AdminLoginResponseDTO response = AdminLoginResponseDTO.builder()
-                .accessToken("access-token")
-                .refreshToken("refresh-token")
-                .build();
+        AdminLoginResponseDTO response =
+                AdminLoginResponseDTO.builder()
+                        .accessToken("access-token")
+                        .refreshToken("refresh-token")
+                        .build();
 
         when(adminService.login(any())).thenReturn(response);
 
-        mockMvc.perform(post("/api/auth/admin/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+        mockMvc.perform(
+                        post("/api/auth/admin/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accessToken").value("access-token"))
                 .andExpect(jsonPath("$.data.refreshToken").value("refresh-token"));
@@ -85,12 +76,12 @@ class AdminApiTest {
     void loginReturns401WhenServiceThrowsAdminException() throws Exception {
         AdminLoginRequestDTO request = loginRequest("reviewer1", "wrong-password");
 
-        when(adminService.login(any()))
-                .thenThrow(new AdminException("아이디 또는 비밀번호가 일치하지 않습니다."));
+        when(adminService.login(any())).thenThrow(new AdminException("아이디 또는 비밀번호가 일치하지 않습니다."));
 
-        mockMvc.perform(post("/api/auth/admin/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+        mockMvc.perform(
+                        post("/api/auth/admin/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("아이디 또는 비밀번호가 일치하지 않습니다."));
     }
@@ -100,9 +91,10 @@ class AdminApiTest {
     void loginReturns400WhenLoginIdMissing() throws Exception {
         AdminLoginRequestDTO request = loginRequest(null, "raw-password");
 
-        mockMvc.perform(post("/api/auth/admin/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+        mockMvc.perform(
+                        post("/api/auth/admin/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
 
         verify(adminService, never()).login(any());
@@ -113,9 +105,10 @@ class AdminApiTest {
     void loginReturns400WhenPasswordMissing() throws Exception {
         AdminLoginRequestDTO request = loginRequest("reviewer1", null);
 
-        mockMvc.perform(post("/api/auth/admin/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+        mockMvc.perform(
+                        post("/api/auth/admin/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
 
         verify(adminService, never()).login(any());
@@ -127,9 +120,10 @@ class AdminApiTest {
     void updateRoleReturns200WhenCallerIsAdmin() throws Exception {
         AdminRoleUpdateRequestDTO request = roleUpdateRequest(AdminRole.REVIEWER);
 
-        mockMvc.perform(patch("/api/auth/admin/{adminId}/role", 1L)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+        mockMvc.perform(
+                        patch("/api/auth/admin/{adminId}/role", 1L)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("역할이 변경되었습니다."));
 
@@ -141,9 +135,10 @@ class AdminApiTest {
     void updateRoleReturns401WhenNotAuthenticated() throws Exception {
         AdminRoleUpdateRequestDTO request = roleUpdateRequest(AdminRole.REVIEWER);
 
-        mockMvc.perform(patch("/api/auth/admin/{adminId}/role", 1L)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+        mockMvc.perform(
+                        patch("/api/auth/admin/{adminId}/role", 1L)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized());
 
         verify(adminService, never()).updateRole(any(), anyLong(), any());
@@ -155,9 +150,10 @@ class AdminApiTest {
     void updateRoleReturns403WhenCallerIsNotAdmin() throws Exception {
         AdminRoleUpdateRequestDTO request = roleUpdateRequest(AdminRole.REVIEWER);
 
-        mockMvc.perform(patch("/api/auth/admin/{adminId}/role", 1L)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+        mockMvc.perform(
+                        patch("/api/auth/admin/{adminId}/role", 1L)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden());
 
         verify(adminService, never()).updateRole(any(), anyLong(), any());
@@ -169,9 +165,10 @@ class AdminApiTest {
     void updateRoleReturns400WhenRoleMissing() throws Exception {
         AdminRoleUpdateRequestDTO request = roleUpdateRequest(null);
 
-        mockMvc.perform(patch("/api/auth/admin/{adminId}/role", 1L)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+        mockMvc.perform(
+                        patch("/api/auth/admin/{adminId}/role", 1L)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
 
         verify(adminService, never()).updateRole(any(), anyLong(), any());
@@ -184,11 +181,13 @@ class AdminApiTest {
         AdminRoleUpdateRequestDTO request = roleUpdateRequest(AdminRole.REVIEWER);
 
         doThrow(new AdminNotFoundException("대상 관리자가 없습니다."))
-                .when(adminService).updateRole(any(), eq(1L), eq(AdminRole.REVIEWER));
+                .when(adminService)
+                .updateRole(any(), eq(1L), eq(AdminRole.REVIEWER));
 
-        mockMvc.perform(patch("/api/auth/admin/{adminId}/role", 1L)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+        mockMvc.perform(
+                        patch("/api/auth/admin/{adminId}/role", 1L)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("대상 관리자가 없습니다."));
     }
@@ -197,16 +196,18 @@ class AdminApiTest {
     @DisplayName("유효한 refreshToken을 보내면 새 accessToken을 받는다")
     void refreshReturns200AndNewAccessTokenWhenTokenValid() throws Exception {
         AdminRefreshRequestDTO request = refreshRequest("valid-refresh-token");
-        AdminLoginResponseDTO response = AdminLoginResponseDTO.builder()
-                .accessToken("new-access-token")
-                .refreshToken("valid-refresh-token")
-                .build();
+        AdminLoginResponseDTO response =
+                AdminLoginResponseDTO.builder()
+                        .accessToken("new-access-token")
+                        .refreshToken("valid-refresh-token")
+                        .build();
 
         when(adminService.refresh("valid-refresh-token")).thenReturn(response);
 
-        mockMvc.perform(post("/api/auth/admin/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+        mockMvc.perform(
+                        post("/api/auth/admin/refresh")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accessToken").value("new-access-token"))
                 .andExpect(jsonPath("$.data.refreshToken").value("valid-refresh-token"));
@@ -219,9 +220,10 @@ class AdminApiTest {
     void refreshReturns400WhenRefreshTokenMissing() throws Exception {
         AdminRefreshRequestDTO request = refreshRequest(null);
 
-        mockMvc.perform(post("/api/auth/admin/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+        mockMvc.perform(
+                        post("/api/auth/admin/refresh")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
 
         verify(adminService, never()).refresh(any());
@@ -232,12 +234,12 @@ class AdminApiTest {
     void refreshReturns401WhenTokenInvalid() throws Exception {
         AdminRefreshRequestDTO request = refreshRequest("broken-token");
 
-        when(adminService.refresh("broken-token"))
-                .thenThrow(new AdminException("유효하지 않은 토큰입니다."));
+        when(adminService.refresh("broken-token")).thenThrow(new AdminException("유효하지 않은 토큰입니다."));
 
-        mockMvc.perform(post("/api/auth/admin/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+        mockMvc.perform(
+                        post("/api/auth/admin/refresh")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("유효하지 않은 토큰입니다."));
     }
@@ -250,9 +252,10 @@ class AdminApiTest {
         when(adminService.refresh("valid-refresh-token"))
                 .thenThrow(new AdminNotFoundException("대상 관리자가 없습니다."));
 
-        mockMvc.perform(post("/api/auth/admin/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+        mockMvc.perform(
+                        post("/api/auth/admin/refresh")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("대상 관리자가 없습니다."));
     }

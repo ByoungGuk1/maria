@@ -1,174 +1,186 @@
 package com.app.maria.domain.account.service;
 
-import com.app.maria.domain.account.dto.AccountDTO;
-import com.app.maria.domain.account.dto.request.AccountRequestDTO;
-import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
-import com.app.maria.domain.account.dto.response.AccountResponseDTO;
-import com.app.maria.domain.account.exception.InvalidAccountRequestException;
-import com.app.maria.domain.account.mapper.AccountMapper;
-import com.app.maria.domain.account.provider.MydataProvider;
-import com.app.maria.domain.account.type.Status;
-import com.app.maria.global.clock.service.BusinessClockService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.quality.Strictness;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Optional;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
+import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.response.AccountResponseDTO;
+import com.app.maria.domain.account.exception.InvalidAccountRequestException;
+import com.app.maria.domain.account.mapper.AccountMapper;
+import com.app.maria.domain.account.provider.MydataProvider;
+import com.app.maria.domain.account.type.Status;
+import com.app.maria.global.clock.service.BusinessClockService;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class AccountServiceImplTest {
-  private static final Long CUSTOMER_ID = 1L;
-  private static final Long ACCOUNT_ID = 10L;
-  private static final BigDecimal LIMIT = BigDecimal.valueOf(30_000_000L);
-  private static final BigDecimal CHANGED_LIMIT = BigDecimal.valueOf(40_000_000L);
-  private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 2, 10, 30);
+    private static final Long CUSTOMER_ID = 1L;
+    private static final Long ACCOUNT_ID = 10L;
+    private static final BigDecimal LIMIT = BigDecimal.valueOf(30_000_000L);
+    private static final BigDecimal CHANGED_LIMIT = BigDecimal.valueOf(40_000_000L);
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 2, 10, 30);
 
-  @Mock private AccountMapper accountMapper;
-  @Mock private MydataProvider mydataProvider;
-  @Mock private AccountLogService accountLogService;
-  @Mock private BusinessClockService businessClockService;
-  @Mock private AccountTransactionalService accountTransactionalService;
-  @Mock private AccountMydataSyncService accountMydataSyncService;
+    @Mock private AccountMapper accountMapper;
+    @Mock private MydataProvider mydataProvider;
+    @Mock private AccountLogService accountLogService;
+    @Mock private BusinessClockService businessClockService;
+    @Mock private AccountTransactionalService accountTransactionalService;
+    @Mock private AccountMydataSyncService accountMydataSyncService;
 
-  @InjectMocks private AccountServiceImpl accountService;
+    @InjectMocks private AccountServiceImpl accountService;
 
-  @BeforeEach
-  void setUp() {
-    when(accountMapper.existsCustomerById(CUSTOMER_ID)).thenReturn(true);
-    when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of("ci-hash"));
-    when(mydataProvider.getExternalConfiguredLimit("ci-hash")).thenReturn(BigDecimal.ZERO);
-    when(businessClockService.now()).thenReturn(NOW);
-  }
+    @BeforeEach
+    void setUp() {
+        when(accountMapper.existsCustomerById(CUSTOMER_ID)).thenReturn(true);
+        when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID))
+                .thenReturn(Optional.of("ci-hash"));
+        when(mydataProvider.getExternalConfiguredLimit("ci-hash")).thenReturn(BigDecimal.ZERO);
+        when(businessClockService.now()).thenReturn(NOW);
+    }
 
-  @Test
-  void updateLimitDoesNotSyncMydataForAppliedAccount() {
-    when(accountTransactionalService.updateLimit(CUSTOMER_ID, LIMIT, CHANGED_LIMIT, NOW))
-        .thenReturn(account(Status.APPLIED, CHANGED_LIMIT));
+    @Test
+    void updateLimitDoesNotSyncMydataForAppliedAccount() {
+        when(accountTransactionalService.updateLimit(CUSTOMER_ID, LIMIT, CHANGED_LIMIT, NOW))
+                .thenReturn(account(Status.APPLIED, CHANGED_LIMIT));
 
-    AccountResponseDTO result = accountService.updateAccountLimit(limitUpdateRequest(LIMIT, CHANGED_LIMIT));
+        AccountResponseDTO result =
+                accountService.updateAccountLimit(limitUpdateRequest(LIMIT, CHANGED_LIMIT));
 
-    assertThat(result.getStatus()).isEqualTo(Status.APPLIED);
-    verify(accountMydataSyncService, never()).updateLimit(any());
-  }
+        assertThat(result.getStatus()).isEqualTo(Status.APPLIED);
+        verify(accountMydataSyncService, never()).updateLimit(any());
+    }
 
-  @Test
-  void updateLimitSyncsOnlyLimitForOpenedAccount() {
-    AccountDTO updated = account(Status.OPENED, CHANGED_LIMIT);
-    when(accountTransactionalService.updateLimit(CUSTOMER_ID, LIMIT, CHANGED_LIMIT, NOW)).thenReturn(updated);
+    @Test
+    void updateLimitSyncsOnlyLimitForOpenedAccount() {
+        AccountDTO updated = account(Status.OPENED, CHANGED_LIMIT);
+        when(accountTransactionalService.updateLimit(CUSTOMER_ID, LIMIT, CHANGED_LIMIT, NOW))
+                .thenReturn(updated);
 
-    accountService.updateAccountLimit(limitUpdateRequest(LIMIT, CHANGED_LIMIT));
+        accountService.updateAccountLimit(limitUpdateRequest(LIMIT, CHANGED_LIMIT));
 
-    verify(accountMydataSyncService).updateLimit(updated);
-    verify(accountMydataSyncService, never()).create(any());
-  }
+        verify(accountMydataSyncService).updateLimit(updated);
+        verify(accountMydataSyncService, never()).create(any());
+    }
 
-  @Test
-  void updateLimitRejectsAmountThatExceedsMydataAvailableLimit() {
-    when(mydataProvider.getExternalConfiguredLimit("ci-hash")).thenReturn(BigDecimal.valueOf(20_000_000L));
+    @Test
+    void updateLimitRejectsAmountThatExceedsMydataAvailableLimit() {
+        when(mydataProvider.getExternalConfiguredLimit("ci-hash"))
+                .thenReturn(BigDecimal.valueOf(20_000_000L));
 
-    assertThatThrownBy(() -> accountService.updateAccountLimit(limitUpdateRequest(LIMIT, CHANGED_LIMIT)))
-        .isInstanceOf(InvalidAccountRequestException.class)
-        .hasMessageContaining("30000000");
+        assertThatThrownBy(
+                        () ->
+                                accountService.updateAccountLimit(
+                                        limitUpdateRequest(LIMIT, CHANGED_LIMIT)))
+                .isInstanceOf(InvalidAccountRequestException.class)
+                .hasMessageContaining("30000000");
 
-    verify(accountTransactionalService, never()).updateLimit(any(), any(), any(), any());
-  }
+        verify(accountTransactionalService, never()).updateLimit(any(), any(), any(), any());
+    }
 
-  @Test
-  void applyUsesSingleBusinessClockSnapshotAndCreatesMydataForOpenedAccount() {
-    AccountDTO opened = account(Status.OPENED, LIMIT);
-    when(accountTransactionalService.apply(any(AccountDTO.class), eq(NOW), eq(true))).thenReturn(opened);
+    @Test
+    void applyUsesSingleBusinessClockSnapshotAndCreatesMydataForOpenedAccount() {
+        AccountDTO opened = account(Status.OPENED, LIMIT);
+        when(accountTransactionalService.apply(any(AccountDTO.class), eq(NOW), eq(true)))
+                .thenReturn(opened);
 
-    accountService.applyAccount(request(LIMIT));
+        accountService.applyAccount(request(LIMIT));
 
-    verify(businessClockService).now();
-    verify(accountMydataSyncService).create(opened);
-  }
+        verify(businessClockService).now();
+        verify(accountMydataSyncService).create(opened);
+    }
 
-  @Test
-  void applyKeepsAccountAppliedWhenExternalLimitDoesNotMatch() {
-    AccountDTO applied = account(Status.APPLIED, LIMIT);
-    when(mydataProvider.getExternalConfiguredLimit("ci-hash")).thenReturn(BigDecimal.valueOf(25_000_000L));
-    when(accountTransactionalService.apply(any(AccountDTO.class), eq(NOW), eq(false))).thenReturn(applied);
+    @Test
+    void applyKeepsAccountAppliedWhenExternalLimitDoesNotMatch() {
+        AccountDTO applied = account(Status.APPLIED, LIMIT);
+        when(mydataProvider.getExternalConfiguredLimit("ci-hash"))
+                .thenReturn(BigDecimal.valueOf(25_000_000L));
+        when(accountTransactionalService.apply(any(AccountDTO.class), eq(NOW), eq(false)))
+                .thenReturn(applied);
 
-    AccountResponseDTO result = accountService.applyAccount(request(LIMIT));
+        AccountResponseDTO result = accountService.applyAccount(request(LIMIT));
 
-    assertThat(result.getStatus()).isEqualTo(Status.APPLIED);
-    verify(accountTransactionalService).apply(any(AccountDTO.class), eq(NOW), eq(false));
-    verify(accountMydataSyncService, never()).create(any());
-  }
+        assertThat(result.getStatus()).isEqualTo(Status.APPLIED);
+        verify(accountTransactionalService).apply(any(AccountDTO.class), eq(NOW), eq(false));
+        verify(accountMydataSyncService, never()).create(any());
+    }
 
-  @Test
-  void applyKeepsAccountAppliedOutsideApplicationPeriod() {
-    LocalDateTime outsidePeriod = LocalDateTime.of(2027, 1, 1, 10, 0);
-    AccountDTO applied = account(Status.APPLIED, LIMIT);
-    when(businessClockService.now()).thenReturn(outsidePeriod);
-    when(accountTransactionalService.apply(any(AccountDTO.class), eq(outsidePeriod), eq(false))).thenReturn(applied);
+    @Test
+    void applyKeepsAccountAppliedOutsideApplicationPeriod() {
+        LocalDateTime outsidePeriod = LocalDateTime.of(2027, 1, 1, 10, 0);
+        AccountDTO applied = account(Status.APPLIED, LIMIT);
+        when(businessClockService.now()).thenReturn(outsidePeriod);
+        when(accountTransactionalService.apply(any(AccountDTO.class), eq(outsidePeriod), eq(false)))
+                .thenReturn(applied);
 
-    AccountResponseDTO result = accountService.applyAccount(request(LIMIT));
+        AccountResponseDTO result = accountService.applyAccount(request(LIMIT));
 
-    assertThat(result.getStatus()).isEqualTo(Status.APPLIED);
-    verify(accountMydataSyncService, never()).create(any());
-  }
+        assertThat(result.getStatus()).isEqualTo(Status.APPLIED);
+        verify(accountMydataSyncService, never()).create(any());
+    }
 
-  @Test
-  void approvePassesValidatedLimitAndCreatesMydataAccount() {
-    AccountDTO applied = account(Status.APPLIED, LIMIT);
-    AccountDTO opened = account(Status.OPENED, LIMIT);
-    when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(applied));
-    when(accountTransactionalService.approve(ACCOUNT_ID, LIMIT, NOW)).thenReturn(opened);
+    @Test
+    void approvePassesValidatedLimitAndCreatesMydataAccount() {
+        AccountDTO applied = account(Status.APPLIED, LIMIT);
+        AccountDTO opened = account(Status.OPENED, LIMIT);
+        when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(applied));
+        when(accountTransactionalService.approve(ACCOUNT_ID, LIMIT, NOW)).thenReturn(opened);
 
-    accountService.approveAccount(ACCOUNT_ID);
+        accountService.approveAccount(ACCOUNT_ID);
 
-    verify(accountTransactionalService).approve(ACCOUNT_ID, LIMIT, NOW);
-    verify(accountMydataSyncService).create(opened);
-  }
+        verify(accountTransactionalService).approve(ACCOUNT_ID, LIMIT, NOW);
+        verify(accountMydataSyncService).create(opened);
+    }
 
-  @Test
-  void approveAllowsPendingAccountOutsideApplicationPeriod() {
-    LocalDateTime afterApplicationPeriod = LocalDateTime.of(2027, 1, 1, 10, 0);
-    AccountDTO applied = account(Status.APPLIED, LIMIT);
-    AccountDTO opened = account(Status.OPENED, LIMIT);
-    when(businessClockService.now()).thenReturn(afterApplicationPeriod);
-    when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(applied));
-    when(accountTransactionalService.approve(ACCOUNT_ID, LIMIT, afterApplicationPeriod)).thenReturn(opened);
+    @Test
+    void approveAllowsPendingAccountOutsideApplicationPeriod() {
+        LocalDateTime afterApplicationPeriod = LocalDateTime.of(2027, 1, 1, 10, 0);
+        AccountDTO applied = account(Status.APPLIED, LIMIT);
+        AccountDTO opened = account(Status.OPENED, LIMIT);
+        when(businessClockService.now()).thenReturn(afterApplicationPeriod);
+        when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(applied));
+        when(accountTransactionalService.approve(ACCOUNT_ID, LIMIT, afterApplicationPeriod))
+                .thenReturn(opened);
 
-    accountService.approveAccount(ACCOUNT_ID);
+        accountService.approveAccount(ACCOUNT_ID);
 
-    verify(accountTransactionalService).approve(ACCOUNT_ID, LIMIT, afterApplicationPeriod);
-  }
+        verify(accountTransactionalService).approve(ACCOUNT_ID, LIMIT, afterApplicationPeriod);
+    }
 
-  private AccountRequestDTO request(BigDecimal limit) {
-    return AccountRequestDTO.builder().customerId(CUSTOMER_ID).limitAmount(limit).build();
-  }
+    private AccountRequestDTO request(BigDecimal limit) {
+        return AccountRequestDTO.builder().customerId(CUSTOMER_ID).limitAmount(limit).build();
+    }
 
-  private AccountLimitUpdateRequestDTO limitUpdateRequest(BigDecimal expectedCurrentLimit, BigDecimal limitAmount) {
-    return AccountLimitUpdateRequestDTO.builder()
-        .customerId(CUSTOMER_ID)
-        .expectedCurrentLimit(expectedCurrentLimit)
-        .limitAmount(limitAmount)
-        .build();
-  }
+    private AccountLimitUpdateRequestDTO limitUpdateRequest(
+            BigDecimal expectedCurrentLimit, BigDecimal limitAmount) {
+        return AccountLimitUpdateRequestDTO.builder()
+                .customerId(CUSTOMER_ID)
+                .expectedCurrentLimit(expectedCurrentLimit)
+                .limitAmount(limitAmount)
+                .build();
+    }
 
-  private AccountDTO account(Status status, BigDecimal limit) {
-    return AccountDTO.builder()
-        .accountId(ACCOUNT_ID)
-        .customerId(CUSTOMER_ID)
-        .status(status)
-        .limitAmount(limit)
-        .build();
-  }
+    private AccountDTO account(Status status, BigDecimal limit) {
+        return AccountDTO.builder()
+                .accountId(ACCOUNT_ID)
+                .customerId(CUSTOMER_ID)
+                .status(status)
+                .limitAmount(limit)
+                .build();
+    }
 }

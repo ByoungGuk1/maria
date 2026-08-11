@@ -1,5 +1,15 @@
 package com.app.maria.domain.sellorder.mapper;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Optional;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
@@ -11,17 +21,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.io.Reader;
-import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class SellLimitMapperTest {
 
@@ -35,10 +34,9 @@ class SellLimitMapperTest {
         try (Reader reader = Resources.getResourceAsReader("mybatis-selllimit-test-config.xml")) {
             sqlSessionFactory = new SqlSessionFactoryBuilder().build(reader);
         }
-        dataSource = (PooledDataSource) sqlSessionFactory
-                .getConfiguration()
-                .getEnvironment()
-                .getDataSource();
+        dataSource =
+                (PooledDataSource)
+                        sqlSessionFactory.getConfiguration().getEnvironment().getDataSource();
     }
 
     @BeforeEach
@@ -66,7 +64,8 @@ class SellLimitMapperTest {
 
     @Test
     @DisplayName("계좌의 limit_amount를 정확히 그 계좌 것으로 조회한다 (다른 계좌 값과 안 섞임)")
-    void selectAccountLimitForUpdateReturnsThisAccountsLimitNotAnotherAccounts() throws SQLException {
+    void selectAccountLimitForUpdateReturnsThisAccountsLimitNotAnotherAccounts()
+            throws SQLException {
         Long customerA = insertCustomer("ci-hash-a");
         Long customerB = insertCustomer("ci-hash-b");
         Long accountA = insertAccount(customerA, "30000000");
@@ -166,22 +165,25 @@ class SellLimitMapperTest {
 
     private void resetSchema() throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute("DROP ALL OBJECTS");
-            statement.execute("""
+            statement.execute(
+                    """
                     CREATE TABLE customer (
                         customer_id BIGINT PRIMARY KEY AUTO_INCREMENT,
                         ci_hash VARCHAR(64) NOT NULL
                     )
                     """);
-            statement.execute("""
+            statement.execute(
+                    """
                     CREATE TABLE account (
                         account_id BIGINT PRIMARY KEY AUTO_INCREMENT,
                         customer_id BIGINT NOT NULL,
                         limit_amount DECIMAL(15,0) NOT NULL
                     )
                     """);
-            statement.execute("""
+            statement.execute(
+                    """
                     CREATE TABLE krw_exchange (
                         exchange_id BIGINT PRIMARY KEY AUTO_INCREMENT,
                         account_id BIGINT NOT NULL,
@@ -195,7 +197,8 @@ class SellLimitMapperTest {
     private Long insertCustomer(String ciHash) throws SQLException {
         String sql = "INSERT INTO customer (ci_hash) VALUES (?)";
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                PreparedStatement statement =
+                        connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             statement.setString(1, ciHash);
             statement.executeUpdate();
             var keys = statement.getGeneratedKeys();
@@ -207,7 +210,8 @@ class SellLimitMapperTest {
     private Long insertAccount(Long customerId, String limitAmount) throws SQLException {
         String sql = "INSERT INTO account (customer_id, limit_amount) VALUES (?, ?)";
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                PreparedStatement statement =
+                        connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             statement.setLong(1, customerId);
             statement.setBigDecimal(2, new BigDecimal(limitAmount));
             statement.executeUpdate();
@@ -217,10 +221,12 @@ class SellLimitMapperTest {
         }
     }
 
-    private void insertExchange(Long accountId, String finalAmount, String settlementStatus) throws SQLException {
-        String sql = "INSERT INTO krw_exchange (account_id, final_amount, settlement_status) VALUES (?, ?, ?)";
+    private void insertExchange(Long accountId, String finalAmount, String settlementStatus)
+            throws SQLException {
+        String sql =
+                "INSERT INTO krw_exchange (account_id, final_amount, settlement_status) VALUES (?, ?, ?)";
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+                PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setLong(1, accountId);
             statement.setBigDecimal(2, new BigDecimal(finalAmount));
             statement.setString(3, settlementStatus);

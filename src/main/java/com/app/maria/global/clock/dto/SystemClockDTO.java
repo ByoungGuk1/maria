@@ -1,8 +1,7 @@
 package com.app.maria.global.clock.dto;
 
-import lombok.*;
-
 import java.time.LocalDateTime;
+import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor

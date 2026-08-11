@@ -2,10 +2,9 @@ package com.app.maria.domain.sellorder.dto.response;
 
 import com.app.maria.domain.sellorder.dto.SellOrderDTO;
 import com.app.maria.domain.sellorder.type.SellOrderStatus;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -36,5 +35,4 @@ public class SellOrderResponseDTO {
         this.status = dto.getStatus();
         this.processedAt = dto.getProcessedAt();
     }
-
 }

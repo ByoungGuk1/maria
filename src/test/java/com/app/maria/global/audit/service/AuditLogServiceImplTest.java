@@ -1,11 +1,19 @@
 package com.app.maria.global.audit.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.app.maria.global.audit.dto.AuditLogDTO;
 import com.app.maria.global.audit.dto.AuditLogSearchDTO;
 import com.app.maria.global.audit.dto.request.AuditLogSearchRequestDTO;
 import com.app.maria.global.audit.dto.response.AuditLogResponseDTO;
 import com.app.maria.global.audit.exception.AuditLogInsertException;
 import com.app.maria.global.audit.mapper.AuditLogMapper;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,23 +22,12 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class AuditLogServiceImplTest {
 
-    @Mock
-    AuditLogMapper auditLogMapper;
+    @Mock AuditLogMapper auditLogMapper;
 
-    @InjectMocks
-    AuditLogServiceImpl auditLogService;
+    @InjectMocks AuditLogServiceImpl auditLogService;
 
     private AuditLogDTO auditLog(Long auditId, Long adminId, String targetTable, String targetPk) {
         return AuditLogDTO.builder()
@@ -48,10 +45,8 @@ class AuditLogServiceImplTest {
     @Test
     @DisplayName("검색 조건을 VO로 변환해 Mapper에 넘기고, 결과를 ResponseDTO 리스트로 변환해 반환한다")
     void searchAuditLogsConvertsRequestToVoAndMapsResultToResponseDto() {
-        AuditLogSearchRequestDTO request = AuditLogSearchRequestDTO.builder()
-                .adminId(1L)
-                .targetTable("ADMIN_USER")
-                .build();
+        AuditLogSearchRequestDTO request =
+                AuditLogSearchRequestDTO.builder().adminId(1L).targetTable("ADMIN_USER").build();
 
         when(auditLogMapper.selectAuditLogs(any(AuditLogSearchDTO.class)))
                 .thenReturn(List.of(auditLog(10L, 1L, "ADMIN_USER", "2")));

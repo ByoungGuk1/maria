@@ -27,17 +27,22 @@ public class TaxCalculationServiceImpl implements TaxCalculationService {
     @Override
     @Transactional(readOnly = true)
     public TaxCalculationResponseDTO taxCalculate(Long accountId) {
-        AccountDTO account = accountMapper.selectByAccountId(accountId)
-                .orElseThrow(() -> new AccountNotFoundException("계좌가 없습니다."));
+        AccountDTO account =
+                accountMapper
+                        .selectByAccountId(accountId)
+                        .orElseThrow(() -> new AccountNotFoundException("계좌가 없습니다."));
 
-        List<SellLotDTO> sellLots = taxMapper.findFinalizedLotsByAccountAndYear(accountId,
-                riaTaxProperties.getTaxYear(), clockService.now());
+        List<SellLotDTO> sellLots =
+                taxMapper.findFinalizedLotsByAccountAndYear(
+                        accountId, riaTaxProperties.getTaxYear(), clockService.now());
 
         List<TaxRuleDTO> taxRules = taxMapper.findTaxRules();
 
-        List<ExternalBuyDTO> externalTrades = taxMapper.findExternalBuysByAccountAndYear(accountId,
-                riaTaxProperties.getTaxYear());
+        List<ExternalBuyDTO> externalTrades =
+                taxMapper.findExternalBuysByAccountAndYear(
+                        accountId, riaTaxProperties.getTaxYear());
 
-        return TaxCalculationResponseDTO.of(accountId,taxCalculator.calculate(sellLots,taxRules,externalTrades));
+        return TaxCalculationResponseDTO.of(
+                accountId, taxCalculator.calculate(sellLots, taxRules, externalTrades));
     }
 }

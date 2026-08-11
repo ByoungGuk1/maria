@@ -13,12 +13,11 @@ import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.jwt.JwtTokenProvider;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -33,14 +32,18 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @Transactional(readOnly = true)
     public AdminLoginResponseDTO login(AdminLoginRequestDTO request) {
-        AdminUserDTO admin = adminMapper.selectAdminByLoginId(request.getLoginId())
-                .orElseThrow(() -> new AdminException("아이디 또는 비밀번호가 일치하지 않습니다."));
+        AdminUserDTO admin =
+                adminMapper
+                        .selectAdminByLoginId(request.getLoginId())
+                        .orElseThrow(() -> new AdminException("아이디 또는 비밀번호가 일치하지 않습니다."));
 
         if (!passwordEncoder.matches(request.getPassword(), admin.getPasswordHash())) {
             throw new AdminException("아이디 또는 비밀번호가 일치하지 않습니다.");
         }
 
-        String accessToken = jwtTokenProvider.createAccessToken(admin.getAdminId(), admin.getLoginId(), admin.getRole());
+        String accessToken =
+                jwtTokenProvider.createAccessToken(
+                        admin.getAdminId(), admin.getLoginId(), admin.getRole());
         String refreshToken = jwtTokenProvider.createRefreshToken(admin.getAdminId());
 
         return AdminLoginResponseDTO.builder()
@@ -51,19 +54,22 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public void updateRole(Long actorAdminId, Long targetAdminId, AdminRole newRole) {
-        AdminUserDTO admin = adminMapper.selectAdminByAdminId(targetAdminId)
-                .orElseThrow(() -> new AdminNotFoundException("대상 관리자가 없습니다."));
+        AdminUserDTO admin =
+                adminMapper
+                        .selectAdminByAdminId(targetAdminId)
+                        .orElseThrow(() -> new AdminNotFoundException("대상 관리자가 없습니다."));
 
         adminMapper.updateRole(targetAdminId, newRole);
 
-        auditLogService.log(AuditLogDTO.builder()
-                .adminId(actorAdminId)
-                .targetTable("ADMIN_USER")
-                .targetPk(String.valueOf(targetAdminId))
-                .beforeValue(admin.getRole().name())
-                .afterValue(newRole.name())
-                .reasonCode("ADMIN_ROLE_UPDATE")
-                .build());
+        auditLogService.log(
+                AuditLogDTO.builder()
+                        .adminId(actorAdminId)
+                        .targetTable("ADMIN_USER")
+                        .targetPk(String.valueOf(targetAdminId))
+                        .beforeValue(admin.getRole().name())
+                        .afterValue(newRole.name())
+                        .reasonCode("ADMIN_ROLE_UPDATE")
+                        .build());
     }
 
     @Override
@@ -83,10 +89,14 @@ public class AdminServiceImpl implements AdminService {
             throw new AdminException("유효하지 않은 토큰 정보입니다.");
         }
 
-        AdminUserDTO admin = adminMapper.selectAdminByAdminId(adminId)
-                .orElseThrow(() -> new AdminNotFoundException("대상 관리자가 없습니다."));
+        AdminUserDTO admin =
+                adminMapper
+                        .selectAdminByAdminId(adminId)
+                        .orElseThrow(() -> new AdminNotFoundException("대상 관리자가 없습니다."));
 
-        String newAccessToken = jwtTokenProvider.createAccessToken(admin.getAdminId(), admin.getLoginId(), admin.getRole());
+        String newAccessToken =
+                jwtTokenProvider.createAccessToken(
+                        admin.getAdminId(), admin.getLoginId(), admin.getRole());
 
         return AdminLoginResponseDTO.builder()
                 .accessToken(newAccessToken)
@@ -98,9 +108,6 @@ public class AdminServiceImpl implements AdminService {
     @Transactional(readOnly = true)
     public List<AdminSummaryResponseDTO> getAllAdmins() {
         List<AdminUserDTO> admins = adminMapper.selectAllAdmins();
-        return admins.stream()
-                .map(AdminSummaryResponseDTO::new)
-                .toList();
+        return admins.stream().map(AdminSummaryResponseDTO::new).toList();
     }
-
 }
