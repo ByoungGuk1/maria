@@ -13,6 +13,7 @@ import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationResultDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
+import com.app.maria.domain.tax.exception.TaxRuleNotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -193,7 +194,7 @@ class TaxCalculatorTest {
                 List.of(lot(LocalDate.of(2027, 1, 5), "10000000", "100", "1000", "40"));
 
         assertThatThrownBy(() -> calculator.calculate(lots, allSeedRules(), List.of(), false))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(TaxRuleNotFoundException.class);
     }
 
     @Test
@@ -244,7 +245,7 @@ class TaxCalculatorTest {
                 List.of(lot(LocalDate.of(2026, 3, 10), "10000000", "100", "1000", "40"));
 
         assertThatThrownBy(() -> calculator.calculate(lots, onlyConstants, List.of(), false))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(TaxRuleNotFoundException.class);
     }
 
     @Test
@@ -254,7 +255,7 @@ class TaxCalculatorTest {
                 List.of(lot(LocalDate.of(2026, 3, 10), "10000000", "100", "1000", "40"));
 
         assertThatThrownBy(() -> calculator.calculate(lots, List.of(), List.of(), false))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(TaxRuleNotFoundException.class);
     }
 
     @Test
@@ -399,7 +400,7 @@ class TaxCalculatorTest {
         List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2027, 1, 5), "10000000"));
 
         assertThatThrownBy(() -> calculator.calculate(lots, allSeedRules(), external, false))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(TaxRuleNotFoundException.class)
                 .hasMessageContaining("RELIEF_RATE");
     }
 
@@ -730,7 +731,7 @@ class TaxCalculatorTest {
     @DisplayName("기본공제 규칙이 없으면 예외")
     void 기본공제규칙_없음() {
         assertThatThrownBy(() -> calculator.calculate(GOLDEN_LOTS, reliefRates(), List.of(), false))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(TaxRuleNotFoundException.class)
                 .hasMessageContaining("BASIC_DEDUCTION");
     }
 
@@ -744,7 +745,7 @@ class TaxCalculatorTest {
 
         assertThatThrownBy(
                         () -> calculator.calculate(GOLDEN_LOTS, withoutTaxRate, List.of(), false))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(TaxRuleNotFoundException.class)
                 .hasMessageContaining("TAX_RATE");
     }
 

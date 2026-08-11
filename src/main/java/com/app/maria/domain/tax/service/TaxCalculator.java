@@ -5,6 +5,7 @@ import com.app.maria.domain.tax.dto.RiaSellAggregateDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationResultDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
+import com.app.maria.domain.tax.exception.TaxRuleNotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -124,7 +125,7 @@ public class TaxCalculator {
                 .map(TaxRuleDTO::getRuleValue)
                 .orElseThrow(
                         () ->
-                                new IllegalArgumentException(
+                                new TaxRuleNotFoundException(
                                         baseDate + " 에 유효한 " + ruleType + " 규칙을 찾지 못했습니다."));
     }
 
@@ -133,6 +134,6 @@ public class TaxCalculator {
                 .filter(rule -> ruleType.equals(rule.getRuleType()))
                 .findFirst()
                 .map(TaxRuleDTO::getRuleValue)
-                .orElseThrow(() -> new IllegalArgumentException(ruleType + "규칙을 찾지 못했습니다"));
+                .orElseThrow(() -> new TaxRuleNotFoundException(ruleType + " 규칙을 찾지 못했습니다."));
     }
 }
