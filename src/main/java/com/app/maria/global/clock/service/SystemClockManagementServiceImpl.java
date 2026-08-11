@@ -1,8 +1,7 @@
 package com.app.maria.global.clock.service;
 
 import com.app.maria.global.audit.dto.AuditLogDTO;
-import com.app.maria.global.audit.exception.AuditLogInsertException;
-import com.app.maria.global.audit.mapper.AuditLogMapper;
+import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.clock.dto.SystemClockDTO;
 import com.app.maria.global.clock.dto.request.SystemClockChangeRequestDTO;
 import com.app.maria.global.clock.exception.SystemClockNotInitializedException;
@@ -18,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SystemClockManagementServiceImpl implements SystemClockManagementService {
 
     private final SystemClockMapper systemClockMapper;
-    private final AuditLogMapper auditLogMapper;
+    private final AuditLogService auditLogService;
 
     @Transactional(rollbackFor = Exception.class)
     @Override
@@ -54,11 +53,7 @@ public class SystemClockManagementServiceImpl implements SystemClockManagementSe
                         .afterValue(newDatetime.toString())
                         .reasonCode(reasonCode)
                         .build();
-        int insertedRows = auditLogMapper.insertLog(auditLog);
-
-        if (insertedRows != 1) {
-            throw new AuditLogInsertException("AUDIT_LOG 저장에 실패했습니다.");
-        }
+        auditLogService.log(auditLog);
 
         return newDatetime;
     }
