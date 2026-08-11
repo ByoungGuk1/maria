@@ -9,7 +9,7 @@ $(function () {
 
     var admin = MARIA.auth.currentAdmin();
     if (admin) {
-        $("#adminBadge").text(admin.loginId + " · " + admin.role);
+        $("#adminBadge").text(admin.name + " · " + admin.role);
     }
 
     applyTheme(localStorage.getItem("maria.theme") || "light");
