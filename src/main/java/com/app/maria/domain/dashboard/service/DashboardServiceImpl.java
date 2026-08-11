@@ -12,12 +12,14 @@ import com.app.maria.global.audit.dto.request.AuditLogSearchRequestDTO;
 import com.app.maria.global.audit.dto.response.AuditLogResponseDTO;
 import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.clock.service.BusinessClockService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +37,7 @@ public class DashboardServiceImpl implements DashboardService {
     private static final int RECENT_AUDIT_LOG_LIMIT = 4;
 
     @Override
+    @Transactional(readOnly = true)
     public DashboardSummaryDTO getDashboardSummary() {
         List<AccountLimitUsageDTO> openAccountUsages = accountService.selectAccountLimitUsage();
 
