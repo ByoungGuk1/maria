@@ -30,4 +30,16 @@
             valid_to
         from tax_rule
     </select>
+
+    <select id="findExternalBuysByAccountAndYear" resultType="ExternalBuyDTO">
+        select
+            tpj.trade_date,
+            tpj.net_buy_amount
+        from target_product_judgement tpj
+        join customer c on c.ci_hash = tpj.ci_hash
+        join account a on a.customer_id = c.customer_id
+        where a.account_id = #{accountId}
+            and tpj.is_target = true
+            and YEAR(tpj.trade_date) = #{year}
+    </select>
 </mapper>

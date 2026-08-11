@@ -12,6 +12,9 @@ import com.app.maria.domain.sellorder.exception.SellOrderException;
 import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.domain.sellorder.mapper.SellOrderMapper;
 import com.app.maria.domain.sellorder.type.SellOrderStatus;
+import com.app.maria.domain.settlement.service.ProvisionalExchangeService;
+import com.app.maria.global.audit.dto.AuditLogDTO;
+import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.client.exchange.ExchangeRateClient;
 import com.app.maria.global.client.kis.KisExchangeCode;
 import com.app.maria.global.client.kis.KisPriceClient;
@@ -37,10 +40,12 @@ public class SellOrderServiceImpl implements SellOrderService{
     private final ForeignProductMapper foreignProductMapper;
     private final SellLimitService sellLimitService;
     private final BusinessClockService businessClockService;
+    private final ProvisionalExchangeService provisionalExchangeService;
+    private final AuditLogService auditLogService;
 
     @Override
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public List<SellOrderResponseDTO> placeSellOrder(SellOrderRequestDTO request) {
+    public List<SellOrderResponseDTO> placeSellOrder(Long actorAdminId,SellOrderRequestDTO request) {
 
         SellOrderDTO sellOrderDTO = request.toSellOrderDTO();
 
@@ -75,6 +80,18 @@ public class SellOrderServiceImpl implements SellOrderService{
                     .processedAt(businessClockService.now())
                     .build();
             sellOrderMapper.insertSellOrder(rejected);
+
+            auditLogService.log(AuditLogDTO.builder()
+                    .adminId(actorAdminId)
+                    .targetTable("SELL_ORDER")
+                    .targetPk(String.valueOf(rejected.getOrderId()))
+                    .beforeValue(null)
+                    .afterValue("REJECTED / accountId=" + rejected.getAccountId()
+                            + ", foreignProductId=" + rejected.getForeignProductId()
+                            + ", sellQty=" + rejected.getSellQty())
+                    .reasonCode("SELL_ORDER_REJECTED")
+                    .build());
+
             return List.of(new SellOrderResponseDTO(rejected));
         }
 
@@ -100,6 +117,17 @@ public class SellOrderServiceImpl implements SellOrderService{
                     .build();
             sellOrderMapper.insertSellOrder(executed);
             executeOrders.add(executed);
+
+            auditLogService.log(AuditLogDTO.builder()
+                    .adminId(actorAdminId)
+                    .targetTable("SELL_ORDER")
+                    .targetPk(String.valueOf(executed.getOrderId()))
+                    .beforeValue("inboundDetailId=" + lot.getInboundDetailId() + ", lotCurrentQty=" + lot.getCurrentQty())
+                    .afterValue("EXECUTED / sellQty=" + qtyFromThisLot)
+                    .reasonCode("SELL_ORDER_EXECUTED")
+                    .build());
+
+            provisionalExchangeService.createProvisionalExchange(executed);
 
             remainingQty = remainingQty.subtract(qtyFromThisLot);
 

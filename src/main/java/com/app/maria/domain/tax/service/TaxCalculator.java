@@ -1,5 +1,6 @@
 package com.app.maria.domain.tax.service;
 
+import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.RiaSellAggregateDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationResultDTO;
@@ -16,19 +17,26 @@ public class TaxCalculator {
     private static final String RELIEF_RATE = "RELIEF_RATE";
     private static final String BASIC_DEDUCTION = "BASIC_DEDUCTION";
     private static final String TAX_RATE = "TAX_RATE";
+    private static final int RATIO_SCALE = 4;
+    private static final int AMOUNT_SCALE = 2;
 
-    public TaxCalculationResultDTO calculate(List<SellLotDTO> lots, List<TaxRuleDTO> rules ) {
-        RiaSellAggregateDTO riaSellAggregate = aggregateRiaSell(lots, rules);
+    public TaxCalculationResultDTO calculate(
+            List<SellLotDTO> sellLots,
+            List<TaxRuleDTO> taxRules,
+            List<ExternalBuyDTO> externalTrades) {
+        RiaSellAggregateDTO riaSell = aggregateRiaSell(sellLots, taxRules);
 
-        return TaxCalculationResultDTO.of(riaSellAggregate);
+        BigDecimal weightedExternalAmount = aggregateExternal(externalTrades, taxRules);
+
+        return TaxCalculationResultDTO.of(riaSell,weightedExternalAmount);
     }
-    private RiaSellAggregateDTO aggregateRiaSell(List<SellLotDTO> lots, List<TaxRuleDTO> weights) {
+    private RiaSellAggregateDTO aggregateRiaSell(List<SellLotDTO> lots, List<TaxRuleDTO> taxRules) {
         BigDecimal weightedSell = BigDecimal.ZERO;
         BigDecimal weightedGain = BigDecimal.ZERO;
         BigDecimal originalGain = BigDecimal.ZERO;
 
         for (SellLotDTO lot : lots) {
-            BigDecimal weight = findWeight(weights, lot.getSellAt());
+            BigDecimal weight = findWeight(taxRules, lot.getSellAt());
 
             BigDecimal purchaseCost = lot.getPurchasePrice()
                     .multiply(lot.getPurchaseFxRate())
@@ -44,13 +52,22 @@ public class TaxCalculator {
         return  RiaSellAggregateDTO.of(weightedSell,weightedGain,originalGain);
     }
 
-    private BigDecimal findWeight(List<TaxRuleDTO> rules,LocalDate sellAt) {
-        return findRuleValue(rules, RELIEF_RATE, sellAt)
-                .divide(BigDecimal.valueOf(100),4, RoundingMode.HALF_UP);
+    private BigDecimal aggregateExternal(List<ExternalBuyDTO> externalTrades, List<TaxRuleDTO> taxRules) {
+        BigDecimal sum = BigDecimal.ZERO;
+        for(ExternalBuyDTO externalTrade : externalTrades) {
+            BigDecimal weight = findWeight(taxRules,externalTrade.getTradeDate());
+            sum = sum.add(externalTrade.getNetBuyAmount().multiply(weight));
+        }
+        return sum.max(BigDecimal.ZERO).setScale(AMOUNT_SCALE,RoundingMode.HALF_UP);
     }
 
-    private BigDecimal findRuleValue(List<TaxRuleDTO> rules, String ruleType, LocalDate baseDate) {
-        return rules.stream()
+    private BigDecimal findWeight(List<TaxRuleDTO> taxRules,LocalDate sellAt) {
+        return findRuleValue(taxRules, RELIEF_RATE, sellAt)
+                .divide(BigDecimal.valueOf(100),RATIO_SCALE, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal findRuleValue(List<TaxRuleDTO> taxRules, String ruleType, LocalDate baseDate) {
+        return taxRules.stream()
                 .filter(rule -> ruleType.equals(rule.getRuleType()))
                 .filter(rule -> !baseDate.isBefore(rule.getValidFrom()) && !baseDate.isAfter(rule.getValidTo()))
                 .findFirst()

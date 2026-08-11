@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 @ToString
 @Builder
 public class AuditLogDTO {
+
     private Long auditId;
     private Long adminId;
     private String targetTable;
