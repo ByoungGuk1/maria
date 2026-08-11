@@ -12,6 +12,7 @@ import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
 import com.app.maria.domain.settlement.mapper.SettlementJoinMapper;
 import com.app.maria.domain.settlement.mapper.SettlementBatchGuardMapper;
 import com.app.maria.domain.settlement.type.BatchStatus;
+import com.app.maria.domain.settlement.type.SettlementStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -128,4 +129,9 @@ public class SettlementServiceImpl implements SettlementService {
   public KrwExchangeDTO getKrwExchange(Long exchangeId) {
     return krwExchangeMapper.selectExchangeById(exchangeId).orElseThrow(()->new KrwExchangeNotFoundException("환전 조회 실패"));
   }
+
+    @Override
+    public int getProvisionalExchangeCount() {
+        return krwExchangeMapper.countByStatus(SettlementStatus.PROVISIONAL);
+    }
 }

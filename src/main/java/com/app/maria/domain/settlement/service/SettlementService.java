@@ -26,4 +26,7 @@ public interface SettlementService {
   SettlementJoinDTO getSettlementItem(Long batchId, Long itemId);
 
   KrwExchangeDTO getKrwExchange(Long exchangeId);
+
+    int getProvisionalExchangeCount();
+
 }

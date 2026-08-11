@@ -1,6 +1,7 @@
 package com.app.maria.domain.settlement.mapper;
 
 import com.app.maria.domain.settlement.dto.KrwExchangeDTO;
+import com.app.maria.domain.settlement.type.SettlementStatus;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.math.BigDecimal;
@@ -22,4 +23,6 @@ public interface KrwExchangeMapper {
   int insertLeftAmount(KrwExchangeDTO krwExchangeDTO);
 
   int insertProvisional(KrwExchangeDTO krwExchangeDTO);
+
+  int countByStatus(SettlementStatus settlementStatus);
 }
