@@ -9,8 +9,8 @@ import org.springframework.web.client.RestClient;
 public class RestClientConfig {
 
     @Bean
-    @Qualifier("registrableStockRestClient")
-    public RestClient restClient(RestClient.Builder builder) {
+    @Qualifier("returnSecuritiesRestClient")
+    public RestClient returnSecuritiesRestClient(RestClient.Builder builder) {
         return builder.baseUrl("http://localhost:10001").build();
     }
 

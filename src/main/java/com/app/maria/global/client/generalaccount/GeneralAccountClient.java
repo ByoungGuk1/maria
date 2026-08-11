@@ -17,7 +17,7 @@ public class GeneralAccountClient {
 
     private final RestClient restClient;
 
-    public GeneralAccountClient(@Qualifier("registrableStockRestClient") RestClient restClient) {
+    public GeneralAccountClient(@Qualifier("returnSecuritiesRestClient") RestClient restClient) {
         this.restClient = restClient;
     }
 
