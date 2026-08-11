@@ -19,6 +19,7 @@ public class TaxCalculator {
     private static final String TAX_RATE = "TAX_RATE";
     private static final int RATIO_SCALE = 4;
     private static final int AMOUNT_SCALE = 2;
+    private static final int DIVIDE_SCALE = 12;
 
     public TaxCalculationResultDTO calculate(
             List<SellLotDTO> sellLots,
@@ -73,8 +74,9 @@ public class TaxCalculator {
         return BigDecimal.ONE
                 .subtract(
                         weightedExternalAmount.divide(
-                                weightedSell, RATIO_SCALE, RoundingMode.HALF_UP))
+                                weightedSell, DIVIDE_SCALE, RoundingMode.HALF_UP))
                 .max(BigDecimal.ZERO)
+                .min(BigDecimal.ONE)
                 .setScale(RATIO_SCALE, RoundingMode.HALF_UP);
     }
 
