@@ -55,4 +55,10 @@
         ORDER BY changed_at DESC, log_id DESC
         LIMIT 1
     </select>
+    <select id="countByNewStatusBetween" resultType="int">
+        SELECT COUNT(*)
+        FROM account_status_log
+        WHERE new_status = #{newStatus}
+        AND changed_at >= #{start} AND changed_at &lt; #{end}
+    </select>
 </mapper>

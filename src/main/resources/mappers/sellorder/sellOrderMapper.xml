@@ -22,4 +22,11 @@
         WHERE account_id = #{accountId}
     </select>
 
+    <select id="sumSellAmountBetween" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(sell_qty * base_price), 0)
+        FROM sell_order
+        WHERE processed_at >= #{start} AND processed_at &lt; #{end}
+        AND status IN ('RECEIVED', 'EXECUTED')
+    </select>
+
 </mapper>

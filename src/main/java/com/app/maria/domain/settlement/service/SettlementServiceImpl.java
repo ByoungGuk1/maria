@@ -12,6 +12,7 @@ import com.app.maria.domain.settlement.mapper.SettlementBatchMapper;
 import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
 import com.app.maria.domain.settlement.mapper.SettlementJoinMapper;
 import com.app.maria.domain.settlement.type.BatchStatus;
+import com.app.maria.domain.settlement.type.SettlementStatus;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -142,5 +143,11 @@ public class SettlementServiceImpl implements SettlementService {
         return krwExchangeMapper
                 .selectExchangeById(exchangeId)
                 .orElseThrow(() -> new KrwExchangeNotFoundException("환전 조회 실패"));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public int getProvisionalExchangeCount() {
+        return krwExchangeMapper.countByStatus(SettlementStatus.PROVISIONAL);
     }
 }
