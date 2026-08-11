@@ -2,21 +2,38 @@ package com.app.maria.domain.withdrawal.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.app.maria.domain.account.dto.AccountBenefitLogDTO;
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.exception.AccountException;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
+import com.app.maria.domain.account.mapper.AccountBenefitLogMapper;
 import com.app.maria.domain.account.mapper.AccountMapper;
+import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.withdrawal.dto.LeftAmountDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationDTO;
+import com.app.maria.domain.withdrawal.dto.WithdrawalDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
+import com.app.maria.domain.withdrawal.exception.EarlyWithdrawalConsentRequiredException;
 import com.app.maria.domain.withdrawal.exception.InsufficientWithdrawalAmountException;
 import com.app.maria.domain.withdrawal.exception.WithdrawalNotAllowedException;
+import com.app.maria.domain.withdrawal.exception.WithdrawalProcessingException;
 import com.app.maria.domain.withdrawal.mapper.WithdrawalMapper;
+import com.app.maria.domain.withdrawal.type.WithdrawalStatus;
 import com.app.maria.domain.withdrawal.type.WithdrawalType;
+import com.app.maria.global.client.generalaccount.GeneralAccountClient;
+import com.app.maria.global.client.generalaccount.dto.response.GeneralAccountResponseDTO;
+import com.app.maria.global.client.generalaccount.type.GeneralAccountStatus;
 import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -24,6 +41,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -33,11 +51,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class WithdrawalServiceImplTest {
 
     private static final Long ACCOUNT_ID = 1L;
+    private static final Long CUSTOMER_ID = 10L;
+    private static final Long GENERAL_ACCOUNT_ID = 20L;
+    private static final Long WITHDRAWAL_ID = 30L;
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 6, 10, 0);
 
     @Mock BusinessClockService businessClockService;
     @Mock AccountMapper accountMapper;
     @Mock WithdrawalMapper withdrawalMapper;
+    @Mock AccountBenefitLogMapper accountBenefitLogMapper;
+    @Mock GeneralAccountClient generalAccountClient;
     @InjectMocks WithdrawalServiceImpl withdrawalService;
 
     @Test
@@ -78,10 +101,90 @@ class WithdrawalServiceImplTest {
     }
 
     @Test
-    void oneSecondBeforeOneYear_isNotMatured() {
+    void oneSecondBeforeOneYear_requiresEarlyWithdrawalConsent() {
         prepareOpenedAccount(List.of(leftAmount(12L, "300", NOW.minusYears(1).plusSeconds(1))));
 
-        assertThat(withdrawalService.withdraw(request("200"))).isEmpty();
+        assertThatThrownBy(() -> withdrawalService.withdraw(request("200")))
+                .isInstanceOf(EarlyWithdrawalConsentRequiredException.class);
+
+        verify(accountMapper, never()).updateBenefitToImpossible(ACCOUNT_ID);
+        verifyNoInteractions(accountBenefitLogMapper);
+    }
+
+    @Test
+    void agreedEarlyWithdrawal_allocatesImmaturePrincipalFifoAndSavesBenefitLog() {
+        prepareOpenedAccount(
+                "1200",
+                BenefitType.POSSIBLE,
+                List.of(
+                        leftAmount(61L, "300", NOW.minusYears(2)),
+                        leftAmount(62L, "400", NOW.minusMonths(11)),
+                        leftAmount(63L, "500", NOW.minusMonths(6))));
+        when(accountMapper.updateBenefitToImpossible(ACCOUNT_ID)).thenReturn(1);
+        when(accountBenefitLogMapper.insertLog(org.mockito.ArgumentMatchers.any())).thenReturn(1);
+
+        List<WithdrawalAllocationDTO> result = withdrawalService.withdraw(request("800", true));
+
+        assertThat(result)
+                .extracting(WithdrawalAllocationDTO::getLeftAmountId)
+                .containsExactly(61L, 62L, 63L);
+        assertThat(result)
+                .extracting(WithdrawalAllocationDTO::getAllocatedAmount)
+                .containsExactly(
+                        new BigDecimal("300"), new BigDecimal("400"), new BigDecimal("100"));
+        assertThat(result)
+                .extracting(WithdrawalAllocationDTO::getType)
+                .containsExactly(
+                        WithdrawalType.MATURED_PRINCIPAL_INCLUDED,
+                        WithdrawalType.IMMATURE_PRINCIPAL_INCLUDED,
+                        WithdrawalType.IMMATURE_PRINCIPAL_INCLUDED);
+
+        ArgumentCaptor<AccountBenefitLogDTO> logCaptor =
+                ArgumentCaptor.forClass(AccountBenefitLogDTO.class);
+        verify(accountBenefitLogMapper).insertLog(logCaptor.capture());
+
+        assertThat(logCaptor.getValue())
+                .satisfies(
+                        log -> {
+                            assertThat(log.getBenefitId()).isNull();
+                            assertThat(log.getAccountId()).isEqualTo(ACCOUNT_ID);
+                            assertThat(log.getPrevStatus()).isEqualTo(BenefitType.POSSIBLE);
+                            assertThat(log.getNewStatus()).isEqualTo(BenefitType.IMPOSSIBLE);
+                            assertThat(log.getChangedAt()).isEqualTo(NOW);
+                            assertThat(log.getReason()).isEqualTo("조기인출로 인한 세제혜택 취소");
+                        });
+    }
+
+    @Test
+    void benefitAlreadyImpossible_doesNotSaveDuplicateBenefitLog() {
+        prepareOpenedAccount(
+                "300", BenefitType.IMPOSSIBLE, List.of(leftAmount(71L, "300", NOW.minusMonths(3))));
+        when(accountMapper.updateBenefitToImpossible(ACCOUNT_ID)).thenReturn(0);
+
+        List<WithdrawalAllocationDTO> result = withdrawalService.withdraw(request("200", true));
+
+        assertThat(result)
+                .singleElement()
+                .satisfies(
+                        allocation -> {
+                            assertThat(allocation.getLeftAmountId()).isEqualTo(71L);
+                            assertThat(allocation.getAllocatedAmount()).isEqualByComparingTo("200");
+                            assertThat(allocation.getType())
+                                    .isEqualTo(WithdrawalType.IMMATURE_PRINCIPAL_INCLUDED);
+                        });
+        verifyNoInteractions(accountBenefitLogMapper);
+    }
+
+    @Test
+    void benefitLogInsertFailure_abortsEarlyWithdrawal() {
+        prepareOpenedAccount(
+                "300", BenefitType.REDUCED, List.of(leftAmount(81L, "300", NOW.minusMonths(3))));
+        when(accountMapper.updateBenefitToImpossible(ACCOUNT_ID)).thenReturn(1);
+        when(accountBenefitLogMapper.insertLog(org.mockito.ArgumentMatchers.any())).thenReturn(0);
+
+        assertThatThrownBy(() -> withdrawalService.withdraw(request("200", true)))
+                .isInstanceOf(AccountException.class)
+                .hasMessage("ACCOUNT_BENEFIT_LOG저장에 실패했습니다.");
     }
 
     @Test
@@ -121,7 +224,12 @@ class WithdrawalServiceImplTest {
                             assertThat(allocation.getType())
                                     .isEqualTo(WithdrawalType.EARNINGS_ONLY);
                             assertThat(allocation.getWithdrawalAt()).isEqualTo(NOW);
+                            assertThat(allocation.getWithdrawalId()).isEqualTo(WITHDRAWAL_ID);
                         });
+
+        verify(withdrawalMapper, never()).deductLeftAmount(anyLong(), any());
+        verify(withdrawalMapper).deductAccountAmount(ACCOUNT_ID, new BigDecimal("200"));
+        verify(withdrawalMapper).updateWithdrawalStatus(WITHDRAWAL_ID, WithdrawalStatus.COMPLETED);
     }
 
     @Test
@@ -183,6 +291,92 @@ class WithdrawalServiceImplTest {
         verifyNoInteractions(withdrawalMapper, businessClockService);
     }
 
+    @Test
+    void withdrawalInsertFailure_stopsBeforeAllocationAndBalanceUpdates() {
+        prepareOpenedAccount(List.of(leftAmount(91L, "300", NOW.minusYears(2))));
+        when(withdrawalMapper.insertWithdrawal(any(WithdrawalDTO.class))).thenReturn(0);
+
+        assertThatThrownBy(() -> withdrawalService.withdraw(request("200")))
+                .isInstanceOf(WithdrawalProcessingException.class)
+                .hasMessage("WITHDRAWAL저장에 실패했습니다.");
+
+        verify(withdrawalMapper, never())
+                .insertWithdrawalAllocation(any(WithdrawalAllocationDTO.class));
+        verify(withdrawalMapper, never()).deductLeftAmount(anyLong(), any());
+        verify(withdrawalMapper, never()).deductAccountAmount(anyLong(), any());
+        verify(withdrawalMapper, never())
+                .updateWithdrawalStatus(anyLong(), any(WithdrawalStatus.class));
+    }
+
+    @Test
+    void allocationInsertFailure_stopsBeforePrincipalAndAccountDeductions() {
+        prepareOpenedAccount(List.of(leftAmount(92L, "300", NOW.minusYears(2))));
+        when(withdrawalMapper.insertWithdrawalAllocation(any(WithdrawalAllocationDTO.class)))
+                .thenReturn(0);
+
+        assertThatThrownBy(() -> withdrawalService.withdraw(request("200")))
+                .isInstanceOf(WithdrawalProcessingException.class)
+                .hasMessage("WITHDRAWAL_ALLOCATION저장에 실패했습니다.");
+
+        verify(withdrawalMapper, never()).deductLeftAmount(anyLong(), any());
+        verify(withdrawalMapper, never()).deductAccountAmount(anyLong(), any());
+        verify(withdrawalMapper, never())
+                .updateWithdrawalStatus(anyLong(), any(WithdrawalStatus.class));
+    }
+
+    @Test
+    void principalDeductionFailure_stopsBeforeAccountDeductionAndCompletion() {
+        prepareOpenedAccount(List.of(leftAmount(93L, "300", NOW.minusYears(2))));
+        when(withdrawalMapper.deductLeftAmount(93L, new BigDecimal("200"))).thenReturn(0);
+
+        assertThatThrownBy(() -> withdrawalService.withdraw(request("200")))
+                .isInstanceOf(WithdrawalProcessingException.class)
+                .hasMessage("LEFT_AMOUNT 차감에 실패했습니다.");
+
+        verify(withdrawalMapper, never()).deductAccountAmount(anyLong(), any());
+        verify(withdrawalMapper, never())
+                .updateWithdrawalStatus(anyLong(), any(WithdrawalStatus.class));
+    }
+
+    @Test
+    void accountDeductionFailure_doesNotMarkWithdrawalCompleted() {
+        prepareOpenedAccount(List.of(leftAmount(94L, "300", NOW.minusYears(2))));
+        when(withdrawalMapper.deductAccountAmount(ACCOUNT_ID, new BigDecimal("200"))).thenReturn(0);
+
+        assertThatThrownBy(() -> withdrawalService.withdraw(request("200")))
+                .isInstanceOf(WithdrawalProcessingException.class)
+                .hasMessage("ACCOUNT 총 잔액을 차감하지 못했습니다.");
+
+        verify(withdrawalMapper, never())
+                .updateWithdrawalStatus(anyLong(), any(WithdrawalStatus.class));
+    }
+
+    @Test
+    void persistedWithdrawalUsesVerifiedDestinationAndGeneratedIdForAllocation() {
+        prepareOpenedAccount(List.of(leftAmount(95L, "300", NOW.minusYears(2))));
+
+        withdrawalService.withdraw(request("200"));
+
+        ArgumentCaptor<WithdrawalDTO> withdrawalCaptor =
+                ArgumentCaptor.forClass(WithdrawalDTO.class);
+        ArgumentCaptor<WithdrawalAllocationDTO> allocationCaptor =
+                ArgumentCaptor.forClass(WithdrawalAllocationDTO.class);
+        verify(withdrawalMapper).insertWithdrawal(withdrawalCaptor.capture());
+        verify(withdrawalMapper).insertWithdrawalAllocation(allocationCaptor.capture());
+
+        assertThat(withdrawalCaptor.getValue())
+                .satisfies(
+                        withdrawal -> {
+                            assertThat(withdrawal.getAccountId()).isEqualTo(ACCOUNT_ID);
+                            assertThat(withdrawal.getDestinationGeneralAccountId())
+                                    .isEqualTo(GENERAL_ACCOUNT_ID);
+                            assertThat(withdrawal.getDestinationAccountNo())
+                                    .isEqualTo("110-123-456789");
+                            assertThat(withdrawal.getProcessedAt()).isEqualTo(NOW);
+                        });
+        assertThat(allocationCaptor.getValue().getWithdrawalId()).isEqualTo(WITHDRAWAL_ID);
+    }
+
     private void prepareOpenedAccount(List<LeftAmountDTO> leftAmounts) {
         BigDecimal principal =
                 leftAmounts.stream()
@@ -192,11 +386,47 @@ class WithdrawalServiceImplTest {
     }
 
     private void prepareOpenedAccount(String accountAmount, List<LeftAmountDTO> leftAmounts) {
+        prepareOpenedAccount(accountAmount, BenefitType.POSSIBLE, leftAmounts);
+    }
+
+    private void prepareOpenedAccount(
+            String accountAmount, BenefitType benefit, List<LeftAmountDTO> leftAmounts) {
         when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
-                .thenReturn(Optional.of(account(Status.OPENED, accountAmount)));
+                .thenReturn(Optional.of(account(Status.OPENED, accountAmount, benefit)));
         when(withdrawalMapper.selectAvailableLeftAmountsByAccountId(ACCOUNT_ID))
                 .thenReturn(leftAmounts);
         when(businessClockService.now()).thenReturn(NOW);
+        when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID))
+                .thenReturn(Optional.of("customer-ci-hash"));
+        when(generalAccountClient.verifyGeneralAccount(any()))
+                .thenReturn(
+                        GeneralAccountResponseDTO.builder()
+                                .generalAccountId(GENERAL_ACCOUNT_ID)
+                                .accountNo("110-123-456789")
+                                .status(GeneralAccountStatus.ACTIVE)
+                                .build());
+
+        lenient()
+                .doAnswer(
+                        invocation -> {
+                            WithdrawalDTO withdrawal = invocation.getArgument(0);
+                            withdrawal.setWithdrawalId(WITHDRAWAL_ID);
+                            return 1;
+                        })
+                .when(withdrawalMapper)
+                .insertWithdrawal(any(WithdrawalDTO.class));
+        lenient()
+                .when(
+                        withdrawalMapper.insertWithdrawalAllocation(
+                                any(WithdrawalAllocationDTO.class)))
+                .thenReturn(1);
+        lenient().when(withdrawalMapper.deductLeftAmount(anyLong(), any())).thenReturn(1);
+        lenient().when(withdrawalMapper.deductAccountAmount(eq(ACCOUNT_ID), any())).thenReturn(1);
+        lenient()
+                .when(
+                        withdrawalMapper.updateWithdrawalStatus(
+                                WITHDRAWAL_ID, WithdrawalStatus.COMPLETED))
+                .thenReturn(1);
     }
 
     private static AccountDTO account(Status status) {
@@ -204,17 +434,29 @@ class WithdrawalServiceImplTest {
     }
 
     private static AccountDTO account(Status status, String amount) {
+        return account(status, amount, BenefitType.POSSIBLE);
+    }
+
+    private static AccountDTO account(Status status, String amount, BenefitType benefit) {
         return AccountDTO.builder()
                 .accountId(ACCOUNT_ID)
+                .customerId(CUSTOMER_ID)
                 .status(status)
                 .amount(new BigDecimal(amount))
+                .benefit(benefit)
                 .build();
     }
 
     private static WithdrawalRequestDTO request(String amount) {
+        return request(amount, false);
+    }
+
+    private static WithdrawalRequestDTO request(String amount, boolean earlyWithdrawalAgreed) {
         return WithdrawalRequestDTO.builder()
                 .accountId(ACCOUNT_ID)
                 .requestedAmount(new BigDecimal(amount))
+                .earlyWithdrawalAgreed(earlyWithdrawalAgreed)
+                .destinationGeneralAccountId(GENERAL_ACCOUNT_ID)
                 .build();
     }
 
