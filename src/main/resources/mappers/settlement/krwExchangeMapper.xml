@@ -87,4 +87,10 @@
         )
     </insert>
 
+    <select id="countByStatus" resultType="int">
+        SELECT COUNT(*)
+        FROM krw_exchange
+        WHERE settlement_status = #{settlementStatus}
+    </select>
+
 </mapper>

@@ -1,6 +1,7 @@
 package com.app.maria.domain.account.mapper;
 
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.type.Status;
 import java.math.BigDecimal;
 import java.util.List;
@@ -69,4 +70,13 @@ public interface AccountMapper {
      * @return 성공시 1, 실패시 0
      */
     int updateProvisionalAmount(AccountDTO provisionalAmountDelta);
+
+    // 심사대기 건수
+    int countByStatus(Status status);
+
+    // 계좌별 한도 사용률
+    List<AccountLimitUsageDTO> selectAccountLimitUsage();
+
+    // applied 계좌 목록
+    List<AccountLimitUsageDTO> selectAppliedAccounts();
 }

@@ -11,6 +11,7 @@
     <typeAliases>
         <typeAlias alias="AccountDTO" type="com.app.maria.domain.account.dto.AccountDTO"/>
         <typeAlias alias="AccountStatusLogDTO" type="com.app.maria.domain.account.dto.AccountStatusLogDTO"/>
+        <typeAlias alias="AccountLimitUsageDTO" type="com.app.maria.domain.account.dto.AccountLimitUsageDTO"/>
     </typeAliases>
 
     <environments default="account-mapper-test">

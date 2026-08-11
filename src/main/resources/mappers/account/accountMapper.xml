@@ -144,4 +144,46 @@
         WHERE account_id = #{accountId}
         AND status IN ('OPENED', 'CLOSURE_REQUESTED')
     </update>
+
+    <select id="countByStatus" resultType="int">
+        SELECT COUNT(*)
+        FROM account
+        WHERE status = #{status}
+    </select>
+
+    <select id="selectAccountLimitUsage" resultType="AccountLimitUsageDTO">
+        SELECT
+        a.account_id     AS accountId,
+        a.account_no     AS accountNo,
+        c.name           AS customerName,
+        a.status         AS status,
+        a.limit_amount   AS limitAmount,
+        COALESCE(SUM(
+        CASE
+        WHEN ke.settlement_status = 'FINALIZED' THEN ke.final_amount
+        WHEN ke.exchange_id IS NOT NULL THEN ke.provisional_amount
+        ELSE so.sell_qty * so.base_price
+        END
+        ), 0) AS usedAmount
+        FROM account a
+        JOIN customer c ON c.customer_id = a.customer_id
+        LEFT JOIN sell_order so ON so.account_id = a.account_id AND so.status IN ('RECEIVED', 'EXECUTED')
+        LEFT JOIN krw_exchange ke ON ke.order_id = so.order_id
+        WHERE a.status = 'OPENED'
+        GROUP BY a.account_id, a.account_no, c.name, a.status, a.limit_amount
+    </select>
+
+    <select id="selectAppliedAccounts" resultType="AccountLimitUsageDTO">
+        SELECT
+        a.account_id   AS accountId,
+        a.account_no   AS accountNo,
+        c.name         AS customerName,
+        a.status       AS status,
+        a.limit_amount AS limitAmount,
+        0              AS usedAmount
+        FROM account a
+        JOIN customer c ON c.customer_id = a.customer_id
+        WHERE a.status = 'APPLIED'
+    </select>
+
 </mapper>

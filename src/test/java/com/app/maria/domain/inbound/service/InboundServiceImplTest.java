@@ -1,12 +1,5 @@
 package com.app.maria.domain.inbound.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.when;
-
 import com.app.maria.domain.inbound.dto.request.InboundRequestDTO;
 import com.app.maria.domain.inbound.dto.response.InboundResponseDTO;
 import com.app.maria.domain.inbound.exception.InboundNotFoundException;
@@ -14,8 +7,6 @@ import com.app.maria.domain.inbound.mapper.InboundMapper;
 import com.app.maria.domain.registrablestock.dto.RegistrableStockResponseDTO;
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.response.ApiResponseDTO;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,11 +15,22 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.client.RestClient;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
+
 @ExtendWith(MockitoExtension.class)
 class InboundServiceImplTest {
 
     private static final Long ACCOUNT_ID = 1L;
     private static final Long FOREIGN_PRODUCT_ID = 1L;
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 11, 10, 0);
 
     @Mock private InboundMapper inboundMapper;
 
@@ -44,20 +46,18 @@ class InboundServiceImplTest {
 
     @InjectMocks private InboundServiceImpl inboundService;
 
-    private static final LocalDateTime FIXED_NOW = LocalDateTime.of(2026, 3, 5, 10, 0);
-
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUpRestClientChain() {
         when(restClient.get()).thenReturn(requestHeadersUriSpec);
         when(requestHeadersUriSpec.uri(
-                        eq(
-                                "/api/registrable-stocks?generalAccountId={accountId}&foreignProductId={foreignProductId}"),
-                        eq(ACCOUNT_ID),
-                        eq(FOREIGN_PRODUCT_ID)))
+                eq(
+                        "/api/registrable-stocks?generalAccountId={accountId}&foreignProductId={foreignProductId}"),
+                eq(ACCOUNT_ID),
+                eq(FOREIGN_PRODUCT_ID)))
                 .thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-        lenient().when(businessClockService.now()).thenReturn(FIXED_NOW);
+        lenient().when(businessClockService.now()).thenReturn(NOW);
     }
 
     @Test
@@ -134,9 +134,9 @@ class InboundServiceImplTest {
                 .thenReturn(null);
 
         assertThatThrownBy(
-                        () ->
-                                inboundService.processInbound(
-                                        request(BigDecimal.valueOf(80), BigDecimal.valueOf(90))))
+                () ->
+                        inboundService.processInbound(
+                                request(BigDecimal.valueOf(80), BigDecimal.valueOf(90))))
                 .isInstanceOf(InboundNotFoundException.class)
                 .hasMessage("등록가능 보유수량 조회 실패");
     }
@@ -149,9 +149,9 @@ class InboundServiceImplTest {
                 .thenReturn(apiResponse);
 
         assertThatThrownBy(
-                        () ->
-                                inboundService.processInbound(
-                                        request(BigDecimal.valueOf(80), BigDecimal.valueOf(90))))
+                () ->
+                        inboundService.processInbound(
+                                request(BigDecimal.valueOf(80), BigDecimal.valueOf(90))))
                 .isInstanceOf(InboundNotFoundException.class)
                 .hasMessage("등록가능 보유수량 조회 실패");
     }

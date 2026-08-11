@@ -27,4 +27,6 @@ public interface AccountLogService {
             AccountDTO account, BenefitType previousStatus, LocalDateTime changedAt, String reason);
 
     List<AccountBenefitLogDTO> getBenefitLogs(Long accountId);
+
+    int getTodayProcessedAccountCount(Status newStatus);
 }

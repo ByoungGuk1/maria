@@ -1,6 +1,8 @@
 package com.app.maria.domain.sellorder.mapper;
 
 import com.app.maria.domain.sellorder.dto.SellOrderDTO;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.apache.ibatis.annotations.Mapper;
@@ -14,4 +16,6 @@ public interface SellOrderMapper {
     Optional<SellOrderDTO> selectSellOrderById(@Param("orderId") Long orderId);
 
     List<SellOrderDTO> selectSellOrdersByAccountId(@Param("accountId") Long accountId);
+
+    BigDecimal sumSellAmountBetween(LocalDateTime start, LocalDateTime end);
 }
