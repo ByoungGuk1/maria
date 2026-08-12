@@ -34,6 +34,7 @@ public class SecurityConfig {
         // 여기에는 PageController의 뷰(HTML) 라우트만 추가할 것 - API는 절대 여기 넣지 말 것
         "/login",
         "/admin/dashboard",
+        "/admin/target-products",
 
         // JWT 인증 API
         "/api/auth/admin/login",
