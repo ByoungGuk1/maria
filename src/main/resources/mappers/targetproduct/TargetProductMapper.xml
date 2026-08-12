@@ -17,4 +17,22 @@
         )
     </select>
 
+    <select id="selectRecentJudgements" resultType="TargetProductJudgementListDTO">
+        SELECT
+        j.judgement_id  AS judgementId,
+        c.name          AS customerName,
+        j.stock_type    AS stockType,
+        j.fund_name     AS fundName,
+        j.ticker        AS ticker,
+        j.is_target     AS isTarget,
+        j.trade_type    AS tradeType,
+        j.amount        AS amount,
+        j.net_buy_amount AS netBuyAmount,
+        j.trade_date    AS tradeDate,
+        j.judged_at     AS judgedAt
+        FROM target_product_judgement j
+        JOIN customer c ON c.ci_hash = j.ci_hash
+        ORDER BY j.judged_at DESC
+    </select>
+
 </mapper>

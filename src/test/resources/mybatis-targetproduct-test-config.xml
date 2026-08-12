@@ -10,6 +10,7 @@
 
     <typeAliases>
         <typeAlias alias="TargetProductJudgementDTO" type="com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO"/>
+        <typeAlias alias="TargetProductJudgementListDTO" type="com.app.maria.domain.targetproduct.dto.TargetProductJudgementListDTO"/>
     </typeAliases>
 
     <environments default="targetproduct-mapper-test">

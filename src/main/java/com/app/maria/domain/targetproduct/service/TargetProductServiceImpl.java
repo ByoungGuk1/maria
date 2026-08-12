@@ -2,6 +2,7 @@ package com.app.maria.domain.targetproduct.service;
 
 import com.app.maria.domain.externaltradesync.dto.response.MydataTradeResponseDTO;
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductJudgementListDTO;
 import com.app.maria.domain.targetproduct.dto.response.MydataFundResponseDTO;
 import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
 import com.app.maria.domain.targetproduct.type.StockType;
@@ -11,6 +12,8 @@ import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -76,6 +79,12 @@ public class TargetProductServiceImpl implements TargetProductService {
         targetProductMapper.insertJudgement(dto);
 
         return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TargetProductJudgementListDTO> getRecentJudgements() {
+        return targetProductMapper.selectRecentJudgements();
     }
 
     private boolean isForeignStockRatioMet(MydataFundResponseDTO fund) {

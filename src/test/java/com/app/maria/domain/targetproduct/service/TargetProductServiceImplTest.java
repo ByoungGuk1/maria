@@ -1,12 +1,14 @@
 package com.app.maria.domain.targetproduct.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.app.maria.domain.externaltradesync.dto.response.MydataTradeResponseDTO;
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductJudgementListDTO;
 import com.app.maria.domain.targetproduct.dto.response.MydataFundResponseDTO;
 import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
 import com.app.maria.domain.targetproduct.type.StockType;
@@ -16,6 +18,7 @@ import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,7 +43,19 @@ class TargetProductServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        when(businessClockService.now()).thenReturn(FIXED_NOW);
+        lenient().when(businessClockService.now()).thenReturn(FIXED_NOW);
+    }
+
+    @Test
+    @DisplayName("getRecentJudgements()는 매퍼 조회 결과를 그대로 반환한다")
+    void getRecentJudgementsDelegatesToMapper() {
+        List<TargetProductJudgementListDTO> expected =
+                List.of(TargetProductJudgementListDTO.builder().judgementId(1L).build());
+        when(targetProductMapper.selectRecentJudgements()).thenReturn(expected);
+
+        List<TargetProductJudgementListDTO> result = targetProductService.getRecentJudgements();
+
+        assertThat(result).isEqualTo(expected);
     }
 
     private static MydataTradeResponseDTO trade(

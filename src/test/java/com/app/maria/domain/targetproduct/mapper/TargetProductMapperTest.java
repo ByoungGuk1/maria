@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductJudgementListDTO;
 import com.app.maria.domain.targetproduct.type.StockType;
 import com.app.maria.domain.targetproduct.type.TradeType;
 import java.io.IOException;
@@ -15,6 +16,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
@@ -203,10 +205,54 @@ class TargetProductMapperTest {
         assertThat(exists).isFalse();
     }
 
+    @Test
+    @DisplayName("판정 결과 목록을 고객명과 함께 최신순으로 조회한다")
+    void selectRecentJudgementsReturnsListWithCustomerNameOrderedByJudgedAtDesc() throws SQLException {
+        insertCustomer("ci-1", "홍길동");
+        targetProductMapper.insertJudgement(
+                baseBuilder(20L)
+                        .judgedAt(LocalDateTime.of(2026, 8, 7, 3, 0))
+                        .build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(21L)
+                        .judgedAt(LocalDateTime.of(2026, 8, 8, 3, 0))
+                        .build());
+
+        List<TargetProductJudgementListDTO> result = targetProductMapper.selectRecentJudgements();
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).getJudgedAt()).isEqualTo(LocalDateTime.of(2026, 8, 8, 3, 0));
+        assertThat(result.get(1).getJudgedAt()).isEqualTo(LocalDateTime.of(2026, 8, 7, 3, 0));
+        assertThat(result.get(0).getCustomerName()).isEqualTo("홍길동");
+        assertThat(result.get(0).getStockType()).isEqualTo(StockType.FOREIGN_STOCK);
+        assertThat(result.get(0).getTradeType()).isEqualTo(TradeType.BUY);
+    }
+
+    private void insertCustomer(String ciHash, String name) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "INSERT INTO customer (name, birth_date, investor_type, ci_hash) VALUES ('"
+                            + name + "', '1990-01-01', 'NEUTRAL', '" + ciHash + "')");
+        }
+    }
+
     private void resetSchema() throws SQLException {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement()) {
             statement.execute("DROP ALL OBJECTS");
+            statement.execute(
+                    """
+                    CREATE TABLE customer (
+                        customer_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                        name VARCHAR(50) NOT NULL,
+                        birth_date DATE NOT NULL,
+                        phone VARCHAR(20),
+                        investor_type VARCHAR(20) NOT NULL,
+                        ci_hash VARCHAR(64) NOT NULL,
+                        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """);
             statement.execute(
                     """
                     CREATE TABLE target_product_judgement (
