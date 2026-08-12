@@ -187,6 +187,58 @@ class AccountClosureApiTest {
                 .andExpect(jsonPath("$.message").value("계좌 해지 신청을 찾을 수 없습니다."));
     }
 
+    @Test
+    void reviewerCanApproveRequestedClosure() throws Exception {
+        mockMvc.perform(post("/api/account-closures/30/approve"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("계좌 해지 신청 승인 완료"));
+
+        verify(accountClosureService).approveClosure(7L, 30L);
+    }
+
+    @Test
+    void nonPositiveApprovalRequestIdReturnsBadRequestWithoutCallingService() throws Exception {
+        mockMvc.perform(post("/api/account-closures/0/approve")).andExpect(status().isBadRequest());
+
+        verifyNoInteractions(accountClosureService);
+    }
+
+    @Test
+    void missingApprovalRequestReturnsNotFound() throws Exception {
+        org.mockito.Mockito.doThrow(new AccountClosureNotFoundException("계좌 해지 신청을 찾을 수 없습니다."))
+                .when(accountClosureService)
+                .approveClosure(7L, 999L);
+
+        mockMvc.perform(post("/api/account-closures/999/approve"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("계좌 해지 신청을 찾을 수 없습니다."));
+
+        verify(accountClosureService).approveClosure(7L, 999L);
+    }
+
+    @Test
+    void approvalOfAlreadyProcessedClosureReturnsBadRequest() throws Exception {
+        org.mockito.Mockito.doThrow(new AccountClosureNotAllowedException("이미 처리된 계좌 해지 신청입니다."))
+                .when(accountClosureService)
+                .approveClosure(7L, 30L);
+
+        mockMvc.perform(post("/api/account-closures/30/approve"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("이미 처리된 계좌 해지 신청입니다."));
+    }
+
+    @Test
+    void approvalProcessingFailureReturnsInternalServerError() throws Exception {
+        org.mockito.Mockito.doThrow(
+                        new AccountClosureProcessingException("계좌 해지 신청 완료 처리에 실패했습니다."))
+                .when(accountClosureService)
+                .approveClosure(7L, 30L);
+
+        mockMvc.perform(post("/api/account-closures/30/approve"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("계좌 해지 신청 완료 처리에 실패했습니다."));
+    }
+
     private static String validRequest() {
         return """
                 {

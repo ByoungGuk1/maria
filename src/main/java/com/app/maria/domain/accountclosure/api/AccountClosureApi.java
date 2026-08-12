@@ -39,4 +39,13 @@ public class AccountClosureApi {
 
         return ResponseEntity.ok(ApiResponseDTO.of("계좌 해지 신청 반려 완료", null));
     }
+
+    @PostMapping("/{closureRequestId}/approve")
+    @PreAuthorize("hasAnyRole('ADMIN', 'REVIEWER')")
+    public ResponseEntity<ApiResponseDTO<Void>> approveClosure(
+            @AuthenticationPrincipal Long adminId,
+            @PathVariable @Positive(message = "해지 신청 ID는 0보다 커야합니다.") Long closureRequestId) {
+        accountClosureService.approveClosure(adminId, closureRequestId);
+        return ResponseEntity.ok(ApiResponseDTO.of("계좌 해지 신청 승인 완료", null));
+    }
 }
