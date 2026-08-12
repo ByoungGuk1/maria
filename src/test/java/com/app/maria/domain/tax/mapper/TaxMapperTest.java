@@ -9,6 +9,7 @@ import com.app.maria.domain.tax.dto.TaxCalculationDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
 import com.app.maria.domain.tax.fixture.TaxTestFixture;
 import com.app.maria.domain.tax.type.TaxBasisType;
+import com.app.maria.domain.tax.type.TaxRuleType;
 import java.io.IOException;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -86,13 +87,13 @@ class TaxMapperTest {
         assertThat(rules)
                 .extracting(TaxRuleDTO::getRuleType)
                 .containsExactlyInAnyOrder(
-                        "DEPOSIT_LIMIT",
-                        "HOLDING_PERIOD",
-                        "RELIEF_RATE",
-                        "RELIEF_RATE",
-                        "RELIEF_RATE",
-                        "BASIC_DEDUCTION",
-                        "TAX_RATE");
+                        TaxRuleType.DEPOSIT_LIMIT,
+                        TaxRuleType.HOLDING_PERIOD,
+                        TaxRuleType.RELIEF_RATE,
+                        TaxRuleType.RELIEF_RATE,
+                        TaxRuleType.RELIEF_RATE,
+                        TaxRuleType.BASIC_DEDUCTION,
+                        TaxRuleType.TAX_RATE);
     }
 
     @Test
@@ -103,7 +104,7 @@ class TaxMapperTest {
         List<TaxRuleDTO> rules = taxMapper.findTaxRules();
 
         assertThat(rules)
-                .filteredOn(rule -> "BASIC_DEDUCTION".equals(rule.getRuleType()))
+                .filteredOn(rule -> TaxRuleType.BASIC_DEDUCTION == rule.getRuleType())
                 .singleElement()
                 .satisfies(
                         rule -> {
@@ -112,7 +113,7 @@ class TaxMapperTest {
                         });
 
         assertThat(rules)
-                .filteredOn(rule -> "TAX_RATE".equals(rule.getRuleType()))
+                .filteredOn(rule -> TaxRuleType.TAX_RATE == rule.getRuleType())
                 .singleElement()
                 .satisfies(rule -> assertThat(rule.getRuleValue()).isEqualByComparingTo("0.22"));
     }
@@ -126,14 +127,14 @@ class TaxMapperTest {
                 taxMapper.findTaxRules().stream()
                         .filter(
                                 r ->
-                                        "RELIEF_RATE".equals(r.getRuleType())
+                                        TaxRuleType.RELIEF_RATE == r.getRuleType()
                                                 && r.getValidFrom()
                                                         .equals(LocalDate.of(2026, 1, 1)))
                         .findFirst()
                         .orElseThrow();
 
         assertThat(rule.getRuleId()).isNotNull();
-        assertThat(rule.getRuleType()).isEqualTo("RELIEF_RATE");
+        assertThat(rule.getRuleType()).isEqualTo(TaxRuleType.RELIEF_RATE);
         assertThat(rule.getRuleValue()).isEqualByComparingTo("100");
         assertThat(rule.getValidFrom()).isEqualTo(LocalDate.of(2026, 1, 1));
         assertThat(rule.getValidTo()).isEqualTo(LocalDate.of(2026, 5, 31));
