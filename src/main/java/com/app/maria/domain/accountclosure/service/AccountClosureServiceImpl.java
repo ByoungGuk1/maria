@@ -6,6 +6,7 @@ import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.accountclosure.dto.AccountClosureDTO;
 import com.app.maria.domain.accountclosure.dto.request.AccountClosureApplyRequestDTO;
+import com.app.maria.domain.accountclosure.dto.response.AccountClosureResponseDTO;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotAllowedException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingException;
@@ -22,6 +23,7 @@ import com.app.maria.global.client.generalaccount.dto.response.GeneralAccountRes
 import com.app.maria.global.client.generalaccount.type.GeneralAccountStatus;
 import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -169,5 +171,22 @@ public class AccountClosureServiceImpl implements AccountClosureService {
         if (completedClosureRows != 1) {
             throw new AccountClosureProcessingException("계좌 해지 신청 완료 처리에 실패했습니다.");
         }
+    }
+
+    @Override
+    public List<AccountClosureResponseDTO> getClosures(AccountClosureStatus status) {
+        List<AccountClosureDTO> closures = accountClosureMapper.selectByStatus(status);
+
+        return closures.stream().map(AccountClosureResponseDTO::from).toList();
+    }
+
+    @Override
+    public AccountClosureResponseDTO getClosure(Long closureRequestId) {
+        AccountClosureDTO closure =
+                accountClosureMapper
+                        .selectById(closureRequestId)
+                        .orElseThrow(
+                                () -> new AccountClosureNotFoundException("계좌 해지 신청을 찾을 수 없습니다."));
+        return AccountClosureResponseDTO.from(closure);
     }
 }

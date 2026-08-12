@@ -52,6 +52,20 @@
         AND status = 'REQUESTED'
     </update>
 
+    <select id = "selectByStatus" resultType="AccountClosureDTO" >
+        SELECT *
+        FROM account_closure_request
+        WHERE status = #{status}
+        ORDER BY requested_at ASC, closure_request_id ASC
+    </select>
+
+    <select id="selectById" parameterType="Long" resultType="AccountClosureDTO">
+        SELECT *
+        FROM account_closure_request
+        WHERE closure_request_id = #{closureRequestId}
+    </select>
+
+
 
 
 

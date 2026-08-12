@@ -16,6 +16,7 @@ import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.accountclosure.dto.AccountClosureDTO;
 import com.app.maria.domain.accountclosure.dto.request.AccountClosureApplyRequestDTO;
+import com.app.maria.domain.accountclosure.dto.response.AccountClosureResponseDTO;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotAllowedException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingException;
@@ -469,6 +470,55 @@ class AccountClosureServiceImplTest {
         assertThatThrownBy(() -> accountClosureService.approveClosure(7L, CLOSURE_REQUEST_ID))
                 .isInstanceOf(AccountClosureProcessingException.class)
                 .hasMessage("계좌 해지 신청 완료 처리에 실패했습니다.");
+    }
+
+    @Test
+    void getClosuresConvertsEveryMapperResultWithoutChangingOrder() {
+        AccountClosureDTO first = closureForApproval(true);
+        AccountClosureDTO second =
+                AccountClosureDTO.builder()
+                        .closureRequestId(31L)
+                        .accountId(2L)
+                        .destinationGeneralAccountId(21L)
+                        .status(AccountClosureStatus.REQUESTED)
+                        .requestedAt(NOW.plusMinutes(1))
+                        .build();
+        when(accountClosureMapper.selectByStatus(AccountClosureStatus.REQUESTED))
+                .thenReturn(List.of(first, second));
+
+        List<AccountClosureResponseDTO> result =
+                accountClosureService.getClosures(AccountClosureStatus.REQUESTED);
+
+        assertThat(result)
+                .extracting(AccountClosureResponseDTO::getClosureRequestId)
+                .containsExactly(CLOSURE_REQUEST_ID, 31L);
+        assertThat(result.get(0).isEarlyWithdrawalAgreed()).isTrue();
+        verify(accountClosureMapper).selectByStatus(AccountClosureStatus.REQUESTED);
+    }
+
+    @Test
+    void getClosureConvertsFoundClosure() {
+        AccountClosureDTO closure = closureForApproval(true);
+        closure.setRequestedAt(NOW);
+        when(accountClosureMapper.selectById(CLOSURE_REQUEST_ID)).thenReturn(Optional.of(closure));
+
+        AccountClosureResponseDTO result = accountClosureService.getClosure(CLOSURE_REQUEST_ID);
+
+        assertThat(result.getClosureRequestId()).isEqualTo(CLOSURE_REQUEST_ID);
+        assertThat(result.getAccountId()).isEqualTo(ACCOUNT_ID);
+        assertThat(result.getDestinationGeneralAccountId()).isEqualTo(GENERAL_ACCOUNT_ID);
+        assertThat(result.isEarlyWithdrawalAgreed()).isTrue();
+        assertThat(result.getStatus()).isEqualTo(AccountClosureStatus.REQUESTED);
+        assertThat(result.getRequestedAt()).isEqualTo(NOW);
+    }
+
+    @Test
+    void getClosureThrowsNotFoundForUnknownId() {
+        when(accountClosureMapper.selectById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> accountClosureService.getClosure(999L))
+                .isInstanceOf(AccountClosureNotFoundException.class)
+                .hasMessage("계좌 해지 신청을 찾을 수 없습니다.");
     }
 
     private void prepareAccountAndCi() {
