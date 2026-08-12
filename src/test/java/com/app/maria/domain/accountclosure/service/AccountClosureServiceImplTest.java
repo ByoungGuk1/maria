@@ -16,13 +16,16 @@ import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.accountclosure.dto.AccountClosureDTO;
 import com.app.maria.domain.accountclosure.dto.request.AccountClosureApplyRequestDTO;
+import com.app.maria.domain.accountclosure.dto.response.AccountClosureResponseDTO;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotAllowedException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingException;
+import com.app.maria.domain.accountclosure.exception.AccountClosureStateConflictException;
 import com.app.maria.domain.accountclosure.mapper.AccountClosureMapper;
 import com.app.maria.domain.accountclosure.type.AccountClosureStatus;
-import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationDTO;
+import com.app.maria.domain.withdrawal.dto.WithdrawalResultDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
+import com.app.maria.domain.withdrawal.exception.EarlyWithdrawalConsentRequiredException;
 import com.app.maria.domain.withdrawal.service.WithdrawalService;
 import com.app.maria.global.client.generalaccount.GeneralAccountClient;
 import com.app.maria.global.client.generalaccount.dto.request.GeneralAccountRequestDTO;
@@ -114,7 +117,7 @@ class AccountClosureServiceImplTest {
         when(accountMapper.requestClosure(ACCOUNT_ID)).thenReturn(0);
 
         assertThatThrownBy(() -> accountClosureService.applyClosure(CUSTOMER_ID, request(true)))
-                .isInstanceOf(AccountClosureNotAllowedException.class)
+                .isInstanceOf(AccountClosureStateConflictException.class)
                 .hasMessage("계좌 상태가 변경되어 해지를 신청할 수 없습니다.");
 
         verifyNoInteractions(accountClosureMapper, businessClockService);
@@ -183,6 +186,48 @@ class AccountClosureServiceImplTest {
         order.verify(accountMapper).requestClosure(ACCOUNT_ID);
         order.verify(businessClockService).now();
         order.verify(accountClosureMapper).insertClosureRequest(any());
+    }
+
+    @Test
+    void immaturePrincipalWithoutConsentStopsBeforeClosureStateChange() {
+        prepareExternalValidationSuccess();
+        when(withdrawalService.hasImmaturePrincipal(ACCOUNT_ID)).thenReturn(true);
+
+        assertThatThrownBy(() -> accountClosureService.applyClosure(CUSTOMER_ID, request(false)))
+                .isInstanceOf(EarlyWithdrawalConsentRequiredException.class)
+                .hasMessage("1년 미경과 원금이 있어 계좌 해지를 위해 조기인출 동의가 필요합니다.");
+
+        verify(accountMapper, never()).requestClosure(ACCOUNT_ID);
+        verifyNoInteractions(accountClosureMapper, businessClockService);
+    }
+
+    @Test
+    void immaturePrincipalWithConsentAllowsClosureApplication() {
+        prepareExternalValidationSuccess();
+        when(accountMapper.requestClosure(ACCOUNT_ID)).thenReturn(1);
+        when(businessClockService.now()).thenReturn(NOW);
+        prepareClosureInsertSuccess();
+
+        Long result = accountClosureService.applyClosure(CUSTOMER_ID, request(true));
+
+        assertThat(result).isEqualTo(CLOSURE_REQUEST_ID);
+        verify(withdrawalService, never()).hasImmaturePrincipal(ACCOUNT_ID);
+        verify(accountMapper).requestClosure(ACCOUNT_ID);
+    }
+
+    @Test
+    void noImmaturePrincipalAllowsApplicationWithoutConsent() {
+        prepareExternalValidationSuccess();
+        when(withdrawalService.hasImmaturePrincipal(ACCOUNT_ID)).thenReturn(false);
+        when(accountMapper.requestClosure(ACCOUNT_ID)).thenReturn(1);
+        when(businessClockService.now()).thenReturn(NOW);
+        prepareClosureInsertSuccess();
+
+        Long result = accountClosureService.applyClosure(CUSTOMER_ID, request(false));
+
+        assertThat(result).isEqualTo(CLOSURE_REQUEST_ID);
+        verify(withdrawalService).hasImmaturePrincipal(ACCOUNT_ID);
+        verify(accountMapper).requestClosure(ACCOUNT_ID);
     }
 
     @Test
@@ -290,13 +335,15 @@ class AccountClosureServiceImplTest {
     @Test
     void positiveBalanceIsFullyWithdrawnBeforeAccountClosure() {
         AccountClosureDTO closure = closureForApproval(true);
-        WithdrawalAllocationDTO allocation =
-                WithdrawalAllocationDTO.builder().withdrawalId(40L).build();
+        WithdrawalResultDTO withdrawalResult =
+                WithdrawalResultDTO.builder().withdrawalId(40L).allocations(List.of()).build();
         when(accountClosureMapper.selectByIdForUpdate(CLOSURE_REQUEST_ID))
                 .thenReturn(Optional.of(closure));
         when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
-                .thenReturn(Optional.of(account(Status.CLOSURE_REQUESTED, "500")));
-        when(withdrawalService.withdrawForClosure(any())).thenReturn(List.of(allocation));
+                .thenReturn(
+                        Optional.of(account(Status.CLOSURE_REQUESTED, "500")),
+                        Optional.of(account(Status.CLOSURE_REQUESTED, "0")));
+        when(withdrawalService.withdrawForClosure(any())).thenReturn(withdrawalResult);
         when(accountMapper.completeClosure(ACCOUNT_ID)).thenReturn(1);
         when(businessClockService.now()).thenReturn(NOW);
         when(accountClosureMapper.completeClosureRequest(closure)).thenReturn(1);
@@ -315,22 +362,79 @@ class AccountClosureServiceImplTest {
 
         InOrder order = inOrder(withdrawalService, accountMapper, accountClosureMapper);
         order.verify(withdrawalService).withdrawForClosure(any());
+        order.verify(accountMapper).selectByAccountIdForUpdate(ACCOUNT_ID);
         order.verify(accountMapper).completeClosure(ACCOUNT_ID);
         order.verify(accountClosureMapper).completeClosureRequest(closure);
     }
 
     @Test
-    void emptyForcedWithdrawalResultDoesNotCloseAccount() {
+    void remainingBalanceAfterForcedWithdrawalPreventsAccountClosure() {
+        AccountClosureDTO closure = closureForApproval(true);
+        WithdrawalResultDTO withdrawalResult =
+                WithdrawalResultDTO.builder().withdrawalId(40L).allocations(List.of()).build();
+        when(accountClosureMapper.selectByIdForUpdate(CLOSURE_REQUEST_ID))
+                .thenReturn(Optional.of(closure));
+        when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
+                .thenReturn(
+                        Optional.of(account(Status.CLOSURE_REQUESTED, "500")),
+                        Optional.of(account(Status.CLOSURE_REQUESTED, "1")));
+        when(withdrawalService.withdrawForClosure(any())).thenReturn(withdrawalResult);
+
+        assertThatThrownBy(() -> accountClosureService.approveClosure(7L, CLOSURE_REQUEST_ID))
+                .isInstanceOf(AccountClosureProcessingException.class)
+                .hasMessage("강제인출 후에도 계좌 잔액이 남아 있어 해지할 수 없습니다.");
+
+        verify(accountMapper, never()).completeClosure(ACCOUNT_ID);
+        verify(accountClosureMapper, never()).completeClosureRequest(any());
+    }
+
+    @Test
+    void changedAccountStateBeforeClosurePreventsAccountClosure() {
+        AccountClosureDTO closure = closureForApproval(false);
+        when(accountClosureMapper.selectByIdForUpdate(CLOSURE_REQUEST_ID))
+                .thenReturn(Optional.of(closure));
+        when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
+                .thenReturn(
+                        Optional.of(account(Status.CLOSURE_REQUESTED, "0")),
+                        Optional.of(account(Status.OPENED, "0")));
+
+        assertThatThrownBy(() -> accountClosureService.approveClosure(7L, CLOSURE_REQUEST_ID))
+                .isInstanceOf(AccountClosureNotAllowedException.class)
+                .hasMessage("해지 신청 상태가 변경되어 계좌를 해지할 수 없습니다.");
+
+        verify(accountMapper, never()).completeClosure(ACCOUNT_ID);
+        verify(accountClosureMapper, never()).completeClosureRequest(any());
+    }
+
+    @Test
+    void conditionalAccountClosureFailureIsReportedSeparately() {
+        AccountClosureDTO closure = closureForApproval(false);
+        when(accountClosureMapper.selectByIdForUpdate(CLOSURE_REQUEST_ID))
+                .thenReturn(Optional.of(closure));
+        when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
+                .thenReturn(Optional.of(account(Status.CLOSURE_REQUESTED, "0")));
+        when(accountMapper.completeClosure(ACCOUNT_ID)).thenReturn(0);
+
+        assertThatThrownBy(() -> accountClosureService.approveClosure(7L, CLOSURE_REQUEST_ID))
+                .isInstanceOf(AccountClosureProcessingException.class)
+                .hasMessage("계좌 상태가 변경되어 해지 처리에 실패했습니다.");
+
+        verify(accountClosureMapper, never()).completeClosureRequest(any());
+    }
+
+    @Test
+    void forcedWithdrawalWithoutIdDoesNotCloseAccount() {
         AccountClosureDTO closure = closureForApproval(true);
         when(accountClosureMapper.selectByIdForUpdate(CLOSURE_REQUEST_ID))
                 .thenReturn(Optional.of(closure));
         when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
                 .thenReturn(Optional.of(account(Status.CLOSURE_REQUESTED, "500")));
-        when(withdrawalService.withdrawForClosure(any())).thenReturn(List.of());
+        when(withdrawalService.withdrawForClosure(any()))
+                .thenReturn(WithdrawalResultDTO.builder().allocations(List.of()).build());
 
         assertThatThrownBy(() -> accountClosureService.approveClosure(7L, CLOSURE_REQUEST_ID))
                 .isInstanceOf(AccountClosureProcessingException.class)
-                .hasMessage("강제인출 결과를 확인할 수 없습니다.");
+                .hasMessage("강제 인출 식별자를 확인할 수 없습니다.");
 
         verify(accountMapper, never()).completeClosure(ACCOUNT_ID);
         verify(accountClosureMapper, never()).completeClosureRequest(any());
@@ -368,6 +472,55 @@ class AccountClosureServiceImplTest {
                 .hasMessage("계좌 해지 신청 완료 처리에 실패했습니다.");
     }
 
+    @Test
+    void getClosuresConvertsEveryMapperResultWithoutChangingOrder() {
+        AccountClosureDTO first = closureForApproval(true);
+        AccountClosureDTO second =
+                AccountClosureDTO.builder()
+                        .closureRequestId(31L)
+                        .accountId(2L)
+                        .destinationGeneralAccountId(21L)
+                        .status(AccountClosureStatus.REQUESTED)
+                        .requestedAt(NOW.plusMinutes(1))
+                        .build();
+        when(accountClosureMapper.selectByStatus(AccountClosureStatus.REQUESTED))
+                .thenReturn(List.of(first, second));
+
+        List<AccountClosureResponseDTO> result =
+                accountClosureService.getClosures(AccountClosureStatus.REQUESTED);
+
+        assertThat(result)
+                .extracting(AccountClosureResponseDTO::getClosureRequestId)
+                .containsExactly(CLOSURE_REQUEST_ID, 31L);
+        assertThat(result.get(0).isEarlyWithdrawalAgreed()).isTrue();
+        verify(accountClosureMapper).selectByStatus(AccountClosureStatus.REQUESTED);
+    }
+
+    @Test
+    void getClosureConvertsFoundClosure() {
+        AccountClosureDTO closure = closureForApproval(true);
+        closure.setRequestedAt(NOW);
+        when(accountClosureMapper.selectById(CLOSURE_REQUEST_ID)).thenReturn(Optional.of(closure));
+
+        AccountClosureResponseDTO result = accountClosureService.getClosure(CLOSURE_REQUEST_ID);
+
+        assertThat(result.getClosureRequestId()).isEqualTo(CLOSURE_REQUEST_ID);
+        assertThat(result.getAccountId()).isEqualTo(ACCOUNT_ID);
+        assertThat(result.getDestinationGeneralAccountId()).isEqualTo(GENERAL_ACCOUNT_ID);
+        assertThat(result.isEarlyWithdrawalAgreed()).isTrue();
+        assertThat(result.getStatus()).isEqualTo(AccountClosureStatus.REQUESTED);
+        assertThat(result.getRequestedAt()).isEqualTo(NOW);
+    }
+
+    @Test
+    void getClosureThrowsNotFoundForUnknownId() {
+        when(accountClosureMapper.selectById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> accountClosureService.getClosure(999L))
+                .isInstanceOf(AccountClosureNotFoundException.class)
+                .hasMessage("계좌 해지 신청을 찾을 수 없습니다.");
+    }
+
     private void prepareAccountAndCi() {
         when(accountMapper.selectByCustomerId(CUSTOMER_ID))
                 .thenReturn(Optional.of(account(Status.OPENED)));
@@ -379,6 +532,17 @@ class AccountClosureServiceImplTest {
         prepareAccountAndCi();
         when(generalAccountClient.verifyGeneralAccount(any()))
                 .thenReturn(generalAccount(GeneralAccountStatus.ACTIVE));
+    }
+
+    private void prepareClosureInsertSuccess() {
+        doAnswer(
+                        invocation -> {
+                            AccountClosureDTO closure = invocation.getArgument(0);
+                            closure.setClosureRequestId(CLOSURE_REQUEST_ID);
+                            return 1;
+                        })
+                .when(accountClosureMapper)
+                .insertClosureRequest(any(AccountClosureDTO.class));
     }
 
     private static AccountDTO account(Status status) {

@@ -23,6 +23,7 @@ import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.withdrawal.dto.LeftAmountDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalDTO;
+import com.app.maria.domain.withdrawal.dto.WithdrawalResultDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
 import com.app.maria.domain.withdrawal.exception.EarlyWithdrawalConsentRequiredException;
 import com.app.maria.domain.withdrawal.exception.InsufficientWithdrawalAmountException;
@@ -110,11 +111,42 @@ class WithdrawalServiceImplTest {
         when(businessClockService.now()).thenReturn(NOW);
         preparePersistenceSuccess();
 
-        List<WithdrawalAllocationDTO> result = withdrawalService.withdrawForClosure(request("300"));
+        WithdrawalResultDTO result = withdrawalService.withdrawForClosure(request("300"));
 
-        assertThat(result).singleElement();
+        assertThat(result.getWithdrawalId()).isEqualTo(WITHDRAWAL_ID);
+        assertThat(result.getAllocations()).singleElement();
         verify(withdrawalMapper).deductAccountAmount(ACCOUNT_ID, new BigDecimal("300"));
         verify(withdrawalMapper).updateWithdrawalStatus(WITHDRAWAL_ID, WithdrawalStatus.COMPLETED);
+    }
+
+    @Test
+    void principalOneSecondBeforeMaturityIsImmature() {
+        when(withdrawalMapper.selectAvailableLeftAmountsByAccountId(ACCOUNT_ID))
+                .thenReturn(List.of(leftAmount(10L, "300", NOW.minusYears(1).plusSeconds(1))));
+        when(businessClockService.now()).thenReturn(NOW);
+
+        assertThat(withdrawalService.hasImmaturePrincipal(ACCOUNT_ID)).isTrue();
+    }
+
+    @Test
+    void principalExactlyAtMaturityIsNotImmature() {
+        when(withdrawalMapper.selectAvailableLeftAmountsByAccountId(ACCOUNT_ID))
+                .thenReturn(List.of(leftAmount(10L, "300", NOW.minusYears(1))));
+        when(businessClockService.now()).thenReturn(NOW);
+
+        assertThat(withdrawalService.hasImmaturePrincipal(ACCOUNT_ID)).isFalse();
+    }
+
+    @Test
+    void anyImmaturePrincipalMakesClosureConsentNecessary() {
+        when(withdrawalMapper.selectAvailableLeftAmountsByAccountId(ACCOUNT_ID))
+                .thenReturn(
+                        List.of(
+                                leftAmount(10L, "300", NOW.minusYears(2)),
+                                leftAmount(11L, "200", NOW.minusMonths(6))));
+        when(businessClockService.now()).thenReturn(NOW);
+
+        assertThat(withdrawalService.hasImmaturePrincipal(ACCOUNT_ID)).isTrue();
     }
 
     @Test

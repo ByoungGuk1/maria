@@ -13,6 +13,7 @@ import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.withdrawal.dto.LeftAmountDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalDTO;
+import com.app.maria.domain.withdrawal.dto.WithdrawalResultDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
 import com.app.maria.domain.withdrawal.exception.EarlyWithdrawalConsentRequiredException;
 import com.app.maria.domain.withdrawal.exception.InsufficientWithdrawalAmountException;
@@ -46,10 +47,10 @@ public class WithdrawalServiceImpl implements WithdrawalService {
     @Override
     @Transactional
     public List<WithdrawalAllocationDTO> withdraw(WithdrawalRequestDTO requestDTO) {
-        return processWithdrawal(requestDTO, Status.OPENED);
+        return processWithdrawal(requestDTO, Status.OPENED).getAllocations();
     }
 
-    private List<WithdrawalAllocationDTO> processWithdrawal(
+    private WithdrawalResultDTO processWithdrawal(
             WithdrawalRequestDTO requestDTO, Status allowedStatus) {
         Long accountId = requestDTO.getAccountId();
         BigDecimal requestedAmount = requestDTO.getRequestedAmount();
@@ -235,12 +236,15 @@ public class WithdrawalServiceImpl implements WithdrawalService {
             throw new WithdrawalProcessingException("인출 상태 변경에 실패했습니다.");
         }
 
-        return allocations;
+        return WithdrawalResultDTO.builder()
+                .withdrawalId(withdrawal.getWithdrawalId())
+                .allocations(allocations)
+                .build();
     }
 
     @Override
     @Transactional
-    public List<WithdrawalAllocationDTO> withdrawForClosure(WithdrawalRequestDTO requestDTO) {
+    public WithdrawalResultDTO withdrawForClosure(WithdrawalRequestDTO requestDTO) {
 
         return processWithdrawal(requestDTO, Status.CLOSURE_REQUESTED);
     }
@@ -299,5 +303,18 @@ public class WithdrawalServiceImpl implements WithdrawalService {
         }
 
         return allocations;
+    }
+
+    @Override
+    public boolean hasImmaturePrincipal(Long accountId) {
+        List<LeftAmountDTO> leftAmounts =
+                withdrawalMapper.selectAvailableLeftAmountsByAccountId(accountId);
+
+        LocalDateTime currentDatetime = businessClockService.now();
+
+        return leftAmounts.stream()
+                .anyMatch(
+                        leftAmount ->
+                                leftAmount.getFinalAt().plusYears(1).isAfter(currentDatetime));
     }
 }

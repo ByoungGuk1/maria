@@ -9,10 +9,12 @@ import java.io.IOException;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
@@ -167,6 +169,55 @@ class AccountClosureMapperTest {
         assertThat(accountStatus()).isEqualTo("CLOSED");
     }
 
+    @Test
+    void selectByStatusReturnsOnlyMatchingClosuresInOldestFirstOrder() {
+        AccountClosureDTO laterRequested = closureRequest(false);
+        laterRequested.setRequestedAt(REQUESTED_AT.plusHours(1));
+        accountClosureMapper.insertClosureRequest(laterRequested);
+
+        AccountClosureDTO firstAtSameTime = closureRequest(true);
+        firstAtSameTime.setRequestedAt(REQUESTED_AT);
+        accountClosureMapper.insertClosureRequest(firstAtSameTime);
+
+        AccountClosureDTO secondAtSameTime = closureRequest(false);
+        secondAtSameTime.setRequestedAt(REQUESTED_AT);
+        accountClosureMapper.insertClosureRequest(secondAtSameTime);
+
+        secondAtSameTime.setProcessedAt(PROCESSED_AT);
+        secondAtSameTime.setProcessedBy(7L);
+        secondAtSameTime.setRejectionReason("조회 대상 제외");
+        assertThat(accountClosureMapper.rejectClosureRequest(secondAtSameTime)).isOne();
+
+        List<AccountClosureDTO> requested =
+                accountClosureMapper.selectByStatus(AccountClosureStatus.REQUESTED);
+
+        assertThat(requested)
+                .extracting(AccountClosureDTO::getClosureRequestId)
+                .containsExactly(
+                        firstAtSameTime.getClosureRequestId(),
+                        laterRequested.getClosureRequestId());
+        assertThat(requested)
+                .allMatch(closure -> closure.getStatus() == AccountClosureStatus.REQUESTED);
+    }
+
+    @Test
+    void selectByIdReturnsClosureWithoutProcessingLockQuery() {
+        AccountClosureDTO request = insertClosureRequest();
+
+        AccountClosureDTO found =
+                accountClosureMapper.selectById(request.getClosureRequestId()).orElseThrow();
+
+        assertThat(found.getClosureRequestId()).isEqualTo(request.getClosureRequestId());
+        assertThat(found.getAccountId()).isEqualTo(ACCOUNT_ID);
+        assertThat(found.getDestinationGeneralAccountId()).isEqualTo(20L);
+        assertThat(found.getStatus()).isEqualTo(AccountClosureStatus.REQUESTED);
+    }
+
+    @Test
+    void selectByIdReturnsEmptyForUnknownClosure() {
+        assertThat(accountClosureMapper.selectById(999L)).isEmpty();
+    }
+
     private AccountClosureDTO insertClosureRequest() {
         AccountClosureDTO request = closureRequest(false);
         assertThat(accountClosureMapper.insertClosureRequest(request)).isOne();
@@ -196,12 +247,12 @@ class AccountClosureMapperTest {
 
     private void updateAccountAmount(BigDecimal amount) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-                Statement statement = connection.createStatement()) {
-            statement.executeUpdate(
-                    "UPDATE account SET amount = "
-                            + amount.toPlainString()
-                            + " WHERE account_id = "
-                            + ACCOUNT_ID);
+                PreparedStatement statement =
+                        connection.prepareStatement(
+                                "UPDATE account SET amount = ? WHERE account_id = ?")) {
+            statement.setBigDecimal(1, amount);
+            statement.setLong(2, ACCOUNT_ID);
+            statement.executeUpdate();
         }
     }
 

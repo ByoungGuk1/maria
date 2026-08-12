@@ -6,13 +6,16 @@ import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.accountclosure.dto.AccountClosureDTO;
 import com.app.maria.domain.accountclosure.dto.request.AccountClosureApplyRequestDTO;
+import com.app.maria.domain.accountclosure.dto.response.AccountClosureResponseDTO;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotAllowedException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingException;
+import com.app.maria.domain.accountclosure.exception.AccountClosureStateConflictException;
 import com.app.maria.domain.accountclosure.mapper.AccountClosureMapper;
 import com.app.maria.domain.accountclosure.type.AccountClosureStatus;
-import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationDTO;
+import com.app.maria.domain.withdrawal.dto.WithdrawalResultDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
+import com.app.maria.domain.withdrawal.exception.EarlyWithdrawalConsentRequiredException;
 import com.app.maria.domain.withdrawal.service.WithdrawalService;
 import com.app.maria.global.client.generalaccount.GeneralAccountClient;
 import com.app.maria.global.client.generalaccount.dto.request.GeneralAccountRequestDTO;
@@ -60,9 +63,14 @@ public class AccountClosureServiceImpl implements AccountClosureService {
         if (response.getStatus() != GeneralAccountStatus.ACTIVE) {
             throw new AccountClosureNotAllowedException("활성 상태의 일반계좌만 해지 정산 계좌로 선택할 수 있습니다.");
         }
+        if (!requestDTO.isEarlyWithdrawalAgreed()
+                && withdrawalService.hasImmaturePrincipal(account.getAccountId())) {
+            throw new EarlyWithdrawalConsentRequiredException(
+                    "1년 미경과 원금이 있어 계좌 해지를 위해 조기인출 동의가 필요합니다.");
+        }
         int updatedAccountRows = accountMapper.requestClosure(account.getAccountId());
         if (updatedAccountRows != 1) {
-            throw new AccountClosureNotAllowedException("계좌 상태가 변경되어 해지를 신청할 수 없습니다.");
+            throw new AccountClosureStateConflictException("계좌 상태가 변경되어 해지를 신청할 수 없습니다.");
         }
         AccountClosureDTO closure =
                 AccountClosureDTO.builder()
@@ -132,21 +140,28 @@ public class AccountClosureServiceImpl implements AccountClosureService {
                             .destinationGeneralAccountId(closure.getDestinationGeneralAccountId())
                             .build();
 
-            List<WithdrawalAllocationDTO> forcedWithdrawalAllocations =
+            WithdrawalResultDTO forcedWithdrawalResult =
                     withdrawalService.withdrawForClosure(forcedWithdrawalRequest);
 
-            if (forcedWithdrawalAllocations.isEmpty()) {
-
-                throw new AccountClosureProcessingException("강제인출 결과를 확인할 수 없습니다.");
-            }
-            withdrawalId = forcedWithdrawalAllocations.get(0).getWithdrawalId();
+            withdrawalId = forcedWithdrawalResult.getWithdrawalId();
             if (withdrawalId == null) {
                 throw new AccountClosureProcessingException("강제 인출 식별자를 확인할 수 없습니다.");
             }
         }
+        AccountDTO accountBeforeClosure =
+                accountMapper
+                        .selectByAccountIdForUpdate(account.getAccountId())
+                        .orElseThrow(() -> new AccountNotFoundException("해지 처리할 계좌를 찾을 수 없습니다."));
+        if (accountBeforeClosure.getStatus() != Status.CLOSURE_REQUESTED) {
+            throw new AccountClosureNotAllowedException("해지 신청 상태가 변경되어 계좌를 해지할 수 없습니다.");
+        }
+        if (accountBeforeClosure.getAmount().compareTo(BigDecimal.ZERO) != 0) {
+            throw new AccountClosureProcessingException("강제인출 후에도 계좌 잔액이 남아 있어 해지할 수 없습니다.");
+        }
+
         int closedAccountRows = accountMapper.completeClosure(account.getAccountId());
         if (closedAccountRows != 1) {
-            throw new AccountClosureProcessingException("잔액 확인 또는 계좌 해치 처리에 실패했습니다.");
+            throw new AccountClosureProcessingException("계좌 상태가 변경되어 해지 처리에 실패했습니다.");
         }
         closure.setProcessedAt(businessClockService.now());
         closure.setProcessedBy(adminId);
@@ -156,5 +171,22 @@ public class AccountClosureServiceImpl implements AccountClosureService {
         if (completedClosureRows != 1) {
             throw new AccountClosureProcessingException("계좌 해지 신청 완료 처리에 실패했습니다.");
         }
+    }
+
+    @Override
+    public List<AccountClosureResponseDTO> getClosures(AccountClosureStatus status) {
+        List<AccountClosureDTO> closures = accountClosureMapper.selectByStatus(status);
+
+        return closures.stream().map(AccountClosureResponseDTO::from).toList();
+    }
+
+    @Override
+    public AccountClosureResponseDTO getClosure(Long closureRequestId) {
+        AccountClosureDTO closure =
+                accountClosureMapper
+                        .selectById(closureRequestId)
+                        .orElseThrow(
+                                () -> new AccountClosureNotFoundException("계좌 해지 신청을 찾을 수 없습니다."));
+        return AccountClosureResponseDTO.from(closure);
     }
 }
