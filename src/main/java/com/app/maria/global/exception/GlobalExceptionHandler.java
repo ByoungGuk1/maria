@@ -5,6 +5,7 @@ import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.exception.DuplicateAccountException;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureException;
+import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingException;
 import com.app.maria.domain.admin.exception.AdminException;
 import com.app.maria.domain.admin.exception.AdminNotFoundException;
@@ -357,6 +358,12 @@ public class GlobalExceptionHandler {
     }
 
     // 17. 계좌 해지 예외
+    @ExceptionHandler(AccountClosureNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleAccountClosureNotFoundException(
+            AccountClosureNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
     @ExceptionHandler(AccountClosureException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleAccountClosureException(
             AccountClosureException e) {

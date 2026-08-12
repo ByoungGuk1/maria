@@ -1,17 +1,17 @@
 package com.app.maria.domain.accountclosure.api;
 
+import com.app.maria.domain.account.dto.request.ReasonRequestDTO;
 import com.app.maria.domain.accountclosure.dto.request.AccountClosureApplyRequestDTO;
 import com.app.maria.domain.accountclosure.service.AccountClosureService;
 import com.app.maria.global.response.ApiResponseDTO;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -27,5 +27,16 @@ public class AccountClosureApi {
                 accountClosureService.applyClosure(requestDTO.getCustomerId(), requestDTO);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponseDTO.of("계좌 해지 신청 완료", closureRequestId));
+    }
+
+    @PostMapping("/{closureRequestId}/reject")
+    @PreAuthorize("hasAnyRole('ADMIN', 'REVIEWER')")
+    public ResponseEntity<ApiResponseDTO<Void>> rejectClosure(
+            @AuthenticationPrincipal Long adminId,
+            @PathVariable @Positive(message = "해지 신청 ID는 0보다 커야합니다.") Long closureRequestId,
+            @Valid @RequestBody ReasonRequestDTO requestDTO) {
+        accountClosureService.rejectClosure(adminId, closureRequestId, requestDTO.getReason());
+
+        return ResponseEntity.ok(ApiResponseDTO.of("계좌 해지 신청 반려 완료", null));
     }
 }

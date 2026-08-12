@@ -12,9 +12,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.app.maria.domain.accountclosure.dto.request.AccountClosureApplyRequestDTO;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotAllowedException;
+import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingException;
 import com.app.maria.domain.accountclosure.service.AccountClosureService;
 import com.app.maria.global.exception.GlobalExceptionHandler;
+import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,6 +25,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -37,7 +44,18 @@ class AccountClosureApiTest {
         mockMvc =
                 MockMvcBuilders.standaloneSetup(new AccountClosureApi(accountClosureService))
                         .setControllerAdvice(new GlobalExceptionHandler())
+                        .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                         .build();
+
+        SecurityContextHolder.getContext()
+                .setAuthentication(
+                        new UsernamePasswordAuthenticationToken(
+                                7L, null, List.of(new SimpleGrantedAuthority("ROLE_REVIEWER"))));
+    }
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -119,6 +137,54 @@ class AccountClosureApiTest {
                                 .content(validRequest()))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.message").value("계좌 해지 신청 저장에 실패했습니다."));
+    }
+
+    @Test
+    void reviewerCanRejectRequestedClosure() throws Exception {
+        mockMvc.perform(
+                        post("/api/account-closures/30/reject")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"reason\":\"고객 요청 정보가 일치하지 않습니다.\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("계좌 해지 신청 반려 완료"));
+
+        verify(accountClosureService).rejectClosure(7L, 30L, "고객 요청 정보가 일치하지 않습니다.");
+    }
+
+    @Test
+    void blankRejectionReasonReturnsBadRequestWithoutCallingService() throws Exception {
+        mockMvc.perform(
+                        post("/api/account-closures/30/reject")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"reason\":\" \"}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(accountClosureService);
+    }
+
+    @Test
+    void nonPositiveClosureRequestIdReturnsBadRequestWithoutCallingService() throws Exception {
+        mockMvc.perform(
+                        post("/api/account-closures/0/reject")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"reason\":\"반려 사유\"}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(accountClosureService);
+    }
+
+    @Test
+    void missingClosureRequestReturnsNotFound() throws Exception {
+        org.mockito.Mockito.doThrow(new AccountClosureNotFoundException("계좌 해지 신청을 찾을 수 없습니다."))
+                .when(accountClosureService)
+                .rejectClosure(7L, 999L, "반려 사유");
+
+        mockMvc.perform(
+                        post("/api/account-closures/999/reject")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"reason\":\"반려 사유\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("계좌 해지 신청을 찾을 수 없습니다."));
     }
 
     private static String validRequest() {
