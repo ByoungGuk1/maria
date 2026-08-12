@@ -24,7 +24,7 @@
             <div class="sidebar-group-label">심사 · 계좌</div>
             <div class="sidebar-items">
                 <a class="sidebar-item"
-                    th:classappend="${#httpServletRequest.requestURI == '/admin/dashboard'} ? ' active' : ''"
+                    th:classappend="${activePath == '/admin/dashboard'} ? ' active' : ''"
                     th:href="@{/admin/dashboard}">
                     <span class="sidebar-item-label">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#e2e8f0" stroke-width="1.4"><rect x="1" y="1" width="5" height="5"/><rect x="8" y="1" width="5" height="5"/><rect x="1" y="8" width="5" height="5"/><rect x="8" y="8" width="5" height="5"/></svg>
@@ -51,7 +51,7 @@
                     </span>
                 </span>
                 <a class="sidebar-item"
-                   th:classappend="${#httpServletRequest.requestURI == '/admin/sell-orders'} ? ' active' : ''"
+                   th:classappend="${activePath == '/admin/sell-orders'} ? ' active' : ''"
                    th:href="@{/admin/sell-orders}">
                     <span class="sidebar-item-label">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#e2e8f0" stroke-width="1.3"><line x1="2" y1="5" x2="10" y2="5"/><polyline points="7,2 10,5 7,8"/><line x1="12" y1="9" x2="4" y2="9"/><polyline points="7,12 4,9 7,6"/></svg>
