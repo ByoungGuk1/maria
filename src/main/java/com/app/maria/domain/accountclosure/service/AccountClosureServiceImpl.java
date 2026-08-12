@@ -11,7 +11,7 @@ import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundExcep
 import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingException;
 import com.app.maria.domain.accountclosure.mapper.AccountClosureMapper;
 import com.app.maria.domain.accountclosure.type.AccountClosureStatus;
-import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationDTO;
+import com.app.maria.domain.withdrawal.dto.WithdrawalResultDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
 import com.app.maria.domain.withdrawal.exception.EarlyWithdrawalConsentRequiredException;
 import com.app.maria.domain.withdrawal.service.WithdrawalService;
@@ -21,7 +21,6 @@ import com.app.maria.global.client.generalaccount.dto.response.GeneralAccountRes
 import com.app.maria.global.client.generalaccount.type.GeneralAccountStatus;
 import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -138,14 +137,10 @@ public class AccountClosureServiceImpl implements AccountClosureService {
                             .destinationGeneralAccountId(closure.getDestinationGeneralAccountId())
                             .build();
 
-            List<WithdrawalAllocationDTO> forcedWithdrawalAllocations =
+            WithdrawalResultDTO forcedWithdrawalResult =
                     withdrawalService.withdrawForClosure(forcedWithdrawalRequest);
 
-            if (forcedWithdrawalAllocations.isEmpty()) {
-
-                throw new AccountClosureProcessingException("강제인출 결과를 확인할 수 없습니다.");
-            }
-            withdrawalId = forcedWithdrawalAllocations.get(0).getWithdrawalId();
+            withdrawalId = forcedWithdrawalResult.getWithdrawalId();
             if (withdrawalId == null) {
                 throw new AccountClosureProcessingException("강제 인출 식별자를 확인할 수 없습니다.");
             }

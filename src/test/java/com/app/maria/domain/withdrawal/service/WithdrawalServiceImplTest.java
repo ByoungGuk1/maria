@@ -23,6 +23,7 @@ import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.withdrawal.dto.LeftAmountDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalDTO;
+import com.app.maria.domain.withdrawal.dto.WithdrawalResultDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
 import com.app.maria.domain.withdrawal.exception.EarlyWithdrawalConsentRequiredException;
 import com.app.maria.domain.withdrawal.exception.InsufficientWithdrawalAmountException;
@@ -110,9 +111,10 @@ class WithdrawalServiceImplTest {
         when(businessClockService.now()).thenReturn(NOW);
         preparePersistenceSuccess();
 
-        List<WithdrawalAllocationDTO> result = withdrawalService.withdrawForClosure(request("300"));
+        WithdrawalResultDTO result = withdrawalService.withdrawForClosure(request("300"));
 
-        assertThat(result).singleElement();
+        assertThat(result.getWithdrawalId()).isEqualTo(WITHDRAWAL_ID);
+        assertThat(result.getAllocations()).singleElement();
         verify(withdrawalMapper).deductAccountAmount(ACCOUNT_ID, new BigDecimal("300"));
         verify(withdrawalMapper).updateWithdrawalStatus(WITHDRAWAL_ID, WithdrawalStatus.COMPLETED);
     }

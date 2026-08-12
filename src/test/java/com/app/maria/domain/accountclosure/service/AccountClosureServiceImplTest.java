@@ -21,7 +21,7 @@ import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundExcep
 import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingException;
 import com.app.maria.domain.accountclosure.mapper.AccountClosureMapper;
 import com.app.maria.domain.accountclosure.type.AccountClosureStatus;
-import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationDTO;
+import com.app.maria.domain.withdrawal.dto.WithdrawalResultDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
 import com.app.maria.domain.withdrawal.exception.EarlyWithdrawalConsentRequiredException;
 import com.app.maria.domain.withdrawal.service.WithdrawalService;
@@ -333,13 +333,13 @@ class AccountClosureServiceImplTest {
     @Test
     void positiveBalanceIsFullyWithdrawnBeforeAccountClosure() {
         AccountClosureDTO closure = closureForApproval(true);
-        WithdrawalAllocationDTO allocation =
-                WithdrawalAllocationDTO.builder().withdrawalId(40L).build();
+        WithdrawalResultDTO withdrawalResult =
+                WithdrawalResultDTO.builder().withdrawalId(40L).allocations(List.of()).build();
         when(accountClosureMapper.selectByIdForUpdate(CLOSURE_REQUEST_ID))
                 .thenReturn(Optional.of(closure));
         when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
                 .thenReturn(Optional.of(account(Status.CLOSURE_REQUESTED, "500")));
-        when(withdrawalService.withdrawForClosure(any())).thenReturn(List.of(allocation));
+        when(withdrawalService.withdrawForClosure(any())).thenReturn(withdrawalResult);
         when(accountMapper.completeClosure(ACCOUNT_ID)).thenReturn(1);
         when(businessClockService.now()).thenReturn(NOW);
         when(accountClosureMapper.completeClosureRequest(closure)).thenReturn(1);
@@ -363,17 +363,18 @@ class AccountClosureServiceImplTest {
     }
 
     @Test
-    void emptyForcedWithdrawalResultDoesNotCloseAccount() {
+    void forcedWithdrawalWithoutIdDoesNotCloseAccount() {
         AccountClosureDTO closure = closureForApproval(true);
         when(accountClosureMapper.selectByIdForUpdate(CLOSURE_REQUEST_ID))
                 .thenReturn(Optional.of(closure));
         when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
                 .thenReturn(Optional.of(account(Status.CLOSURE_REQUESTED, "500")));
-        when(withdrawalService.withdrawForClosure(any())).thenReturn(List.of());
+        when(withdrawalService.withdrawForClosure(any()))
+                .thenReturn(WithdrawalResultDTO.builder().allocations(List.of()).build());
 
         assertThatThrownBy(() -> accountClosureService.approveClosure(7L, CLOSURE_REQUEST_ID))
                 .isInstanceOf(AccountClosureProcessingException.class)
-                .hasMessage("강제인출 결과를 확인할 수 없습니다.");
+                .hasMessage("강제 인출 식별자를 확인할 수 없습니다.");
 
         verify(accountMapper, never()).completeClosure(ACCOUNT_ID);
         verify(accountClosureMapper, never()).completeClosureRequest(any());
