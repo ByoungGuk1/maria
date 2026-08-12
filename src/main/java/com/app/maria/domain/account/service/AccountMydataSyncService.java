@@ -97,14 +97,14 @@ public class AccountMydataSyncService {
         SYNC;
 
         private static SyncOperation from(String taskValue) {
-            try {
-                return switch (taskValue.split(":", 2)[0]) {
-                    case "SYNC", "CREATE", "UPDATE_LIMIT" -> SYNC;
-                    default -> throw new IllegalArgumentException("유효하지 않은 MyData 동기화 작업입니다.");
-                };
-            } catch (RuntimeException exception) {
-                throw new IllegalArgumentException("유효하지 않은 MyData 동기화 작업입니다.", exception);
+            if (taskValue == null) {
+                throw new IllegalArgumentException("유효하지 않은 MyData 동기화 작업입니다.");
             }
+
+            return switch (taskValue.split(":", 2)[0]) {
+                case "SYNC", "CREATE", "UPDATE_LIMIT" -> SYNC;
+                default -> throw new IllegalArgumentException("유효하지 않은 MyData 동기화 작업입니다.");
+            };
         }
     }
 }

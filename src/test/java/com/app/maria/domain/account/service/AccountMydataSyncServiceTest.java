@@ -2,6 +2,7 @@ package com.app.maria.domain.account.service;
 
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.app.maria.domain.account.dto.AccountDTO;
@@ -86,6 +87,21 @@ class AccountMydataSyncServiceTest {
         verify(mydataProvider).syncRiaAccount(CI_HASH, updateAccount);
         verify(taskRepository).complete(createTask);
         verify(taskRepository).complete(updateTask);
+        verify(taskRepository).release(createTask);
+        verify(taskRepository).release(updateTask);
+    }
+
+    @Test
+    void retryCompletesAndReleasesInvalidTask() {
+        ClaimedTask task = claimed(10L, "UNKNOWN:0:token-10");
+        when(taskRepository.claimDueTasks(100)).thenReturn(List.of(task));
+
+        service.retryOpenedAccounts();
+
+        verify(taskRepository).complete(task);
+        verify(taskRepository).release(task);
+        verifyNoInteractions(accountMapper);
+        verifyNoInteractions(mydataProvider);
     }
 
     @Test
