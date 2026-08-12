@@ -43,7 +43,7 @@ public class AdminServiceImpl implements AdminService {
 
         String accessToken =
                 jwtTokenProvider.createAccessToken(
-                        admin.getAdminId(), admin.getLoginId(), admin.getRole());
+                        admin.getAdminId(), admin.getLoginId(), admin.getName(), admin.getRole());
         String refreshToken = jwtTokenProvider.createRefreshToken(admin.getAdminId());
 
         return AdminLoginResponseDTO.builder()
@@ -96,7 +96,7 @@ public class AdminServiceImpl implements AdminService {
 
         String newAccessToken =
                 jwtTokenProvider.createAccessToken(
-                        admin.getAdminId(), admin.getLoginId(), admin.getRole());
+                        admin.getAdminId(), admin.getLoginId(), admin.getName(), admin.getRole());
 
         return AdminLoginResponseDTO.builder()
                 .accessToken(newAccessToken)

@@ -11,6 +11,16 @@ public class PageController {
         return "index";
     }
 
+    @GetMapping("/login")
+    public String login() {
+        return "login";
+    }
+
+    @GetMapping("/admin/dashboard")
+    public String dashboard() {
+        return "dashboard";
+    }
+
     @GetMapping("/admin/target-products")
     public String targetProducts() {
         return "target-products";

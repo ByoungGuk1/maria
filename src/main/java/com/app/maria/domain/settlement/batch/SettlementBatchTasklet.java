@@ -1,5 +1,6 @@
 package com.app.maria.domain.settlement.batch;
 
+import com.app.maria.domain.settlement.component.SettlementBatchStatusUpdater;
 import com.app.maria.domain.settlement.component.SettlementFailureRecorder;
 import com.app.maria.domain.settlement.component.SettlementTransactionExecutor;
 import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
@@ -38,6 +39,7 @@ public class SettlementBatchTasklet implements Tasklet {
     private final ExchangeRateProvider exchangeRateProvider;
     private final SettlementTransactionExecutor settlementTransactionExecutor;
     private final SettlementFailureRecorder settlementFailureRecorder;
+    private final SettlementBatchStatusUpdater settlementBatchStatusUpdater;
 
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
@@ -57,7 +59,7 @@ public class SettlementBatchTasklet implements Tasklet {
                                 () ->
                                         new SettlementBatchNotFoundException(
                                                 "Batch를 찾을 수 없습니다. batchId=" + batchId));
-        if (!runId.equals(batch.getRunId()) || batch.getStatus() != BatchStatus.RUNNING) {
+        if (batch.getStatus() != BatchStatus.RUNNING || !runId.equals(batch.getRunId())) {
             throw new SettlementStateConflictException(
                     "확정산 Batch 상태가 실행 가능하지 않습니다. batchId=" + batchId);
         }
@@ -108,7 +110,7 @@ public class SettlementBatchTasklet implements Tasklet {
                                             value.getPurchaseCurrency(), rateDate));
             settlementTransactionExecutor.execute(value, finalRate);
         } catch (Exception e) {
-            settlementFailureRecorder.markFailed(item.getItemId());
+            settlementFailureRecorder.markFailed(item.getItemId(), e);
         }
     }
 
@@ -122,17 +124,6 @@ public class SettlementBatchTasklet implements Tasklet {
                             + pendingCount);
         }
 
-        SettlementBatchDTO result =
-                SettlementBatchDTO.builder()
-                        .batchId(batchId)
-                        .status(
-                                settlementItemMapper.countFailedItems(batchId) == 0
-                                        ? BatchStatus.COMPLETED
-                                        : BatchStatus.FAILED)
-                        .build();
-        if (settlementBatchMapper.updateBatchStatus(result) != 1) {
-            throw new SettlementStateConflictException(
-                    "확정산 Batch 최종 상태 변경에 실패했습니다. batchId=" + batchId);
-        }
+        settlementBatchStatusUpdater.completeFromLatestItems(batchId);
     }
 }

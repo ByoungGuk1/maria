@@ -17,7 +17,10 @@ import com.app.maria.domain.member.exception.MemberNotFoundException;
 import com.app.maria.domain.sellorder.exception.SellOrderException;
 import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.domain.settlement.exception.*;
+import com.app.maria.domain.tax.exception.TaxCalculationException;
+import com.app.maria.domain.tax.exception.TaxRuleNotFoundException;
 import com.app.maria.domain.withdrawal.exception.WithdrawalException;
+import com.app.maria.domain.withdrawal.exception.WithdrawalProcessingException;
 import com.app.maria.global.audit.exception.AuditLogException;
 import com.app.maria.global.audit.exception.AuditLogInsertException;
 import com.app.maria.global.audit.exception.AuditLogNotFoundException;
@@ -228,6 +231,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 
+    @ExceptionHandler(SettlementAccountMismatchException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleSettlementAccountMismatchException(
+            SettlementAccountMismatchException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(SettlementAccountNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleSettlementAccountNotFoundException(
+            SettlementAccountNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
     // 8. mydata 예외
     @ExceptionHandler(MydataApiException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleMydataApiException(MydataApiException e) {
@@ -253,6 +268,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(WithdrawalException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleWithdrawalException(WithdrawalException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(WithdrawalProcessingException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleWithdrawalProcessingException(
+            WithdrawalProcessingException e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponseDTO.of(e.getMessage()));
     }
 
@@ -309,5 +331,26 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponseDTO<Void>> handleProvisionalException(ProvisionalException e) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    // GeneralAccount 예외
+    @ExceptionHandler(GeneralAccountApiException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleGeneralAccountApiException(
+            GeneralAccountApiException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    // 15. 세액 계산 예외
+    @ExceptionHandler(TaxCalculationException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleTaxCalculationException(
+            TaxCalculationException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(TaxRuleNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleTaxRuleNotFound(TaxRuleNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 }

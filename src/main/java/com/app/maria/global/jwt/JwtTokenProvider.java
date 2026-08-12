@@ -21,13 +21,14 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtProperties.getSecret()));
     }
 
-    public String createAccessToken(Long adminId, String loginId, AdminRole role) {
+    public String createAccessToken(Long adminId, String loginId, String name, AdminRole role) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + jwtProperties.getExpirationMinute() * 60 * 1000);
 
         return Jwts.builder()
                 .subject(String.valueOf(adminId))
                 .claim("loginId", loginId)
+                .claim("name", name)
                 .claim("role", role.name())
                 .issuedAt(now)
                 .expiration(expiry)
