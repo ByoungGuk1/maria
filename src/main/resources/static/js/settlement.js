@@ -4,6 +4,7 @@ $(function () {
     var currentPage = 1;
     var PAGE_SIZE = 20;
     var items = [];
+    var allBatchItems = [];
     var selectedItemId = null;
     var currentItemPage = 1;
     var ITEM_PAGE_SIZE = 10;
@@ -12,6 +13,8 @@ $(function () {
 
     function escapeHtml(value) { return $("<div>").text(value == null ? "-" : value).html(); }
     function formatDateTime(value) { return value ? new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value)) : "-"; }
+    function formatAmount(value) { return value == null ? "-" : "₩" + new Intl.NumberFormat("ko-KR").format(value); }
+    function formatRate(value) { return value == null ? "-" : new Intl.NumberFormat("ko-KR", { minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(value); }
     function showError(message) { MARIA.ui.showError(message); }
     function statusBadge(status) { var key = (status || "").toLowerCase(); return '<span class="settlement-status ' + key + '">' + escapeHtml(LABELS[status] || status) + "</span>"; }
 
@@ -48,7 +51,7 @@ $(function () {
         var pageItems = items.slice((currentItemPage - 1) * ITEM_PAGE_SIZE, currentItemPage * ITEM_PAGE_SIZE);
         if (!items.length) { $body.append('<tr><td colspan="8" class="settlement-empty">정산 항목이 없습니다.</td></tr>'); $("#settlementItemPagination").hide(); return; }
         pageItems.forEach(function (item) {
-            $body.append('<tr class="settlement-item-row' + (item.itemId === selectedItemId ? " is-selected" : "") + '" data-item-id="' + item.itemId + '"><td>' + item.itemId + "</td><td>" + item.exchangeId + "</td><td>" + item.accountId + "</td><td>" + escapeHtml(item.purchaseCurrency) + "</td><td>" + statusBadge(item.result) + "</td><td>" + escapeHtml(item.failureCode) + "</td><td>" + formatDateTime(item.processedAt) + "</td><td>" + escapeHtml(item.failureMessage) + "</td></tr>");
+            $body.append('<tr class="settlement-item-row' + (item.itemId === selectedItemId ? " is-selected" : "") + '" data-item-id="' + item.itemId + '"><td>#' + item.itemId + "</td><td>" + escapeHtml(item.accountNo) + "</td><td>" + escapeHtml(item.ticker) + "</td><td>" + formatAmount(item.provisionalAmount) + "</td><td>" + formatAmount(item.finalAmount) + "</td><td>" + statusBadge(item.result) + "</td><td>" + escapeHtml(item.failureCode || item.failureMessage) + "</td><td>" + formatDateTime(item.processedAt) + "</td></tr>");
         });
         $("#settlementItemPageInfo").text(currentItemPage + " / " + totalPages);
         $("#previousSettlementItemPage").prop("disabled", currentItemPage === 1);
@@ -86,18 +89,25 @@ $(function () {
         $("#settlementDetail").show();
         $("#detailBatchTitle").text("배치 #" + selectedBatchId + " 상세");
         $("#detailBatchFailure").text(batch.failureMessage || "");
+        $("#detailBatchExecutedAt").text(formatDateTime(batch.executedAt));
+        $("#detailBatchRunId").text(batch.runId || "-");
+        $("#detailBatchTotalCount").text(batch.totalCount + "건");
+        $("#detailBatchSuccessCount").text(batch.successCount + "건");
+        $("#detailBatchFailedCount").text(batch.failedCount + "건");
+        $("#detailBatchProcessedCount").text(batch.processedCount + "건");
         $("#retrySettlementBatch").toggle(batch.status === "FAILED");
         $("#settlementItemFilter").toggle(batch.status === "FAILED");
     }
 
     function loadBatchItems(preserveItemPage) {
         $("#settlementItemBody").html('<tr><td colspan="8" class="settlement-empty">불러오는 중...</td></tr>');
-        var url = itemFilter === "failed"
-            ? "/api/settlement/batches/detail/fail/" + selectedBatchId
-            : "/api/settlement/batches/detail/" + selectedBatchId;
+        var url = "/api/settlement/batches/detail/" + selectedBatchId;
         MARIA.auth.ajax({ url: url, method: "GET" })
             .done(function (res) {
-                items = res.data || [];
+                allBatchItems = res.data || [];
+                items = allBatchItems.filter(function (item) {
+                    return itemFilter === "all" || (itemFilter === "success" && item.result === "SUCCESS") || (itemFilter === "failed" && item.result === "FAILED");
+                });
                 if (!preserveItemPage) {
                     currentItemPage = 1;
                     selectedItemId = null;
@@ -128,13 +138,36 @@ $(function () {
                 $("#detailItemFailure").text(item.failureMessage || "");
                 $("#detailItemExchangeId").text(item.exchangeId || "-");
                 $("#detailItemAccountId").text(item.accountId || "-");
+                $("#detailItemAccountNo").text(item.accountNo || "-");
                 $("#detailItemOrderId").text(item.orderId || "-");
-                $("#detailItemAmount").text(item.provisionalAmount || "-");
-                $("#detailItemFxRate").text(item.settlementFxRate || "-");
+                $("#detailItemProduct").text([item.ticker, item.productName].filter(Boolean).join(" · ") || "-");
                 $("#detailItemExchangeStatus").text(item.settlementStatus || "-");
+                $("#detailItemFailureCode").text(item.failureCode || "-");
+                $("#detailItemProvisionalAmount").text(formatAmount(item.provisionalAmount));
+                $("#detailItemProvisionalAt").text(formatDateTime(item.provisionalAt));
+                $("#detailItemProvisionalRate").text(formatRate(item.settlementFxRate));
+                $("#detailItemFinalAmount").text(formatAmount(item.finalAmount));
+                $("#detailItemFinalAt").text(formatDateTime(item.finalAt));
+                $("#detailItemFinalRate").text(formatRate(item.finalRate));
+                var difference = item.finalAmount == null || item.provisionalAmount == null ? null : Number(item.finalAmount) - Number(item.provisionalAmount);
+                $("#detailItemDifference").text(difference == null ? "-" : (difference > 0 ? "+" : "") + formatAmount(difference));
+                renderRetryHistory(item.exchangeId);
                 $("#retrySettlementItem").toggle(item.result === "FAILED");
             })
             .fail(function (xhr) { if (xhr.status !== 401) { showError((xhr.responseJSON && xhr.responseJSON.message) || "정산 항목 상세를 불러오지 못했습니다."); } });
+    }
+
+    function renderRetryHistory(exchangeId) {
+        var $history = $("#settlementRetryHistory").empty();
+        var history = allBatchItems.filter(function (item) { return item.exchangeId === exchangeId; })
+            .sort(function (left, right) { return Number(right.itemId) - Number(left.itemId); });
+        if (!history.length) {
+            $history.append("<li>처리 이력이 없습니다.</li>");
+            return;
+        }
+        history.forEach(function (historyItem) {
+            $history.append("<li><strong>Item #" + historyItem.itemId + " " + escapeHtml(LABELS[historyItem.result] || historyItem.result || "대기") + "</strong><span>" + formatDateTime(historyItem.processedAt) + "</span><small>" + escapeHtml(historyItem.failureCode || historyItem.failureMessage || "처리 완료") + "</small></li>");
+        });
     }
 
     function loadBatches() {
