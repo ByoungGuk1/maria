@@ -7,13 +7,12 @@ import com.app.maria.domain.inbound.service.InboundService;
 import com.app.maria.global.response.ApiResponseDTO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -37,5 +36,4 @@ public class InboundApi {
         List<AccountHoldingResponseDTO> result = inboundService.getHoldings(accountId);
         return ResponseEntity.ok(ApiResponseDTO.of("계좌 보유종목 조회 성공", result));
     }
-
 }

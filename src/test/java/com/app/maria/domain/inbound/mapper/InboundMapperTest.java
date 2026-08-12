@@ -224,9 +224,7 @@ class InboundMapperTest {
 
         List<InboundHoldingDTO> holdings = inboundMapper.selectHoldingsByAccount(1L);
 
-        assertThat(holdings)
-                .extracting(InboundHoldingDTO::getForeignProductId)
-                .containsExactly(2L);
+        assertThat(holdings).extracting(InboundHoldingDTO::getForeignProductId).containsExactly(2L);
     }
 
     @Test

@@ -2,9 +2,8 @@ package com.app.maria.domain.account.dto.response;
 
 import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.type.Status;
-import lombok.*;
-
 import java.math.BigDecimal;
+import lombok.*;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -28,5 +27,4 @@ public class AccountLimitUsageResponseDTO {
         this.limitAmount = dto.getLimitAmount();
         this.usedAmount = dto.getUsedAmount();
     }
-
 }

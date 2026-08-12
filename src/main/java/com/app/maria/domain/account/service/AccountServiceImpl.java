@@ -14,14 +14,13 @@ import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.provider.MydataProvider;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.global.clock.service.BusinessClockService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -235,18 +234,24 @@ public class AccountServiceImpl implements AccountService {
     @Override
     @Transactional(readOnly = true)
     public List<AccountLimitUsageResponseDTO> selectAccountLimitUsage() {
-        return accountMapper.selectAccountLimitUsage().stream().map(AccountLimitUsageResponseDTO::new).toList();
+        return accountMapper.selectAccountLimitUsage().stream()
+                .map(AccountLimitUsageResponseDTO::new)
+                .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<AccountLimitUsageResponseDTO> getAppliedAccounts() {
-        return accountMapper.selectAppliedAccounts().stream().map(AccountLimitUsageResponseDTO::new).toList();
+        return accountMapper.selectAppliedAccounts().stream()
+                .map(AccountLimitUsageResponseDTO::new)
+                .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<AccountLimitUsageResponseDTO> searchAccounts(AccountSearchRequestDTO request) {
-        return accountMapper.searchAccounts(request.toAccountSearchDTO()).stream().map(AccountLimitUsageResponseDTO::new).toList();
+        return accountMapper.searchAccounts(request.toAccountSearchDTO()).stream()
+                .map(AccountLimitUsageResponseDTO::new)
+                .toList();
     }
 }

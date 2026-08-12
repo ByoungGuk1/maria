@@ -1,8 +1,7 @@
 package com.app.maria.domain.inbound.dto;
 
-import lombok.*;
-
 import java.math.BigDecimal;
+import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -14,5 +13,4 @@ public class InboundHoldingDTO {
 
     private Long foreignProductId;
     private BigDecimal currentQty;
-
 }

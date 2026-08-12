@@ -84,7 +84,8 @@ class DashboardServiceImplTest {
     void getDashboardSummaryIncludesAccountExactlyAtEightyPercentThreshold() {
         DashboardServiceImpl service = newService();
         stubUnrelatedDependencies();
-        AccountLimitUsageResponseDTO exactlyEighty = accountUsage(1L, Status.OPENED, "8000000", "10000000");
+        AccountLimitUsageResponseDTO exactlyEighty =
+                accountUsage(1L, Status.OPENED, "8000000", "10000000");
         when(accountService.selectAccountLimitUsage()).thenReturn(List.of(exactlyEighty));
         when(accountService.getAppliedAccounts()).thenReturn(List.of());
 
@@ -99,7 +100,8 @@ class DashboardServiceImplTest {
     void getDashboardSummaryExcludesAccountJustBelowEightyPercentThreshold() {
         DashboardServiceImpl service = newService();
         stubUnrelatedDependencies();
-        AccountLimitUsageResponseDTO justBelow = accountUsage(2L, Status.OPENED, "7994000", "10000000");
+        AccountLimitUsageResponseDTO justBelow =
+                accountUsage(2L, Status.OPENED, "7994000", "10000000");
         when(accountService.selectAccountLimitUsage()).thenReturn(List.of(justBelow));
         when(accountService.getAppliedAccounts()).thenReturn(List.of());
 

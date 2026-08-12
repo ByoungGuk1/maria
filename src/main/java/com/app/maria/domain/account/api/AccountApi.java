@@ -8,14 +8,13 @@ import com.app.maria.domain.account.service.AccountService;
 import com.app.maria.global.response.ApiResponseDTO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
+import java.math.BigDecimal;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.math.BigDecimal;
-import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -116,6 +115,4 @@ public class AccountApi {
         return ResponseEntity.ok(
                 ApiResponseDTO.of("계좌 검색", accountService.searchAccounts(requestDTO)));
     }
-
-
 }
