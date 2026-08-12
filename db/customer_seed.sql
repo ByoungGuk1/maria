@@ -193,10 +193,11 @@ INSERT INTO system_clock (clock_id,current_datetime) VALUES (1,'2026-08-04 09:00
 
 INSERT INTO admin_user (login_id,name,password_hash,role)
 VALUES
-('viewer','조회 담당자','SEED_PLACEHOLDER_HASH','VIEWER'),
-('reviewer','심사 담당자','SEED_PLACEHOLDER_HASH','REVIEWER'),
-('settlement','정산 담당자','SEED_PLACEHOLDER_HASH','SETTLEMENT'),
-('admin','최고 관리자','SEED_PLACEHOLDER_HASH','ADMIN');
+('viewer','이국희','$2a$10$nXMKqTsi5DrH8e2sEshO3.TjeoERmTFiZhOZ1oP5oC0oHL8UwCsy.','VIEWER'),
+('viewer2','김민석','$2a$10$nXMKqTsi5DrH8e2sEshO3.TjeoERmTFiZhOZ1oP5oC0oHL8UwCsy.','VIEWER'),
+('reviewer','이은정','$2a$10$nXMKqTsi5DrH8e2sEshO3.TjeoERmTFiZhOZ1oP5oC0oHL8UwCsy.','REVIEWER'),
+('settlement','송병국','$2a$10$nXMKqTsi5DrH8e2sEshO3.TjeoERmTFiZhOZ1oP5oC0oHL8UwCsy.','SETTLEMENT'),
+('admin','천유진','$2a$10$nXMKqTsi5DrH8e2sEshO3.TjeoERmTFiZhOZ1oP5oC0oHL8UwCsy.','ADMIN');
 
 INSERT INTO customer (customer_id,name,birth_date,phone,investor_type,ci_hash,created_at)
 VALUES
