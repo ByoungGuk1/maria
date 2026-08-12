@@ -6,7 +6,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
+import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.account.service.AccountLogService;
 import com.app.maria.domain.account.service.AccountService;
 import com.app.maria.domain.account.type.Status;
@@ -84,7 +84,7 @@ class DashboardServiceImplTest {
     void getDashboardSummaryIncludesAccountExactlyAtEightyPercentThreshold() {
         DashboardServiceImpl service = newService();
         stubUnrelatedDependencies();
-        AccountLimitUsageDTO exactlyEighty = accountUsage(1L, Status.OPENED, "8000000", "10000000");
+        AccountLimitUsageResponseDTO exactlyEighty = accountUsage(1L, Status.OPENED, "8000000", "10000000");
         when(accountService.selectAccountLimitUsage()).thenReturn(List.of(exactlyEighty));
         when(accountService.getAppliedAccounts()).thenReturn(List.of());
 
@@ -99,7 +99,7 @@ class DashboardServiceImplTest {
     void getDashboardSummaryExcludesAccountJustBelowEightyPercentThreshold() {
         DashboardServiceImpl service = newService();
         stubUnrelatedDependencies();
-        AccountLimitUsageDTO justBelow = accountUsage(2L, Status.OPENED, "7994000", "10000000");
+        AccountLimitUsageResponseDTO justBelow = accountUsage(2L, Status.OPENED, "7994000", "10000000");
         when(accountService.selectAccountLimitUsage()).thenReturn(List.of(justBelow));
         when(accountService.getAppliedAccounts()).thenReturn(List.of());
 
@@ -114,7 +114,7 @@ class DashboardServiceImplTest {
     void getDashboardSummaryTreatsNonPositiveLimitAmountAsNotNearLimit() {
         DashboardServiceImpl service = newService();
         stubUnrelatedDependencies();
-        AccountLimitUsageDTO zeroLimit = accountUsage(3L, Status.OPENED, "1000", "0");
+        AccountLimitUsageResponseDTO zeroLimit = accountUsage(3L, Status.OPENED, "1000", "0");
         when(accountService.selectAccountLimitUsage()).thenReturn(List.of(zeroLimit));
         when(accountService.getAppliedAccounts()).thenReturn(List.of());
 
@@ -129,7 +129,7 @@ class DashboardServiceImplTest {
     void getDashboardSummaryKeepsAppliedAccountsInPriorityListRegardlessOfUsage() {
         DashboardServiceImpl service = newService();
         stubUnrelatedDependencies();
-        AccountLimitUsageDTO applied = accountUsage(4L, Status.APPLIED, "0", "5000000");
+        AccountLimitUsageResponseDTO applied = accountUsage(4L, Status.APPLIED, "0", "5000000");
         when(accountService.selectAccountLimitUsage()).thenReturn(List.of());
         when(accountService.getAppliedAccounts()).thenReturn(List.of(applied));
 
@@ -202,9 +202,9 @@ class DashboardServiceImplTest {
         when(auditLogService.searchAuditLogs(any())).thenReturn(List.of());
     }
 
-    private AccountLimitUsageDTO accountUsage(
+    private AccountLimitUsageResponseDTO accountUsage(
             Long accountId, Status status, String usedAmount, String limitAmount) {
-        return AccountLimitUsageDTO.builder()
+        return AccountLimitUsageResponseDTO.builder()
                 .accountId(accountId)
                 .accountNo("110-" + accountId)
                 .customerName("고객" + accountId)
