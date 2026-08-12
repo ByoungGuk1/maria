@@ -29,11 +29,7 @@ class SellLimitServiceImplTest {
 
     @InjectMocks SellLimitServiceImpl sellLimitService;
 
-    private void stubAccount(
-            Long accountId,
-            String limitAmount,
-            String usedAmount,
-            String ciHash) {
+    private void stubAccount(Long accountId, String limitAmount, String usedAmount, String ciHash) {
         when(sellLimitMapper.selectAccountLimitForUpdate(accountId))
                 .thenReturn(Optional.of(new BigDecimal(limitAmount)));
         when(sellLimitMapper.sumUsedAmount(accountId)).thenReturn(new BigDecimal(usedAmount));
