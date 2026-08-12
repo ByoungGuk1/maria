@@ -18,6 +18,7 @@ import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.config.properties.RiaTaxProperties;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,7 +46,15 @@ public class TaxCalculationServiceImpl implements TaxCalculationService {
         TaxCalculationDTO taxCalculationDTO =
                 TaxCalculationDTO.of(
                         accountId, basisType, clockService.now(), calculateFor(account));
-        taxMapper.insertCalculation(taxCalculationDTO);
+
+        try {
+            taxMapper.insertCalculation(taxCalculationDTO);
+        } catch (DuplicateKeyException e) {
+            // resolveBasisType은 조회라 동시 요청을 막지 못한다.
+            // UNIQUE(account_id, basis_type)가 최종 방어선이고, 진 쪽도 409로 응답한다.
+            throw new TaxCalculationAlreadyExistsException(
+                    "이미 " + basisType + " 계산이 저장되었습니다. accountId=" + accountId);
+        }
 
         return TaxCalculationSaveResponseDTO.of(taxCalculationDTO);
     }

@@ -342,7 +342,7 @@ public class GlobalExceptionHandler {
                 .body(ApiResponseDTO.of(e.getMessage()));
     }
 
-    // 15. 세액 계산 예외
+    // 세액 계산 예외
     @ExceptionHandler(TaxCalculationException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleTaxCalculationException(
             TaxCalculationException e) {
@@ -355,8 +355,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 
-    @ExceptionHandler
-    public ResponseEntity<ApiResponseDTO<Void>> handleTaxRuleNotFound(
+    @ExceptionHandler(TaxCalculationAlreadyExistsException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleTaxCalculationAlreadyExists(
             TaxCalculationAlreadyExistsException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
     }
