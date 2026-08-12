@@ -317,8 +317,8 @@ class AccountMapperTest {
     }
 
     @Test
-    @DisplayName("전체 계좌를 status 내림차순으로 조회한다")
-    void selectAllAccountsOrdersByStatusDescending() {
+    @DisplayName("전체 계좌를 고객 ID 내림차순으로 조회한다")
+    void selectAllAccountsOrdersByCustomerIdDescending() {
         Long openedAccountId = insertApplication(1L, DEFAULT_LIMIT);
         Long rejectedAccountId = insertApplication(2L, DEFAULT_LIMIT);
         insertApplication(3L, DEFAULT_LIMIT);
@@ -330,7 +330,7 @@ class AccountMapperTest {
         assertThat(result).hasSize(3);
         assertThat(result)
                 .extracting(AccountDTO::getStatus)
-                .containsExactly(Status.REJECTED, Status.OPENED, Status.APPLIED);
+                .containsExactly(Status.APPLIED, Status.REJECTED, Status.OPENED);
     }
 
     @Test
