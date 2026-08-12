@@ -5,6 +5,7 @@ import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.request.AccountSearchRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
@@ -13,13 +14,14 @@ import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.provider.MydataProvider;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.global.clock.service.BusinessClockService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -240,5 +242,11 @@ public class AccountServiceImpl implements AccountService {
     @Transactional(readOnly = true)
     public List<AccountLimitUsageDTO> getAppliedAccounts() {
         return accountMapper.selectAppliedAccounts();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AccountLimitUsageDTO> searchAccounts(AccountSearchRequestDTO request) {
+        return accountMapper.searchAccounts(request.toAccountSearchDTO());
     }
 }

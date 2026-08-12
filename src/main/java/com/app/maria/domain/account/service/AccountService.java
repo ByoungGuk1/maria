@@ -4,6 +4,7 @@ import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.request.AccountSearchRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import java.math.BigDecimal;
@@ -41,4 +42,7 @@ public interface AccountService {
     List<AccountLimitUsageDTO> selectAccountLimitUsage();
 
     List<AccountLimitUsageDTO> getAppliedAccounts();
+
+    List<AccountLimitUsageDTO> searchAccounts(AccountSearchRequestDTO request);
+
 }
