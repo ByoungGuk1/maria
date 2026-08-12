@@ -84,4 +84,13 @@ public interface AccountMapper {
     List<AccountLimitUsageDTO> selectAppliedAccounts();
 
     List<AccountLimitUsageDTO> searchAccounts(AccountSearchDTO condition);
+
+    // 해지 신청 상태로 변경
+    int requestClosure(Long accountId);
+
+    // 해지 반려 시 계좌 상태 변경
+    int reopenAfterClosureRejection(Long accountId);
+
+    // 해지 완료 상태변경
+    int completeClosure(Long accountId);
 }
