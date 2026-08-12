@@ -20,4 +20,10 @@ public class PageController {
     public String dashboard() {
         return "dashboard";
     }
+
+    @GetMapping("/admin/sell-orders")
+    public String sellOrders() {
+        return "sellOrder";
+    }
+
 }
