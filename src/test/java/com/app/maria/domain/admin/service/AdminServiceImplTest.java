@@ -45,6 +45,7 @@ class AdminServiceImplTest {
         return AdminUserDTO.builder()
                 .adminId(1L)
                 .loginId("reviewer1")
+                .name("이은정")
                 .passwordHash("encoded-password")
                 .role(AdminRole.REVIEWER)
                 .build();
@@ -61,7 +62,7 @@ class AdminServiceImplTest {
 
         when(adminMapper.selectAdminByLoginId("reviewer1")).thenReturn(Optional.of(admin()));
         when(passwordEncoder.matches("raw-password", "encoded-password")).thenReturn(true);
-        when(jwtTokenProvider.createAccessToken(1L, "reviewer1", AdminRole.REVIEWER))
+        when(jwtTokenProvider.createAccessToken(1L, "reviewer1", "이은정", AdminRole.REVIEWER))
                 .thenReturn("access-token");
         when(jwtTokenProvider.createRefreshToken(1L)).thenReturn("refresh-token");
 
@@ -163,7 +164,7 @@ class AdminServiceImplTest {
         when(jwtTokenProvider.parseClaims("valid-refresh-token")).thenReturn(claims);
         when(claims.getSubject()).thenReturn("1");
         when(adminMapper.selectAdminByAdminId(1L)).thenReturn(Optional.of(admin()));
-        when(jwtTokenProvider.createAccessToken(1L, "reviewer1", AdminRole.REVIEWER))
+        when(jwtTokenProvider.createAccessToken(1L, "reviewer1", "이은정", AdminRole.REVIEWER))
                 .thenReturn("new-access-token");
 
         AdminLoginResponseDTO result = adminService.refresh("valid-refresh-token");
@@ -171,7 +172,7 @@ class AdminServiceImplTest {
         assertThat(result.getAccessToken()).isEqualTo("new-access-token");
         assertThat(result.getRefreshToken()).isEqualTo("valid-refresh-token");
         verify(adminMapper).selectAdminByAdminId(1L);
-        verify(jwtTokenProvider).createAccessToken(1L, "reviewer1", AdminRole.REVIEWER);
+        verify(jwtTokenProvider).createAccessToken(1L, "reviewer1", "이은정", AdminRole.REVIEWER);
     }
 
     @Test
@@ -210,7 +211,7 @@ class AdminServiceImplTest {
                 .isInstanceOf(AdminNotFoundException.class)
                 .hasMessage("대상 관리자가 없습니다.");
 
-        verify(jwtTokenProvider, never()).createAccessToken(any(), any(), any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(), any(), any());
     }
 
     private String catchAdminExceptionMessage(Runnable action) {

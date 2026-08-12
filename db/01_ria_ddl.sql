@@ -16,6 +16,7 @@ DROP TABLE IF EXISTS settlement_item;
 DROP TABLE IF EXISTS settlement_batch;
 DROP TABLE IF EXISTS tax_calculation;
 DROP TABLE IF EXISTS tax_rule;
+DROP TABLE IF EXISTS account_closure_request;
 DROP TABLE IF EXISTS withdrawal_allocation;
 DROP TABLE IF EXISTS withdrawal;
 DROP TABLE IF EXISTS left_amount;
@@ -349,6 +350,23 @@ CREATE TABLE withdrawal_allocation (
     CONSTRAINT chk_wa_type CHECK (type IN ('EARNINGS_ONLY','MATURED_PRINCIPAL_INCLUDED','IMMATURE_PRINCIPAL_INCLUDED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='인출 FIFO 회계 분개';
 
+-- [NO-SEED] 계산 데이터(서비스/골든 시나리오로 생성). 생성기 무관.
+CREATE TABLE account_closure_request (
+    closure_request_id             BIGINT       NOT NULL AUTO_INCREMENT,
+    account_id                     BIGINT       NOT NULL,
+    destination_general_account_id BIGINT       NOT NULL COMMENT '강제인출 목적지 general_account 참조값(FK없음)',
+    early_withdrawal_agreed        BOOLEAN      NOT NULL DEFAULT FALSE COMMENT '조기인출 및 세제혜택 취소 동의',
+    status                         VARCHAR(20)   NOT NULL DEFAULT 'REQUESTED' COMMENT 'REQUESTED/COMPLETED/REJECTED',
+    requested_at                   DATETIME      NOT NULL COMMENT '해지 신청 업무시각',
+    processed_at                   DATETIME      NULL COMMENT '해지 또는 반려 처리 업무시각',
+    processed_by                   BIGINT        NULL COMMENT '처리 관리자',
+    rejection_reason               VARCHAR(255) NULL COMMENT '해지 반려 사유',
+    withdrawal_id                  BIGINT        NULL COMMENT '강제인출 결과. 잔액이 0원이면 NULL',
+    PRIMARY KEY (closure_request_id),
+    KEY idx_acr_account_status (account_id, status),
+    CONSTRAINT chk_acr_status CHECK (status IN ('REQUESTED','COMPLETED','REJECTED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='RIA 계좌 해지 신청';
+
 -- ---------------------------------------------------------------------
 -- 세금 계산
 -- ---------------------------------------------------------------------
@@ -473,6 +491,9 @@ ALTER TABLE left_amount            ADD CONSTRAINT fk_left_amount__krw_exchange  
 ALTER TABLE withdrawal             ADD CONSTRAINT fk_withdrawal__account               FOREIGN KEY (account_id)           REFERENCES account (account_id);
 ALTER TABLE withdrawal_allocation  ADD CONSTRAINT fk_wa__withdrawal                    FOREIGN KEY (withdrawal_id)        REFERENCES withdrawal (withdrawal_id);
 ALTER TABLE withdrawal_allocation  ADD CONSTRAINT fk_wa__left_amount                   FOREIGN KEY (left_amount_id)       REFERENCES left_amount (left_amount_id);
+ALTER TABLE account_closure_request ADD CONSTRAINT fk_acr__account                      FOREIGN KEY (account_id)           REFERENCES account (account_id);
+ALTER TABLE account_closure_request ADD CONSTRAINT fk_acr__admin_user                   FOREIGN KEY (processed_by)         REFERENCES admin_user (admin_id);
+ALTER TABLE account_closure_request ADD CONSTRAINT fk_acr__withdrawal                   FOREIGN KEY (withdrawal_id)        REFERENCES withdrawal (withdrawal_id);
 ALTER TABLE tax_calculation        ADD CONSTRAINT fk_tax_calc__account                 FOREIGN KEY (account_id)           REFERENCES account (account_id);
 ALTER TABLE settlement_item        ADD CONSTRAINT fk_settlement_item__batch            FOREIGN KEY (batch_id)             REFERENCES settlement_batch (batch_id);
 ALTER TABLE settlement_item        ADD CONSTRAINT fk_settlement_item__krw_exchange     FOREIGN KEY (exchange_id)          REFERENCES krw_exchange (exchange_id);

@@ -86,6 +86,38 @@ class WithdrawalServiceImplTest {
     }
 
     @Test
+    void regularWithdrawalRejectsClosureRequestedAccount() {
+        prepareExternalValidation(
+                account(Status.CLOSURE_REQUESTED, "300"), GeneralAccountStatus.ACTIVE);
+        when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
+                .thenReturn(Optional.of(account(Status.CLOSURE_REQUESTED, "300")));
+
+        assertThatThrownBy(() -> withdrawalService.withdraw(request("100")))
+                .isInstanceOf(WithdrawalNotAllowedException.class)
+                .hasMessage("현재 계좌 상태에서는 인출할 수 없습니다.");
+
+        verifyNoInteractions(withdrawalMapper, businessClockService);
+    }
+
+    @Test
+    void closureWithdrawalAllowsClosureRequestedAccount() {
+        AccountDTO closureRequestedAccount = account(Status.CLOSURE_REQUESTED, "300");
+        prepareExternalValidation(closureRequestedAccount, GeneralAccountStatus.ACTIVE);
+        when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
+                .thenReturn(Optional.of(closureRequestedAccount));
+        when(withdrawalMapper.selectAvailableLeftAmountsByAccountId(ACCOUNT_ID))
+                .thenReturn(List.of(leftAmount(10L, "300", NOW.minusYears(2))));
+        when(businessClockService.now()).thenReturn(NOW);
+        preparePersistenceSuccess();
+
+        List<WithdrawalAllocationDTO> result = withdrawalService.withdrawForClosure(request("300"));
+
+        assertThat(result).singleElement();
+        verify(withdrawalMapper).deductAccountAmount(ACCOUNT_ID, new BigDecimal("300"));
+        verify(withdrawalMapper).updateWithdrawalStatus(WITHDRAWAL_ID, WithdrawalStatus.COMPLETED);
+    }
+
+    @Test
     void closedDestinationAccount_isRejectedBeforeAccountLockAndWithdrawalPersistence() {
         prepareExternalValidation(account(Status.OPENED, "500"), GeneralAccountStatus.CLOSED);
 
