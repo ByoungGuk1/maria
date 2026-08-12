@@ -118,6 +118,36 @@ class WithdrawalServiceImplTest {
     }
 
     @Test
+    void principalOneSecondBeforeMaturityIsImmature() {
+        when(withdrawalMapper.selectAvailableLeftAmountsByAccountId(ACCOUNT_ID))
+                .thenReturn(List.of(leftAmount(10L, "300", NOW.minusYears(1).plusSeconds(1))));
+        when(businessClockService.now()).thenReturn(NOW);
+
+        assertThat(withdrawalService.hasImmaturePrincipal(ACCOUNT_ID)).isTrue();
+    }
+
+    @Test
+    void principalExactlyAtMaturityIsNotImmature() {
+        when(withdrawalMapper.selectAvailableLeftAmountsByAccountId(ACCOUNT_ID))
+                .thenReturn(List.of(leftAmount(10L, "300", NOW.minusYears(1))));
+        when(businessClockService.now()).thenReturn(NOW);
+
+        assertThat(withdrawalService.hasImmaturePrincipal(ACCOUNT_ID)).isFalse();
+    }
+
+    @Test
+    void anyImmaturePrincipalMakesClosureConsentNecessary() {
+        when(withdrawalMapper.selectAvailableLeftAmountsByAccountId(ACCOUNT_ID))
+                .thenReturn(
+                        List.of(
+                                leftAmount(10L, "300", NOW.minusYears(2)),
+                                leftAmount(11L, "200", NOW.minusMonths(6))));
+        when(businessClockService.now()).thenReturn(NOW);
+
+        assertThat(withdrawalService.hasImmaturePrincipal(ACCOUNT_ID)).isTrue();
+    }
+
+    @Test
     void closedDestinationAccount_isRejectedBeforeAccountLockAndWithdrawalPersistence() {
         prepareExternalValidation(account(Status.OPENED, "500"), GeneralAccountStatus.CLOSED);
 

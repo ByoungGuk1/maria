@@ -13,6 +13,7 @@ import com.app.maria.domain.accountclosure.mapper.AccountClosureMapper;
 import com.app.maria.domain.accountclosure.type.AccountClosureStatus;
 import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
+import com.app.maria.domain.withdrawal.exception.EarlyWithdrawalConsentRequiredException;
 import com.app.maria.domain.withdrawal.service.WithdrawalService;
 import com.app.maria.global.client.generalaccount.GeneralAccountClient;
 import com.app.maria.global.client.generalaccount.dto.request.GeneralAccountRequestDTO;
@@ -59,6 +60,11 @@ public class AccountClosureServiceImpl implements AccountClosureService {
 
         if (response.getStatus() != GeneralAccountStatus.ACTIVE) {
             throw new AccountClosureNotAllowedException("활성 상태의 일반계좌만 해지 정산 계좌로 선택할 수 있습니다.");
+        }
+        if (!requestDTO.isEarlyWithdrawalAgreed()
+                && withdrawalService.hasImmaturePrincipal(account.getAccountId())) {
+            throw new EarlyWithdrawalConsentRequiredException(
+                    "1년 미경과 원금이 있어 계좌 해지를 위해 조기인출 동의가 필요합니다.");
         }
         int updatedAccountRows = accountMapper.requestClosure(account.getAccountId());
         if (updatedAccountRows != 1) {
@@ -146,7 +152,7 @@ public class AccountClosureServiceImpl implements AccountClosureService {
         }
         int closedAccountRows = accountMapper.completeClosure(account.getAccountId());
         if (closedAccountRows != 1) {
-            throw new AccountClosureProcessingException("잔액 확인 또는 계좌 해치 처리에 실패했습니다.");
+            throw new AccountClosureProcessingException("잔액 확인 또는 계좌 해지 처리에 실패했습니다.");
         }
         closure.setProcessedAt(businessClockService.now());
         closure.setProcessedBy(adminId);

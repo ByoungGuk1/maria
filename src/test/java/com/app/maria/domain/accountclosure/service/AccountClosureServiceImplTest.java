@@ -23,6 +23,7 @@ import com.app.maria.domain.accountclosure.mapper.AccountClosureMapper;
 import com.app.maria.domain.accountclosure.type.AccountClosureStatus;
 import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
+import com.app.maria.domain.withdrawal.exception.EarlyWithdrawalConsentRequiredException;
 import com.app.maria.domain.withdrawal.service.WithdrawalService;
 import com.app.maria.global.client.generalaccount.GeneralAccountClient;
 import com.app.maria.global.client.generalaccount.dto.request.GeneralAccountRequestDTO;
@@ -183,6 +184,48 @@ class AccountClosureServiceImplTest {
         order.verify(accountMapper).requestClosure(ACCOUNT_ID);
         order.verify(businessClockService).now();
         order.verify(accountClosureMapper).insertClosureRequest(any());
+    }
+
+    @Test
+    void immaturePrincipalWithoutConsentStopsBeforeClosureStateChange() {
+        prepareExternalValidationSuccess();
+        when(withdrawalService.hasImmaturePrincipal(ACCOUNT_ID)).thenReturn(true);
+
+        assertThatThrownBy(() -> accountClosureService.applyClosure(CUSTOMER_ID, request(false)))
+                .isInstanceOf(EarlyWithdrawalConsentRequiredException.class)
+                .hasMessage("1년 미경과 원금이 있어 계좌 해지를 위해 조기인출 동의가 필요합니다.");
+
+        verify(accountMapper, never()).requestClosure(ACCOUNT_ID);
+        verifyNoInteractions(accountClosureMapper, businessClockService);
+    }
+
+    @Test
+    void immaturePrincipalWithConsentAllowsClosureApplication() {
+        prepareExternalValidationSuccess();
+        when(accountMapper.requestClosure(ACCOUNT_ID)).thenReturn(1);
+        when(businessClockService.now()).thenReturn(NOW);
+        prepareClosureInsertSuccess();
+
+        Long result = accountClosureService.applyClosure(CUSTOMER_ID, request(true));
+
+        assertThat(result).isEqualTo(CLOSURE_REQUEST_ID);
+        verify(withdrawalService, never()).hasImmaturePrincipal(ACCOUNT_ID);
+        verify(accountMapper).requestClosure(ACCOUNT_ID);
+    }
+
+    @Test
+    void noImmaturePrincipalAllowsApplicationWithoutConsent() {
+        prepareExternalValidationSuccess();
+        when(withdrawalService.hasImmaturePrincipal(ACCOUNT_ID)).thenReturn(false);
+        when(accountMapper.requestClosure(ACCOUNT_ID)).thenReturn(1);
+        when(businessClockService.now()).thenReturn(NOW);
+        prepareClosureInsertSuccess();
+
+        Long result = accountClosureService.applyClosure(CUSTOMER_ID, request(false));
+
+        assertThat(result).isEqualTo(CLOSURE_REQUEST_ID);
+        verify(withdrawalService).hasImmaturePrincipal(ACCOUNT_ID);
+        verify(accountMapper).requestClosure(ACCOUNT_ID);
     }
 
     @Test
@@ -379,6 +422,17 @@ class AccountClosureServiceImplTest {
         prepareAccountAndCi();
         when(generalAccountClient.verifyGeneralAccount(any()))
                 .thenReturn(generalAccount(GeneralAccountStatus.ACTIVE));
+    }
+
+    private void prepareClosureInsertSuccess() {
+        doAnswer(
+                        invocation -> {
+                            AccountClosureDTO closure = invocation.getArgument(0);
+                            closure.setClosureRequestId(CLOSURE_REQUEST_ID);
+                            return 1;
+                        })
+                .when(accountClosureMapper)
+                .insertClosureRequest(any(AccountClosureDTO.class));
     }
 
     private static AccountDTO account(Status status) {

@@ -300,4 +300,17 @@ public class WithdrawalServiceImpl implements WithdrawalService {
 
         return allocations;
     }
+
+    @Override
+    public boolean hasImmaturePrincipal(Long accountId) {
+        List<LeftAmountDTO> leftAmounts =
+                withdrawalMapper.selectAvailableLeftAmountsByAccountId(accountId);
+
+        LocalDateTime currentDatetime = businessClockService.now();
+
+        return leftAmounts.stream()
+                .anyMatch(
+                        leftAmount ->
+                                leftAmount.getFinalAt().plusYears(1).isAfter(currentDatetime));
+    }
 }

@@ -9,4 +9,6 @@ public interface WithdrawalService {
     List<WithdrawalAllocationDTO> withdraw(WithdrawalRequestDTO requestDTO);
 
     List<WithdrawalAllocationDTO> withdrawForClosure(WithdrawalRequestDTO requestDTO);
+
+    boolean hasImmaturePrincipal(Long accountId);
 }
