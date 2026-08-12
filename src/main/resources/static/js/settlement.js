@@ -29,6 +29,13 @@ $(function () {
     function statusBadge(status) { var key = (status || "").toLowerCase(); return '<span class="settlement-status ' + key + '">' + escapeHtml(LABELS[status] || status) + "</span>"; }
     function errorMessage(xhr, fallback) { return (xhr.responseJSON && xhr.responseJSON.message) || fallback; }
     function handleRequestFailure(xhr, fallback) { if (xhr.status !== 401) showError(errorMessage(xhr, fallback)); }
+    function setTextValues(values) {
+        Object.keys(values).forEach(function (selector) { $(selector).text(values[selector]); });
+    }
+    function renderEmptyTable($body, paginationSelector, message) {
+        $body.append('<tr><td colspan="8" class="settlement-empty">' + message + "</td></tr>");
+        $(paginationSelector).hide();
+    }
 
     function paginate(list, page, pageSize) {
         var totalPages = Math.max(1, Math.ceil(list.length / pageSize));
@@ -41,6 +48,21 @@ $(function () {
         $(previousSelector).prop("disabled", page.current === 1);
         $(nextSelector).prop("disabled", page.current === page.total);
         $(containerSelector).css("display", "flex");
+    }
+
+    function bindPagination(previousSelector, nextSelector, getPage, setPage, getItemCount, pageSize, render) {
+        $(previousSelector).on("click", function () {
+            if (getPage() > 1) {
+                setPage(getPage() - 1);
+                render();
+            }
+        });
+        $(nextSelector).on("click", function () {
+            if (getPage() < Math.ceil(getItemCount() / pageSize)) {
+                setPage(getPage() + 1);
+                render();
+            }
+        });
     }
 
     function startOfDay(value) {
@@ -122,11 +144,13 @@ $(function () {
 
     function renderTrendDetail(date) {
         var counts = itemCounts(batchesExecutedOn(date));
-        $("#settlementTrendDetailDate").text(formatDate(date) + " 정산 항목 상세");
-        $("#settlementTrendDetailTotal").text(counts.total + "건");
-        $("#settlementTrendDetailSuccess").text(counts.success + "건");
-        $("#settlementTrendDetailFailed").text(counts.failed + "건");
-        $("#settlementTrendDetailProcessed").text(counts.processed + "건");
+        setTextValues({
+            "#settlementTrendDetailDate": formatDate(date) + " 정산 항목 상세",
+            "#settlementTrendDetailTotal": counts.total + "건",
+            "#settlementTrendDetailSuccess": counts.success + "건",
+            "#settlementTrendDetailFailed": counts.failed + "건",
+            "#settlementTrendDetailProcessed": counts.processed + "건"
+        });
         $("#settlementTrendDetail").css("display", "block");
     }
 
@@ -134,7 +158,7 @@ $(function () {
         var $body = $("#settlementBatchBody").empty();
         var page = paginate(batches, currentPage, PAGE_SIZE);
         currentPage = page.current;
-        if (!batches.length) { $body.append('<tr><td colspan="8" class="settlement-empty">실행 이력이 없습니다.</td></tr>'); $("#settlementPagination").hide(); return; }
+        if (!batches.length) { renderEmptyTable($body, "#settlementPagination", "실행 이력이 없습니다."); return; }
         page.items.forEach(function (batch) {
             $body.append('<tr class="settlement-batch-row' + (batch.batchId === selectedBatchId ? " is-selected" : "") + '" data-batch-id="' + batch.batchId + '">' +
                 "<td>#" + batch.batchId + "</td><td>" + formatDateTime(batch.executedAt) + "</td><td>" + statusBadge(batch.status) + "</td>" +
@@ -147,7 +171,7 @@ $(function () {
         var $body = $("#settlementItemBody").empty();
         var page = paginate(itemList, currentItemPage, ITEM_PAGE_SIZE);
         currentItemPage = page.current;
-        if (!itemList.length) { $body.append('<tr><td colspan="8" class="settlement-empty">정산 항목이 없습니다.</td></tr>'); $("#settlementItemPagination").hide(); return; }
+        if (!itemList.length) { renderEmptyTable($body, "#settlementItemPagination", "정산 항목이 없습니다."); return; }
         page.items.forEach(function (item) {
             $body.append('<tr class="settlement-item-row' + (item.itemId === selectedItemId ? " is-selected" : "") + '" data-item-id="' + item.itemId + '"><td>#' + item.itemId + "</td><td>" + escapeHtml(item.accountNo) + "</td><td>" + escapeHtml(item.ticker) + "</td><td>" + formatAmount(item.provisionalAmount) + "</td><td>" + formatAmount(item.finalAmount) + "</td><td>" + statusBadge(item.result) + "</td><td>" + escapeHtml(item.failureCode || item.failureMessage) + "</td><td>" + formatDateTime(item.processedAt) + "</td></tr>");
         });
@@ -178,14 +202,16 @@ $(function () {
 
     function renderDetail(batch) {
         $("#settlementDetail").show();
-        $("#detailBatchTitle").text("배치 #" + selectedBatchId + " 상세");
-        $("#detailBatchFailure").text(batch.failureMessage || "");
-        $("#detailBatchExecutedAt").text(formatDateTime(batch.executedAt));
-        $("#detailBatchRunId").text(batch.runId || "-");
-        $("#detailBatchTotalCount").text(batch.totalCount + "건");
-        $("#detailBatchSuccessCount").text(batch.successCount + "건");
-        $("#detailBatchFailedCount").text(batch.failedCount + "건");
-        $("#detailBatchProcessedCount").text(batch.processedCount + "건");
+        setTextValues({
+            "#detailBatchTitle": "배치 #" + selectedBatchId + " 상세",
+            "#detailBatchFailure": batch.failureMessage || "",
+            "#detailBatchExecutedAt": formatDateTime(batch.executedAt),
+            "#detailBatchRunId": batch.runId || "-",
+            "#detailBatchTotalCount": batch.totalCount + "건",
+            "#detailBatchSuccessCount": batch.successCount + "건",
+            "#detailBatchFailedCount": batch.failedCount + "건",
+            "#detailBatchProcessedCount": batch.processedCount + "건"
+        });
         $("#retrySettlementBatch").toggle(batch.status === "FAILED");
         $("#settlementItemFilter").toggle(batch.status === "FAILED");
     }
@@ -218,23 +244,25 @@ $(function () {
                 var item = res.data;
                 renderItems(items);
                 $("#settlementItemDetail").show();
-                $("#detailItemTitle").text("정산 항목 #" + item.itemId + " 상세");
-                $("#detailItemFailure").text(item.failureMessage || "");
-                $("#detailItemExchangeId").text(item.exchangeId || "-");
-                $("#detailItemAccountId").text(item.accountId || "-");
-                $("#detailItemAccountNo").text(item.accountNo || "-");
-                $("#detailItemOrderId").text(item.orderId || "-");
-                $("#detailItemProduct").text([item.ticker, item.productName].filter(Boolean).join(" · ") || "-");
-                $("#detailItemExchangeStatus").text(item.settlementStatus || "-");
-                $("#detailItemFailureCode").text(item.failureCode || "-");
-                $("#detailItemProvisionalAmount").text(formatAmount(item.provisionalAmount));
-                $("#detailItemProvisionalAt").text(formatDateTime(item.provisionalAt));
-                $("#detailItemProvisionalRate").text(formatRate(item.settlementFxRate));
-                $("#detailItemFinalAmount").text(formatAmount(item.finalAmount));
-                $("#detailItemFinalAt").text(formatDateTime(item.finalAt));
-                $("#detailItemFinalRate").text(formatRate(item.finalRate));
                 var difference = item.finalAmount == null || item.provisionalAmount == null ? null : Number(item.finalAmount) - Number(item.provisionalAmount);
-                $("#detailItemDifference").text(difference == null ? "-" : (difference > 0 ? "+" : "") + formatAmount(difference));
+                setTextValues({
+                    "#detailItemTitle": "정산 항목 #" + item.itemId + " 상세",
+                    "#detailItemFailure": item.failureMessage || "",
+                    "#detailItemExchangeId": item.exchangeId || "-",
+                    "#detailItemAccountId": item.accountId || "-",
+                    "#detailItemAccountNo": item.accountNo || "-",
+                    "#detailItemOrderId": item.orderId || "-",
+                    "#detailItemProduct": [item.ticker, item.productName].filter(Boolean).join(" · ") || "-",
+                    "#detailItemExchangeStatus": item.settlementStatus || "-",
+                    "#detailItemFailureCode": item.failureCode || "-",
+                    "#detailItemProvisionalAmount": formatAmount(item.provisionalAmount),
+                    "#detailItemProvisionalAt": formatDateTime(item.provisionalAt),
+                    "#detailItemProvisionalRate": formatRate(item.settlementFxRate),
+                    "#detailItemFinalAmount": formatAmount(item.finalAmount),
+                    "#detailItemFinalAt": formatDateTime(item.finalAt),
+                    "#detailItemFinalRate": formatRate(item.finalRate),
+                    "#detailItemDifference": difference == null ? "-" : (difference > 0 ? "+" : "") + formatAmount(difference)
+                });
                 renderRetryHistory(item.exchangeId);
                 $("#retrySettlementItem").toggle(item.result === "FAILED");
             })
@@ -262,10 +290,8 @@ $(function () {
 
     $(document).on("click", ".settlement-batch-row", function () { selectBatch($(this).data("batch-id")); });
     $(document).on("click", ".settlement-item-row", function () { selectItem($(this).data("item-id")); });
-    $("#previousSettlementPage").on("click", function () { if (currentPage > 1) { currentPage -= 1; renderBatches(); } });
-    $("#nextSettlementPage").on("click", function () { if (currentPage < Math.ceil(batches.length / PAGE_SIZE)) { currentPage += 1; renderBatches(); } });
-    $("#previousSettlementItemPage").on("click", function () { if (currentItemPage > 1) { currentItemPage -= 1; renderItems(items); } });
-    $("#nextSettlementItemPage").on("click", function () { if (currentItemPage < Math.ceil(items.length / ITEM_PAGE_SIZE)) { currentItemPage += 1; renderItems(items); } });
+    bindPagination("#previousSettlementPage", "#nextSettlementPage", function () { return currentPage; }, function (page) { currentPage = page; }, function () { return batches.length; }, PAGE_SIZE, renderBatches);
+    bindPagination("#previousSettlementItemPage", "#nextSettlementItemPage", function () { return currentItemPage; }, function (page) { currentItemPage = page; }, function () { return items.length; }, ITEM_PAGE_SIZE, function () { renderItems(items); });
     $("#settlementItemFilter").on("change", function () {
         itemFilter = $(this).val();
         loadBatchItems();
