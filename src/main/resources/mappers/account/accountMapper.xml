@@ -151,6 +151,12 @@
         WHERE status = #{status}
     </select>
 
+    <select id="countAccountsRequiringAction" resultType="int">
+        SELECT COUNT(*)
+        FROM account
+        WHERE status IN ('APPLIED', 'CLOSURE_REQUESTED')
+    </select>
+
     <select id="selectAccountLimitUsage" resultType="AccountLimitUsageDTO">
         SELECT
         a.account_id     AS accountId,
