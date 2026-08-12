@@ -30,5 +30,6 @@
     <mappers>
         <mapper resource="mappers/account/accountMapper.xml"/>
         <mapper resource="mappers/account/accountStatusLogMapper.xml"/>
+        <mapper resource="mappers/sellorder/sellLimitMapper.xml"/>
     </mappers>
 </configuration>
