@@ -331,3 +331,10 @@ a.sidebar-item:hover {
     padding: 16px 20px;
     overflow: auto;
 }
+
+.sidebar-brand-mark {
+    background-image: url("../images/company-icon.png");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}

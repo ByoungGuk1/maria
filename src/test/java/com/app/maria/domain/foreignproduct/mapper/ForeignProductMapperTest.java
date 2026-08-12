@@ -3,6 +3,7 @@ package com.app.maria.domain.foreignproduct.mapper;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.app.maria.domain.foreignproduct.dto.ForeignProductDTO;
+import com.app.maria.domain.foreignproduct.type.ForeignProductType;
 import java.io.IOException;
 import java.io.Reader;
 import java.sql.Connection;
@@ -111,7 +112,7 @@ class ForeignProductMapperTest {
         assertThat(dto.getName()).isEqualTo("텐센트");
         assertThat(dto.getMarket()).isEqualTo("HKEX");
         assertThat(dto.getCurrency()).isEqualTo("HKD");
-        assertThat(dto.getType()).isEqualTo("FOREIGN_STOCK");
+        assertThat(dto.getForeignProductType()).isEqualTo(ForeignProductType.FOREIGN_STOCK);
     }
 
     @Test

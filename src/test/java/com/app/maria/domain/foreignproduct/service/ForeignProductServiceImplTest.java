@@ -8,6 +8,7 @@ import com.app.maria.domain.foreignproduct.dto.ForeignProductDTO;
 import com.app.maria.domain.foreignproduct.dto.response.ForeignProductResponseDTO;
 import com.app.maria.domain.foreignproduct.exception.ForeignProductNotFoundException;
 import com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper;
+import com.app.maria.domain.foreignproduct.type.ForeignProductType;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -32,7 +33,7 @@ class ForeignProductServiceImplTest {
                         .name("애플")
                         .market("NASDAQ")
                         .currency("USD")
-                        .type("FOREIGN_STOCK")
+                        .foreignProductType(ForeignProductType.FOREIGN_STOCK)
                         .build();
         ForeignProductDTO dto2 =
                 ForeignProductDTO.builder()
@@ -41,7 +42,7 @@ class ForeignProductServiceImplTest {
                         .name("테슬라")
                         .market("NASDAQ")
                         .currency("USD")
-                        .type("FOREIGN_STOCK")
+                        .foreignProductType(ForeignProductType.FOREIGN_STOCK)
                         .build();
         when(foreignProductMapper.selectAll()).thenReturn(List.of(dto1, dto2));
 
@@ -71,7 +72,7 @@ class ForeignProductServiceImplTest {
                         .name("애플")
                         .market("NASDAQ")
                         .currency("USD")
-                        .type("FOREIGN_STOCK")
+                        .foreignProductType(ForeignProductType.FOREIGN_STOCK)
                         .build();
         when(foreignProductMapper.selectById(1L)).thenReturn(Optional.of(dto));
 
