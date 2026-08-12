@@ -56,4 +56,16 @@
         ORDER BY id.purchase_date ASC, id.inbound_detail_id ASC
     </select>
 
+    <select id="selectHoldingsByAccount" parameterType="Long" resultType="InboundHoldingDTO">
+        SELECT
+        id.foreign_product_id AS foreignProductId,
+        SUM(id.current_qty)   AS currentQty
+        FROM inbound_detail id
+        JOIN inbound i ON i.inbound_id = id.inbound_id
+        WHERE i.account_id = #{accountId}
+        AND id.current_qty > 0
+        GROUP BY id.foreign_product_id
+        ORDER BY id.foreign_product_id
+    </select>
+
 </mapper>

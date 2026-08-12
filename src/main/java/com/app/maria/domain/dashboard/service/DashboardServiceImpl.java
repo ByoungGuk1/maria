@@ -1,6 +1,6 @@
 package com.app.maria.domain.dashboard.service;
 
-import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
+import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.account.service.AccountLogService;
 import com.app.maria.domain.account.service.AccountService;
 import com.app.maria.domain.account.type.Status;
@@ -12,13 +12,14 @@ import com.app.maria.global.audit.dto.request.AuditLogSearchRequestDTO;
 import com.app.maria.global.audit.dto.response.AuditLogResponseDTO;
 import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.clock.service.BusinessClockService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -38,12 +39,12 @@ public class DashboardServiceImpl implements DashboardService {
     @Override
     @Transactional(readOnly = true)
     public DashboardSummaryDTO getDashboardSummary() {
-        List<AccountLimitUsageDTO> openAccountUsages = accountService.selectAccountLimitUsage();
+        List<AccountLimitUsageResponseDTO> openAccountUsages = accountService.selectAccountLimitUsage();
 
-        List<AccountLimitUsageDTO> nearLimitAccounts =
+        List<AccountLimitUsageResponseDTO> nearLimitAccounts =
                 openAccountUsages.stream().filter(this::isNearLimit).toList();
 
-        List<AccountLimitUsageDTO> priorityAccounts = new ArrayList<>();
+        List<AccountLimitUsageResponseDTO> priorityAccounts = new ArrayList<>();
         priorityAccounts.addAll(accountService.getAppliedAccounts());
         priorityAccounts.addAll(nearLimitAccounts);
 
@@ -70,7 +71,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .build();
     }
 
-    private boolean isNearLimit(AccountLimitUsageDTO usageDTO) {
+    private boolean isNearLimit(AccountLimitUsageResponseDTO usageDTO) {
         if (usageDTO.getLimitAmount() == null || usageDTO.getLimitAmount().signum() <= 0) {
             return false;
         }

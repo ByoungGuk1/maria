@@ -7,7 +7,12 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
+import com.app.maria.domain.foreignproduct.dto.ForeignProductDTO;
+import com.app.maria.domain.foreignproduct.exception.ForeignProductNotFoundException;
+import com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper;
+import com.app.maria.domain.inbound.dto.InboundHoldingDTO;
 import com.app.maria.domain.inbound.dto.request.InboundRequestDTO;
+import com.app.maria.domain.inbound.dto.response.AccountHoldingResponseDTO;
 import com.app.maria.domain.inbound.dto.response.InboundResponseDTO;
 import com.app.maria.domain.inbound.exception.InboundNotFoundException;
 import com.app.maria.domain.inbound.mapper.InboundMapper;
@@ -16,6 +21,8 @@ import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.response.ApiResponseDTO;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +40,8 @@ class InboundServiceImplTest {
 
     @Mock private InboundMapper inboundMapper;
 
+    @Mock private ForeignProductMapper foreignProductMapper;
+
     @Mock private RestClient restClient;
 
     @Mock private RestClient.RequestHeadersUriSpec requestHeadersUriSpec;
@@ -48,14 +57,16 @@ class InboundServiceImplTest {
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUpRestClientChain() {
-        when(restClient.get()).thenReturn(requestHeadersUriSpec);
-        when(requestHeadersUriSpec.uri(
-                        eq(
-                                "/api/registrable-stocks?generalAccountId={accountId}&foreignProductId={foreignProductId}"),
-                        eq(ACCOUNT_ID),
-                        eq(FOREIGN_PRODUCT_ID)))
+        lenient().when(restClient.get()).thenReturn(requestHeadersUriSpec);
+        lenient()
+                .when(
+                        requestHeadersUriSpec.uri(
+                                eq(
+                                        "/api/registrable-stocks?generalAccountId={accountId}&foreignProductId={foreignProductId}"),
+                                eq(ACCOUNT_ID),
+                                eq(FOREIGN_PRODUCT_ID)))
                 .thenReturn(requestHeadersSpec);
-        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        lenient().when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         lenient().when(businessClockService.now()).thenReturn(NOW);
     }
 
@@ -153,6 +164,81 @@ class InboundServiceImplTest {
                                         request(BigDecimal.valueOf(80), BigDecimal.valueOf(90))))
                 .isInstanceOf(InboundNotFoundException.class)
                 .hasMessage("등록가능 보유수량 조회 실패");
+    }
+
+    @Test
+    void getHoldingsEnrichesEachHoldingWithProductInfo() {
+        when(inboundMapper.selectHoldingsByAccount(ACCOUNT_ID))
+                .thenReturn(List.of(holding(FOREIGN_PRODUCT_ID, BigDecimal.valueOf(50))));
+        when(foreignProductMapper.selectById(FOREIGN_PRODUCT_ID))
+                .thenReturn(Optional.of(foreignProduct(FOREIGN_PRODUCT_ID)));
+
+        List<AccountHoldingResponseDTO> result = inboundService.getHoldings(ACCOUNT_ID);
+
+        assertThat(result).hasSize(1);
+        AccountHoldingResponseDTO first = result.get(0);
+        assertThat(first.getForeignProductId()).isEqualTo(FOREIGN_PRODUCT_ID);
+        assertThat(first.getTicker()).isEqualTo("AAPL");
+        assertThat(first.getName()).isEqualTo("Apple Inc.");
+        assertThat(first.getMarket()).isEqualTo("NAS");
+        assertThat(first.getCurrency()).isEqualTo("USD");
+        assertThat(first.getType()).isEqualTo("FOREIGN_STOCK");
+        assertThat(first.getCurrentQty()).isEqualByComparingTo(BigDecimal.valueOf(50));
+    }
+
+    @Test
+    void getHoldingsReturnsOneEntryPerHoldingInMapperOrder() {
+        when(inboundMapper.selectHoldingsByAccount(ACCOUNT_ID))
+                .thenReturn(
+                        List.of(
+                                holding(1L, BigDecimal.valueOf(10)),
+                                holding(2L, BigDecimal.valueOf(20))));
+        when(foreignProductMapper.selectById(1L)).thenReturn(Optional.of(foreignProduct(1L)));
+        when(foreignProductMapper.selectById(2L)).thenReturn(Optional.of(foreignProduct(2L)));
+
+        List<AccountHoldingResponseDTO> result = inboundService.getHoldings(ACCOUNT_ID);
+
+        assertThat(result)
+                .extracting(AccountHoldingResponseDTO::getForeignProductId)
+                .containsExactly(1L, 2L);
+    }
+
+    @Test
+    void getHoldingsReturnsEmptyListWhenAccountHasNoHoldings() {
+        when(inboundMapper.selectHoldingsByAccount(ACCOUNT_ID)).thenReturn(List.of());
+
+        List<AccountHoldingResponseDTO> result = inboundService.getHoldings(ACCOUNT_ID);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void getHoldingsThrowsWhenHeldProductNoLongerExists() {
+        when(inboundMapper.selectHoldingsByAccount(ACCOUNT_ID))
+                .thenReturn(List.of(holding(FOREIGN_PRODUCT_ID, BigDecimal.valueOf(50))));
+        when(foreignProductMapper.selectById(FOREIGN_PRODUCT_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> inboundService.getHoldings(ACCOUNT_ID))
+                .isInstanceOf(ForeignProductNotFoundException.class)
+                .hasMessage("종목 정보를 찾을 수 없습니다.");
+    }
+
+    private InboundHoldingDTO holding(Long foreignProductId, BigDecimal currentQty) {
+        return InboundHoldingDTO.builder()
+                .foreignProductId(foreignProductId)
+                .currentQty(currentQty)
+                .build();
+    }
+
+    private ForeignProductDTO foreignProduct(Long foreignProductId) {
+        return ForeignProductDTO.builder()
+                .foreignProductId(foreignProductId)
+                .ticker("AAPL")
+                .name("Apple Inc.")
+                .market("NAS")
+                .currency("USD")
+                .type("FOREIGN_STOCK")
+                .build();
     }
 
     @SuppressWarnings("unchecked")
