@@ -3,15 +3,17 @@ package com.app.maria.domain.targetproduct.dto.response;
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementListDTO;
 import com.app.maria.domain.targetproduct.type.StockType;
 import com.app.maria.domain.targetproduct.type.TradeType;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor
-@Getter @Setter @ToString @Builder
+@Getter
+@Setter
+@ToString
+@Builder
 public class TargetProductJudgementListResponseDTO {
     private Long judgementId;
     private String customerName;

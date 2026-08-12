@@ -2,9 +2,12 @@ package com.app.maria.domain.targetproduct.mapper;
 
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementListDTO;
-import org.apache.ibatis.annotations.Mapper;
-
+import com.app.maria.domain.targetproduct.dto.TargetProductSearchDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductSummaryDTO;
+import java.time.LocalDate;
 import java.util.List;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface TargetProductMapper {
@@ -13,5 +16,11 @@ public interface TargetProductMapper {
 
     boolean existsByMydataTradeId(Long mydataTradeId);
 
-    List<TargetProductJudgementListDTO> selectRecentJudgements();
+    List<TargetProductJudgementListDTO> selectJudgements(TargetProductSearchDTO searchDTO);
+
+    int countJudgements();
+
+    int countFilteredJudgements(TargetProductSearchDTO searchDTO);
+
+    TargetProductSummaryDTO selectSummary(@Param("today") LocalDate today);
 }
