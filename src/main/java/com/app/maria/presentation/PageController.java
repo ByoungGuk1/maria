@@ -28,5 +28,4 @@ public class PageController {
         model.addAttribute("activePath", "/admin/sell-orders");
         return "sellOrder";
     }
-
 }

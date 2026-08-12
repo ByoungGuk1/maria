@@ -2,9 +2,8 @@ package com.app.maria.domain.inbound.dto.response;
 
 import com.app.maria.domain.foreignproduct.dto.ForeignProductDTO;
 import com.app.maria.domain.foreignproduct.type.ForeignProductType;
-import lombok.*;
-
 import java.math.BigDecimal;
+import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -30,5 +29,4 @@ public class AccountHoldingResponseDTO {
         this.type = product.getForeignProductType();
         this.currentQty = currentQty;
     }
-
 }

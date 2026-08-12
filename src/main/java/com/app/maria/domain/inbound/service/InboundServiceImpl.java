@@ -14,14 +14,13 @@ import com.app.maria.domain.inbound.mapper.InboundMapper;
 import com.app.maria.domain.registrablestock.dto.RegistrableStockResponseDTO;
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.response.ApiResponseDTO;
+import java.math.BigDecimal;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
-
-import java.math.BigDecimal;
-import java.util.List;
 
 @Service
 @Transactional(rollbackFor = Exception.class)
@@ -120,15 +119,17 @@ public class InboundServiceImpl implements InboundService {
     @Transactional(readOnly = true)
     public List<AccountHoldingResponseDTO> getHoldings(Long accountId) {
         return inboundMapper.selectHoldingsByAccount(accountId).stream()
-                .map(holding -> {
-                    ForeignProductDTO product =
-                            foreignProductMapper.selectById(holding.getForeignProductId())
-                                    .orElseThrow(
-                                            () -> new ForeignProductNotFoundException(
-                                                    "종목 정보를 찾을 수 없습니다."));
-                    return new AccountHoldingResponseDTO(product, holding.getCurrentQty());
-                })
+                .map(
+                        holding -> {
+                            ForeignProductDTO product =
+                                    foreignProductMapper
+                                            .selectById(holding.getForeignProductId())
+                                            .orElseThrow(
+                                                    () ->
+                                                            new ForeignProductNotFoundException(
+                                                                    "종목 정보를 찾을 수 없습니다."));
+                            return new AccountHoldingResponseDTO(product, holding.getCurrentQty());
+                        })
                 .toList();
     }
-
 }

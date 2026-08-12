@@ -12,5 +12,4 @@ public class AccountSearchDTO {
 
     private String accountNo;
     private String customerName;
-
 }

@@ -17,14 +17,11 @@ public class AccountSearchRequestDTO {
 
     @AssertTrue(message = "정보를 입력해주세요.")
     public boolean isSearchConditionValid() {
-        return (accountNo != null && !accountNo.isBlank()) || (customerName != null && !customerName.isBlank());
+        return (accountNo != null && !accountNo.isBlank())
+                || (customerName != null && !customerName.isBlank());
     }
 
     public AccountSearchDTO toAccountSearchDTO() {
-        return AccountSearchDTO.builder()
-                .accountNo(accountNo)
-                .customerName(customerName)
-                .build();
+        return AccountSearchDTO.builder().accountNo(accountNo).customerName(customerName).build();
     }
-
 }
