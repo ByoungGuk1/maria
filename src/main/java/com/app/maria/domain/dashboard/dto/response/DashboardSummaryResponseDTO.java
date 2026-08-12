@@ -1,6 +1,6 @@
 package com.app.maria.domain.dashboard.dto.response;
 
-import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
+import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.dashboard.dto.DashboardSummaryDTO;
 import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
 import com.app.maria.global.audit.dto.response.AuditLogResponseDTO;
@@ -25,7 +25,7 @@ public class DashboardSummaryResponseDTO {
     private int todayApprovedCount;
     private int todayRejectedCount;
     private SettlementBatchDTO latestSettlementBatch;
-    private List<AccountLimitUsageDTO> priorityAccounts;
+    private List<AccountLimitUsageResponseDTO> priorityAccounts;
     private List<AuditLogResponseDTO> recentAuditLogs;
 
     public DashboardSummaryResponseDTO(DashboardSummaryDTO summaryDTO) {

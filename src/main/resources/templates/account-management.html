@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}">
+<head>
+    <title>계좌 관리 - MARIA</title>
+    <th:block layout:fragment="pageStyles">
+        <link rel="stylesheet" th:href="@{/css/account-management.css}">
+    </th:block>
+</head>
+<body>
+<div layout:fragment="breadcrumb">계좌 관리</div>
+
+<div layout:fragment="content" class="account-management">
+    <div class="account-management-header">
+        <div>
+            <h1 class="account-page-title">계좌 관리</h1>
+            <p class="account-page-description">RIA 계좌 상태를 조회하고 개설 신청을 처리합니다.</p>
+        </div>
+        <span class="account-count" id="accountCount">-</span>
+    </div>
+
+    <div class="account-form-grid">
+        <section class="card account-form-card">
+            <div class="account-form-header">
+                <strong>계좌 개설 신청</strong>
+                <span>고객별 RIA 계좌를 신청합니다.</span>
+            </div>
+            <form id="accountCreateForm" class="account-form" novalidate>
+                <label>고객 ID<input id="createCustomerId" type="number" min="1" step="1" required></label>
+                <label>설정 한도(원)<input id="createLimitAmount" type="number" min="1" max="50000000" step="1" required></label>
+                <button class="btn btn-primary" type="submit">계좌 신청</button>
+            </form>
+            <div class="available-limit">
+                <span>사용 가능한 한도</span>
+                <strong id="availableLimit">고객 ID를 입력하세요.</strong>
+            </div>
+        </section>
+
+        <section class="card account-form-card">
+            <div class="account-form-header">
+                <strong>계좌 한도 변경</strong>
+                <span>목록에서 계좌를 선택하면 현재 값이 자동 입력됩니다.</span>
+            </div>
+            <form id="accountLimitForm" class="account-form account-limit-form" novalidate>
+                <label>고객 ID<input id="limitCustomerId" type="number" min="1" step="1" required></label>
+                <label>현재 한도(원)<input id="expectedCurrentLimit" type="number" min="1" max="50000000" step="1" required></label>
+                <label>변경 한도(원)<input id="newLimitAmount" type="number" min="1" max="50000000" step="1" required></label>
+                <button class="btn btn-primary" type="submit">한도 변경</button>
+            </form>
+            <div class="available-limit">
+                <span>사용 가능한 한도</span>
+                <strong id="limitAvailableLimit">고객 ID를 입력하세요.</strong>
+            </div>
+        </section>
+    </div>
+
+    <div class="card account-toolbar">
+        <div class="account-filter-group">
+            <input id="accountSearch" class="account-search" type="search"
+                   placeholder="계좌번호 또는 고객 ID 검색" autocomplete="off">
+            <select id="accountStatusFilter" class="account-status-filter">
+                <option value="">전체 상태</option>
+                <option value="APPLIED">심사대기</option>
+                <option value="OPENED">개설</option>
+                <option value="CLOSURE_REQUESTED">해지신청</option>
+                <option value="CLOSED">해지</option>
+                <option value="REJECTED">반려</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="card account-table-wrap">
+        <table class="account-table">
+            <thead>
+            <tr>
+                <th>계좌번호 / 고객</th>
+                <th>상태</th>
+                <th class="account-amount">한도</th>
+                <th class="account-amount">잔고</th>
+                <th>세제 혜택</th>
+                <th>신청 일시</th>
+                <th>개설 일시</th>
+            </tr>
+            </thead>
+            <tbody id="accountListBody">
+            <tr><td colspan="7" class="account-loading">불러오는 중...</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="account-pagination" id="accountPagination" style="display:none">
+        <button id="previousAccountPage" class="btn" type="button">이전</button>
+        <span id="accountPageInfo"></span>
+        <button id="nextAccountPage" class="btn" type="button">다음</button>
+    </div>
+
+    <section id="accountDetail" class="card account-detail" style="display:none">
+        <div class="account-detail-header">
+            <div>
+                <strong id="detailAccountNo">-</strong>
+                <p class="account-detail-description">선택한 계좌 상세 정보</p>
+            </div>
+            <div class="account-action-group">
+                <button id="approveAccount" class="btn btn-primary" type="button">승인</button>
+                <button id="rejectAccount" class="btn" type="button">반려</button>
+            </div>
+        </div>
+
+        <div class="account-detail-grid">
+            <div><div class="account-detail-item-label">고객 ID</div><div id="detailCustomerId" class="account-detail-item-value">-</div></div>
+            <div><div class="account-detail-item-label">계좌 상태</div><div id="detailStatus" class="account-detail-item-value">-</div></div>
+            <div><div class="account-detail-item-label">설정 한도</div><div id="detailLimitAmount" class="account-detail-item-value">-</div></div>
+            <div><div class="account-detail-item-label">현재 잔고</div><div id="detailAmount" class="account-detail-item-value">-</div></div>
+            <div><div class="account-detail-item-label">개설 일시</div><div id="detailOpenedAt" class="account-detail-item-value">-</div></div>
+        </div>
+
+        <div id="rejectionActions" class="account-reason-form">
+            <input id="accountReason" class="account-reason-input" type="text"
+                   placeholder="반려 사유를 입력하세요" maxlength="200">
+        </div>
+
+        <div id="reapplyActions" class="account-recovery-form" style="display:none">
+            <label>재신청 한도(원, 비워두면 기존 한도 사용)
+                <input id="reapplyLimitAmount" type="number" min="1" max="50000000" step="1">
+            </label>
+            <button id="reapplyAccount" class="btn" type="button">재신청</button>
+        </div>
+
+        <div id="overrideActions" class="account-recovery-form" style="display:none">
+            <label>오버라이드 사유
+                <input id="overrideReason" type="text" maxlength="200" placeholder="승인 전환 사유를 입력하세요">
+            </label>
+            <button id="overrideAccount" class="btn btn-primary" type="button">오버라이드 승인</button>
+        </div>
+    </section>
+
+    <section id="accountHistory" class="card account-history" style="display:none">
+        <div class="account-history-header"><strong>상태 변경 이력</strong></div>
+        <ul id="accountHistoryList" class="account-history-list"></ul>
+    </section>
+</div>
+
+<th:block layout:fragment="pageScripts">
+    <script th:src="@{/js/account-management.js}"></script>
+</th:block>
+</body>
+</html>

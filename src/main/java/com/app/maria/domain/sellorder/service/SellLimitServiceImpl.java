@@ -25,9 +25,7 @@ public class SellLimitServiceImpl implements SellLimitService {
                         .selectAccountLimitForUpdate(accountId)
                         .orElseThrow(() -> new SellOrderException("계좌 한도 정보를 찾을 수 없습니다."));
 
-        BigDecimal finalizedSum = sellLimitMapper.sumFinalizedExchangeAmount(accountId);
-
-        BigDecimal pendingSum = sellLimitMapper.sumPendingSellOrderAmount(accountId);
+        BigDecimal usedAmount = sellLimitMapper.sumUsedAmount(accountId);
 
         String ciHash =
                 sellLimitMapper
@@ -36,7 +34,7 @@ public class SellLimitServiceImpl implements SellLimitService {
 
         BigDecimal externalSum = mydataClient.getExternalSellTotal(ciHash);
 
-        BigDecimal localTotal = finalizedSum.add(pendingSum).add(orderAmount);
+        BigDecimal localTotal = usedAmount.add(orderAmount);
         BigDecimal globalTotal = localTotal.add(externalSum);
 
         boolean withinAccountLimit = localTotal.compareTo(limitAmount) <= 0;

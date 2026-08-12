@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" th:href="@{/images/company-icon.png}">
     <title>MARIA</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap"
@@ -23,19 +24,22 @@
         <div class="sidebar-group">
             <div class="sidebar-group-label">심사 · 계좌</div>
             <div class="sidebar-items">
-                <a class="sidebar-item active" th:href="@{/admin/dashboard}">
+                <a class="sidebar-item"
+                   th:classappend="${activePath == '/admin/dashboard'} ? ' active' : ''"
+                   th:href="@{/admin/dashboard}">
                     <span class="sidebar-item-label">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#e2e8f0" stroke-width="1.4"><rect x="1" y="1" width="5" height="5"/><rect x="8" y="1" width="5" height="5"/><rect x="1" y="8" width="5" height="5"/><rect x="8" y="8" width="5" height="5"/></svg>
                         대시보드
                     </span>
                 </a>
-                <span class="sidebar-item disabled">
+                <a class="sidebar-item" th:href="@{/admin/account}"
+                   th:classappend="${activePath == '/admin/account'} ? ' active' : ''">
                     <span class="sidebar-item-label">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#e2e8f0" stroke-width="1.4"><circle cx="7" cy="4.5" r="2.5"/><path d="M2 13c0-3 2.2-4.5 5-4.5s5 1.5 5 4.5"/></svg>
                         계좌 관리
                     </span>
-                    <span class="sidebar-badge">2</span>
-                </span>
+                    <span id="accountReviewBadge" class="sidebar-badge" style="display:none"></span>
+                </a>
             </div>
         </div>
 
@@ -48,13 +52,14 @@
                         입고 관리
                     </span>
                 </span>
-                <span class="sidebar-item disabled">
+                <a class="sidebar-item"
+                   th:classappend="${activePath == '/admin/sell-orders'} ? ' active' : ''"
+                   th:href="@{/admin/sell-orders}">
                     <span class="sidebar-item-label">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#e2e8f0" stroke-width="1.3"><line x1="2" y1="5" x2="10" y2="5"/><polyline points="7,2 10,5 7,8"/><line x1="12" y1="9" x2="4" y2="9"/><polyline points="7,12 4,9 7,6"/></svg>
                         매도 · 환전
                     </span>
-                    <span class="sidebar-badge">2</span>
-                </span>
+                </a>
                 <span class="sidebar-item disabled">
                     <span class="sidebar-item-label">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#e2e8f0" stroke-width="1.6"><line x1="2" y1="12" x2="2" y2="7"/><line x1="7" y1="12" x2="7" y2="4"/><line x1="12" y1="12" x2="12" y2="9"/></svg>
@@ -73,7 +78,8 @@
                         세액 계산
                     </span>
                 </span>
-                <a class="sidebar-item" th:href="@{/admin/target-products}">
+                <a class="sidebar-item" th:href="@{/admin/target-products}"
+                    th:classappend="${activePath == '/admin/target-products'} ? ' active' : ''">
                     <span class="sidebar-item-label">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#e2e8f0" stroke-width="1.3"><circle cx="6" cy="6" r="4"/><line x1="9" y1="9" x2="12.5" y2="12.5"/></svg>
                         외부 감시
@@ -149,6 +155,8 @@
     </div>
 
 </div>
+
+<div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
 <script th:src="@{/js/lib/jquery-3.7.1.min.js}"></script>
 <script th:src="@{/js/auth.js}"></script>
