@@ -1,6 +1,7 @@
 package com.app.maria.presentation;
 
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
 @Controller
@@ -17,12 +18,14 @@ public class PageController {
     }
 
     @GetMapping("/admin/dashboard")
-    public String dashboard() {
+    public String dashboard(Model model) {
+        model.addAttribute("activePath", "/admin/dashboard");
         return "dashboard";
     }
 
     @GetMapping("/admin/account")
-    public String account() {
+    public String account(Model model) {
+        model.addAttribute("activePath", "/admin/account");
         return "account-management";
     }
 }

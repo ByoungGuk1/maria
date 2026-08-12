@@ -30,7 +30,6 @@ $(function () {
     }
 
     applyTheme(localStorage.getItem("maria.theme") || "light");
-    applyActiveMenu();
     loadReferenceTime();
 
     $("#themeToggle").on("click", function () {
@@ -50,20 +49,12 @@ $(function () {
         $("#themeToggle").text(theme === "dark" ? "🌙" : "☀");
     }
 
-    function applyActiveMenu() {
-        var path = window.location.pathname;
-        $("#dashboardMenu").toggleClass("active", path === "/admin/dashboard");
-        $("#accountManagementMenu").toggleClass("active", path === "/admin/account");
-    }
-
     function loadAccountReviewCount() {
         MARIA.auth.ajax({
-            url: "/api/account/list",
+            url: "/api/account/requiring-action-count",
             method: "GET"
         }).done(function (res) {
-            var count = (res.data || []).filter(function (account) {
-                return account.status === "APPLIED" || account.status === "CLOSURE_REQUESTED";
-            }).length;
+            var count = res.data || 0;
             $("#accountReviewBadge").text(count).toggle(count > 0);
         });
     }
