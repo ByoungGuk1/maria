@@ -7,8 +7,12 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
+import com.app.maria.domain.account.dto.AccountSearchDTO;
 import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.request.AccountSearchRequestDTO;
+import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
@@ -17,10 +21,13 @@ import com.app.maria.domain.account.type.Status;
 import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -160,6 +167,62 @@ class AccountServiceImplTest {
         accountService.approveAccount(ACCOUNT_ID);
 
         verify(accountTransactionalService).approve(ACCOUNT_ID, LIMIT, afterApplicationPeriod);
+    }
+
+    @Test
+    @DisplayName("검색 조건을 VO로 변환해 Mapper를 호출하고, 결과를 Response DTO로 감싸 반환한다")
+    void searchAccountsConvertsRequestToVoAndWrapsMapperResultAsResponseDto() {
+        AccountLimitUsageDTO vo = accountLimitUsage(Status.OPENED);
+        AccountSearchRequestDTO request =
+                AccountSearchRequestDTO.builder().accountNo("123").customerName("김").build();
+        when(accountMapper.searchAccounts(any(AccountSearchDTO.class))).thenReturn(List.of(vo));
+
+        List<AccountLimitUsageResponseDTO> result = accountService.searchAccounts(request);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getAccountId()).isEqualTo(vo.getAccountId());
+        assertThat(result.get(0).getAccountNo()).isEqualTo(vo.getAccountNo());
+
+        ArgumentCaptor<AccountSearchDTO> captor = ArgumentCaptor.forClass(AccountSearchDTO.class);
+        verify(accountMapper).searchAccounts(captor.capture());
+        assertThat(captor.getValue().getAccountNo()).isEqualTo("123");
+        assertThat(captor.getValue().getCustomerName()).isEqualTo("김");
+    }
+
+    @Test
+    @DisplayName("한도 사용률 조회 결과를 Response DTO로 감싸 반환한다")
+    void selectAccountLimitUsageWrapsMapperResultAsResponseDto() {
+        AccountLimitUsageDTO vo = accountLimitUsage(Status.OPENED);
+        when(accountMapper.selectAccountLimitUsage()).thenReturn(List.of(vo));
+
+        List<AccountLimitUsageResponseDTO> result = accountService.selectAccountLimitUsage();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getStatus()).isEqualTo(Status.OPENED);
+        assertThat(result.get(0).getUsedAmount()).isEqualByComparingTo(vo.getUsedAmount());
+    }
+
+    @Test
+    @DisplayName("심사대기 계좌 조회 결과를 Response DTO로 감싸 반환한다")
+    void getAppliedAccountsWrapsMapperResultAsResponseDto() {
+        AccountLimitUsageDTO vo = accountLimitUsage(Status.APPLIED);
+        when(accountMapper.selectAppliedAccounts()).thenReturn(List.of(vo));
+
+        List<AccountLimitUsageResponseDTO> result = accountService.getAppliedAccounts();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getStatus()).isEqualTo(Status.APPLIED);
+    }
+
+    private AccountLimitUsageDTO accountLimitUsage(Status status) {
+        return AccountLimitUsageDTO.builder()
+                .accountId(ACCOUNT_ID)
+                .accountNo("1234567890")
+                .customerName("김리아")
+                .status(status)
+                .limitAmount(LIMIT)
+                .usedAmount(BigDecimal.ZERO)
+                .build();
     }
 
     private AccountRequestDTO request(BigDecimal limit) {

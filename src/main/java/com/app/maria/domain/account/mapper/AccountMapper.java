@@ -2,6 +2,7 @@ package com.app.maria.domain.account.mapper;
 
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
+import com.app.maria.domain.account.dto.AccountSearchDTO;
 import com.app.maria.domain.account.type.Status;
 import java.math.BigDecimal;
 import java.util.List;
@@ -81,4 +82,6 @@ public interface AccountMapper {
 
     // applied 계좌 목록
     List<AccountLimitUsageDTO> selectAppliedAccounts();
+
+    List<AccountLimitUsageDTO> searchAccounts(AccountSearchDTO condition);
 }

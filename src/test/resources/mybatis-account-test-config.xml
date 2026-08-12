@@ -12,6 +12,7 @@
         <typeAlias alias="AccountDTO" type="com.app.maria.domain.account.dto.AccountDTO"/>
         <typeAlias alias="AccountStatusLogDTO" type="com.app.maria.domain.account.dto.AccountStatusLogDTO"/>
         <typeAlias alias="AccountLimitUsageDTO" type="com.app.maria.domain.account.dto.AccountLimitUsageDTO"/>
+        <typeAlias alias="AccountSearchDTO" type="com.app.maria.domain.account.dto.AccountSearchDTO"/>
     </typeAliases>
 
     <environments default="account-mapper-test">
@@ -29,5 +30,6 @@
     <mappers>
         <mapper resource="mappers/account/accountMapper.xml"/>
         <mapper resource="mappers/account/accountStatusLogMapper.xml"/>
+        <mapper resource="mappers/sellorder/sellLimitMapper.xml"/>
     </mappers>
 </configuration>
