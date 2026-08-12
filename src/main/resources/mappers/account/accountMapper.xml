@@ -186,4 +186,28 @@
         WHERE a.status = 'APPLIED'
     </select>
 
+    <!--해지로 상태변경-->
+    <update id="requestClosure">
+        UPDATE account
+        SET status = 'CLOSURE_REQUESTED'
+        WHERE account_id = #{accountId}
+        AND status = 'OPENED'
+    </update>
+
+    <!--해지 반려시 재오픈 -->
+    <update id="reopenAfterClosureRejection">
+        UPDATE account
+        SET status = 'OPENED'
+        WHERE account_id = #{accountId}
+        AND status = 'CLOSURE_REQUESTED'
+    </update>
+
+    <update id="completeClosure">
+        UPDATE account
+        SET status = 'CLOSED'
+        WHERE account_id = #{accountId}
+        AND status = 'CLOSURE_REQUESTED'
+        AND amount = 0
+    </update>
+
 </mapper>
