@@ -23,19 +23,19 @@
         <div class="sidebar-group">
             <div class="sidebar-group-label">심사 · 계좌</div>
             <div class="sidebar-items">
-                <a class="sidebar-item active" th:href="@{/admin/dashboard}">
+                <a id="dashboardMenu" class="sidebar-item" th:href="@{/admin/dashboard}">
                     <span class="sidebar-item-label">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#e2e8f0" stroke-width="1.4"><rect x="1" y="1" width="5" height="5"/><rect x="8" y="1" width="5" height="5"/><rect x="1" y="8" width="5" height="5"/><rect x="8" y="8" width="5" height="5"/></svg>
                         대시보드
                     </span>
                 </a>
-                <span class="sidebar-item disabled">
+                <a id="accountManagementMenu" class="sidebar-item" th:href="@{/admin/account}">
                     <span class="sidebar-item-label">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#e2e8f0" stroke-width="1.4"><circle cx="7" cy="4.5" r="2.5"/><path d="M2 13c0-3 2.2-4.5 5-4.5s5 1.5 5 4.5"/></svg>
                         계좌 관리
                     </span>
-                    <span class="sidebar-badge">2</span>
-                </span>
+                    <span id="accountReviewBadge" class="sidebar-badge" style="display:none"></span>
+                </a>
             </div>
         </div>
 
@@ -149,6 +149,8 @@
     </div>
 
 </div>
+
+<div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
 <script th:src="@{/js/lib/jquery-3.7.1.min.js}"></script>
 <script th:src="@{/js/auth.js}"></script>

@@ -112,7 +112,7 @@
         SELECT
         *
         FROM account
-        ORDER BY status DESC
+        ORDER BY customer_id desc
     </select>
     <update id="overrideToOpened" parameterType="AccountDTO">
         UPDATE account

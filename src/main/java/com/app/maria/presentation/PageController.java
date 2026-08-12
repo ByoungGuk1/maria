@@ -20,4 +20,9 @@ public class PageController {
     public String dashboard() {
         return "dashboard";
     }
+
+    @GetMapping("/admin/account")
+    public String account() {
+        return "account-management";
+    }
 }
