@@ -65,6 +65,7 @@
         WHERE i.account_id = #{accountId}
         AND id.current_qty > 0
         GROUP BY id.foreign_product_id
+        ORDER BY id.foreign_product_id
     </select>
 
 </mapper>
