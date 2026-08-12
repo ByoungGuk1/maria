@@ -6,11 +6,14 @@ import com.app.maria.domain.settlement.dto.SettlementItemDTO;
 import com.app.maria.domain.settlement.dto.SettlementJoinDTO;
 import com.app.maria.domain.settlement.exception.InvalidSettlementException;
 import com.app.maria.domain.settlement.exception.KrwExchangeNotFoundException;
+import com.app.maria.domain.settlement.exception.SettlementAccountMismatchException;
+import com.app.maria.domain.settlement.exception.SettlementAccountNotFoundException;
 import com.app.maria.domain.settlement.exception.SettlementStateConflictException;
 import com.app.maria.domain.settlement.mapper.KrwExchangeMapper;
 import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
 import com.app.maria.domain.settlement.type.SettlementItemResult;
 import com.app.maria.domain.settlement.type.SettlementStatus;
+import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +29,7 @@ public class SettlementTransactionExecutor {
     private final KrwExchangeMapper krwExchangeMapper;
     private final SettlementItemMapper settlementItemMapper;
     private final SettlementCalculator settlementCalculator;
+    private final BusinessClockService businessClockService;
 
     @Transactional(
             transactionManager = "transactionManager",
@@ -53,18 +57,18 @@ public class SettlementTransactionExecutor {
             throw new InvalidSettlementException("체결된 매도 주문만 확정산 가능");
         }
         if (!exchange.getAccountId().equals(target.getAccountId())) {
-            throw new SettlementStateConflictException("환전과 정산 대상 계좌 미일치");
+            throw new SettlementAccountMismatchException("환전과 정산 대상 계좌가 일치하지 않습니다.");
         }
 
         // 모든 정산 경로에서 exchange -> account 순서로 잠금을 획득한다.
         krwExchangeMapper
                 .selectAccountAmountForUpdate(exchange.getAccountId())
-                .orElseThrow(() -> new InvalidSettlementException("계좌 조회 실패"));
+                .orElseThrow(() -> new SettlementAccountNotFoundException("정산 대상 계좌를 찾을 수 없습니다."));
 
         BigDecimal finalAmount =
                 settlementCalculator.calculateFinalAmount(
-                        exchange.getProvisionalAmount(), target.getPurchaseFxRate(), finalRate);
-        LocalDateTime settledAt = LocalDateTime.now();
+                        exchange.getProvisionalAmount(), target.getSettlementFxRate(), finalRate);
+        LocalDateTime settledAt = businessClockService.now();
 
         exchange.setFinalRate(finalRate);
         exchange.setFinalAmount(finalAmount);
@@ -90,7 +94,7 @@ public class SettlementTransactionExecutor {
     }
 
     private void markItemSuccess(Long itemId) {
-        markItemSuccess(itemId, LocalDateTime.now());
+        markItemSuccess(itemId, businessClockService.now());
     }
 
     private void markItemSuccess(Long itemId, LocalDateTime processedAt) {

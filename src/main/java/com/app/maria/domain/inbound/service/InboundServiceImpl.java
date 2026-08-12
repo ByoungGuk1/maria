@@ -11,20 +11,28 @@ import com.app.maria.domain.registrablestock.dto.RegistrableStockResponseDTO;
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.response.ApiResponseDTO;
 import java.math.BigDecimal;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
 @Service
-@RequiredArgsConstructor
 @Transactional(rollbackFor = Exception.class)
 public class InboundServiceImpl implements InboundService {
 
     private final InboundMapper inboundMapper;
     private final RestClient restClient;
     private final BusinessClockService businessClockService;
+
+    public InboundServiceImpl(
+            InboundMapper inboundMapper,
+            @Qualifier("returnSecuritiesRestClient") RestClient restClient,
+            BusinessClockService businessClockService) {
+        this.inboundMapper = inboundMapper;
+        this.restClient = restClient;
+        this.businessClockService = businessClockService;
+    }
 
     @Override
     public InboundResponseDTO processInbound(InboundRequestDTO request) {

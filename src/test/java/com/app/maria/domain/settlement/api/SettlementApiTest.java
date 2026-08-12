@@ -53,6 +53,62 @@ class SettlementApiTest {
     }
 
     @Test
+    void executeSettlementBatchReturnsExistingCompletedBatch() throws Exception {
+        SettlementBatchDTO completedBatch = batch();
+        completedBatch.setStatus(BatchStatus.COMPLETED);
+        when(settlementService.executeSettlementBatch()).thenReturn(completedBatch);
+
+        mockMvc.perform(post("/api/settlement/jobs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+    }
+
+    @Test
+    @WithMockUser(roles = "VIEWER")
+    void viewerCannotExecuteSettlementBatch() throws Exception {
+        mockMvc.perform(post("/api/settlement/jobs")).andExpect(status().isForbidden());
+
+        verify(settlementService, never()).executeSettlementBatch();
+    }
+
+    @Test
+    void retryEndpointsDelegateToService() throws Exception {
+        SettlementItemDTO item =
+                SettlementItemDTO.builder().itemId(10L).batchId(1L).exchangeId(100L).build();
+        SettlementBatchDTO batch = batch();
+        when(settlementService.retryFailedSettlementItem(1L, 10L)).thenReturn(item);
+        when(settlementService.retryFailedSettlementBatch(1L)).thenReturn(batch);
+
+        mockMvc.perform(post("/api/settlement/batches/{batchId}/items/{itemId}/retry", 1L, 10L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.itemId").value(10L));
+        mockMvc.perform(post("/api/settlement/batches/{batchId}/retry", 1L))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.data.batchId").value(1L));
+
+        verify(settlementService).retryFailedSettlementItem(1L, 10L);
+        verify(settlementService).retryFailedSettlementBatch(1L);
+    }
+
+    @Test
+    @WithMockUser(roles = "VIEWER")
+    void viewerCannotRetrySettlementItem() throws Exception {
+        mockMvc.perform(post("/api/settlement/batches/{batchId}/items/{itemId}/retry", 1L, 10L))
+                .andExpect(status().isForbidden());
+
+        verify(settlementService, never()).retryFailedSettlementItem(1L, 10L);
+    }
+
+    @Test
+    @WithMockUser(roles = "REVIEWER")
+    void reviewerCannotRetrySettlementBatch() throws Exception {
+        mockMvc.perform(post("/api/settlement/batches/{batchId}/retry", 1L))
+                .andExpect(status().isForbidden());
+
+        verify(settlementService, never()).retryFailedSettlementBatch(1L);
+    }
+
+    @Test
     void getSettlementBatchEndpointsReturnBatch() throws Exception {
         SettlementBatchDTO batch = batch();
         when(settlementService.getSettlementBatches()).thenReturn(List.of(batch));
