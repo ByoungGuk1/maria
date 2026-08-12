@@ -71,9 +71,8 @@ MARIA.auth = (function ($) {
     // 로그인 페이지로 보낸다(리프레시 재시도는 하지 않음 - 필요해지면 여기에 추가).
     function ajax(options) {
         var token = getAccessToken();
-        var mergedHeaders = $.extend({}, options.headers || {}, {
-            Authorization: token ? "Bearer " + token : undefined
-        });
+        var authHeader = token ? { Authorization: "Bearer " + token } : {};
+        var mergedHeaders = $.extend({}, options.headers || {}, authHeader);
 
         return $.ajax(
             $.extend({}, options, {
