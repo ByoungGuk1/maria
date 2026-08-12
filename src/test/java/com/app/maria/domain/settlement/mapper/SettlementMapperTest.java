@@ -316,6 +316,7 @@ class SettlementMapperTest {
                             assertThat(refreshed.getFailedCount()).isZero();
                             assertThat(refreshed.getProcessedCount()).isOne();
                         });
+        assertThat(settlementBatchMapper.refreshBatchStatusAfterRetry(batch.getBatchId())).isZero();
         SettlementItemDTO afterSuccess =
                 SettlementItemDTO.builder()
                         .batchId(batch.getBatchId())
@@ -481,7 +482,7 @@ class SettlementMapperTest {
           CREATE TABLE left_amount (
               left_amount_id BIGINT PRIMARY KEY AUTO_INCREMENT,
               exchange_id BIGINT NOT NULL UNIQUE,
-              cur_amount DECIMAL(15, 0) NOT NULL UNIQUE
+              cur_amount DECIMAL(15, 0) NOT NULL
           )
           """);
 

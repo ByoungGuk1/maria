@@ -1,6 +1,7 @@
 package com.app.maria.domain.settlement.component;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -81,5 +82,16 @@ class SettlementBatchStatusUpdaterTest {
 
         verify(settlementItemMapper, never())
                 .markPendingItemsFailed(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void rejectsCompletionWhenBatchIsNoLongerRunning() {
+        when(settlementBatchMapper.refreshBatchStatusAfterRetry(1L)).thenReturn(0);
+        SettlementBatchStatusUpdater updater =
+                new SettlementBatchStatusUpdater(
+                        settlementBatchMapper, settlementItemMapper, systemClock);
+
+        assertThatThrownBy(() -> updater.completeFromLatestItems(1L))
+                .isInstanceOf(SettlementStateConflictException.class);
     }
 }

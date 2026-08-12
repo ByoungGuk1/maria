@@ -25,11 +25,6 @@ public class SettlementBatchLauncher {
         launch(batch, batch.getRunId());
     }
 
-    @Async("settlementBatchTaskExecutor")
-    public void launchRetry(SettlementBatchDTO batch) {
-        launch(batch, batch.getRunId());
-    }
-
     private void launch(SettlementBatchDTO batch, String runId) {
         JobParameters parameters =
                 new JobParametersBuilder()

@@ -5,6 +5,7 @@ import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
 import com.app.maria.domain.settlement.dto.SettlementItemDTO;
 import com.app.maria.domain.settlement.dto.SettlementJoinDTO;
 import com.app.maria.domain.settlement.service.SettlementService;
+import com.app.maria.domain.settlement.type.BatchStatus;
 import com.app.maria.global.response.ApiResponseDTO;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
@@ -37,9 +38,7 @@ public class SettlementApi {
     public ResponseEntity<ApiResponseDTO<SettlementBatchDTO>> executeSettlementBatch() {
         SettlementBatchDTO batch = settlementService.executeSettlementBatch();
         HttpStatus status =
-                batch.getStatus() == com.app.maria.domain.settlement.type.BatchStatus.RUNNING
-                        ? HttpStatus.ACCEPTED
-                        : HttpStatus.OK;
+                batch.getStatus() == BatchStatus.RUNNING ? HttpStatus.ACCEPTED : HttpStatus.OK;
         return ResponseEntity.status(status).body(ApiResponseDTO.of("확정산 배치 실행 요청 완료", batch));
     }
 

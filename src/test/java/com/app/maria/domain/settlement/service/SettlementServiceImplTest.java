@@ -174,7 +174,7 @@ class SettlementServiceImplTest {
 
         assertThat(result.getStatus()).isEqualTo(BatchStatus.RUNNING);
         verify(settlementBatchStatusUpdater).startBatchRetry(eq(BATCH_ID), anyString());
-        verify(settlementBatchLauncher).launchRetry(any(SettlementBatchDTO.class));
+        verify(settlementBatchLauncher).launch(any(SettlementBatchDTO.class));
     }
 
     @Test

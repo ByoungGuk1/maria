@@ -2,10 +2,9 @@ package com.app.maria.domain.settlement.mapper;
 
 import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
 import com.app.maria.domain.settlement.dto.SettlementItemDTO;
-import org.apache.ibatis.annotations.Mapper;
-
 import java.util.List;
 import java.util.Optional;
+import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
 public interface SettlementItemMapper {
@@ -35,6 +34,4 @@ public interface SettlementItemMapper {
     int countPendingItems(Long batchId);
 
     int countFailedItems(Long batchId);
-
-    int countLatestFailedItems(Long batchId);
 }

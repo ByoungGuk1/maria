@@ -15,6 +15,7 @@ import com.app.maria.domain.settlement.mapper.SettlementBatchMapper;
 import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
 import com.app.maria.domain.settlement.mapper.SettlementJoinMapper;
 import com.app.maria.domain.settlement.type.BatchStatus;
+import com.app.maria.domain.settlement.type.SettlementItemResult;
 import com.app.maria.domain.settlement.type.SettlementStatus;
 import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
@@ -178,8 +179,7 @@ public class SettlementServiceImpl implements SettlementService {
                                                                             "재처리 대상 정산 Item을 찾을 수 없습니다."));
                                     if (!batchId.equals(failedItem.getBatchId())
                                             || failedItem.getResult()
-                                                    != com.app.maria.domain.settlement.type
-                                                            .SettlementItemResult.FAILED) {
+                                                    != SettlementItemResult.FAILED) {
                                         throw new SettlementStateConflictException(
                                                 "실패한 정산 Item만 재처리할 수 있습니다.");
                                     }
@@ -270,7 +270,7 @@ public class SettlementServiceImpl implements SettlementService {
         if (batch == null) {
             throw new SettlementStateConflictException("정산 Batch 재처리 트랜잭션 처리에 실패했습니다.");
         }
-        launchRetryBatch(batch);
+        launchBatch(batch);
         return batch;
     }
 
@@ -287,14 +287,6 @@ public class SettlementServiceImpl implements SettlementService {
     private void launchBatch(SettlementBatchDTO batch) {
         try {
             settlementBatchLauncher.launch(batch);
-        } catch (TaskRejectedException exception) {
-            markLaunchRejected(batch.getBatchId(), exception);
-        }
-    }
-
-    private void launchRetryBatch(SettlementBatchDTO batch) {
-        try {
-            settlementBatchLauncher.launchRetry(batch);
         } catch (TaskRejectedException exception) {
             markLaunchRejected(batch.getBatchId(), exception);
         }
