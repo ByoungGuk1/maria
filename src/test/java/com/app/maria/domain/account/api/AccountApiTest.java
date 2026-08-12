@@ -10,9 +10,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.service.AccountService;
+import com.app.maria.domain.account.type.Status;
 import com.app.maria.global.exception.GlobalExceptionHandler;
+import java.math.BigDecimal;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -304,5 +308,34 @@ class AccountApiTest {
                 .andExpect(jsonPath("$.message").value("사유를 입력해야 합니다."));
 
         verify(accountService, never()).overrideAccount(anyLong(), anyString());
+    }
+
+    @Test
+    void searchAcceptsAccountNoOnlyAndReturnsMatchedAccounts() throws Exception {
+        AccountLimitUsageResponseDTO response =
+                AccountLimitUsageResponseDTO.builder()
+                        .accountId(1L)
+                        .accountNo("1234567890")
+                        .customerName("홍길동")
+                        .status(Status.OPENED)
+                        .limitAmount(BigDecimal.valueOf(30_000_000L))
+                        .usedAmount(BigDecimal.ZERO)
+                        .build();
+        when(accountService.searchAccounts(any())).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/account/search").param("accountNo", "1234"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("계좌 검색"))
+                .andExpect(jsonPath("$.data[0].accountNo").value("1234567890"))
+                .andExpect(jsonPath("$.data[0].customerName").value("홍길동"));
+
+        verify(accountService).searchAccounts(any());
+    }
+
+    @Test
+    void searchRejectsRequestWithoutAccountNoOrCustomerName() throws Exception {
+        mockMvc.perform(get("/api/account/search")).andExpect(status().isBadRequest());
+
+        verify(accountService, never()).searchAccounts(any());
     }
 }
