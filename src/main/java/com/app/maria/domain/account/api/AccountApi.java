@@ -29,6 +29,13 @@ public class AccountApi {
         return ResponseEntity.ok(ApiResponseDTO.of("계좌 정보 전체 조회", accountService.findAll()));
     }
 
+    @GetMapping("/requiring-action-count")
+    public ResponseEntity<ApiResponseDTO<Integer>> getAccountsRequiringActionCount() {
+        return ResponseEntity.ok(
+                ApiResponseDTO.of(
+                        "처리 필요 계좌 건수 조회", accountService.getAccountsRequiringActionCount()));
+    }
+
     @GetMapping("/available-limit")
     public ResponseEntity<ApiResponseDTO<BigDecimal>> getAvailableLimit(
             @RequestParam @Positive(message = "사용자 ID는 0보다 커야 합니다.") Long customerId) {

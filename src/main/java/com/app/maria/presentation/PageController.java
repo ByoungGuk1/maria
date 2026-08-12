@@ -28,4 +28,10 @@ public class PageController {
         model.addAttribute("activePath", "/admin/sell-orders");
         return "sellOrder";
     }
+
+    @GetMapping("/admin/account")
+    public String account(Model model) {
+        model.addAttribute("activePath", "/admin/account");
+        return "account-management";
+    }
 }

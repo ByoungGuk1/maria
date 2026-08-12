@@ -39,6 +39,8 @@ public interface AccountService {
 
     int getAppliedAccountCount();
 
+    int getAccountsRequiringActionCount();
+
     List<AccountLimitUsageResponseDTO> selectAccountLimitUsage();
 
     List<AccountLimitUsageResponseDTO> getAppliedAccounts();

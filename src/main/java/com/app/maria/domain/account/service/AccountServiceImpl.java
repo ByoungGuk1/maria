@@ -43,6 +43,11 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
+    public int getAccountsRequiringActionCount() {
+        return accountMapper.countAccountsRequiringAction();
+    }
+
+    @Override
     public BigDecimal getAvailableLimit(Long customerId) {
         validateCustomerExists(customerId);
         return calculateAvailableLimit(customerId);
