@@ -61,7 +61,7 @@ $(function () {
                 "<tr>" +
                 "<td><div class=\"account-no\">" + escapeHtml(account.accountNo || "-") + "</div>" +
                 "<div class=\"account-name\">" + escapeHtml(account.customerName || "") + "</div></td>" +
-                "<td>" + (STATUS_LABEL[account.status] || account.status) + "</td>" +
+                "<td>" + (STATUS_LABEL[account.status] || escapeHtml(account.status)) + "</td>" +
                 "<td>" + ratioCellHtml + "</td>" +
                 "</tr>";
             $body.append(row);

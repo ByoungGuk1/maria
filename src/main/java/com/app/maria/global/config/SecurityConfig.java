@@ -31,8 +31,9 @@ public class SecurityConfig {
         "/images/**",
 
         // Thymeleaf 페이지 셸: 페이지 자체는 공개, 데이터는 JS가 JWT로 API 호출 시 검증
+        // 여기에는 PageController의 뷰(HTML) 라우트만 추가할 것 - API는 절대 여기 넣지 말 것
         "/login",
-        "/admin/**",
+        "/admin/dashboard",
 
         // JWT 인증 API
         "/api/auth/admin/login",
