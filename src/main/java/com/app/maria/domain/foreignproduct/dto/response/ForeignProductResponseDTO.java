@@ -1,6 +1,7 @@
 package com.app.maria.domain.foreignproduct.dto.response;
 
 import com.app.maria.domain.foreignproduct.dto.ForeignProductDTO;
+import com.app.maria.domain.foreignproduct.type.ForeignProductType;
 import lombok.*;
 
 @AllArgsConstructor
@@ -15,7 +16,7 @@ public class ForeignProductResponseDTO {
     private String name;
     private String market;
     private String currency;
-    private String type;
+    private ForeignProductType foreignProductType;
 
     public ForeignProductResponseDTO(ForeignProductDTO dto) {
         this.foreignProductId = dto.getForeignProductId();
@@ -23,6 +24,6 @@ public class ForeignProductResponseDTO {
         this.name = dto.getName();
         this.market = dto.getMarket();
         this.currency = dto.getCurrency();
-        this.type = dto.getType();
+        this.foreignProductType = dto.getForeignProductType();
     }
 }
