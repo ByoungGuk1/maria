@@ -4,4 +4,6 @@ import com.app.maria.domain.accountclosure.dto.request.AccountClosureApplyReques
 
 public interface AccountClosureService {
     Long applyClosure(Long customerId, AccountClosureApplyRequestDTO requestDTO);
+
+    void rejectClosure(Long adminId, Long closureRequestId, String reason);
 }

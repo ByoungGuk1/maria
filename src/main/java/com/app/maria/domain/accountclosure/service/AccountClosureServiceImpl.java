@@ -7,6 +7,7 @@ import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.accountclosure.dto.AccountClosureDTO;
 import com.app.maria.domain.accountclosure.dto.request.AccountClosureApplyRequestDTO;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotAllowedException;
+import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingException;
 import com.app.maria.domain.accountclosure.mapper.AccountClosureMapper;
 import com.app.maria.domain.accountclosure.type.AccountClosureStatus;
@@ -70,5 +71,31 @@ public class AccountClosureServiceImpl implements AccountClosureService {
             throw new AccountClosureProcessingException("계좌 해지 신청 저장에 실패했습니다.");
         }
         return closure.getClosureRequestId();
+    }
+
+    @Override
+    public void rejectClosure(Long adminId, Long closureRequestId, String reason) {
+        // 신청 건 잠금 조회
+        AccountClosureDTO closure =
+                accountClosureMapper
+                        .selectByIdForUpdate(closureRequestId)
+                        .orElseThrow(
+                                () -> new AccountClosureNotFoundException("계좌 해지 신청을 찾을 수 없습니다."));
+        // REQUSTED상태 검증
+        if (closure.getStatus() != AccountClosureStatus.REQUESTED) {
+            throw new AccountClosureNotAllowedException("이미 처리된 계좌 해지 신청입니다.");
+        }
+        closure.setProcessedAt(businessClockService.now());
+        closure.setProcessedBy(adminId);
+        closure.setRejectionReason(reason);
+
+        int rejectedClosureRows = accountClosureMapper.rejectClosureRequest(closure);
+        if (rejectedClosureRows != 1) {
+            throw new AccountClosureProcessingException("계좌 해지 신청 반려 처리에 실패했습니다.");
+        }
+        int reopenedRows = accountMapper.reopenAfterClosureRejection(closure.getAccountId());
+        if (reopenedRows != 1) {
+            throw new AccountClosureProcessingException("해지 반려 후 계좌 상태 복구에 실패했습니다.");
+        }
     }
 }

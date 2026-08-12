@@ -17,6 +17,7 @@ import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.accountclosure.dto.AccountClosureDTO;
 import com.app.maria.domain.accountclosure.dto.request.AccountClosureApplyRequestDTO;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotAllowedException;
+import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingException;
 import com.app.maria.domain.accountclosure.mapper.AccountClosureMapper;
 import com.app.maria.domain.accountclosure.type.AccountClosureStatus;
@@ -178,6 +179,87 @@ class AccountClosureServiceImplTest {
         order.verify(accountClosureMapper).insertClosureRequest(any());
     }
 
+    @Test
+    void missingClosureRequestStopsBeforeRejectionUpdates() {
+        when(accountClosureMapper.selectByIdForUpdate(CLOSURE_REQUEST_ID))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(
+                        () -> accountClosureService.rejectClosure(7L, CLOSURE_REQUEST_ID, "반려 사유"))
+                .isInstanceOf(AccountClosureNotFoundException.class)
+                .hasMessage("계좌 해지 신청을 찾을 수 없습니다.");
+
+        verify(accountClosureMapper, never()).rejectClosureRequest(any());
+        verifyNoInteractions(accountMapper, businessClockService);
+    }
+
+    @Test
+    void alreadyProcessedClosureCannotBeRejectedAgain() {
+        when(accountClosureMapper.selectByIdForUpdate(CLOSURE_REQUEST_ID))
+                .thenReturn(Optional.of(closure(AccountClosureStatus.COMPLETED)));
+
+        assertThatThrownBy(
+                        () -> accountClosureService.rejectClosure(7L, CLOSURE_REQUEST_ID, "반려 사유"))
+                .isInstanceOf(AccountClosureNotAllowedException.class)
+                .hasMessage("이미 처리된 계좌 해지 신청입니다.");
+
+        verify(accountClosureMapper, never()).rejectClosureRequest(any());
+        verifyNoInteractions(accountMapper, businessClockService);
+    }
+
+    @Test
+    void closureRejectionUpdateFailureDoesNotReopenAccount() {
+        AccountClosureDTO closure = closure(AccountClosureStatus.REQUESTED);
+        when(accountClosureMapper.selectByIdForUpdate(CLOSURE_REQUEST_ID))
+                .thenReturn(Optional.of(closure));
+        when(businessClockService.now()).thenReturn(NOW);
+        when(accountClosureMapper.rejectClosureRequest(closure)).thenReturn(0);
+
+        assertThatThrownBy(
+                        () -> accountClosureService.rejectClosure(7L, CLOSURE_REQUEST_ID, "반려 사유"))
+                .isInstanceOf(AccountClosureProcessingException.class)
+                .hasMessage("계좌 해지 신청 반려 처리에 실패했습니다.");
+
+        verify(accountMapper, never()).reopenAfterClosureRejection(ACCOUNT_ID);
+    }
+
+    @Test
+    void accountReopenFailureRaisesProcessingException() {
+        AccountClosureDTO closure = closure(AccountClosureStatus.REQUESTED);
+        when(accountClosureMapper.selectByIdForUpdate(CLOSURE_REQUEST_ID))
+                .thenReturn(Optional.of(closure));
+        when(businessClockService.now()).thenReturn(NOW);
+        when(accountClosureMapper.rejectClosureRequest(closure)).thenReturn(1);
+        when(accountMapper.reopenAfterClosureRejection(ACCOUNT_ID)).thenReturn(0);
+
+        assertThatThrownBy(
+                        () -> accountClosureService.rejectClosure(7L, CLOSURE_REQUEST_ID, "반려 사유"))
+                .isInstanceOf(AccountClosureProcessingException.class)
+                .hasMessage("해지 반려 후 계좌 상태 복구에 실패했습니다.");
+    }
+
+    @Test
+    void successfulRejectionStoresProcessorReasonAndReopensAccountInOrder() {
+        AccountClosureDTO closure = closure(AccountClosureStatus.REQUESTED);
+        when(accountClosureMapper.selectByIdForUpdate(CLOSURE_REQUEST_ID))
+                .thenReturn(Optional.of(closure));
+        when(businessClockService.now()).thenReturn(NOW);
+        when(accountClosureMapper.rejectClosureRequest(closure)).thenReturn(1);
+        when(accountMapper.reopenAfterClosureRejection(ACCOUNT_ID)).thenReturn(1);
+
+        accountClosureService.rejectClosure(7L, CLOSURE_REQUEST_ID, "관리자 반려 사유");
+
+        assertThat(closure.getProcessedAt()).isEqualTo(NOW);
+        assertThat(closure.getProcessedBy()).isEqualTo(7L);
+        assertThat(closure.getRejectionReason()).isEqualTo("관리자 반려 사유");
+
+        InOrder order = inOrder(accountClosureMapper, businessClockService, accountMapper);
+        order.verify(accountClosureMapper).selectByIdForUpdate(CLOSURE_REQUEST_ID);
+        order.verify(businessClockService).now();
+        order.verify(accountClosureMapper).rejectClosureRequest(closure);
+        order.verify(accountMapper).reopenAfterClosureRejection(ACCOUNT_ID);
+    }
+
     private void prepareAccountAndCi() {
         when(accountMapper.selectByCustomerId(CUSTOMER_ID))
                 .thenReturn(Optional.of(account(Status.OPENED)));
@@ -195,6 +277,14 @@ class AccountClosureServiceImplTest {
         return AccountDTO.builder()
                 .accountId(ACCOUNT_ID)
                 .customerId(CUSTOMER_ID)
+                .status(status)
+                .build();
+    }
+
+    private static AccountClosureDTO closure(AccountClosureStatus status) {
+        return AccountClosureDTO.builder()
+                .closureRequestId(CLOSURE_REQUEST_ID)
+                .accountId(ACCOUNT_ID)
                 .status(status)
                 .build();
     }
