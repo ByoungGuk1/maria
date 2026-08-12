@@ -2,7 +2,9 @@ package com.app.maria.domain.tax.mapper;
 
 import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
+import com.app.maria.domain.tax.dto.TaxCalculationDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
+import com.app.maria.domain.tax.type.TaxBasisType;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
@@ -19,4 +21,9 @@ public interface TaxMapper {
 
     List<ExternalBuyDTO> findExternalBuysByAccountAndYear(
             @Param("accountId") Long accountId, @Param("year") int year);
+
+    void insertCalculation(TaxCalculationDTO taxCalculationDTO);
+
+    boolean existsByAccountAndBasis(
+            @Param("accountId") Long accountId, @Param("basisType") TaxBasisType basisType);
 }

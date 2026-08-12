@@ -17,6 +17,7 @@ import com.app.maria.domain.member.exception.MemberNotFoundException;
 import com.app.maria.domain.sellorder.exception.SellOrderException;
 import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.domain.settlement.exception.*;
+import com.app.maria.domain.tax.exception.TaxCalculationAlreadyExistsException;
 import com.app.maria.domain.tax.exception.TaxCalculationException;
 import com.app.maria.domain.tax.exception.TaxRuleNotFoundException;
 import com.app.maria.domain.withdrawal.exception.WithdrawalException;
@@ -341,7 +342,7 @@ public class GlobalExceptionHandler {
                 .body(ApiResponseDTO.of(e.getMessage()));
     }
 
-    // 15. 세액 계산 예외
+    // 세액 계산 예외
     @ExceptionHandler(TaxCalculationException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleTaxCalculationException(
             TaxCalculationException e) {
@@ -352,5 +353,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(TaxRuleNotFoundException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleTaxRuleNotFound(TaxRuleNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(TaxCalculationAlreadyExistsException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleTaxCalculationAlreadyExists(
+            TaxCalculationAlreadyExistsException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
     }
 }
