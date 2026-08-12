@@ -1,12 +1,19 @@
 package com.app.maria.domain.targetproduct.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.app.maria.domain.externaltradesync.dto.response.MydataTradeResponseDTO;
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductJudgementListDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductJudgementPageDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductSearchDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductSummaryDTO;
+import com.app.maria.domain.targetproduct.dto.request.TargetProductSearchRequestDTO;
 import com.app.maria.domain.targetproduct.dto.response.MydataFundResponseDTO;
 import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
 import com.app.maria.domain.targetproduct.type.StockType;
@@ -16,6 +23,7 @@ import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,7 +48,128 @@ class TargetProductServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        when(businessClockService.now()).thenReturn(FIXED_NOW);
+        lenient().when(businessClockService.now()).thenReturn(FIXED_NOW);
+    }
+
+    @Test
+    @DisplayName(
+            "getJudgements()는 page*size를 offset으로 계산한 TargetProductSearchDTO를 매퍼에 넘기고 결과를 그대로 담는다")
+    void getJudgementsCalculatesOffsetAndDelegatesToMapper() {
+        List<TargetProductJudgementListDTO> expected =
+                List.of(TargetProductJudgementListDTO.builder().judgementId(1L).build());
+        ArgumentCaptor<TargetProductSearchDTO> captor =
+                ArgumentCaptor.forClass(TargetProductSearchDTO.class);
+        when(targetProductMapper.selectJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(expected);
+        when(targetProductMapper.countFilteredJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(25);
+
+        TargetProductSearchRequestDTO request =
+                TargetProductSearchRequestDTO.builder().page(2).size(10).build();
+        TargetProductJudgementPageDTO result = targetProductService.getJudgements(request);
+
+        verify(targetProductMapper).selectJudgements(captor.capture());
+        assertThat(captor.getValue().getOffset()).isEqualTo(20);
+        assertThat(captor.getValue().getSize()).isEqualTo(10);
+        assertThat(result.getContent()).isEqualTo(expected);
+        assertThat(result.getPage()).isEqualTo(2);
+        assertThat(result.getSize()).isEqualTo(10);
+    }
+
+    @Test
+    @DisplayName("getJudgements()는 totalElements를 size로 나눈 뒤 올림해 totalPages를 계산한다")
+    void getJudgementsCalculatesTotalPagesFromTotalElements() {
+        when(targetProductMapper.selectJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(List.of());
+        when(targetProductMapper.countFilteredJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(45);
+
+        TargetProductSearchRequestDTO request =
+                TargetProductSearchRequestDTO.builder().page(0).size(20).build();
+        TargetProductJudgementPageDTO result = targetProductService.getJudgements(request);
+
+        assertThat(result.getTotalElements()).isEqualTo(45);
+        assertThat(result.getTotalPages()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("getJudgements()는 조회 결과가 없으면 totalPages를 0으로 계산한다")
+    void getJudgementsReturnsZeroTotalPagesWhenNoRows() {
+        when(targetProductMapper.selectJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(List.of());
+        when(targetProductMapper.countFilteredJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(0);
+
+        TargetProductSearchRequestDTO request =
+                TargetProductSearchRequestDTO.builder().page(0).size(20).build();
+        TargetProductJudgementPageDTO result = targetProductService.getJudgements(request);
+
+        assertThat(result.getTotalElements()).isEqualTo(0);
+        assertThat(result.getTotalPages()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName(
+            "getJudgements()는 필터 조건(customerName/stockType/isTarget)을 TargetProductSearchDTO에 그대로 전달한다")
+    void getJudgementsPassesFilterConditionsToSearchDTO() {
+        ArgumentCaptor<TargetProductSearchDTO> captor =
+                ArgumentCaptor.forClass(TargetProductSearchDTO.class);
+        when(targetProductMapper.selectJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(List.of());
+        when(targetProductMapper.countFilteredJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(0);
+
+        TargetProductSearchRequestDTO request =
+                TargetProductSearchRequestDTO.builder()
+                        .customerName("홍길동")
+                        .stockType(StockType.ETF)
+                        .isTarget(true)
+                        .page(0)
+                        .size(20)
+                        .build();
+        targetProductService.getJudgements(request);
+
+        verify(targetProductMapper).selectJudgements(captor.capture());
+        assertThat(captor.getValue().getCustomerName()).isEqualTo("홍길동");
+        assertThat(captor.getValue().getStockType()).isEqualTo(StockType.ETF);
+        assertThat(captor.getValue().getIsTarget()).isTrue();
+    }
+
+    @Test
+    @DisplayName("getSummary()는 BusinessClockService의 오늘 날짜로 매퍼를 조회하고 결과를 그대로 담는다")
+    void getSummaryDelegatesToMapperUsingClockToday() {
+        TargetProductSummaryDTO todayStats =
+                TargetProductSummaryDTO.builder()
+                        .todayJudgementCount(3)
+                        .todayTargetCount(2)
+                        .todayTargetNetBuyAmount(new BigDecimal("1500000.00"))
+                        .build();
+        when(targetProductMapper.selectSummary(FIXED_NOW.toLocalDate())).thenReturn(todayStats);
+        when(targetProductMapper.countJudgements()).thenReturn(50);
+
+        TargetProductSummaryDTO result = targetProductService.getSummary();
+
+        verify(targetProductMapper).selectSummary(FIXED_NOW.toLocalDate());
+        assertThat(result.getTodayJudgementCount()).isEqualTo(3);
+        assertThat(result.getTodayTargetCount()).isEqualTo(2);
+        assertThat(result.getTodayTargetNetBuyAmount()).isEqualByComparingTo("1500000.00");
+    }
+
+    @Test
+    @DisplayName("getSummary()의 totalJudgementCount는 selectSummary가 아니라 countJudgements() 결과로 채워진다")
+    void getSummarySetsTotalJudgementCountFromCountJudgements() {
+        TargetProductSummaryDTO todayStats =
+                TargetProductSummaryDTO.builder()
+                        .todayJudgementCount(0)
+                        .todayTargetCount(0)
+                        .todayTargetNetBuyAmount(BigDecimal.ZERO)
+                        .build();
+        when(targetProductMapper.selectSummary(FIXED_NOW.toLocalDate())).thenReturn(todayStats);
+        when(targetProductMapper.countJudgements()).thenReturn(50);
+
+        TargetProductSummaryDTO result = targetProductService.getSummary();
+
+        assertThat(result.getTotalJudgementCount()).isEqualTo(50);
     }
 
     private static MydataTradeResponseDTO trade(
