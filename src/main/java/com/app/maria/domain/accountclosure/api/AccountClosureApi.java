@@ -24,6 +24,7 @@ public class AccountClosureApi {
     private final AccountClosureService accountClosureService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'REVIEWER')")
     public ResponseEntity<ApiResponseDTO<Long>> applyClosure(
             @Valid @RequestBody AccountClosureApplyRequestDTO requestDTO) {
         Long closureRequestId =
