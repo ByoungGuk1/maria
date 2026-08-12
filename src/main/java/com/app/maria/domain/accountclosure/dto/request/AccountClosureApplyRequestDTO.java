@@ -12,4 +12,5 @@ import lombok.*;
 public class AccountClosureApplyRequestDTO {
     @NotNull @Positive private Long destinationGeneralAccountId;
     private boolean earlyWithdrawalAgreed;
+    @NotNull @Positive private Long customerId;
 }
