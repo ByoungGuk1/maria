@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -42,6 +43,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 
 @ExtendWith(MockitoExtension.class)
 class TaxCalculationServiceImplTest {
@@ -413,5 +416,38 @@ class TaxCalculationServiceImplTest {
 
         verify(taxMapper, never()).insertCalculation(any());
         verify(taxMapper, never()).existsByAccountAndBasis(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("동시 요청으로 UNIQUE 제약에 걸리면 500이 아니라 409로 바꾼다")
+    void 동시요청_중복저장() {
+        stubAccount(BenefitType.POSSIBLE);
+        stubGoldenCalculation();
+        // 판정 시점엔 없다고 보고 통과했지만, 그 사이 다른 요청이 먼저 저장한 상황
+        when(taxMapper.existsByAccountAndBasis(ACCOUNT_ID, TaxBasisType.FINAL_REPORT))
+                .thenReturn(false);
+        doThrow(new DuplicateKeyException("uk_tax_calc__account_basis"))
+                .when(taxMapper)
+                .insertCalculation(any());
+
+        assertThatThrownBy(() -> taxCalculationService.calculateAndSave(ACCOUNT_ID))
+                .isInstanceOf(TaxCalculationAlreadyExistsException.class)
+                .hasMessageContaining("FINAL_REPORT")
+                .hasMessageContaining(String.valueOf(ACCOUNT_ID));
+    }
+
+    @Test
+    @DisplayName("저장 중 다른 DB 예외는 그대로 전파한다")
+    void 다른_DB예외는_그대로() {
+        stubAccount(BenefitType.POSSIBLE);
+        stubGoldenCalculation();
+        when(taxMapper.existsByAccountAndBasis(ACCOUNT_ID, TaxBasisType.FINAL_REPORT))
+                .thenReturn(false);
+        doThrow(new DataIntegrityViolationException("not null 위반"))
+                .when(taxMapper)
+                .insertCalculation(any());
+
+        assertThatThrownBy(() -> taxCalculationService.calculateAndSave(ACCOUNT_ID))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 }
