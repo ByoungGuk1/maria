@@ -10,13 +10,13 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class TaxCalculationResponseDTO {
+public class TaxCalculationPreviewResponseDTO {
     private Long accountId;
     private TaxCalculationResultDTO taxCalculationResultDTO;
 
-    public static TaxCalculationResponseDTO of(
+    public static TaxCalculationPreviewResponseDTO of(
             Long accountId, TaxCalculationResultDTO taxCalculationResultDTO) {
-        return TaxCalculationResponseDTO.builder()
+        return TaxCalculationPreviewResponseDTO.builder()
                 .accountId(accountId)
                 .taxCalculationResultDTO(taxCalculationResultDTO)
                 .build();

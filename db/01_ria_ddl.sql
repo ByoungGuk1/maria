@@ -388,7 +388,7 @@ CREATE TABLE tax_calculation (
     calc_id       BIGINT        NOT NULL AUTO_INCREMENT,
     account_id    BIGINT        NOT NULL,
     calculated_at DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    basis_type    VARCHAR(20)   NOT NULL COMMENT '확정신고/조기인출추징(미리보기는 저장 안 함)',
+    basis_type    VARCHAR(30)   NOT NULL COMMENT 'FINAL_REPORT(확정신고)/EARLY_WITHDRAWAL_CLAWBACK(조기인출추징). 미리보기는 저장 안 함',
     sell_amount   DECIMAL(15,2) NOT NULL COMMENT '[1] 가중매도금액(조정비율 분모)',
     gain_amount   DECIMAL(15,2) NOT NULL COMMENT '비가중 총양도소득(F6용)',
     gain_weighted DECIMAL(15,2) NOT NULL COMMENT '[1] 가중양도소득 = 조정전공제액',
@@ -397,7 +397,8 @@ CREATE TABLE tax_calculation (
     deduction     DECIMAL(15,2) NOT NULL COMMENT '[4] 최종공제액',
     tax           DECIMAL(15,2) NOT NULL COMMENT '[5] 최종세액',
     PRIMARY KEY (calc_id),
-    CONSTRAINT chk_tax_calc_basis CHECK (basis_type IN ('확정신고','조기인출추징'))
+    UNIQUE KEY uk_tax_calc__account_basis (account_id, basis_type),
+    CONSTRAINT chk_tax_calc_basis CHECK (basis_type IN ('FINAL_REPORT','EARLY_WITHDRAWAL_CLAWBACK'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='세액 계산 확정 근거 스냅샷';
 
 -- ---------------------------------------------------------------------

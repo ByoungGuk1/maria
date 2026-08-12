@@ -1,10 +1,11 @@
 package com.app.maria.domain.account.service;
 
 import com.app.maria.domain.account.dto.AccountDTO;
-import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.request.AccountSearchRequestDTO;
+import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
@@ -39,6 +40,11 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public List<AccountResponseDTO> findAll() {
         return accountMapper.selectAllAccount().stream().map(AccountResponseDTO::new).toList();
+    }
+
+    @Override
+    public int getAccountsRequiringActionCount() {
+        return accountMapper.countAccountsRequiringAction();
     }
 
     @Override
@@ -232,13 +238,25 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<AccountLimitUsageDTO> selectAccountLimitUsage() {
-        return accountMapper.selectAccountLimitUsage();
+    public List<AccountLimitUsageResponseDTO> selectAccountLimitUsage() {
+        return accountMapper.selectAccountLimitUsage().stream()
+                .map(AccountLimitUsageResponseDTO::new)
+                .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<AccountLimitUsageDTO> getAppliedAccounts() {
-        return accountMapper.selectAppliedAccounts();
+    public List<AccountLimitUsageResponseDTO> getAppliedAccounts() {
+        return accountMapper.selectAppliedAccounts().stream()
+                .map(AccountLimitUsageResponseDTO::new)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AccountLimitUsageResponseDTO> searchAccounts(AccountSearchRequestDTO request) {
+        return accountMapper.searchAccounts(request.toAccountSearchDTO()).stream()
+                .map(AccountLimitUsageResponseDTO::new)
+                .toList();
     }
 }

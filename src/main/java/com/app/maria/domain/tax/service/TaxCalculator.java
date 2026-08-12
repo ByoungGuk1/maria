@@ -6,6 +6,7 @@ import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationResultDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
 import com.app.maria.domain.tax.exception.TaxRuleNotFoundException;
+import com.app.maria.domain.tax.type.TaxRuleType;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -15,9 +16,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class TaxCalculator {
 
-    private static final String RELIEF_RATE = "RELIEF_RATE";
-    private static final String BASIC_DEDUCTION = "BASIC_DEDUCTION";
-    private static final String TAX_RATE = "TAX_RATE";
     private static final int RATIO_SCALE = 4;
     private static final int AMOUNT_SCALE = 2;
     private static final int DIVIDE_SCALE = 12;
@@ -99,24 +97,24 @@ public class TaxCalculator {
             BigDecimal originalGain, BigDecimal finalDeduction, List<TaxRuleDTO> taxRules) {
         BigDecimal taxBase =
                 originalGain
-                        .subtract(findConstantRule(taxRules, BASIC_DEDUCTION))
+                        .subtract(findConstantRule(taxRules, TaxRuleType.BASIC_DEDUCTION))
                         .subtract(finalDeduction);
         if (taxBase.signum() <= 0) {
             return BigDecimal.ZERO.setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
         }
-        return taxBase.multiply(findConstantRule(taxRules, TAX_RATE))
+        return taxBase.multiply(findConstantRule(taxRules, TaxRuleType.TAX_RATE))
                 .setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
     }
 
     private BigDecimal findWeight(List<TaxRuleDTO> taxRules, LocalDate sellAt) {
-        return findRuleValue(taxRules, RELIEF_RATE, sellAt)
+        return findRuleValue(taxRules, TaxRuleType.RELIEF_RATE, sellAt)
                 .divide(BigDecimal.valueOf(100), RATIO_SCALE, RoundingMode.HALF_UP);
     }
 
     private BigDecimal findRuleValue(
-            List<TaxRuleDTO> taxRules, String ruleType, LocalDate baseDate) {
+            List<TaxRuleDTO> taxRules, TaxRuleType ruleType, LocalDate baseDate) {
         return taxRules.stream()
-                .filter(rule -> ruleType.equals(rule.getRuleType()))
+                .filter(rule -> ruleType == rule.getRuleType())
                 .filter(
                         rule ->
                                 !baseDate.isBefore(rule.getValidFrom())
@@ -129,9 +127,9 @@ public class TaxCalculator {
                                         baseDate + " 에 유효한 " + ruleType + " 규칙을 찾지 못했습니다."));
     }
 
-    private BigDecimal findConstantRule(List<TaxRuleDTO> taxRules, String ruleType) {
+    private BigDecimal findConstantRule(List<TaxRuleDTO> taxRules, TaxRuleType ruleType) {
         return taxRules.stream()
-                .filter(rule -> ruleType.equals(rule.getRuleType()))
+                .filter(rule -> ruleType == rule.getRuleType())
                 .findFirst()
                 .map(TaxRuleDTO::getRuleValue)
                 .orElseThrow(() -> new TaxRuleNotFoundException(ruleType + " 규칙을 찾지 못했습니다."));

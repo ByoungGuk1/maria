@@ -94,3 +94,18 @@ CREATE TABLE target_product_judgement (
     trade_date          DATE          NOT NULL,
     net_buy_amount      DECIMAL(15,2) NOT NULL
 );
+
+CREATE TABLE tax_calculation (
+    calc_id       BIGINT PRIMARY KEY AUTO_INCREMENT,
+    account_id    BIGINT        NOT NULL,
+    calculated_at DATETIME      NOT NULL,
+    basis_type    VARCHAR(30)   NOT NULL,
+    sell_amount   DECIMAL(15,2) NOT NULL,
+    gain_amount   DECIMAL(15,2) NOT NULL,
+    gain_weighted DECIMAL(15,2) NOT NULL,
+    ext_amount    DECIMAL(15,2) NOT NULL,
+    ratio         DECIMAL(7,4)  NOT NULL,
+    deduction     DECIMAL(15,2) NOT NULL,
+    tax           DECIMAL(15,2) NOT NULL,
+    CONSTRAINT uk_tax_calc__account_basis UNIQUE (account_id, basis_type)
+);
