@@ -31,6 +31,7 @@ $(function () {
 
     applyTheme(localStorage.getItem("maria.theme") || "light");
     applyActiveMenu();
+    loadReferenceTime();
 
     $("#themeToggle").on("click", function () {
         var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
@@ -65,5 +66,26 @@ $(function () {
             }).length;
             $("#accountReviewBadge").text(count).toggle(count > 0);
         });
+    }
+
+    function loadReferenceTime() {
+        MARIA.auth.ajax({
+            url: "/api/admin/dashboard",
+            method: "GET"
+        }).done(function (res) {
+            if (res.data && res.data.referenceDateTime) {
+                $("#clockValue").text(formatDateTime(res.data.referenceDateTime));
+            }
+        });
+    }
+
+    function formatDateTime(value) {
+        return new Intl.DateTimeFormat("ko-KR", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit"
+        }).format(new Date(value));
     }
 });
