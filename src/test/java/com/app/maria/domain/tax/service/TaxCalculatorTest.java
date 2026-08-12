@@ -14,6 +14,7 @@ import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationResultDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
 import com.app.maria.domain.tax.exception.TaxRuleNotFoundException;
+import com.app.maria.domain.tax.type.TaxRuleType;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -203,17 +204,17 @@ class TaxCalculatorTest {
         List<TaxRuleDTO> mixed =
                 List.of(
                         rule(
-                                "DEPOSIT_LIMIT",
+                                TaxRuleType.DEPOSIT_LIMIT,
                                 "50000000",
                                 LocalDate.of(2026, 1, 1),
                                 LocalDate.of(9999, 12, 31)),
                         rule(
-                                "BASIC_DEDUCTION",
+                                TaxRuleType.BASIC_DEDUCTION,
                                 "2500000",
                                 LocalDate.of(2026, 1, 1),
                                 LocalDate.of(9999, 12, 31)),
                         rule(
-                                "TAX_RATE",
+                                TaxRuleType.TAX_RATE,
                                 "0.22",
                                 LocalDate.of(2026, 1, 1),
                                 LocalDate.of(9999, 12, 31)),
@@ -236,7 +237,7 @@ class TaxCalculatorTest {
         List<TaxRuleDTO> onlyConstants =
                 List.of(
                         rule(
-                                "BASIC_DEDUCTION",
+                                TaxRuleType.BASIC_DEDUCTION,
                                 "2500000",
                                 LocalDate.of(2026, 1, 1),
                                 LocalDate.of(9999, 12, 31)));
@@ -740,7 +741,7 @@ class TaxCalculatorTest {
     void 세율규칙_없음() {
         List<TaxRuleDTO> withoutTaxRate =
                 allSeedRules().stream()
-                        .filter(rule -> !"TAX_RATE".equals(rule.getRuleType()))
+                        .filter(rule -> TaxRuleType.TAX_RATE != rule.getRuleType())
                         .toList();
 
         assertThatThrownBy(
