@@ -1,5 +1,6 @@
 package com.app.maria.domain.account.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -10,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.request.ReasonRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.service.AccountService;
 import com.app.maria.global.exception.GlobalExceptionHandler;
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -35,34 +38,47 @@ class AccountApiTest {
                         .build();
     }
 
-    //  @Test
-    //  void accountApiUsesAdminRolePolicy() throws Exception {
-    //    assertThat(AccountApi.class.getAnnotation(PreAuthorize.class).value())
-    //        .isEqualTo("hasAnyRole('ADMIN', 'SETTLEMENT', 'REVIEWER', 'VIEWER')");
-    //
-    //    assertThat(AccountApi.class.getDeclaredMethod("approve", Long.class)
-    //        .getAnnotation(PreAuthorize.class).value())
-    //        .isEqualTo("hasAnyRole('ADMIN', 'REVIEWER')");
-    //    assertThat(AccountApi.class.getDeclaredMethod("reject", Long.class,
-    // ReasonRequestDTO.class)
-    //        .getAnnotation(PreAuthorize.class).value())
-    //        .isEqualTo("hasAnyRole('ADMIN', 'REVIEWER')");
-    //    assertThat(AccountApi.class.getDeclaredMethod("override", Long.class,
-    // ReasonRequestDTO.class)
-    //        .getAnnotation(PreAuthorize.class).value())
-    //        .isEqualTo("hasAnyRole('ADMIN', 'REVIEWER')");
-    //
-    //    assertThat(AccountApi.class.getDeclaredMethod("apply", AccountRequestDTO.class)
-    //        .getAnnotation(PreAuthorize.class))
-    //        .isNull();
-    //    assertThat(AccountApi.class.getDeclaredMethod("reapply", Long.class,
-    // AccountReapplyRequestDTO.class)
-    //        .getAnnotation(PreAuthorize.class))
-    //        .isNull();
-    //    assertThat(AccountApi.class.getDeclaredMethod("getAccount", Long.class)
-    //        .getAnnotation(PreAuthorize.class))
-    //        .isNull();
-    //  }
+    @Test
+    void accountApiUsesAdminRolePolicy() throws Exception {
+        assertThat(AccountApi.class.getAnnotation(PreAuthorize.class).value())
+                .isEqualTo("hasAnyRole('ADMIN', 'SETTLEMENT', 'REVIEWER', 'VIEWER')");
+
+        assertThat(
+                        AccountApi.class
+                                .getDeclaredMethod("approve", Long.class)
+                                .getAnnotation(PreAuthorize.class)
+                                .value())
+                .isEqualTo("hasAnyRole('ADMIN', 'REVIEWER')");
+        assertThat(
+                        AccountApi.class
+                                .getDeclaredMethod("reject", Long.class, ReasonRequestDTO.class)
+                                .getAnnotation(PreAuthorize.class)
+                                .value())
+                .isEqualTo("hasAnyRole('ADMIN', 'REVIEWER')");
+        assertThat(
+                        AccountApi.class
+                                .getDeclaredMethod("override", Long.class, ReasonRequestDTO.class)
+                                .getAnnotation(PreAuthorize.class)
+                                .value())
+                .isEqualTo("hasAnyRole('ADMIN', 'REVIEWER')");
+
+        assertThat(
+                        AccountApi.class
+                                .getDeclaredMethod("apply", AccountRequestDTO.class)
+                                .getAnnotation(PreAuthorize.class))
+                .isNull();
+        assertThat(
+                        AccountApi.class
+                                .getDeclaredMethod(
+                                        "reapply", Long.class, AccountReapplyRequestDTO.class)
+                                .getAnnotation(PreAuthorize.class))
+                .isNull();
+        assertThat(
+                        AccountApi.class
+                                .getDeclaredMethod("getAccount", Long.class)
+                                .getAnnotation(PreAuthorize.class))
+                .isNull();
+    }
 
     @Test
     void applyAcceptsValidRequest() throws Exception {
@@ -83,6 +99,18 @@ class AccountApiTest {
                 .andExpect(jsonPath("$.message").value("계좌 개설 신청 처리 완료"));
 
         verify(accountService).applyAccount(any(AccountRequestDTO.class));
+    }
+
+    @Test
+    void getAccountsRequiringActionCountReturnsCount() throws Exception {
+        when(accountService.getAccountsRequiringActionCount()).thenReturn(3);
+
+        mockMvc.perform(get("/api/account/requiring-action-count"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("처리 필요 계좌 건수 조회"))
+                .andExpect(jsonPath("$.data").value(3));
+
+        verify(accountService).getAccountsRequiringActionCount();
     }
 
     @Test

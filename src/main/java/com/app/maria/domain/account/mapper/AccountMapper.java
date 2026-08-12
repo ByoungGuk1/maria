@@ -74,6 +74,8 @@ public interface AccountMapper {
     // 심사대기 건수
     int countByStatus(Status status);
 
+    int countAccountsRequiringAction();
+
     // 계좌별 한도 사용률
     List<AccountLimitUsageDTO> selectAccountLimitUsage();
 

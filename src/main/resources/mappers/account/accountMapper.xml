@@ -112,7 +112,7 @@
         SELECT
         *
         FROM account
-        ORDER BY status DESC
+        ORDER BY customer_id desc
     </select>
     <update id="overrideToOpened" parameterType="AccountDTO">
         UPDATE account
@@ -149,6 +149,12 @@
         SELECT COUNT(*)
         FROM account
         WHERE status = #{status}
+    </select>
+
+    <select id="countAccountsRequiringAction" resultType="int">
+        SELECT COUNT(*)
+        FROM account
+        WHERE status IN ('APPLIED', 'CLOSURE_REQUESTED')
     </select>
 
     <select id="selectAccountLimitUsage" resultType="AccountLimitUsageDTO">
