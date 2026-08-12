@@ -1,20 +1,25 @@
 package com.app.maria.domain.inbound.api;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.app.maria.domain.foreignproduct.type.ForeignProductType;
+import com.app.maria.domain.inbound.dto.response.AccountHoldingResponseDTO;
 import com.app.maria.domain.inbound.dto.response.InboundResponseDTO;
 import com.app.maria.domain.inbound.exception.InboundNotFoundException;
 import com.app.maria.domain.inbound.service.InboundService;
 import com.app.maria.global.exception.GlobalExceptionHandler;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -167,5 +172,44 @@ class InboundApiTest {
                 """))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("등록가능 보유수량 조회 실패"));
+    }
+
+    @Test
+    void getHoldingsReturnsAccountHoldings() throws Exception {
+        AccountHoldingResponseDTO holding =
+                AccountHoldingResponseDTO.builder()
+                        .foreignProductId(1L)
+                        .ticker("AAPL")
+                        .name("Apple Inc.")
+                        .market("NAS")
+                        .currency("USD")
+                        .type(ForeignProductType.FOREIGN_STOCK)
+                        .currentQty(BigDecimal.valueOf(50))
+                        .build();
+        when(inboundService.getHoldings(1L)).thenReturn(List.of(holding));
+
+        mockMvc.perform(get("/api/inbounds/holdings").param("accountId", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("계좌 보유종목 조회 성공"))
+                .andExpect(jsonPath("$.data[0].ticker").value("AAPL"))
+                .andExpect(jsonPath("$.data[0].currentQty").value(50));
+
+        verify(inboundService).getHoldings(1L);
+    }
+
+    @Test
+    void getHoldingsReturnsEmptyListWhenAccountHasNoHoldings() throws Exception {
+        when(inboundService.getHoldings(1L)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/inbounds/holdings").param("accountId", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    void getHoldingsRejectsMissingAccountId() throws Exception {
+        mockMvc.perform(get("/api/inbounds/holdings")).andExpect(status().isBadRequest());
+
+        verify(inboundService, never()).getHoldings(anyLong());
     }
 }

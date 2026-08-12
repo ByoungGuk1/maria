@@ -1,11 +1,15 @@
 package com.app.maria.domain.tax.mapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
+import com.app.maria.domain.tax.dto.TaxCalculationDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
 import com.app.maria.domain.tax.fixture.TaxTestFixture;
+import com.app.maria.domain.tax.type.TaxBasisType;
+import com.app.maria.domain.tax.type.TaxRuleType;
 import java.io.IOException;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -14,6 +18,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
+import org.apache.ibatis.exceptions.PersistenceException;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -82,13 +87,13 @@ class TaxMapperTest {
         assertThat(rules)
                 .extracting(TaxRuleDTO::getRuleType)
                 .containsExactlyInAnyOrder(
-                        "DEPOSIT_LIMIT",
-                        "HOLDING_PERIOD",
-                        "RELIEF_RATE",
-                        "RELIEF_RATE",
-                        "RELIEF_RATE",
-                        "BASIC_DEDUCTION",
-                        "TAX_RATE");
+                        TaxRuleType.DEPOSIT_LIMIT,
+                        TaxRuleType.HOLDING_PERIOD,
+                        TaxRuleType.RELIEF_RATE,
+                        TaxRuleType.RELIEF_RATE,
+                        TaxRuleType.RELIEF_RATE,
+                        TaxRuleType.BASIC_DEDUCTION,
+                        TaxRuleType.TAX_RATE);
     }
 
     @Test
@@ -99,7 +104,7 @@ class TaxMapperTest {
         List<TaxRuleDTO> rules = taxMapper.findTaxRules();
 
         assertThat(rules)
-                .filteredOn(rule -> "BASIC_DEDUCTION".equals(rule.getRuleType()))
+                .filteredOn(rule -> TaxRuleType.BASIC_DEDUCTION == rule.getRuleType())
                 .singleElement()
                 .satisfies(
                         rule -> {
@@ -108,7 +113,7 @@ class TaxMapperTest {
                         });
 
         assertThat(rules)
-                .filteredOn(rule -> "TAX_RATE".equals(rule.getRuleType()))
+                .filteredOn(rule -> TaxRuleType.TAX_RATE == rule.getRuleType())
                 .singleElement()
                 .satisfies(rule -> assertThat(rule.getRuleValue()).isEqualByComparingTo("0.22"));
     }
@@ -122,14 +127,14 @@ class TaxMapperTest {
                 taxMapper.findTaxRules().stream()
                         .filter(
                                 r ->
-                                        "RELIEF_RATE".equals(r.getRuleType())
+                                        TaxRuleType.RELIEF_RATE == r.getRuleType()
                                                 && r.getValidFrom()
                                                         .equals(LocalDate.of(2026, 1, 1)))
                         .findFirst()
                         .orElseThrow();
 
         assertThat(rule.getRuleId()).isNotNull();
-        assertThat(rule.getRuleType()).isEqualTo("RELIEF_RATE");
+        assertThat(rule.getRuleType()).isEqualTo(TaxRuleType.RELIEF_RATE);
         assertThat(rule.getRuleValue()).isEqualByComparingTo("100");
         assertThat(rule.getValidFrom()).isEqualTo(LocalDate.of(2026, 1, 1));
         assertThat(rule.getValidTo()).isEqualTo(LocalDate.of(2026, 5, 31));
@@ -387,5 +392,108 @@ class TaxMapperTest {
         Long accountId = fixture.insertCustomerWithAccount(CI_HASH);
 
         assertThat(taxMapper.findExternalBuysByAccountAndYear(accountId, TAX_YEAR)).isEmpty();
+    }
+
+    private TaxCalculationDTO calculation(Long accountId, TaxBasisType basisType) {
+        return TaxCalculationDTO.builder()
+                .accountId(accountId)
+                .calculatedAt(LocalDateTime.of(2027, 5, 1, 9, 0))
+                .basisType(basisType)
+                .sellAmount(new BigDecimal("43000000.00"))
+                .gainAmount(new BigDecimal("32000000.00"))
+                .gainWeighted(new BigDecimal("27800000.00"))
+                .extAmount(new BigDecimal("11000000.00"))
+                .ratio(new BigDecimal("0.7442"))
+                .deduction(new BigDecimal("20688760.00"))
+                .tax(new BigDecimal("1938472.80"))
+                .build();
+    }
+
+    @Test
+    @DisplayName("저장하면 생성된 calc_id가 DTO에 채워진다")
+    void insertCalculation_생성키() {
+        TaxCalculationDTO dto = calculation(ACCOUNT_ID, TaxBasisType.FINAL_REPORT);
+
+        taxMapper.insertCalculation(dto);
+
+        assertThat(dto.getCalcId()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("저장한 값이 모든 컬럼에 그대로 들어간다")
+    void insertCalculation_컬럼매핑() {
+        TaxCalculationDTO dto = calculation(ACCOUNT_ID, TaxBasisType.FINAL_REPORT);
+        taxMapper.insertCalculation(dto);
+
+        assertThat(taxMapper.existsByAccountAndBasis(ACCOUNT_ID, TaxBasisType.FINAL_REPORT))
+                .isTrue();
+        assertThat(
+                        selectOne(
+                                "select basis_type from tax_calculation where calc_id = "
+                                        + dto.getCalcId()))
+                .isEqualTo("FINAL_REPORT");
+        assertThat(
+                        selectOne(
+                                "select ratio from tax_calculation where calc_id = "
+                                        + dto.getCalcId()))
+                .isEqualTo("0.7442");
+        assertThat(selectOne("select tax from tax_calculation where calc_id = " + dto.getCalcId()))
+                .isEqualTo("1938472.80");
+    }
+
+    @Test
+    @DisplayName("같은 계좌라도 basis_type이 다르면 각각 저장된다")
+    void insertCalculation_두_유형() {
+        taxMapper.insertCalculation(calculation(ACCOUNT_ID, TaxBasisType.FINAL_REPORT));
+        taxMapper.insertCalculation(
+                calculation(ACCOUNT_ID, TaxBasisType.EARLY_WITHDRAWAL_CLAWBACK));
+
+        assertThat(taxMapper.existsByAccountAndBasis(ACCOUNT_ID, TaxBasisType.FINAL_REPORT))
+                .isTrue();
+        assertThat(
+                        taxMapper.existsByAccountAndBasis(
+                                ACCOUNT_ID, TaxBasisType.EARLY_WITHDRAWAL_CLAWBACK))
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("같은 계좌·같은 basis_type은 UNIQUE 제약으로 막힌다")
+    void insertCalculation_중복차단() {
+        taxMapper.insertCalculation(calculation(ACCOUNT_ID, TaxBasisType.FINAL_REPORT));
+
+        assertThatThrownBy(
+                        () ->
+                                taxMapper.insertCalculation(
+                                        calculation(ACCOUNT_ID, TaxBasisType.FINAL_REPORT)))
+                .isInstanceOf(PersistenceException.class);
+    }
+
+    @Test
+    @DisplayName("다른 계좌의 계산은 exists 판정에 섞이지 않는다")
+    void existsByAccountAndBasis_타계좌_제외() {
+        taxMapper.insertCalculation(calculation(OTHER_ACCOUNT_ID, TaxBasisType.FINAL_REPORT));
+
+        assertThat(taxMapper.existsByAccountAndBasis(ACCOUNT_ID, TaxBasisType.FINAL_REPORT))
+                .isFalse();
+        assertThat(taxMapper.existsByAccountAndBasis(OTHER_ACCOUNT_ID, TaxBasisType.FINAL_REPORT))
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("저장된 계산이 없으면 exists는 false")
+    void existsByAccountAndBasis_없음() {
+        assertThat(taxMapper.existsByAccountAndBasis(ACCOUNT_ID, TaxBasisType.FINAL_REPORT))
+                .isFalse();
+    }
+
+    private String selectOne(String sql) {
+        try (java.sql.Connection c = dataSource.getConnection();
+                java.sql.Statement st = c.createStatement();
+                java.sql.ResultSet rs = st.executeQuery(sql)) {
+            rs.next();
+            return rs.getString(1);
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

@@ -21,6 +21,7 @@ import com.app.maria.domain.member.exception.MemberNotFoundException;
 import com.app.maria.domain.sellorder.exception.SellOrderException;
 import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.domain.settlement.exception.*;
+import com.app.maria.domain.tax.exception.TaxCalculationAlreadyExistsException;
 import com.app.maria.domain.tax.exception.TaxCalculationException;
 import com.app.maria.domain.tax.exception.TaxRuleNotFoundException;
 import com.app.maria.domain.withdrawal.exception.WithdrawalException;
@@ -356,6 +357,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(TaxRuleNotFoundException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleTaxRuleNotFound(TaxRuleNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(TaxCalculationAlreadyExistsException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleTaxCalculationAlreadyExists(
+            TaxCalculationAlreadyExistsException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
     }
 
     // 17. 계좌 해지 예외

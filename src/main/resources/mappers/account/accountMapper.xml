@@ -112,7 +112,7 @@
         SELECT
         *
         FROM account
-        ORDER BY status DESC
+        ORDER BY customer_id desc
     </select>
     <update id="overrideToOpened" parameterType="AccountDTO">
         UPDATE account
@@ -151,6 +151,12 @@
         WHERE status = #{status}
     </select>
 
+    <select id="countAccountsRequiringAction" resultType="int">
+        SELECT COUNT(*)
+        FROM account
+        WHERE status IN ('APPLIED', 'CLOSURE_REQUESTED')
+    </select>
+
     <select id="selectAccountLimitUsage" resultType="AccountLimitUsageDTO">
         SELECT
         a.account_id     AS accountId,
@@ -159,11 +165,7 @@
         a.status         AS status,
         a.limit_amount   AS limitAmount,
         COALESCE(SUM(
-        CASE
-        WHEN ke.settlement_status = 'FINALIZED' THEN ke.final_amount
-        WHEN ke.exchange_id IS NOT NULL THEN ke.provisional_amount
-        ELSE so.sell_qty * so.base_price
-        END
+        <include refid="com.app.maria.domain.sellorder.mapper.SellLimitMapper.usedAmountCase"/>
         ), 0) AS usedAmount
         FROM account a
         JOIN customer c ON c.customer_id = a.customer_id
@@ -184,6 +186,32 @@
         FROM account a
         JOIN customer c ON c.customer_id = a.customer_id
         WHERE a.status = 'APPLIED'
+    </select>
+
+    <select id="searchAccounts" parameterType="AccountSearchDTO" resultType="AccountLimitUsageDTO">
+        SELECT
+        a.account_id     AS accountId,
+        a.account_no     AS accountNo,
+        c.name           AS customerName,
+        a.status         AS status,
+        a.limit_amount   AS limitAmount,
+        COALESCE(SUM(
+        <include refid="com.app.maria.domain.sellorder.mapper.SellLimitMapper.usedAmountCase"/>
+        ), 0) AS usedAmount
+        FROM account a
+        JOIN customer c ON c.customer_id = a.customer_id
+        LEFT JOIN sell_order so ON so.account_id = a.account_id AND so.status IN ('RECEIVED', 'EXECUTED')
+        LEFT JOIN krw_exchange ke ON ke.order_id = so.order_id
+        <where>
+            AND a.status = 'OPENED'
+            <if test="accountNo != null and accountNo != ''">
+                AND a.account_no LIKE CONCAT('%', #{accountNo}, '%')
+            </if>
+            <if test="customerName != null and customerName != ''">
+                AND c.name LIKE CONCAT('%', #{customerName}, '%')
+            </if>
+        </where>
+        GROUP BY a.account_id, a.account_no, c.name, a.status, a.limit_amount
     </select>
 
     <!--해지로 상태변경-->

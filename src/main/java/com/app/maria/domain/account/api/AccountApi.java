@@ -1,9 +1,7 @@
 package com.app.maria.domain.account.api;
 
-import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
-import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
-import com.app.maria.domain.account.dto.request.AccountRequestDTO;
-import com.app.maria.domain.account.dto.request.ReasonRequestDTO;
+import com.app.maria.domain.account.dto.request.*;
+import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.service.AccountService;
@@ -29,6 +27,13 @@ public class AccountApi {
     @GetMapping("/list")
     public ResponseEntity<ApiResponseDTO<List<AccountResponseDTO>>> getAccountList() {
         return ResponseEntity.ok(ApiResponseDTO.of("계좌 정보 전체 조회", accountService.findAll()));
+    }
+
+    @GetMapping("/requiring-action-count")
+    public ResponseEntity<ApiResponseDTO<Integer>> getAccountsRequiringActionCount() {
+        return ResponseEntity.ok(
+                ApiResponseDTO.of(
+                        "처리 필요 계좌 건수 조회", accountService.getAccountsRequiringActionCount()));
     }
 
     @GetMapping("/available-limit")
@@ -109,5 +114,12 @@ public class AccountApi {
             @Valid @RequestBody AccountLimitUpdateRequestDTO requestDTO) {
         return ResponseEntity.status(HttpStatus.OK)
                 .body(ApiResponseDTO.of("계좌 한도 변경", accountService.updateAccountLimit(requestDTO)));
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponseDTO<List<AccountLimitUsageResponseDTO>>> searchAccounts(
+            @Valid @ModelAttribute AccountSearchRequestDTO requestDTO) {
+        return ResponseEntity.ok(
+                ApiResponseDTO.of("계좌 검색", accountService.searchAccounts(requestDTO)));
     }
 }

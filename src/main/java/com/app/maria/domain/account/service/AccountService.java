@@ -1,9 +1,10 @@
 package com.app.maria.domain.account.service;
 
-import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.request.AccountSearchRequestDTO;
+import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import java.math.BigDecimal;
@@ -38,7 +39,11 @@ public interface AccountService {
 
     int getAppliedAccountCount();
 
-    List<AccountLimitUsageDTO> selectAccountLimitUsage();
+    int getAccountsRequiringActionCount();
 
-    List<AccountLimitUsageDTO> getAppliedAccounts();
+    List<AccountLimitUsageResponseDTO> selectAccountLimitUsage();
+
+    List<AccountLimitUsageResponseDTO> getAppliedAccounts();
+
+    List<AccountLimitUsageResponseDTO> searchAccounts(AccountSearchRequestDTO request);
 }
