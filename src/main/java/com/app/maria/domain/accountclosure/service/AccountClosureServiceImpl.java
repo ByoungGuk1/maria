@@ -145,9 +145,20 @@ public class AccountClosureServiceImpl implements AccountClosureService {
                 throw new AccountClosureProcessingException("강제 인출 식별자를 확인할 수 없습니다.");
             }
         }
+        AccountDTO accountBeforeClosure =
+                accountMapper
+                        .selectByAccountIdForUpdate(account.getAccountId())
+                        .orElseThrow(() -> new AccountNotFoundException("해지 처리할 계좌를 찾을 수 없습니다."));
+        if (accountBeforeClosure.getStatus() != Status.CLOSURE_REQUESTED) {
+            throw new AccountClosureNotAllowedException("해지 신청 상태가 변경되어 계좌를 해지할 수 없습니다.");
+        }
+        if (accountBeforeClosure.getAmount().compareTo(BigDecimal.ZERO) != 0) {
+            throw new AccountClosureProcessingException("강제인출 후에도 계좌 잔액이 남아 있어 해지할 수 없습니다.");
+        }
+
         int closedAccountRows = accountMapper.completeClosure(account.getAccountId());
         if (closedAccountRows != 1) {
-            throw new AccountClosureProcessingException("잔액 확인 또는 계좌 해지 처리에 실패했습니다.");
+            throw new AccountClosureProcessingException("계좌 상태가 변경되어 해지 처리에 실패했습니다.");
         }
         closure.setProcessedAt(businessClockService.now());
         closure.setProcessedBy(adminId);

@@ -338,7 +338,9 @@ class AccountClosureServiceImplTest {
         when(accountClosureMapper.selectByIdForUpdate(CLOSURE_REQUEST_ID))
                 .thenReturn(Optional.of(closure));
         when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
-                .thenReturn(Optional.of(account(Status.CLOSURE_REQUESTED, "500")));
+                .thenReturn(
+                        Optional.of(account(Status.CLOSURE_REQUESTED, "500")),
+                        Optional.of(account(Status.CLOSURE_REQUESTED, "0")));
         when(withdrawalService.withdrawForClosure(any())).thenReturn(withdrawalResult);
         when(accountMapper.completeClosure(ACCOUNT_ID)).thenReturn(1);
         when(businessClockService.now()).thenReturn(NOW);
@@ -358,8 +360,64 @@ class AccountClosureServiceImplTest {
 
         InOrder order = inOrder(withdrawalService, accountMapper, accountClosureMapper);
         order.verify(withdrawalService).withdrawForClosure(any());
+        order.verify(accountMapper).selectByAccountIdForUpdate(ACCOUNT_ID);
         order.verify(accountMapper).completeClosure(ACCOUNT_ID);
         order.verify(accountClosureMapper).completeClosureRequest(closure);
+    }
+
+    @Test
+    void remainingBalanceAfterForcedWithdrawalPreventsAccountClosure() {
+        AccountClosureDTO closure = closureForApproval(true);
+        WithdrawalResultDTO withdrawalResult =
+                WithdrawalResultDTO.builder().withdrawalId(40L).allocations(List.of()).build();
+        when(accountClosureMapper.selectByIdForUpdate(CLOSURE_REQUEST_ID))
+                .thenReturn(Optional.of(closure));
+        when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
+                .thenReturn(
+                        Optional.of(account(Status.CLOSURE_REQUESTED, "500")),
+                        Optional.of(account(Status.CLOSURE_REQUESTED, "1")));
+        when(withdrawalService.withdrawForClosure(any())).thenReturn(withdrawalResult);
+
+        assertThatThrownBy(() -> accountClosureService.approveClosure(7L, CLOSURE_REQUEST_ID))
+                .isInstanceOf(AccountClosureProcessingException.class)
+                .hasMessage("강제인출 후에도 계좌 잔액이 남아 있어 해지할 수 없습니다.");
+
+        verify(accountMapper, never()).completeClosure(ACCOUNT_ID);
+        verify(accountClosureMapper, never()).completeClosureRequest(any());
+    }
+
+    @Test
+    void changedAccountStateBeforeClosurePreventsAccountClosure() {
+        AccountClosureDTO closure = closureForApproval(false);
+        when(accountClosureMapper.selectByIdForUpdate(CLOSURE_REQUEST_ID))
+                .thenReturn(Optional.of(closure));
+        when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
+                .thenReturn(
+                        Optional.of(account(Status.CLOSURE_REQUESTED, "0")),
+                        Optional.of(account(Status.OPENED, "0")));
+
+        assertThatThrownBy(() -> accountClosureService.approveClosure(7L, CLOSURE_REQUEST_ID))
+                .isInstanceOf(AccountClosureNotAllowedException.class)
+                .hasMessage("해지 신청 상태가 변경되어 계좌를 해지할 수 없습니다.");
+
+        verify(accountMapper, never()).completeClosure(ACCOUNT_ID);
+        verify(accountClosureMapper, never()).completeClosureRequest(any());
+    }
+
+    @Test
+    void conditionalAccountClosureFailureIsReportedSeparately() {
+        AccountClosureDTO closure = closureForApproval(false);
+        when(accountClosureMapper.selectByIdForUpdate(CLOSURE_REQUEST_ID))
+                .thenReturn(Optional.of(closure));
+        when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
+                .thenReturn(Optional.of(account(Status.CLOSURE_REQUESTED, "0")));
+        when(accountMapper.completeClosure(ACCOUNT_ID)).thenReturn(0);
+
+        assertThatThrownBy(() -> accountClosureService.approveClosure(7L, CLOSURE_REQUEST_ID))
+                .isInstanceOf(AccountClosureProcessingException.class)
+                .hasMessage("계좌 상태가 변경되어 해지 처리에 실패했습니다.");
+
+        verify(accountClosureMapper, never()).completeClosureRequest(any());
     }
 
     @Test
