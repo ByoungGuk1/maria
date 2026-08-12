@@ -20,12 +20,19 @@
         <button id="executeSettlement" class="btn btn-primary" type="button">정산 배치 실행</button>
     </div>
 
-    <div class="settlement-kpi-grid">
-        <div class="card settlement-kpi"><span>전체 배치</span><strong id="totalBatchCount">-</strong></div>
-        <div class="card settlement-kpi"><span>진행 중</span><strong id="runningBatchCount">-</strong></div>
-        <div class="card settlement-kpi settlement-kpi-danger"><span>실패</span><strong id="failedBatchCount">-</strong></div>
-        <div class="card settlement-kpi"><span>최근 처리 건수</span><strong id="latestProcessedCount">-</strong></div>
-    </div>
+    <section class="card settlement-trend-card">
+        <div class="settlement-section-header"><strong>최근 14일 정산 항목 처리 추이</strong><span id="settlementTrendTotal">-</span></div>
+        <div class="settlement-application-trend"><canvas id="settlementBatchTrend" aria-label="최근 14일 정산 항목 처리 추이"></canvas></div>
+        <div id="settlementTrendDetail" class="settlement-trend-detail" style="display:none">
+            <strong id="settlementTrendDetailDate">-</strong>
+            <div class="settlement-trend-detail-grid">
+                <div><span>전체</span><b id="settlementTrendDetailTotal">-</b></div>
+                <div><span>성공</span><b id="settlementTrendDetailSuccess">-</b></div>
+                <div><span>실패</span><b id="settlementTrendDetailFailed">-</b></div>
+                <div><span>처리 건수</span><b id="settlementTrendDetailProcessed">-</b></div>
+            </div>
+        </div>
+    </section>
 
     <div class="card settlement-table-card">
         <div class="settlement-section-header"><strong>배치 실행 이력</strong><span id="settlementBatchCount">-</span></div>
@@ -102,6 +109,9 @@
     </section>
 </div>
 
-<th:block layout:fragment="pageScripts"><script th:src="@{/js/settlement.js}"></script></th:block>
+<th:block layout:fragment="pageScripts">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+    <script th:src="@{/js/settlement.js}"></script>
+</th:block>
 </body>
 </html>

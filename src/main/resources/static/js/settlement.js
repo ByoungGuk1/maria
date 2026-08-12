@@ -2,7 +2,7 @@ $(function () {
     var batches = [];
     var selectedBatchId = null;
     var currentPage = 1;
-    var PAGE_SIZE = 20;
+    var PAGE_SIZE = 5;
     var items = [];
     var allBatchItems = [];
     var selectedItemId = null;
@@ -10,53 +10,148 @@ $(function () {
     var ITEM_PAGE_SIZE = 10;
     var itemFilter = "all";
     var LABELS = { RUNNING: "진행 중", COMPLETED: "완료", FAILED: "실패", SUCCESS: "성공" };
+    var DATE_TIME_FORMATTER = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+    var KRW_FORMATTER = new Intl.NumberFormat("ko-KR");
+    var RATE_FORMATTER = new Intl.NumberFormat("ko-KR", { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+    var batchTrendChart = null;
+    var ITEM_TREND_GROUPS = [
+        { key: "total", label: "전체", color: "#64748b" },
+        { key: "success", label: "성공", color: "#16a34a" },
+        { key: "failed", label: "실패", color: "#dc2626" }
+    ];
 
     function escapeHtml(value) { return $("<div>").text(value == null ? "-" : value).html(); }
-    function formatDateTime(value) { return value ? new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value)) : "-"; }
-    function formatAmount(value) { return value == null ? "-" : "₩" + new Intl.NumberFormat("ko-KR").format(value); }
-    function formatRate(value) { return value == null ? "-" : new Intl.NumberFormat("ko-KR", { minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(value); }
+    function toCount(value) { return Number(value || 0); }
+    function formatDateTime(value) { return value ? DATE_TIME_FORMATTER.format(new Date(value)) : "-"; }
+    function formatAmount(value) { return value == null ? "-" : "₩" + KRW_FORMATTER.format(value); }
+    function formatRate(value) { return value == null ? "-" : RATE_FORMATTER.format(value); }
     function showError(message) { MARIA.ui.showError(message); }
     function statusBadge(status) { var key = (status || "").toLowerCase(); return '<span class="settlement-status ' + key + '">' + escapeHtml(LABELS[status] || status) + "</span>"; }
+    function errorMessage(xhr, fallback) { return (xhr.responseJSON && xhr.responseJSON.message) || fallback; }
+    function handleRequestFailure(xhr, fallback) { if (xhr.status !== 401) showError(errorMessage(xhr, fallback)); }
 
-    function renderSummary() {
-        var latest = batches[0];
-        $("#totalBatchCount").text(batches.length);
-        $("#runningBatchCount").text(batches.filter(function (batch) { return batch.status === "RUNNING"; }).length);
-        $("#failedBatchCount").text(batches.filter(function (batch) { return batch.status === "FAILED"; }).length);
-        $("#latestProcessedCount").text(latest ? latest.processedCount + "건" : "-");
+    function paginate(list, page, pageSize) {
+        var totalPages = Math.max(1, Math.ceil(list.length / pageSize));
+        var current = Math.min(page, totalPages);
+        return { current: current, total: totalPages, items: list.slice((current - 1) * pageSize, current * pageSize) };
+    }
+
+    function renderPagination(containerSelector, infoSelector, previousSelector, nextSelector, page) {
+        $(infoSelector).text(page.current + " / " + page.total);
+        $(previousSelector).prop("disabled", page.current === 1);
+        $(nextSelector).prop("disabled", page.current === page.total);
+        $(containerSelector).css("display", "flex");
+    }
+
+    function startOfDay(value) {
+        var date = new Date(value);
+        date.setHours(0, 0, 0, 0);
+        return date;
+    }
+
+    function itemCounts(batchList) {
+        return batchList.reduce(function (counts, batch) {
+            var total = toCount(batch.totalCount);
+            var processed = toCount(batch.processedCount);
+            counts.total += total;
+            counts.success += toCount(batch.successCount);
+            counts.failed += toCount(batch.failedCount);
+            counts.processed += processed;
+            return counts;
+        }, { total: 0, success: 0, failed: 0, processed: 0 });
+    }
+
+    function batchesExecutedOn(date) {
+        return batches.filter(function (batch) {
+            if (!batch.executedAt) return false;
+            return startOfDay(batch.executedAt).getTime() === date.getTime();
+        });
+    }
+
+    function formatDate(date) {
+        return date.getFullYear() + "." + String(date.getMonth() + 1).padStart(2, "0") + "." + String(date.getDate()).padStart(2, "0");
+    }
+
+    function renderBatchCount() {
         $("#settlementBatchCount").text(batches.length + "건");
+    }
+
+    function renderBatchTrend() {
+        var latestExecutedAt = batches.reduce(function (latest, batch) {
+            if (!batch.executedAt) return latest;
+            var executedAt = new Date(batch.executedAt);
+            return !latest || executedAt > latest ? executedAt : latest;
+        }, null);
+        var latestDate = startOfDay(latestExecutedAt || new Date());
+        var dates = Array.from({ length: 14 }, function (_, index) {
+            var date = new Date(latestDate);
+            date.setDate(latestDate.getDate() - 13 + index);
+            return date;
+        });
+        var datasets = ITEM_TREND_GROUPS.map(function (group) {
+            return {
+                label: group.label,
+                data: dates.map(function (date) {
+                    return itemCounts(batchesExecutedOn(date))[group.key];
+                }),
+                borderColor: group.color,
+                backgroundColor: group.color,
+                tension: 0.3,
+                borderWidth: 2,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                pointHitRadius: 12
+            };
+        });
+        var labels = dates.map(function (date) { return (date.getMonth() + 1) + "/" + date.getDate(); });
+        $("#settlementTrendTotal").text(itemCounts(batches).total + "건");
+        if (batchTrendChart) batchTrendChart.destroy();
+        batchTrendChart = new Chart($("#settlementBatchTrend")[0], {
+            type: "line",
+            data: { labels: labels, datasets: datasets },
+            options: {
+                animation: false,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { displayColors: false, callbacks: { label: function (context) { return context.dataset.label + ": " + context.parsed.y + "건"; } } } },
+                scales: { x: { grid: { display: false }, ticks: { color: "#64748b", font: { size: 10 } } }, y: { beginAtZero: true, ticks: { precision: 0, color: "#64748b", font: { size: 10 } }, grid: { color: "#e2e8f0" } } },
+                onClick: function (_, elements) { if (elements.length) renderTrendDetail(dates[elements[0].index]); }
+            }
+        });
+        renderTrendDetail(latestDate);
+    }
+
+    function renderTrendDetail(date) {
+        var counts = itemCounts(batchesExecutedOn(date));
+        $("#settlementTrendDetailDate").text(formatDate(date) + " 정산 항목 상세");
+        $("#settlementTrendDetailTotal").text(counts.total + "건");
+        $("#settlementTrendDetailSuccess").text(counts.success + "건");
+        $("#settlementTrendDetailFailed").text(counts.failed + "건");
+        $("#settlementTrendDetailProcessed").text(counts.processed + "건");
+        $("#settlementTrendDetail").css("display", "block");
     }
 
     function renderBatches() {
         var $body = $("#settlementBatchBody").empty();
-        var totalPages = Math.max(1, Math.ceil(batches.length / PAGE_SIZE));
-        currentPage = Math.min(currentPage, totalPages);
-        var pageBatches = batches.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+        var page = paginate(batches, currentPage, PAGE_SIZE);
+        currentPage = page.current;
         if (!batches.length) { $body.append('<tr><td colspan="8" class="settlement-empty">실행 이력이 없습니다.</td></tr>'); $("#settlementPagination").hide(); return; }
-        pageBatches.forEach(function (batch) {
+        page.items.forEach(function (batch) {
             $body.append('<tr class="settlement-batch-row' + (batch.batchId === selectedBatchId ? " is-selected" : "") + '" data-batch-id="' + batch.batchId + '">' +
                 "<td>#" + batch.batchId + "</td><td>" + formatDateTime(batch.executedAt) + "</td><td>" + statusBadge(batch.status) + "</td>" +
                 "<td>" + batch.totalCount + "</td><td>" + batch.successCount + "</td><td>" + batch.failedCount + "</td><td>" + batch.processedCount + "</td><td>" + escapeHtml(batch.runId) + "</td></tr>");
         });
-        $("#settlementPageInfo").text(currentPage + " / " + totalPages);
-        $("#previousSettlementPage").prop("disabled", currentPage === 1);
-        $("#nextSettlementPage").prop("disabled", currentPage === totalPages);
-        $("#settlementPagination").css("display", "flex");
+        renderPagination("#settlementPagination", "#settlementPageInfo", "#previousSettlementPage", "#nextSettlementPage", page);
     }
 
-    function renderItems(items) {
+    function renderItems(itemList) {
         var $body = $("#settlementItemBody").empty();
-        var totalPages = Math.max(1, Math.ceil(items.length / ITEM_PAGE_SIZE));
-        currentItemPage = Math.min(currentItemPage, totalPages);
-        var pageItems = items.slice((currentItemPage - 1) * ITEM_PAGE_SIZE, currentItemPage * ITEM_PAGE_SIZE);
-        if (!items.length) { $body.append('<tr><td colspan="8" class="settlement-empty">정산 항목이 없습니다.</td></tr>'); $("#settlementItemPagination").hide(); return; }
-        pageItems.forEach(function (item) {
+        var page = paginate(itemList, currentItemPage, ITEM_PAGE_SIZE);
+        currentItemPage = page.current;
+        if (!itemList.length) { $body.append('<tr><td colspan="8" class="settlement-empty">정산 항목이 없습니다.</td></tr>'); $("#settlementItemPagination").hide(); return; }
+        page.items.forEach(function (item) {
             $body.append('<tr class="settlement-item-row' + (item.itemId === selectedItemId ? " is-selected" : "") + '" data-item-id="' + item.itemId + '"><td>#' + item.itemId + "</td><td>" + escapeHtml(item.accountNo) + "</td><td>" + escapeHtml(item.ticker) + "</td><td>" + formatAmount(item.provisionalAmount) + "</td><td>" + formatAmount(item.finalAmount) + "</td><td>" + statusBadge(item.result) + "</td><td>" + escapeHtml(item.failureCode || item.failureMessage) + "</td><td>" + formatDateTime(item.processedAt) + "</td></tr>");
         });
-        $("#settlementItemPageInfo").text(currentItemPage + " / " + totalPages);
-        $("#previousSettlementItemPage").prop("disabled", currentItemPage === 1);
-        $("#nextSettlementItemPage").prop("disabled", currentItemPage === totalPages);
-        $("#settlementItemPagination").css("display", "flex");
+        renderPagination("#settlementItemPagination", "#settlementItemPageInfo", "#previousSettlementItemPage", "#nextSettlementItemPage", page);
     }
 
     function selectBatch(batchId, preserveItemPage) {
@@ -72,17 +167,13 @@ $(function () {
                 if (batchIndex !== -1) {
                     batches[batchIndex] = latestBatch;
                 }
-                renderSummary();
+                renderBatchCount();
                 renderBatches();
                 renderDetail(latestBatch);
-                updateItemFilter();
+                $("#settlementItemFilter").val(itemFilter);
                 loadBatchItems(preserveItemPage);
             })
-            .fail(function (xhr) {
-                if (xhr.status !== 401) {
-                    showError((xhr.responseJSON && xhr.responseJSON.message) || "배치 상태를 불러오지 못했습니다.");
-                }
-            });
+            .fail(function (xhr) { handleRequestFailure(xhr, "배치 상태를 불러오지 못했습니다."); });
     }
 
     function renderDetail(batch) {
@@ -101,13 +192,15 @@ $(function () {
 
     function loadBatchItems(preserveItemPage) {
         $("#settlementItemBody").html('<tr><td colspan="8" class="settlement-empty">불러오는 중...</td></tr>');
-        var url = "/api/settlement/batches/detail/" + selectedBatchId;
+        var url = itemFilter === "failed"
+            ? "/api/settlement/batches/detail/fail/" + selectedBatchId
+            : "/api/settlement/batches/detail/" + selectedBatchId;
         MARIA.auth.ajax({ url: url, method: "GET" })
             .done(function (res) {
                 allBatchItems = res.data || [];
-                items = allBatchItems.filter(function (item) {
-                    return itemFilter === "all" || (itemFilter === "success" && item.result === "SUCCESS") || (itemFilter === "failed" && item.result === "FAILED");
-                });
+                items = itemFilter === "success"
+                    ? allBatchItems.filter(function (item) { return item.result === "SUCCESS"; })
+                    : allBatchItems;
                 if (!preserveItemPage) {
                     currentItemPage = 1;
                     selectedItemId = null;
@@ -115,16 +208,7 @@ $(function () {
                 }
                 renderItems(items);
             })
-            .fail(function (xhr) {
-                if (xhr.status !== 401) {
-                    $("#settlementItemBody").empty();
-                    showError((xhr.responseJSON && xhr.responseJSON.message) || "정산 항목을 불러오지 못했습니다.");
-                }
-            });
-    }
-
-    function updateItemFilter() {
-        $("#settlementItemFilter").val(itemFilter);
+            .fail(function (xhr) { if (xhr.status !== 401) $("#settlementItemBody").empty(); handleRequestFailure(xhr, "정산 항목을 불러오지 못했습니다."); });
     }
 
     function selectItem(itemId) {
@@ -154,7 +238,7 @@ $(function () {
                 renderRetryHistory(item.exchangeId);
                 $("#retrySettlementItem").toggle(item.result === "FAILED");
             })
-            .fail(function (xhr) { if (xhr.status !== 401) { showError((xhr.responseJSON && xhr.responseJSON.message) || "정산 항목 상세를 불러오지 못했습니다."); } });
+            .fail(function (xhr) { handleRequestFailure(xhr, "정산 항목 상세를 불러오지 못했습니다."); });
     }
 
     function renderRetryHistory(exchangeId) {
@@ -172,8 +256,8 @@ $(function () {
 
     function loadBatches() {
         MARIA.auth.ajax({ url: "/api/settlement/batches", method: "GET" }).done(function (res) {
-            batches = res.data || []; renderSummary(); renderBatches();
-        }).fail(function (xhr) { if (xhr.status !== 401) { $("#settlementBatchBody").empty(); showError((xhr.responseJSON && xhr.responseJSON.message) || "배치 목록을 불러오지 못했습니다."); } });
+            batches = res.data || []; renderBatchCount(); renderBatchTrend(); renderBatches();
+        }).fail(function (xhr) { if (xhr.status !== 401) $("#settlementBatchBody").empty(); handleRequestFailure(xhr, "배치 목록을 불러오지 못했습니다."); });
     }
 
     $(document).on("click", ".settlement-batch-row", function () { selectBatch($(this).data("batch-id")); });
@@ -184,11 +268,10 @@ $(function () {
     $("#nextSettlementItemPage").on("click", function () { if (currentItemPage < Math.ceil(items.length / ITEM_PAGE_SIZE)) { currentItemPage += 1; renderItems(items); } });
     $("#settlementItemFilter").on("change", function () {
         itemFilter = $(this).val();
-        updateItemFilter();
         loadBatchItems();
     });
-    $("#executeSettlement").on("click", function () { MARIA.auth.ajax({ url: "/api/settlement/jobs", method: "POST" }).done(function (res) { selectedBatchId = res.data.batchId; currentPage = 1; loadBatches(); }).fail(function (xhr) { if (xhr.status !== 401) { showError((xhr.responseJSON && xhr.responseJSON.message) || "정산 배치 실행에 실패했습니다."); } }); });
-    $("#retrySettlementBatch").on("click", function () { if (!selectedBatchId) return; MARIA.auth.ajax({ url: "/api/settlement/batches/" + selectedBatchId + "/retry", method: "POST" }).done(function () { loadBatches(); }).fail(function (xhr) { if (xhr.status !== 401) { showError((xhr.responseJSON && xhr.responseJSON.message) || "정산 배치 재처리에 실패했습니다."); } }); });
-    $("#retrySettlementItem").on("click", function () { if (!selectedBatchId || !selectedItemId) return; MARIA.auth.ajax({ url: "/api/settlement/batches/" + selectedBatchId + "/items/" + selectedItemId + "/retry", method: "POST" }).done(function () { selectBatch(selectedBatchId, true); }).fail(function (xhr) { if (xhr.status !== 401) { showError((xhr.responseJSON && xhr.responseJSON.message) || "정산 항목 재처리에 실패했습니다."); } }); });
+    $("#executeSettlement").on("click", function () { MARIA.auth.ajax({ url: "/api/settlement/jobs", method: "POST" }).done(function (res) { selectedBatchId = res.data.batchId; currentPage = 1; loadBatches(); }).fail(function (xhr) { handleRequestFailure(xhr, "정산 배치 실행에 실패했습니다."); }); });
+    $("#retrySettlementBatch").on("click", function () { if (!selectedBatchId) return; MARIA.auth.ajax({ url: "/api/settlement/batches/" + selectedBatchId + "/retry", method: "POST" }).done(function () { loadBatches(); }).fail(function (xhr) { handleRequestFailure(xhr, "정산 배치 재처리에 실패했습니다."); }); });
+    $("#retrySettlementItem").on("click", function () { if (!selectedBatchId || !selectedItemId) return; MARIA.auth.ajax({ url: "/api/settlement/batches/" + selectedBatchId + "/items/" + selectedItemId + "/retry", method: "POST" }).done(function () { selectBatch(selectedBatchId, true); }).fail(function (xhr) { handleRequestFailure(xhr, "정산 항목 재처리에 실패했습니다."); }); });
     loadBatches();
 });
