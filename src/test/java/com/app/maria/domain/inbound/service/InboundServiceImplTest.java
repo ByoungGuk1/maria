@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.app.maria.domain.foreignproduct.dto.ForeignProductDTO;
 import com.app.maria.domain.foreignproduct.exception.ForeignProductNotFoundException;
 import com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper;
+import com.app.maria.domain.foreignproduct.type.ForeignProductType;
 import com.app.maria.domain.inbound.dto.InboundHoldingDTO;
 import com.app.maria.domain.inbound.dto.request.InboundRequestDTO;
 import com.app.maria.domain.inbound.dto.response.AccountHoldingResponseDTO;
@@ -182,7 +183,7 @@ class InboundServiceImplTest {
         assertThat(first.getName()).isEqualTo("Apple Inc.");
         assertThat(first.getMarket()).isEqualTo("NAS");
         assertThat(first.getCurrency()).isEqualTo("USD");
-        assertThat(first.getType()).isEqualTo("FOREIGN_STOCK");
+        assertThat(first.getType()).isEqualTo(ForeignProductType.FOREIGN_STOCK);
         assertThat(first.getCurrentQty()).isEqualByComparingTo(BigDecimal.valueOf(50));
     }
 
@@ -237,7 +238,7 @@ class InboundServiceImplTest {
                 .name("Apple Inc.")
                 .market("NAS")
                 .currency("USD")
-                .type("FOREIGN_STOCK")
+                .foreignProductType(ForeignProductType.FOREIGN_STOCK)
                 .build();
     }
 

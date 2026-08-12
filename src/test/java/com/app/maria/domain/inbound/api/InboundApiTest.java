@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.app.maria.domain.foreignproduct.type.ForeignProductType;
 import com.app.maria.domain.inbound.dto.response.AccountHoldingResponseDTO;
 import com.app.maria.domain.inbound.dto.response.InboundResponseDTO;
 import com.app.maria.domain.inbound.exception.InboundNotFoundException;
@@ -182,7 +183,7 @@ class InboundApiTest {
                         .name("Apple Inc.")
                         .market("NAS")
                         .currency("USD")
-                        .type("FOREIGN_STOCK")
+                        .type(ForeignProductType.FOREIGN_STOCK)
                         .currentQty(BigDecimal.valueOf(50))
                         .build();
         when(inboundService.getHoldings(1L)).thenReturn(List.of(holding));
