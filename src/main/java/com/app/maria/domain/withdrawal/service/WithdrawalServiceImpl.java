@@ -46,6 +46,11 @@ public class WithdrawalServiceImpl implements WithdrawalService {
     @Override
     @Transactional
     public List<WithdrawalAllocationDTO> withdraw(WithdrawalRequestDTO requestDTO) {
+        return processWithdrawal(requestDTO, Status.OPENED);
+    }
+
+    private List<WithdrawalAllocationDTO> processWithdrawal(
+            WithdrawalRequestDTO requestDTO, Status allowedStatus) {
         Long accountId = requestDTO.getAccountId();
         BigDecimal requestedAmount = requestDTO.getRequestedAmount();
 
@@ -79,8 +84,8 @@ public class WithdrawalServiceImpl implements WithdrawalService {
                         .selectByAccountIdForUpdate(accountId)
                         .orElseThrow(() -> new AccountNotFoundException("인출 대상 계좌가 존재하지 않습니다."));
 
-        if (account.getStatus() != Status.OPENED) {
-            throw new WithdrawalNotAllowedException("개설 완료된 계좌만 인출할 수 있습니다.");
+        if (account.getStatus() != allowedStatus) {
+            throw new WithdrawalNotAllowedException("현재 계좌 상태에서는 인출할 수 없습니다.");
         }
 
         if (account.getAmount().compareTo(requestedAmount) < 0) {
@@ -231,6 +236,13 @@ public class WithdrawalServiceImpl implements WithdrawalService {
         }
 
         return allocations;
+    }
+
+    @Override
+    @Transactional
+    public List<WithdrawalAllocationDTO> withdrawForClosure(WithdrawalRequestDTO requestDTO) {
+
+        return processWithdrawal(requestDTO, Status.CLOSURE_REQUESTED);
     }
 
     private List<WithdrawalAllocationDTO> allocateMaturedPrincipalFifo(

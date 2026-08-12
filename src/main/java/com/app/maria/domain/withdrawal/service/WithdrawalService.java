@@ -7,4 +7,6 @@ import java.util.List;
 public interface WithdrawalService {
 
     List<WithdrawalAllocationDTO> withdraw(WithdrawalRequestDTO requestDTO);
+
+    List<WithdrawalAllocationDTO> withdrawForClosure(WithdrawalRequestDTO requestDTO);
 }
