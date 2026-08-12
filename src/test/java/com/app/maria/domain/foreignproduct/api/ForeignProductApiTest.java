@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.app.maria.domain.foreignproduct.dto.response.ForeignProductResponseDTO;
 import com.app.maria.domain.foreignproduct.exception.ForeignProductNotFoundException;
 import com.app.maria.domain.foreignproduct.service.ForeignProductService;
+import com.app.maria.domain.foreignproduct.type.ForeignProductType;
 import com.app.maria.global.exception.GlobalExceptionHandler;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,7 +40,7 @@ class ForeignProductApiTest {
                         .name("애플")
                         .market("NASDAQ")
                         .currency("USD")
-                        .type("FOREIGN_STOCK")
+                        .foreignProductType(ForeignProductType.FOREIGN_STOCK)
                         .build();
         when(foreignProductService.getAllForeignProducts()).thenReturn(List.of(response));
 
@@ -68,7 +69,7 @@ class ForeignProductApiTest {
                         .name("애플")
                         .market("NASDAQ")
                         .currency("USD")
-                        .type("FOREIGN_STOCK")
+                        .foreignProductType(ForeignProductType.FOREIGN_STOCK)
                         .build();
         when(foreignProductService.getForeignProduct(1L)).thenReturn(response);
 
