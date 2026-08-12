@@ -1,7 +1,7 @@
 $(function () {
     var STOCK_TYPE_LABEL = {
         FOREIGN_STOCK: "해외주식",
-        ETF: "EFT",
+        ETF: "ETF",
         ETN: "ETN",
         FUND: "펀드"
         };
@@ -11,6 +11,8 @@ $(function () {
         INHERITANCE: "상속",
         GIFT: "증여"
     };
+    var PAGE_SIZE = 20;
+
     var KRW_FORMATTER = new Intl.NumberFormat("ko-KR");
     var DATETIME_FORMATTER = new Intl.DateTimeFormat("ko-KR", {
         year: "numeric", month: "2-digit", day: "2-digit",
@@ -37,9 +39,9 @@ $(function () {
     }
 
     function renderTable(items) {
-        var $body = $(#tpTableBody).empty();
+        var $body = $("#tpTableBody").empty();
         if (!items || items.length === 0) {
-            $body.append('<tr><td colsapn="8" class="dash-empty">탐지된 이벤트가 없습니다.</td></tr>');
+            $body.append('<tr><td colspan="8" class="dash-empty">탐지된 이벤트가 없습니다.</td></tr>');
             return;
         }
         items.forEach(function (item) {
@@ -62,12 +64,106 @@ $(function () {
         });
     }
 
-    function loadTargetProducts() {
+    function renderPagination(page) {
+        var $pagination = $("#tpPagination").empty();
+        if (!page || page.totalPages <= 1) {
+            return;
+        }
+
+        var current = page.page;
+        var totalPages = page.totalPages;
+
+        function addButton(label, targetPage, isDisabled, isActive) {
+            var classes = "page-btn" + (isActive ? " active" : "");
+            var $btn = $('<button type="button" class="' + classes + '">' + label + "</button>");
+            $btn.prop("disabled", isDisabled || isActive);
+            if (!isDisabled && !isActive) {
+                $btn.on("click", function () {
+                    loadTargetProducts(targetPage);
+                });
+            }
+            $pagination.append($btn);
+        }
+
+        addButton("이전", current - 1, current === 0, false);
+
+        var windowSize = 2;
+        var start = Math.max(0, current - windowSize);
+        var end = Math.min(totalPages - 1, current + windowSize);
+
+        if (start > 0) {
+            addButton("1", 0, false, false);
+            if (start > 1) {
+                $pagination.append('<span class="page-ellipsis">...</span>');
+            }
+        }
+        for (var i = start; i <= end; i++) {
+            addButton(String(i + 1), i, false, i === current);
+        }
+        if (end < totalPages - 1) {
+            if (end < totalPages - 2) {
+                $pagination.append('<span class="page-ellipsis">...</span>');
+            }
+            addButton(String(totalPages), totalPages - 1, false, false);
+        }
+
+        addButton("다음", current + 1, current === totalPages - 1, false);
+    }
+
+    function renderSummary(summary) {
+        $("#kpiTodayJudgement").text(summary.todayJudgementCount + " 건");
+        $("#kpiTodayTarget").text(summary.todayTargetCount + " 건");
+        $("#kpiTodayTargetAmount").text(formatAmount(summary.todayTargetNetBuyAmount));
+        $("#kpiTotalJudgement").text(summary.totalJudgementCount + " 건");
+    }
+
+    function loadSummary() {
         MARIA.auth.ajax({
-            url: "/api/target-products",
+            url: "/api/target-products/summary",
             method: "GET"
         })
-            .done(function (xhr) {
+            .done(function (res) {
+                renderSummary(res.data);
+            })
+            .fail(function (xhr) {
+                if (xhr.status === 401) {
+                    return;
+                }
+            });
+    }
+
+    function getFilterParams() {
+        var params = {};
+        var customerName = $("#tpFilterCustomerName").val();
+        if (customerName) {
+            params.customerName = customerName;
+        }
+        var stockType = $("#tpFilterStockType").val();
+        if (stockType) {
+            params.stockType = stockType;
+        }
+        var isTarget = $("#tpFilterIsTarget").val();
+        if (isTarget) {
+            params.isTarget = isTarget;
+        }
+        return params;
+    }
+
+    function loadTargetProducts(page) {
+        var targetPage = page || 0;
+        var requestData = $.extend({ page: targetPage, size: PAGE_SIZE }, getFilterParams());
+        MARIA.auth.ajax({
+            url: "/api/target-products",
+            method: "GET",
+            data: requestData
+        })
+            .done(function (res) {
+                renderTable(res.data.content);
+                renderPagination(res.data);
+                $("#tpLoading").hide();
+                $("#tpBody").show();
+            })
+            .fail(function (xhr) {
                 if (xhr.status === 401) {
                     return;
                 }
@@ -80,5 +176,21 @@ $(function () {
             });
     }
 
-    loadTargetProducts();
+    $("#tpFilterSubmit").on("click", function () {
+        loadTargetProducts(0);
+    });
+    $("#tpFilterReset").on("click", function () {
+        $("#tpFilterCustomerName").val("");
+        $("#tpFilterStockType").val("");
+        $("#tpFilterIsTarget").val("");
+        loadTargetProducts(0);
+    });
+    $("#tpFilterCustomerName").on("keypress", function (e) {
+        if (e.which === 13) {
+            loadTargetProducts(0);
+        }
+    });
+
+    loadSummary();
+    loadTargetProducts(0);
 });
