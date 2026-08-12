@@ -10,4 +10,9 @@ public class PageController {
     public String index() {
         return "index";
     }
+
+    @GetMapping("/admin/target-products")
+    public String targetProducts() {
+        return "target-products";
+    }
 }

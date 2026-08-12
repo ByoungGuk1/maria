@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultrag.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}">
+<head>
+    <title>외부 감시 - MARIA</title>
+    <th:block layout:fragment="pageStyles">
+        <link rel="stylesheet" th:href="@{/css/dashboard.css}">
+        <link rel="stylesheet" th:href="@{/css/target-products.css}">
+    </th:block>
+</head>
+<body>
+<div layout:fragment="breadcrub">외부 감시</div>
+<div layout:fragment="content">
+    <div id="tpLoading" class="dash-loading">불러오는 중...</div>
+    <div id="tpError" class="dash-error" style="display:none"></div>
+    <div id="tpBody" style="display:none">
+        <div class="card">
+            <div class="section-header">
+                <span>외부 순매수 판정 목록</span>
+                <span class="section-sub">myData 연동, 최신순</span>
+            </div>
+            <table class="dash-table">
+                <thead>
+                <tr>
+                    <th>판정일시</th>
+                    <th>고객명</th>
+                    <th>종목구본</th>
+                    <th>종목/펀드</th>
+                    <th>거래유형</th>
+                    <th>거래금액</th>
+                    <th>순매수금액</th>
+                    <th>대상상품</th>
+                </tr>
+                </thead>
+                <tbody id="tpTableBody">
+                <tr>
+                    <td colspan="8" calss="dash-empty">불러오는 중...</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<th:block layout:fragment="pageScripts">
+    <script th:src="@{/js/target-products.js}"></script>
+</th:block>
+</body>
+</html>
