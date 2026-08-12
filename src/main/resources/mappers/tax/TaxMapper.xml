@@ -42,4 +42,23 @@
             and tpj.is_target = true
             and YEAR(tpj.trade_date) = #{year}
     </select>
+
+    <insert id="insertCalculation" parameterType="TaxCalculationDTO"
+            useGeneratedKeys="true" keyProperty="calcId">
+    insert into tax_calculation
+    (account_id, calculated_at, basis_type, sell_amount, gain_amount,
+    gain_weighted, ext_amount, ratio, deduction, tax)
+    values
+    (#{accountId}, #{calculatedAt}, #{basisType}, #{sellAmount}, #{gainAmount},
+    #{gainWeighted},#{extAmount},#{ratio},#{deduction},#{tax})
+    </insert>
+
+    <select id="existsByAccountAndBasis" resultType="boolean">
+        select exists(
+            select 1
+            from tax_calculation
+            where account_id = #{accountId} and basis_type = #{basisType}
+        )
+    </select>
+
 </mapper>
