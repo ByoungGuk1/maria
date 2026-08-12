@@ -80,6 +80,28 @@ $(function () {
         return (xhr.responseJSON && xhr.responseJSON.message) || fallback;
     }
 
+    function handleRequestFailure(xhr, fallback, onFailure) {
+        if (xhr.status === 401) {
+            return;
+        }
+        if (onFailure) {
+            onFailure();
+        }
+        showError(errorMessage(xhr, fallback));
+    }
+
+    function totalPagesOf(list) {
+        return Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+    }
+
+    function updateAccountCache(account) {
+        var accountIndex = accounts.findIndex(function (item) { return item.accountId === account.accountId; });
+        if (accountIndex !== -1) {
+            accounts[accountIndex] = $.extend({}, accounts[accountIndex], account);
+        }
+        return accounts[accountIndex] || account;
+    }
+
     function getSelectedAccount() {
         return accounts.find(function (account) { return account.accountId === selectedAccountId; });
     }
@@ -106,8 +128,8 @@ $(function () {
             .fail(function (xhr) {
                 if (requestId === availableLimitRequestIds[displaySelector] && xhr.status !== 401) {
                     $(displaySelector).text(messages.initial);
-                    showError(errorMessage(xhr, messages.error));
                 }
+                handleRequestFailure(xhr, messages.error);
             });
     }
 
@@ -191,7 +213,7 @@ $(function () {
     function renderAccounts() {
         var $body = $("#accountListBody").empty();
         var list = filteredAccounts();
-        var totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+        var totalPages = totalPagesOf(list);
         currentPage = Math.min(currentPage, totalPages);
         var startIndex = (currentPage - 1) * PAGE_SIZE;
         var pageAccounts = list.slice(startIndex, startIndex + PAGE_SIZE);
@@ -281,6 +303,9 @@ $(function () {
         var $list = $("#accountHistoryList").empty().append('<li class="account-loading">불러오는 중...</li>');
         MARIA.auth.ajax({ url: "/api/account/" + accountId + "/status-logs", method: "GET" })
             .done(function (res) {
+                if (selectedAccountId !== accountId) {
+                    return;
+                }
                 $list.empty();
                 var logs = res.data || [];
                 if (!logs.length) {
@@ -298,21 +323,29 @@ $(function () {
                 });
             })
             .fail(function (xhr) {
-                if (xhr.status !== 401) {
-                    $list.empty();
-                    showError("상태 이력을 불러오지 못했습니다.");
-                }
+                handleRequestFailure(xhr, "상태 이력을 불러오지 못했습니다.", function () { $list.empty(); });
             });
     }
 
     function selectAccount(accountId) {
-        selectedAccountId = Number(accountId);
-        var account = accounts.find(function (item) { return item.accountId === selectedAccountId; });
+        var requestedAccountId = Number(accountId);
+        selectedAccountId = requestedAccountId;
         renderAccounts();
-        renderDetail(account);
-        if (account) {
-            loadStatusLogs(account.accountId);
-        }
+        MARIA.auth.ajax({ url: "/api/account/" + requestedAccountId, method: "GET" })
+            .done(function (res) {
+                if (selectedAccountId !== requestedAccountId) {
+                    return;
+                }
+                var account = updateAccountCache(res.data);
+                renderAccounts();
+                renderDetail(account);
+                loadStatusLogs(account.accountId);
+            })
+            .fail(function (xhr) {
+                if (selectedAccountId === requestedAccountId) {
+                    handleRequestFailure(xhr, "계좌 정보를 불러오지 못했습니다.");
+                }
+            });
     }
 
     function loadAccounts(afterLoad) {
@@ -328,10 +361,7 @@ $(function () {
                 }
             })
             .fail(function (xhr) {
-                if (xhr.status !== 401) {
-                    $("#accountListBody").empty();
-                    showError(errorMessage(xhr, "계좌 목록을 불러오지 못했습니다."));
-                }
+                handleRequestFailure(xhr, "계좌 목록을 불러오지 못했습니다.", function () { $("#accountListBody").empty(); });
             });
     }
 
@@ -356,9 +386,7 @@ $(function () {
                 reloadSelectedAccount();
             })
             .fail(function (xhr) {
-                if (xhr.status !== 401) {
-                    showError(errorMessage(xhr, "계좌 상태 변경에 실패했습니다."));
-                }
+                handleRequestFailure(xhr, "계좌 상태 변경에 실패했습니다.");
             });
     }
 
@@ -377,9 +405,7 @@ $(function () {
                 reloadSelectedAccount();
             })
             .fail(function (xhr) {
-                if (xhr.status !== 401) {
-                    showError(errorMessage(xhr, "요청 처리에 실패했습니다."));
-                }
+                handleRequestFailure(xhr, "요청 처리에 실패했습니다.");
             });
     }
 
@@ -394,9 +420,7 @@ $(function () {
                 loadAccounts();
             })
             .fail(function (xhr) {
-                if (xhr.status !== 401) {
-                    showError(errorMessage(xhr, "요청 처리에 실패했습니다."));
-                }
+                handleRequestFailure(xhr, "요청 처리에 실패했습니다.");
             });
     }
 
@@ -423,7 +447,7 @@ $(function () {
         }
     });
     $("#nextAccountPage").on("click", function () {
-        var totalPages = Math.ceil(filteredAccounts().length / PAGE_SIZE);
+        var totalPages = totalPagesOf(filteredAccounts());
         if (currentPage < totalPages) {
             currentPage += 1;
             renderAccounts();
@@ -473,9 +497,7 @@ $(function () {
             closeModal("#accountLimitModal");
             reloadSelectedAccount();
         }).fail(function (xhr) {
-            if (xhr.status !== 401) {
-                showError(errorMessage(xhr, "계좌 한도가 변경되었습니다. 다시 조회 후 시도해주세요."));
-            }
+            handleRequestFailure(xhr, "계좌 한도가 변경되었습니다. 다시 조회 후 시도해주세요.");
         });
     });
     $("#accountCreateForm").on("submit", function (event) {
