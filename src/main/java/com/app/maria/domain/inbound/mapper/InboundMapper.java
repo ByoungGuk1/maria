@@ -2,12 +2,14 @@ package com.app.maria.domain.inbound.mapper;
 
 import com.app.maria.domain.inbound.dto.InboundDTO;
 import com.app.maria.domain.inbound.dto.InboundDetailDTO;
+import com.app.maria.domain.inbound.dto.InboundHoldingDTO;
 import com.app.maria.domain.inbound.dto.InboundMinDTO;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface InboundMapper {
@@ -27,4 +29,7 @@ public interface InboundMapper {
 
     List<InboundDetailDTO> selectFifoLots(
             @Param("accountId") Long accountId, @Param("foreignProductId") Long foreignProductId);
+
+    List<InboundHoldingDTO> selectHoldingsByAccount(@Param("accountId") Long accountId);
+
 }
