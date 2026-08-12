@@ -5,6 +5,7 @@ import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountSearchRequestDTO;
+import com.app.maria.domain.account.dto.response.AccountJoinResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
@@ -38,8 +39,8 @@ public class AccountServiceImpl implements AccountService {
     private final AccountMydataSyncService accountMydataSyncService;
 
     @Override
-    public List<AccountResponseDTO> findAll() {
-        return accountMapper.selectAllAccount().stream().map(AccountResponseDTO::new).toList();
+    public List<AccountJoinResponseDTO> findAll() {
+        return accountMapper.selectAccountList().stream().map(AccountJoinResponseDTO::new).toList();
     }
 
     @Override
