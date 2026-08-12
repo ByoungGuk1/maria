@@ -3,6 +3,7 @@ package com.app.maria.domain.accountclosure.api;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -206,7 +207,7 @@ class AccountClosureApiTest {
 
     @Test
     void missingClosureRequestReturnsNotFound() throws Exception {
-        org.mockito.Mockito.doThrow(new AccountClosureNotFoundException("계좌 해지 신청을 찾을 수 없습니다."))
+        doThrow(new AccountClosureNotFoundException("계좌 해지 신청을 찾을 수 없습니다."))
                 .when(accountClosureService)
                 .rejectClosure(7L, 999L, "반려 사유");
 
@@ -236,7 +237,7 @@ class AccountClosureApiTest {
 
     @Test
     void missingApprovalRequestReturnsNotFound() throws Exception {
-        org.mockito.Mockito.doThrow(new AccountClosureNotFoundException("계좌 해지 신청을 찾을 수 없습니다."))
+        doThrow(new AccountClosureNotFoundException("계좌 해지 신청을 찾을 수 없습니다."))
                 .when(accountClosureService)
                 .approveClosure(7L, 999L);
 
@@ -249,7 +250,7 @@ class AccountClosureApiTest {
 
     @Test
     void approvalOfAlreadyProcessedClosureReturnsBadRequest() throws Exception {
-        org.mockito.Mockito.doThrow(new AccountClosureNotAllowedException("이미 처리된 계좌 해지 신청입니다."))
+        doThrow(new AccountClosureNotAllowedException("이미 처리된 계좌 해지 신청입니다."))
                 .when(accountClosureService)
                 .approveClosure(7L, 30L);
 
@@ -260,8 +261,7 @@ class AccountClosureApiTest {
 
     @Test
     void approvalProcessingFailureReturnsInternalServerError() throws Exception {
-        org.mockito.Mockito.doThrow(
-                        new AccountClosureProcessingException("계좌 해지 신청 완료 처리에 실패했습니다."))
+        doThrow(new AccountClosureProcessingException("계좌 해지 신청 완료 처리에 실패했습니다."))
                 .when(accountClosureService)
                 .approveClosure(7L, 30L);
 

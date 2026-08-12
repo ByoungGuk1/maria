@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -246,12 +247,12 @@ class AccountClosureMapperTest {
 
     private void updateAccountAmount(BigDecimal amount) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-                Statement statement = connection.createStatement()) {
-            statement.executeUpdate(
-                    "UPDATE account SET amount = "
-                            + amount.toPlainString()
-                            + " WHERE account_id = "
-                            + ACCOUNT_ID);
+                PreparedStatement statement =
+                        connection.prepareStatement(
+                                "UPDATE account SET amount = ? WHERE account_id = ?")) {
+            statement.setBigDecimal(1, amount);
+            statement.setLong(2, ACCOUNT_ID);
+            statement.executeUpdate();
         }
     }
 
