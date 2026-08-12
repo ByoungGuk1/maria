@@ -19,6 +19,7 @@ import com.app.maria.domain.accountclosure.dto.request.AccountClosureApplyReques
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotAllowedException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingException;
+import com.app.maria.domain.accountclosure.exception.AccountClosureStateConflictException;
 import com.app.maria.domain.accountclosure.mapper.AccountClosureMapper;
 import com.app.maria.domain.accountclosure.type.AccountClosureStatus;
 import com.app.maria.domain.withdrawal.dto.WithdrawalResultDTO;
@@ -115,7 +116,7 @@ class AccountClosureServiceImplTest {
         when(accountMapper.requestClosure(ACCOUNT_ID)).thenReturn(0);
 
         assertThatThrownBy(() -> accountClosureService.applyClosure(CUSTOMER_ID, request(true)))
-                .isInstanceOf(AccountClosureNotAllowedException.class)
+                .isInstanceOf(AccountClosureStateConflictException.class)
                 .hasMessage("계좌 상태가 변경되어 해지를 신청할 수 없습니다.");
 
         verifyNoInteractions(accountClosureMapper, businessClockService);

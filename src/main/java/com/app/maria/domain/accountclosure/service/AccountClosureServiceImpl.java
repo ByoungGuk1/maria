@@ -9,6 +9,7 @@ import com.app.maria.domain.accountclosure.dto.request.AccountClosureApplyReques
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotAllowedException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingException;
+import com.app.maria.domain.accountclosure.exception.AccountClosureStateConflictException;
 import com.app.maria.domain.accountclosure.mapper.AccountClosureMapper;
 import com.app.maria.domain.accountclosure.type.AccountClosureStatus;
 import com.app.maria.domain.withdrawal.dto.WithdrawalResultDTO;
@@ -67,7 +68,7 @@ public class AccountClosureServiceImpl implements AccountClosureService {
         }
         int updatedAccountRows = accountMapper.requestClosure(account.getAccountId());
         if (updatedAccountRows != 1) {
-            throw new AccountClosureNotAllowedException("계좌 상태가 변경되어 해지를 신청할 수 없습니다.");
+            throw new AccountClosureStateConflictException("계좌 상태가 변경되어 해지를 신청할 수 없습니다.");
         }
         AccountClosureDTO closure =
                 AccountClosureDTO.builder()

@@ -7,6 +7,7 @@ import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingException;
+import com.app.maria.domain.accountclosure.exception.AccountClosureStateConflictException;
 import com.app.maria.domain.admin.exception.AdminException;
 import com.app.maria.domain.admin.exception.AdminNotFoundException;
 import com.app.maria.domain.domestic.exception.DomesticProductException;
@@ -376,5 +377,11 @@ public class GlobalExceptionHandler {
             AccountClosureProcessingException e) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(AccountClosureStateConflictException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleAccountClosureStateConflictException(
+            AccountClosureStateConflictException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
     }
 }

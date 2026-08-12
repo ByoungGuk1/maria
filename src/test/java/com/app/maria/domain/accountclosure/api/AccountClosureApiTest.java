@@ -14,6 +14,7 @@ import com.app.maria.domain.accountclosure.dto.request.AccountClosureApplyReques
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotAllowedException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingException;
+import com.app.maria.domain.accountclosure.exception.AccountClosureStateConflictException;
 import com.app.maria.domain.accountclosure.service.AccountClosureService;
 import com.app.maria.global.exception.GlobalExceptionHandler;
 import java.util.List;
@@ -137,6 +138,22 @@ class AccountClosureApiTest {
                                 .content(validRequest()))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.message").value("계좌 해지 신청 저장에 실패했습니다."));
+    }
+
+    @Test
+    void concurrentAccountStateChangeReturnsConflict() throws Exception {
+        when(accountClosureService.applyClosure(eq(10L), any(AccountClosureApplyRequestDTO.class)))
+                .thenThrow(new AccountClosureStateConflictException("계좌 상태가 변경되어 해지를 신청할 수 없습니다."));
+
+        mockMvc.perform(
+                        post("/api/account-closures")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(validRequest()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("계좌 상태가 변경되어 해지를 신청할 수 없습니다."));
+
+        verify(accountClosureService)
+                .applyClosure(eq(10L), any(AccountClosureApplyRequestDTO.class));
     }
 
     @Test
