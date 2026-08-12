@@ -92,6 +92,12 @@
     color: var(--danger);
 }
 
+.sellorder-readonly-notice {
+    margin: 10px 0 0;
+    color: var(--textMuted);
+    font: 400 11px 'Noto Sans KR', sans-serif;
+}
+
 .sellorder-table-wrap {
     overflow-x: auto;
     margin-top: 12px;

@@ -61,6 +61,11 @@ $(function () {
         $el.hide();
     }
 
+    function canPlaceSellOrder() {
+        var admin = MARIA.auth.currentAdmin();
+        return !!admin && (admin.role === "ADMIN" || admin.role === "SETTLEMENT");
+    }
+
     // ---- 계좌 검색 ----
 
     function searchAccounts() {
@@ -163,7 +168,8 @@ $(function () {
     function loadHoldings(accountId) {
         var $select = $("#sellForeignProductId").empty();
         $("#holdingsEmpty").hide();
-        $("#sellOrderForm button[type=submit]").prop("disabled", true);
+        $("#sellOrderReadonlyNotice").hide();
+        $("#sellForeignProductId, #sellQty, #sellOrderForm button[type=submit]").prop("disabled", true);
         productMap = {};
 
         return MARIA.auth.ajax({
@@ -182,7 +188,12 @@ $(function () {
                     var label = holding.ticker + " · " + holding.name + " (보유 " + holding.currentQty + ")";
                     $select.append($("<option>", { value: holding.foreignProductId, text: label }));
                 });
-                $("#sellOrderForm button[type=submit]").prop("disabled", false);
+
+                if (canPlaceSellOrder()) {
+                    $("#sellForeignProductId, #sellQty, #sellOrderForm button[type=submit]").prop("disabled", false);
+                } else {
+                    $("#sellOrderReadonlyNotice").show();
+                }
             })
             .fail(function (xhr) {
                 if (xhr.status === 401) {
@@ -198,7 +209,7 @@ $(function () {
     // ---- 매도 주문 ----
 
     function submitSellOrder() {
-        if (!selectedAccount) {
+        if (!selectedAccount || !canPlaceSellOrder()) {
             return;
         }
 
@@ -231,6 +242,10 @@ $(function () {
             })
             .fail(function (xhr) {
                 if (xhr.status === 401) {
+                    return;
+                }
+                if (xhr.status === 502) {
+                    showError($("#sellOrderError"), "시세/환율 정보를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.");
                     return;
                 }
                 showError(
