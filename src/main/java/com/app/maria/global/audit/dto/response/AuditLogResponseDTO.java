@@ -40,7 +40,7 @@ public class AuditLogResponseDTO {
                 switch (dto.getTargetTable()) {
                     case "ADMIN_USER" -> dto.getTargetAdminName();
                     case "SELL_ORDER" -> dto.getTargetAccountNo();
-                    default -> "SYSTEM_CLOCK";
+                    default -> dto.getTargetTable();
                 };
     }
 }

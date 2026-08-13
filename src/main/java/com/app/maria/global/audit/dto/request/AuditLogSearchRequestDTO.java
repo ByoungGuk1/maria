@@ -44,6 +44,7 @@ public class AuditLogSearchRequestDTO {
     }
 
     @Min(0)
+    @Max(1_000_000)
     @Builder.Default
     private int page = 0;
 
