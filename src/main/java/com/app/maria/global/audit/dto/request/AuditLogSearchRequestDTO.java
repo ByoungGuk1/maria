@@ -30,10 +30,12 @@ public class AuditLogSearchRequestDTO {
     }
 
     @Min(0)
+    @Builder.Default
     private int page = 0;
 
     @Min(1)
     @Max(100)
+    @Builder.Default
     private int size = 20;
 
     public AuditLogSearchDTO toAuditLogSearchDTO() {

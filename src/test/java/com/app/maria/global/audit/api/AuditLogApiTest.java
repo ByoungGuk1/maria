@@ -14,6 +14,7 @@ import com.app.maria.global.audit.dto.response.AuditLogResponseDTO;
 import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.config.SecurityConfig;
 import com.app.maria.global.jwt.JwtTokenProvider;
+import com.app.maria.global.response.PageResponseDTO;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -50,24 +51,28 @@ class AuditLogApiTest {
     }
 
     @Test
-    @DisplayName("필터 없이 조회하면 200과 전체 목록을 반환한다")
+    @DisplayName("필터 없이 조회하면 200과 페이지 응답을 반환한다")
     @WithMockUser(roles = "VIEWER")
-    void searchAuditLogsReturns200WithFullListWhenNoFilters() throws Exception {
+    void searchAuditLogsReturns200WithPageResponseWhenNoFilters() throws Exception {
         when(auditLogService.searchAuditLogs(any()))
-                .thenReturn(List.of(auditLog(1L), auditLog(2L)));
+                .thenReturn(PageResponseDTO.of(List.of(auditLog(1L), auditLog(2L)), 2L, 0, 20));
 
         mockMvc.perform(get("/api/admin/audit-logs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("감사로그 조회 성공"))
-                .andExpect(jsonPath("$.data.length()").value(2))
-                .andExpect(jsonPath("$.data[0].auditId").value(1));
+                .andExpect(jsonPath("$.data.content.length()").value(2))
+                .andExpect(jsonPath("$.data.content[0].auditId").value(1))
+                .andExpect(jsonPath("$.data.totalCount").value(2))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(20));
     }
 
     @Test
     @DisplayName("VIEWER 역할도 조회할 수 있다 (VIEWER 이상 전부 허용 정책)")
     @WithMockUser(roles = "VIEWER")
     void searchAuditLogsReturns200ForViewerRole() throws Exception {
-        when(auditLogService.searchAuditLogs(any())).thenReturn(List.of());
+        when(auditLogService.searchAuditLogs(any()))
+                .thenReturn(PageResponseDTO.of(List.of(), 0L, 0, 20));
 
         mockMvc.perform(get("/api/admin/audit-logs")).andExpect(status().isOk());
     }
@@ -76,7 +81,8 @@ class AuditLogApiTest {
     @DisplayName("검색조건 쿼리파라미터가 Request DTO에 바인딩되어 Service로 전달된다")
     @WithMockUser(roles = "ADMIN")
     void searchAuditLogsBindsQueryParamsIntoRequestDto() throws Exception {
-        when(auditLogService.searchAuditLogs(any())).thenReturn(List.of());
+        when(auditLogService.searchAuditLogs(any()))
+                .thenReturn(PageResponseDTO.of(List.of(), 0L, 0, 20));
 
         mockMvc.perform(
                         get("/api/admin/audit-logs")
@@ -98,6 +104,59 @@ class AuditLogApiTest {
         assertThat(bound.getReasonCode()).isEqualTo("ADMIN_ROLE_UPDATE");
         assertThat(bound.getStartDate()).isEqualTo(LocalDateTime.of(2026, 1, 1, 0, 0));
         assertThat(bound.getEndDate()).isEqualTo(LocalDateTime.of(2026, 12, 31, 23, 59, 59));
+    }
+
+    @Test
+    @DisplayName("page/size 쿼리파라미터가 Request DTO에 바인딩된다")
+    @WithMockUser(roles = "ADMIN")
+    void searchAuditLogsBindsPageAndSizeQueryParams() throws Exception {
+        when(auditLogService.searchAuditLogs(any()))
+                .thenReturn(PageResponseDTO.of(List.of(), 0L, 1, 5));
+
+        mockMvc.perform(get("/api/admin/audit-logs").param("page", "1").param("size", "5"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<AuditLogSearchRequestDTO> captor =
+                ArgumentCaptor.forClass(AuditLogSearchRequestDTO.class);
+        verify(auditLogService).searchAuditLogs(captor.capture());
+        assertThat(captor.getValue().getPage()).isEqualTo(1);
+        assertThat(captor.getValue().getSize()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("page/size를 생략하면 기본값(0, 20)이 바인딩된다")
+    @WithMockUser(roles = "VIEWER")
+    void searchAuditLogsUsesDefaultPageAndSizeWhenOmitted() throws Exception {
+        when(auditLogService.searchAuditLogs(any()))
+                .thenReturn(PageResponseDTO.of(List.of(), 0L, 0, 20));
+
+        mockMvc.perform(get("/api/admin/audit-logs")).andExpect(status().isOk());
+
+        ArgumentCaptor<AuditLogSearchRequestDTO> captor =
+                ArgumentCaptor.forClass(AuditLogSearchRequestDTO.class);
+        verify(auditLogService).searchAuditLogs(captor.capture());
+        assertThat(captor.getValue().getPage()).isEqualTo(0);
+        assertThat(captor.getValue().getSize()).isEqualTo(20);
+    }
+
+    @Test
+    @DisplayName("size가 100을 초과하면 400을 반환한다")
+    @WithMockUser(roles = "VIEWER")
+    void searchAuditLogsReturns400WhenSizeExceedsMax() throws Exception {
+        mockMvc.perform(get("/api/admin/audit-logs").param("size", "101"))
+                .andExpect(status().isBadRequest());
+
+        verify(auditLogService, never()).searchAuditLogs(any());
+    }
+
+    @Test
+    @DisplayName("page가 음수면 400을 반환한다")
+    @WithMockUser(roles = "VIEWER")
+    void searchAuditLogsReturns400WhenPageIsNegative() throws Exception {
+        mockMvc.perform(get("/api/admin/audit-logs").param("page", "-1"))
+                .andExpect(status().isBadRequest());
+
+        verify(auditLogService, never()).searchAuditLogs(any());
     }
 
     @Test

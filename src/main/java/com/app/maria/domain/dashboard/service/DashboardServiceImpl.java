@@ -52,9 +52,10 @@ public class DashboardServiceImpl implements DashboardService {
         SettlementBatchDTO latestBatch = batches.isEmpty() ? null : batches.get(0);
 
         List<AuditLogResponseDTO> recentAuditLogs =
-                auditLogService.searchAuditLogs(AuditLogSearchRequestDTO.builder().build()).stream()
-                        .limit(RECENT_AUDIT_LOG_LIMIT)
-                        .toList();
+                auditLogService
+                        .searchAuditLogs(
+                                AuditLogSearchRequestDTO.builder().size(RECENT_AUDIT_LOG_LIMIT).build())
+                        .getContent();
 
         return DashboardSummaryDTO.builder()
                 .referenceDateTime(businessClockService.now())
