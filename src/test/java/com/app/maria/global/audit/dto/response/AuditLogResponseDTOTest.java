@@ -8,7 +8,8 @@ import org.junit.jupiter.api.Test;
 
 class AuditLogResponseDTOTest {
 
-    private AuditLogDTO auditLog(String targetTable, String targetAdminName, String targetAccountNo) {
+    private AuditLogDTO auditLog(
+            String targetTable, String targetAdminName, String targetAccountNo) {
         return AuditLogDTO.builder()
                 .targetTable(targetTable)
                 .targetAdminName(targetAdminName)
@@ -27,7 +28,8 @@ class AuditLogResponseDTOTest {
     @Test
     @DisplayName("targetTable이 SELL_ORDER면 targetAccountNo를 targetName으로 쓴다")
     void targetNameUsesTargetAccountNoForSellOrder() {
-        AuditLogResponseDTO response = new AuditLogResponseDTO(auditLog("SELL_ORDER", null, "1234567890"));
+        AuditLogResponseDTO response =
+                new AuditLogResponseDTO(auditLog("SELL_ORDER", null, "1234567890"));
 
         assertThat(response.getTargetName()).isEqualTo("1234567890");
     }
@@ -35,7 +37,8 @@ class AuditLogResponseDTOTest {
     @Test
     @DisplayName("targetTable이 SYSTEM_CLOCK이면 targetTable 값 그대로 targetName으로 쓴다")
     void targetNameFallsBackToTargetTableForSystemClock() {
-        AuditLogResponseDTO response = new AuditLogResponseDTO(auditLog("SYSTEM_CLOCK", null, null));
+        AuditLogResponseDTO response =
+                new AuditLogResponseDTO(auditLog("SYSTEM_CLOCK", null, null));
 
         assertThat(response.getTargetName()).isEqualTo("SYSTEM_CLOCK");
     }
