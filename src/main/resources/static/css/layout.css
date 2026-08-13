@@ -25,6 +25,8 @@
     --warningBg: #fbeee0;
     --info: #6d3fc9;
     --infoBg: #f1ebfb;
+    --teal: #0f8b8d;
+    --tealBg: #e0f5f5;
 }
 
 :root[data-theme="dark"] {
@@ -51,6 +53,8 @@
     --warningBg: rgba(224, 151, 47, 0.15);
     --info: #a78bfa;
     --infoBg: rgba(167, 139, 250, 0.16);
+    --teal: #4fd1c5;
+    --tealBg: rgba(79, 209, 197, 0.16);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -78,6 +82,8 @@
         --warningBg: rgba(224, 151, 47, 0.15);
         --info: #a78bfa;
         --infoBg: rgba(167, 139, 250, 0.16);
+        --teal: #4fd1c5;
+        --tealBg: rgba(79, 209, 197, 0.16);
     }
 }
 
