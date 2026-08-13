@@ -21,7 +21,8 @@
         </where>
     </sql>
 
-    <select id="selectAuditLogs" parameterType="AuditLogSearchDTO" resultType="AuditLogDTO">
+    <select id="selectAuditLogs" parameterType="com.app.maria.global.audit.dto.AuditLogSearchDTO"
+            resultType="com.app.maria.global.audit.dto.AuditLogDTO">
         SELECT al.audit_id, al.admin_id, al.target_table, al.target_pk, al.before_value, al.after_value,
         al.reason_code, al.processed_at, au.name AS admin_name, au.role AS admin_role
         FROM audit_log al
@@ -31,7 +32,7 @@
         LIMIT #{size} OFFSET #{offset}
     </select>
 
-    <select id="countAuditLogs" parameterType="AuditLogSearchDTO" resultType="long">
+    <select id="countAuditLogs" parameterType="com.app.maria.global.audit.dto.AuditLogSearchDTO" resultType="long">
         SELECT COUNT(*)
         FROM audit_log al
         <include refid="auditLogSearchCondition"/>
