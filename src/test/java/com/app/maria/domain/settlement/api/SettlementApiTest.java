@@ -127,6 +127,24 @@ class SettlementApiTest {
     }
 
     @Test
+    void getSettlementBatchDetailEndpointsReturnRequestedItems() throws Exception {
+        SettlementJoinDTO detail =
+                SettlementJoinDTO.builder().itemId(10L).batchId(1L).exchangeId(100L).build();
+        when(settlementService.getSettlementBatchDetail(1L)).thenReturn(List.of(detail));
+        when(settlementService.getSettlementBatchFailDetail(1L)).thenReturn(List.of(detail));
+
+        mockMvc.perform(get("/api/settlement/batches/detail/{batchId}", 1L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].itemId").value(10L));
+        mockMvc.perform(get("/api/settlement/batches/detail/fail/{batchId}", 1L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].itemId").value(10L));
+
+        verify(settlementService).getSettlementBatchDetail(1L);
+        verify(settlementService).getSettlementBatchFailDetail(1L);
+    }
+
+    @Test
     void getSettlementBatchByRunIdRejectsBlankRunId() throws Exception {
         mockMvc.perform(get("/api/settlement/batches/run/{runId}", " "))
                 .andExpect(status().isBadRequest())

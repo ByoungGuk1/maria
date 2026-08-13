@@ -46,4 +46,10 @@ public class PageController {
         model.addAttribute("activePath", "/admin/audit-log");
         return "audit-log";
     }
+
+    @GetMapping("/admin/settlement")
+    public String settlement(Model model) {
+        model.addAttribute("activePath", "/admin/settlement");
+        return "settlement";
+    }
 }

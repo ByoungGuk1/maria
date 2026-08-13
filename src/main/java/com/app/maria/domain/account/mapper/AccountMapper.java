@@ -1,6 +1,7 @@
 package com.app.maria.domain.account.mapper;
 
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.dto.AccountJoinDTO;
 import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.dto.AccountSearchDTO;
 import com.app.maria.domain.account.type.Status;
@@ -53,6 +54,8 @@ public interface AccountMapper {
 
     // 상태별 계좌 목록
     List<AccountDTO> selectAllAccount();
+
+    List<AccountJoinDTO> selectAccountList();
 
     // 관리자 반려 판정 오버라이드
     int overrideToOpened(AccountDTO accountDTO);

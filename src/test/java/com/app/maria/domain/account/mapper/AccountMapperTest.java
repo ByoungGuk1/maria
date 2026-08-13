@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.dto.AccountJoinDTO;
 import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.dto.AccountSearchDTO;
 import com.app.maria.domain.account.dto.AccountStatusLogDTO;
@@ -264,6 +265,25 @@ class AccountMapperTest {
     }
 
     @Test
+    @DisplayName("계좌 목록은 확정산, 가환전, 미확정 매도 금액을 사용액으로 합산한다")
+    void selectAccountListSumsUsedAmountAcrossSellOrderStates() throws SQLException {
+        Long accountId = insertApplication(1L, DEFAULT_LIMIT);
+        insertSellLimitData(accountId);
+
+        List<AccountJoinDTO> result = accountMapper.selectAccountList();
+
+        assertThat(result)
+                .filteredOn(account -> account.getAccountId().equals(accountId))
+                .singleElement()
+                .satisfies(
+                        account -> {
+                            assertThat(account.getCustomerName()).isEqualTo("홍길동");
+                            assertThat(account.getUsedAmount())
+                                    .isEqualByComparingTo(BigDecimal.valueOf(1_050L));
+                        });
+    }
+
+    @Test
     @DisplayName("관리자 오버라이드는 REJECTED 계좌만 OPENED로 변경한다")
     void overrideOpensOnlyRejectedAccount() {
         Long rejectedAccountId = insertApplication(1L, DEFAULT_LIMIT);
@@ -317,8 +337,8 @@ class AccountMapperTest {
     }
 
     @Test
-    @DisplayName("전체 계좌를 status 내림차순으로 조회한다")
-    void selectAllAccountsOrdersByStatusDescending() {
+    @DisplayName("전체 계좌를 고객 ID 내림차순으로 조회한다")
+    void selectAllAccountsOrdersByCustomerIdDescending() {
         Long openedAccountId = insertApplication(1L, DEFAULT_LIMIT);
         Long rejectedAccountId = insertApplication(2L, DEFAULT_LIMIT);
         insertApplication(3L, DEFAULT_LIMIT);
@@ -330,7 +350,7 @@ class AccountMapperTest {
         assertThat(result).hasSize(3);
         assertThat(result)
                 .extracting(AccountDTO::getStatus)
-                .containsExactly(Status.REJECTED, Status.OPENED, Status.APPLIED);
+                .containsExactly(Status.APPLIED, Status.REJECTED, Status.OPENED);
     }
 
     @Test

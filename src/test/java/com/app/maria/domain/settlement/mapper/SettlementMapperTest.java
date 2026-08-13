@@ -295,6 +295,10 @@ class SettlementMapperTest {
         assertThat(settlementItemMapper.selectItemById(retry.getItemId()))
                 .hasValueSatisfying(item -> assertThat(item.getResult()).isNull());
 
+        SettlementBatchDTO retryBatch =
+                SettlementBatchDTO.builder().batchId(batch.getBatchId()).build();
+        assertThat(settlementBatchMapper.markBatchRetryRunning(retryBatch)).isOne();
+
         SettlementItemDTO duplicate =
                 SettlementItemDTO.builder()
                         .batchId(batch.getBatchId())
@@ -414,6 +418,7 @@ class SettlementMapperTest {
                     """
           CREATE TABLE account (
               account_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+              account_no VARCHAR(10),
               status VARCHAR(20) NOT NULL,
               amount DECIMAL(15, 0) NOT NULL DEFAULT 0
           )
@@ -430,8 +435,17 @@ class SettlementMapperTest {
           CREATE TABLE sell_order (
               order_id BIGINT PRIMARY KEY AUTO_INCREMENT,
               inbound_detail_id BIGINT NOT NULL,
+              foreign_product_id BIGINT NOT NULL,
               settlement_fx_rate DECIMAL(15, 4),
               status VARCHAR(20) NOT NULL
+          )
+          """);
+            statement.execute(
+                    """
+          CREATE TABLE foreign_product (
+              foreign_product_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+              ticker VARCHAR(20) NOT NULL,
+              name VARCHAR(100) NOT NULL
           )
           """);
             statement.execute(
@@ -488,8 +502,8 @@ class SettlementMapperTest {
 
             statement.execute(
                     """
-          INSERT INTO account (account_id, status, amount)
-          VALUES (1, 'OPENED', 2700000.00)
+          INSERT INTO account (account_id, account_no, status, amount)
+          VALUES (1, '1234567890', 'OPENED', 2700000.00)
           """);
             statement.execute(
                     """
@@ -499,12 +513,17 @@ class SettlementMapperTest {
             statement.execute(
                     """
           INSERT INTO sell_order (
-              order_id, inbound_detail_id, settlement_fx_rate, status
+              order_id, inbound_detail_id, foreign_product_id, settlement_fx_rate, status
           ) VALUES
-              (1, 1, 1350.0000, 'EXECUTED'),
-              (2, 1, NULL, 'RECEIVED'),
-              (3, 2, 1300.0000, 'EXECUTED'),
-              (4, 2, 1300.0000, 'EXECUTED')
+              (1, 1, 1, 1350.0000, 'EXECUTED'),
+              (2, 1, 1, NULL, 'RECEIVED'),
+              (3, 2, 1, 1300.0000, 'EXECUTED'),
+              (4, 2, 1, 1300.0000, 'EXECUTED')
+          """);
+            statement.execute(
+                    """
+          INSERT INTO foreign_product (foreign_product_id, ticker, name)
+          VALUES (1, 'AAPL', 'Apple Inc.')
           """);
             statement.execute(
                     """

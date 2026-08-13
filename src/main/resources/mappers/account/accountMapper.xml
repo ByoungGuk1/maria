@@ -76,11 +76,7 @@
     </update>
     <select id="selectOwnUsedAndReservedAmount" parameterType="Long" resultType="java.math.BigDecimal">
         SELECT COALESCE(SUM(
-            CASE
-                WHEN ke.settlement_status = 'FINALIZED' THEN ke.final_amount
-                WHEN ke.exchange_id IS NOT NULL THEN ke.provisional_amount
-                ELSE so.sell_qty * so.base_price
-            END
+            <include refid="com.app.maria.domain.sellorder.mapper.SellLimitMapper.usedAmountCase"/>
         ), 0)
         FROM sell_order so
         INNER JOIN inbound_detail ind ON ind.inbound_detail_id = so.inbound_detail_id
@@ -112,7 +108,30 @@
         SELECT
         *
         FROM account
-        ORDER BY customer_id desc
+        ORDER BY customer_id DESC
+    </select>
+    <select id="selectAccountList" resultType="AccountJoinDTO">
+        SELECT
+            a.account_id AS accountId,
+            a.customer_id AS customerId,
+            c.name AS customerName,
+            a.account_no AS accountNo,
+            a.status,
+            a.limit_amount AS limitAmount,
+            COALESCE(SUM(
+                <include refid="com.app.maria.domain.sellorder.mapper.SellLimitMapper.usedAmountCase"/>
+            ), 0) AS usedAmount,
+            a.amount,
+            a.created_at AS createdAt,
+            a.opened_at AS openedAt,
+            a.benefit
+        FROM account a
+        JOIN customer c ON c.customer_id = a.customer_id
+        LEFT JOIN sell_order so ON so.account_id = a.account_id AND so.status IN ('RECEIVED', 'EXECUTED')
+        LEFT JOIN krw_exchange ke ON ke.order_id = so.order_id
+        GROUP BY a.account_id, a.customer_id, c.name, a.account_no, a.status, a.limit_amount,
+                 a.amount, a.created_at, a.opened_at, a.benefit
+        ORDER BY a.created_at DESC, a.account_id DESC
     </select>
     <update id="overrideToOpened" parameterType="AccountDTO">
         UPDATE account
@@ -165,7 +184,7 @@
         a.status         AS status,
         a.limit_amount   AS limitAmount,
         COALESCE(SUM(
-        <include refid="com.app.maria.domain.sellorder.mapper.SellLimitMapper.usedAmountCase"/>
+            <include refid="com.app.maria.domain.sellorder.mapper.SellLimitMapper.usedAmountCase"/>
         ), 0) AS usedAmount
         FROM account a
         JOIN customer c ON c.customer_id = a.customer_id
@@ -196,7 +215,7 @@
         a.status         AS status,
         a.limit_amount   AS limitAmount,
         COALESCE(SUM(
-        <include refid="com.app.maria.domain.sellorder.mapper.SellLimitMapper.usedAmountCase"/>
+            <include refid="com.app.maria.domain.sellorder.mapper.SellLimitMapper.usedAmountCase"/>
         ), 0) AS usedAmount
         FROM account a
         JOIN customer c ON c.customer_id = a.customer_id

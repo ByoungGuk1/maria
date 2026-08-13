@@ -60,12 +60,14 @@
                         매도 · 환전
                     </span>
                 </a>
-                <span class="sidebar-item disabled">
+                <a class="sidebar-item"
+                   th:classappend="${activePath == '/admin/settlement'} ? ' active' : ''"
+                   th:href="@{/admin/settlement}">
                     <span class="sidebar-item-label">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#e2e8f0" stroke-width="1.6"><line x1="2" y1="12" x2="2" y2="7"/><line x1="7" y1="12" x2="7" y2="4"/><line x1="12" y1="12" x2="12" y2="9"/></svg>
                         정산 배치
                     </span>
-                </span>
+                </a>
             </div>
         </div>
 

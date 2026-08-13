@@ -1,6 +1,7 @@
 package com.app.maria.domain.account.api;
 
 import com.app.maria.domain.account.dto.request.*;
+import com.app.maria.domain.account.dto.response.AccountJoinResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
@@ -25,7 +26,7 @@ public class AccountApi {
     private final AccountService accountService;
 
     @GetMapping("/list")
-    public ResponseEntity<ApiResponseDTO<List<AccountResponseDTO>>> getAccountList() {
+    public ResponseEntity<ApiResponseDTO<List<AccountJoinResponseDTO>>> getAccountList() {
         return ResponseEntity.ok(ApiResponseDTO.of("계좌 정보 전체 조회", accountService.findAll()));
     }
 
