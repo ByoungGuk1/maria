@@ -160,6 +160,16 @@ class AuditLogApiTest {
     }
 
     @Test
+    @DisplayName("page가 상한을 초과하면 400을 반환한다 (page*size 오버플로 방지)")
+    @WithMockUser(roles = "VIEWER")
+    void searchAuditLogsReturns400WhenPageExceedsMax() throws Exception {
+        mockMvc.perform(get("/api/admin/audit-logs").param("page", "1000001"))
+                .andExpect(status().isBadRequest());
+
+        verify(auditLogService, never()).searchAuditLogs(any());
+    }
+
+    @Test
     @DisplayName("시작일이 종료일보다 늦으면 400을 반환하고 서비스는 호출되지 않는다")
     @WithMockUser(roles = "VIEWER")
     void searchAuditLogsReturns400WhenStartDateAfterEndDate() throws Exception {
