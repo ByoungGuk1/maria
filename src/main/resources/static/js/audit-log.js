@@ -30,8 +30,18 @@ $(function () {
         return value ? DATE_TIME_FORMATTER.format(new Date(value)) : "-";
     }
 
+    var TARGET_TABLE_BADGE_CLASS = {
+        ADMIN_USER: "type-admin-user",
+        SELL_ORDER: "type-sell-order",
+        SYSTEM_CLOCK: "type-system-clock"
+    };
+
     function targetTableLabel(value) {
         return TARGET_TABLE_LABEL[value] || value || "-";
+    }
+
+    function targetTableBadgeClass(value) {
+        return TARGET_TABLE_BADGE_CLASS[value] || "";
     }
 
     function reasonCodeLabel(value) {
@@ -94,7 +104,8 @@ $(function () {
                 "<td>" + formatDateTime(log.processedAt) + "</td>" +
                 "<td><div class=\"audit-log-admin-name\">" + escapeHtml(adminLabel) + "</div>" +
                 "<div class=\"audit-log-admin-role\">" + escapeHtml(roleLabel(log.adminRole)) + "</div></td>" +
-                "<td><span class=\"audit-log-target-badge\">" + escapeHtml(targetTableLabel(log.targetTable)) + "</span></td>" +
+                "<td><span class=\"audit-log-target-badge " + targetTableBadgeClass(log.targetTable) + "\">" +
+                escapeHtml(targetTableLabel(log.targetTable)) + "</span></td>" +
                 "<td class=\"audit-log-target-name\">" + escapeHtml(targetLabel) + "</td>" +
                 "<td>" + escapeHtml(reasonCodeLabel(log.reasonCode)) + "</td>" +
                 "<td class=\"audit-log-before\">" + escapeHtml(log.beforeValue || "-") + "</td>" +

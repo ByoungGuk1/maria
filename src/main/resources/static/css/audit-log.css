@@ -116,6 +116,21 @@
     font: 600 11px 'Noto Sans KR', sans-serif;
 }
 
+.audit-log-target-badge.type-admin-user {
+    color: var(--accent);
+    background: var(--accentBg);
+}
+
+.audit-log-target-badge.type-sell-order {
+    color: var(--warning);
+    background: var(--warningBg);
+}
+
+.audit-log-target-badge.type-system-clock {
+    color: var(--success);
+    background: var(--successBg);
+}
+
 .audit-log-target-name {
     color: var(--textPrimary);
     font-weight: 500;
