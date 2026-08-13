@@ -46,7 +46,12 @@ public class SecurityConfig {
         // Swagger
         "/swagger-ui/**",
         "/swagger-ui.html",
-        "/api-docs/**"
+        "/api-docs/**",
+
+        //계좌 해지 관리 화면
+        "/admin/account-closures"
+
+
     };
 
     @Bean
