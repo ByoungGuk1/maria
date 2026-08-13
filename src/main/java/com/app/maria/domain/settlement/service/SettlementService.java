@@ -10,6 +10,8 @@ public interface SettlementService {
 
     SettlementBatchDTO executeSettlementBatch();
 
+    SettlementBatchDTO executeSettlementBatchByAdmin();
+
     List<SettlementBatchDTO> getSettlementBatches();
 
     SettlementBatchDTO getSettlementBatch(Long batchId);
