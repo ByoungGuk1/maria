@@ -118,6 +118,27 @@ class AccountApiTest {
     }
 
     @Test
+    void getAccountReturnsLatestAccount() throws Exception {
+        AccountResponseDTO response =
+                AccountResponseDTO.builder()
+                        .accountId(1L)
+                        .customerId(10L)
+                        .status(Status.OPENED)
+                        .accountNo("1234567890")
+                        .amount(BigDecimal.valueOf(1_000_000L))
+                        .build();
+        when(accountService.getAccountByAccountId(1L)).thenReturn(response);
+
+        mockMvc.perform(get("/api/account/{accountId}", 1L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("계좌 조회"))
+                .andExpect(jsonPath("$.data.accountId").value(1L))
+                .andExpect(jsonPath("$.data.amount").value(1_000_000L));
+
+        verify(accountService).getAccountByAccountId(1L);
+    }
+
+    @Test
     void applyRejectsMissingCustomerId() throws Exception {
         mockMvc.perform(
                         post("/api/account/applications")
