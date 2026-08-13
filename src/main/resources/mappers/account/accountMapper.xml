@@ -76,11 +76,7 @@
     </update>
     <select id="selectOwnUsedAndReservedAmount" parameterType="Long" resultType="java.math.BigDecimal">
         SELECT COALESCE(SUM(
-            CASE
-                WHEN ke.settlement_status = 'FINALIZED' THEN ke.final_amount
-                WHEN ke.exchange_id IS NOT NULL THEN ke.provisional_amount
-                ELSE so.sell_qty * so.base_price
-            END
+            <include refid="com.app.maria.domain.sellorder.mapper.SellLimitMapper.usedAmountCase"/>
         ), 0)
         FROM sell_order so
         INNER JOIN inbound_detail ind ON ind.inbound_detail_id = so.inbound_detail_id
@@ -123,11 +119,7 @@
             a.status,
             a.limit_amount AS limitAmount,
             COALESCE(SUM(
-                CASE
-                    WHEN ke.settlement_status = 'FINALIZED' THEN ke.final_amount
-                    WHEN ke.exchange_id IS NOT NULL THEN ke.provisional_amount
-                    ELSE so.sell_qty * so.base_price
-                END
+                <include refid="com.app.maria.domain.sellorder.mapper.SellLimitMapper.usedAmountCase"/>
             ), 0) AS usedAmount,
             a.amount,
             a.created_at AS createdAt,
@@ -192,11 +184,7 @@
         a.status         AS status,
         a.limit_amount   AS limitAmount,
         COALESCE(SUM(
-            CASE
-                WHEN ke.settlement_status = 'FINALIZED' THEN ke.final_amount
-                WHEN ke.exchange_id IS NOT NULL THEN ke.provisional_amount
-                ELSE so.sell_qty * so.base_price
-            END
+            <include refid="com.app.maria.domain.sellorder.mapper.SellLimitMapper.usedAmountCase"/>
         ), 0) AS usedAmount
         FROM account a
         JOIN customer c ON c.customer_id = a.customer_id
@@ -227,11 +215,7 @@
         a.status         AS status,
         a.limit_amount   AS limitAmount,
         COALESCE(SUM(
-            CASE
-                WHEN ke.settlement_status = 'FINALIZED' THEN ke.final_amount
-                WHEN ke.exchange_id IS NOT NULL THEN ke.provisional_amount
-                ELSE so.sell_qty * so.base_price
-            END
+            <include refid="com.app.maria.domain.sellorder.mapper.SellLimitMapper.usedAmountCase"/>
         ), 0) AS usedAmount
         FROM account a
         JOIN customer c ON c.customer_id = a.customer_id

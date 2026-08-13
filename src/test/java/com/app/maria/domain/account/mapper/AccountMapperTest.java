@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.dto.AccountJoinDTO;
 import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.dto.AccountSearchDTO;
 import com.app.maria.domain.account.dto.AccountStatusLogDTO;
@@ -261,6 +262,25 @@ class AccountMapperTest {
 
         assertThat(accountMapper.selectOwnUsedAndReservedAmount(accountId))
                 .isEqualByComparingTo(BigDecimal.valueOf(1_050L));
+    }
+
+    @Test
+    @DisplayName("계좌 목록은 확정산, 가환전, 미확정 매도 금액을 사용액으로 합산한다")
+    void selectAccountListSumsUsedAmountAcrossSellOrderStates() throws SQLException {
+        Long accountId = insertApplication(1L, DEFAULT_LIMIT);
+        insertSellLimitData(accountId);
+
+        List<AccountJoinDTO> result = accountMapper.selectAccountList();
+
+        assertThat(result)
+                .filteredOn(account -> account.getAccountId().equals(accountId))
+                .singleElement()
+                .satisfies(
+                        account -> {
+                            assertThat(account.getCustomerName()).isEqualTo("홍길동");
+                            assertThat(account.getUsedAmount())
+                                    .isEqualByComparingTo(BigDecimal.valueOf(1_050L));
+                        });
     }
 
     @Test
