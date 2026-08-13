@@ -23,6 +23,7 @@ import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.withdrawal.dto.LeftAmountDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalDTO;
+import com.app.maria.domain.withdrawal.dto.WithdrawalResultDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
 import com.app.maria.domain.withdrawal.exception.EarlyWithdrawalConsentRequiredException;
 import com.app.maria.domain.withdrawal.exception.InsufficientWithdrawalAmountException;
@@ -83,6 +84,69 @@ class WithdrawalServiceImplTest {
         assertThatThrownBy(() -> withdrawalService.withdraw(request("100")))
                 .isInstanceOf(WithdrawalNotAllowedException.class);
         verifyNoInteractions(withdrawalMapper, businessClockService);
+    }
+
+    @Test
+    void regularWithdrawalRejectsClosureRequestedAccount() {
+        prepareExternalValidation(
+                account(Status.CLOSURE_REQUESTED, "300"), GeneralAccountStatus.ACTIVE);
+        when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
+                .thenReturn(Optional.of(account(Status.CLOSURE_REQUESTED, "300")));
+
+        assertThatThrownBy(() -> withdrawalService.withdraw(request("100")))
+                .isInstanceOf(WithdrawalNotAllowedException.class)
+                .hasMessage("현재 계좌 상태에서는 인출할 수 없습니다.");
+
+        verifyNoInteractions(withdrawalMapper, businessClockService);
+    }
+
+    @Test
+    void closureWithdrawalAllowsClosureRequestedAccount() {
+        AccountDTO closureRequestedAccount = account(Status.CLOSURE_REQUESTED, "300");
+        prepareExternalValidation(closureRequestedAccount, GeneralAccountStatus.ACTIVE);
+        when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
+                .thenReturn(Optional.of(closureRequestedAccount));
+        when(withdrawalMapper.selectAvailableLeftAmountsByAccountId(ACCOUNT_ID))
+                .thenReturn(List.of(leftAmount(10L, "300", NOW.minusYears(2))));
+        when(businessClockService.now()).thenReturn(NOW);
+        preparePersistenceSuccess();
+
+        WithdrawalResultDTO result = withdrawalService.withdrawForClosure(request("300"));
+
+        assertThat(result.getWithdrawalId()).isEqualTo(WITHDRAWAL_ID);
+        assertThat(result.getAllocations()).singleElement();
+        verify(withdrawalMapper).deductAccountAmount(ACCOUNT_ID, new BigDecimal("300"));
+        verify(withdrawalMapper).updateWithdrawalStatus(WITHDRAWAL_ID, WithdrawalStatus.COMPLETED);
+    }
+
+    @Test
+    void principalOneSecondBeforeMaturityIsImmature() {
+        when(withdrawalMapper.selectAvailableLeftAmountsByAccountId(ACCOUNT_ID))
+                .thenReturn(List.of(leftAmount(10L, "300", NOW.minusYears(1).plusSeconds(1))));
+        when(businessClockService.now()).thenReturn(NOW);
+
+        assertThat(withdrawalService.hasImmaturePrincipal(ACCOUNT_ID)).isTrue();
+    }
+
+    @Test
+    void principalExactlyAtMaturityIsNotImmature() {
+        when(withdrawalMapper.selectAvailableLeftAmountsByAccountId(ACCOUNT_ID))
+                .thenReturn(List.of(leftAmount(10L, "300", NOW.minusYears(1))));
+        when(businessClockService.now()).thenReturn(NOW);
+
+        assertThat(withdrawalService.hasImmaturePrincipal(ACCOUNT_ID)).isFalse();
+    }
+
+    @Test
+    void anyImmaturePrincipalMakesClosureConsentNecessary() {
+        when(withdrawalMapper.selectAvailableLeftAmountsByAccountId(ACCOUNT_ID))
+                .thenReturn(
+                        List.of(
+                                leftAmount(10L, "300", NOW.minusYears(2)),
+                                leftAmount(11L, "200", NOW.minusMonths(6))));
+        when(businessClockService.now()).thenReturn(NOW);
+
+        assertThat(withdrawalService.hasImmaturePrincipal(ACCOUNT_ID)).isTrue();
     }
 
     @Test
