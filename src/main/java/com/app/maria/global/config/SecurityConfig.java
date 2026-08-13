@@ -37,6 +37,7 @@ public class SecurityConfig {
         "/admin/target-products",
         "/admin/sell-orders",
         "/admin/account",
+        "/admin/audit-log",
         "/admin/settlement",
 
         // JWT 인증 API

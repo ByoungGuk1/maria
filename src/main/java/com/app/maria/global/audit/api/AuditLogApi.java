@@ -4,8 +4,8 @@ import com.app.maria.global.audit.dto.request.AuditLogSearchRequestDTO;
 import com.app.maria.global.audit.dto.response.AuditLogResponseDTO;
 import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.response.ApiResponseDTO;
+import com.app.maria.global.response.PageResponseDTO;
 import jakarta.validation.Valid;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,9 +21,9 @@ public class AuditLogApi {
     private final AuditLogService auditLogService;
 
     @GetMapping
-    public ResponseEntity<ApiResponseDTO<List<AuditLogResponseDTO>>> searchAuditLogs(
+    public ResponseEntity<ApiResponseDTO<PageResponseDTO<AuditLogResponseDTO>>> searchAuditLogs(
             @Valid @ModelAttribute AuditLogSearchRequestDTO requestDTO) {
-        List<AuditLogResponseDTO> result = auditLogService.searchAuditLogs(requestDTO);
+        PageResponseDTO<AuditLogResponseDTO> result = auditLogService.searchAuditLogs(requestDTO);
         return ResponseEntity.ok(ApiResponseDTO.of("감사로그 조회 성공", result));
     }
 }

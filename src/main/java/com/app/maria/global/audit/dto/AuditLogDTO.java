@@ -19,4 +19,9 @@ public class AuditLogDTO {
     private String afterValue;
     private String reasonCode;
     private LocalDateTime processedAt;
+    private String adminName;
+    private String adminRole;
+
+    private String targetAdminName;
+    private String targetAccountNo;
 }
