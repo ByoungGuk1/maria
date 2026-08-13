@@ -117,8 +117,7 @@ class AccountTransactionalServiceImplTest {
 
         service.apply(account(Status.APPLIED, LIMIT), NOW, true);
 
-        verify(accountLogService)
-                .recordBenefitChange(opened, null, NOW, "계좌 개설에 따른 세제혜택 가능");
+        verify(accountLogService).recordBenefitChange(opened, null, NOW, "계좌 개설에 따른 세제혜택 가능");
     }
 
     @Test
@@ -158,8 +157,7 @@ class AccountTransactionalServiceImplTest {
 
         service.override(ACCOUNT_ID, "관리자 오버라이드 승인", NOW);
 
-        verify(accountLogService)
-                .recordBenefitChange(opened, null, NOW, "계좌 개설에 따른 세제혜택 가능");
+        verify(accountLogService).recordBenefitChange(opened, null, NOW, "계좌 개설에 따른 세제혜택 가능");
     }
 
     @Test
