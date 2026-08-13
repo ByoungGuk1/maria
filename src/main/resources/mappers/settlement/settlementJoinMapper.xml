@@ -18,7 +18,13 @@
             ke.order_id,
             ke.provisional_amount,
             ke.provisional_at,
+            ke.final_rate,
+            ke.final_amount,
+            ke.final_at,
             ke.settlement_status,
+            a.account_no,
+            fp.ticker,
+            fp.name AS product_name,
             so.settlement_fx_rate,
             so.status AS sell_order_status,
             ind.purchase_currency
@@ -27,6 +33,10 @@
             ON ke.exchange_id = si.exchange_id
         INNER JOIN sell_order so
             ON so.order_id = ke.order_id
+        INNER JOIN account a
+            ON a.account_id = ke.account_id
+        INNER JOIN foreign_product fp
+            ON fp.foreign_product_id = so.foreign_product_id
         INNER JOIN inbound_detail ind
             ON ind.inbound_detail_id = so.inbound_detail_id
         WHERE si.batch_id = #{batchId}
@@ -48,7 +58,13 @@
             ke.order_id,
             ke.provisional_amount,
             ke.provisional_at,
+            ke.final_rate,
+            ke.final_amount,
+            ke.final_at,
             ke.settlement_status,
+            a.account_no,
+            fp.ticker,
+            fp.name AS product_name,
             so.settlement_fx_rate,
             so.status AS sell_order_status,
             ind.purchase_currency
@@ -57,6 +73,10 @@
             ON ke.exchange_id = si.exchange_id
         INNER JOIN sell_order so
             ON so.order_id = ke.order_id
+        INNER JOIN account a
+            ON a.account_id = ke.account_id
+        INNER JOIN foreign_product fp
+            ON fp.foreign_product_id = so.foreign_product_id
         INNER JOIN inbound_detail ind
             ON ind.inbound_detail_id = so.inbound_detail_id
         WHERE si.batch_id = #{batchId}
@@ -76,7 +96,13 @@
             ke.order_id,
             ke.provisional_amount,
             ke.provisional_at,
+            ke.final_rate,
+            ke.final_amount,
+            ke.final_at,
             ke.settlement_status,
+            a.account_no,
+            fp.ticker,
+            fp.name AS product_name,
             so.settlement_fx_rate,
             so.status AS sell_order_status,
             ind.purchase_currency
@@ -85,6 +111,10 @@
             ON ke.exchange_id = si.exchange_id
         JOIN sell_order so
             ON so.order_id = ke.order_id
+        JOIN account a
+            ON a.account_id = ke.account_id
+        JOIN foreign_product fp
+            ON fp.foreign_product_id = so.foreign_product_id
         JOIN inbound_detail ind
             ON ind.inbound_detail_id = so.inbound_detail_id
         WHERE si.batch_id = #{batchId}
@@ -103,7 +133,13 @@
             ke.order_id,
             ke.provisional_amount,
             ke.provisional_at,
+            ke.final_rate,
+            ke.final_amount,
+            ke.final_at,
             ke.settlement_status,
+            a.account_no,
+            fp.ticker,
+            fp.name AS product_name,
             so.settlement_fx_rate,
             so.status AS sell_order_status,
             ind.purchase_currency
@@ -112,6 +148,10 @@
             ON ke.exchange_id = si.exchange_id
         JOIN sell_order so
             ON so.order_id = ke.order_id
+        JOIN account a
+            ON a.account_id = ke.account_id
+        JOIN foreign_product fp
+            ON fp.foreign_product_id = so.foreign_product_id
         JOIN inbound_detail ind
             ON ind.inbound_detail_id = so.inbound_detail_id
         WHERE si.batch_id = #{batchId}
