@@ -361,6 +361,7 @@ class TargetProductMapperTest {
     @DisplayName("오늘 판정 건수는 judged_at이 오늘 날짜인 행만 센다")
     void selectSummaryCountsOnlyTodaysJudgements() {
         LocalDate today = LocalDate.of(2026, 8, 7);
+        LocalDate tomorrow = today.plusDays(1);
         targetProductMapper.insertJudgement(
                 baseBuilder(40L).judgedAt(LocalDateTime.of(2026, 8, 7, 9, 0)).build());
         targetProductMapper.insertJudgement(
@@ -368,15 +369,31 @@ class TargetProductMapperTest {
         targetProductMapper.insertJudgement(
                 baseBuilder(42L).judgedAt(LocalDateTime.of(2026, 8, 6, 23, 59)).build());
 
-        TargetProductSummaryDTO summary = targetProductMapper.selectSummary(today);
+        TargetProductSummaryDTO summary = targetProductMapper.selectSummary(today, tomorrow);
 
         assertThat(summary.getTodayJudgementCount()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("judged_at이 오늘 자정 정각이면 포함되고, 다음날 자정 정각이면 제외된다")
+    void selectSummaryIncludesTodayMidnightAndExcludesTomorrowMidnight() {
+        LocalDate today = LocalDate.of(2026, 8, 7);
+        LocalDate tomorrow = today.plusDays(1);
+        targetProductMapper.insertJudgement(
+                baseBuilder(46L).judgedAt(LocalDateTime.of(2026, 8, 7, 0, 0)).build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(47L).judgedAt(LocalDateTime.of(2026, 8, 8, 0, 0)).build());
+
+        TargetProductSummaryDTO summary = targetProductMapper.selectSummary(today, tomorrow);
+
+        assertThat(summary.getTodayJudgementCount()).isEqualTo(1);
     }
 
     @Test
     @DisplayName("오늘 대상상품 건수와 순매수 합계는 isTarget이 true인 행만 집계한다")
     void selectSummaryCountsAndSumsTargetJudgementsOnly() {
         LocalDate today = LocalDate.of(2026, 8, 7);
+        LocalDate tomorrow = today.plusDays(1);
         targetProductMapper.insertJudgement(
                 baseBuilder(43L)
                         .judgedAt(LocalDateTime.of(2026, 8, 7, 9, 0))
@@ -396,7 +413,7 @@ class TargetProductMapperTest {
                         .netBuyAmount(new BigDecimal("2000000.00"))
                         .build());
 
-        TargetProductSummaryDTO summary = targetProductMapper.selectSummary(today);
+        TargetProductSummaryDTO summary = targetProductMapper.selectSummary(today, tomorrow);
 
         assertThat(summary.getTodayTargetCount()).isEqualTo(2);
         assertThat(summary.getTodayTargetNetBuyAmount()).isEqualByComparingTo("1500000.00");
@@ -406,8 +423,9 @@ class TargetProductMapperTest {
     @DisplayName("오늘 판정이 없으면 건수와 합계 모두 0을 반환한다(NULL이 아니라)")
     void selectSummaryReturnsZeroWhenNoJudgementsToday() {
         LocalDate today = LocalDate.of(2026, 8, 7);
+        LocalDate tomorrow = today.plusDays(1);
 
-        TargetProductSummaryDTO summary = targetProductMapper.selectSummary(today);
+        TargetProductSummaryDTO summary = targetProductMapper.selectSummary(today, tomorrow);
 
         assertThat(summary.getTodayJudgementCount()).isEqualTo(0);
         assertThat(summary.getTodayTargetCount()).isEqualTo(0);
