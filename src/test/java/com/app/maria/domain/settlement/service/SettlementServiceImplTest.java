@@ -128,7 +128,7 @@ class SettlementServiceImplTest {
                 BATCH_ID,
                 null,
                 "RUNNING",
-                SettlementAuditLogReasonCode.SETTLEMENT_BATCH_EXECUTION_REQUESTED);
+                SettlementAuditLogReasonCode.SETTLEMENT_BATCH_REQUESTED);
     }
 
     @Test
@@ -173,7 +173,7 @@ class SettlementServiceImplTest {
                 BATCH_ID,
                 "COMPLETED",
                 "COMPLETED",
-                SettlementAuditLogReasonCode.SETTLEMENT_BATCH_EXECUTION_REQUESTED);
+                SettlementAuditLogReasonCode.SETTLEMENT_BATCH_REQUESTED);
     }
 
     @Test

@@ -93,7 +93,7 @@ public class SettlementServiceImpl implements SettlementService {
                                                     existingBatch.getStatus().name(),
                                                     existingBatch.getStatus().name(),
                                                     SettlementAuditLogReasonCode
-                                                            .SETTLEMENT_BATCH_EXECUTION_REQUESTED);
+                                                            .SETTLEMENT_BATCH_REQUESTED);
                                         }
                                         return new BatchLaunchResult(existingBatch, false);
                                     }
@@ -120,7 +120,7 @@ public class SettlementServiceImpl implements SettlementService {
                                                 null,
                                                 newBatch.getStatus().name(),
                                                 SettlementAuditLogReasonCode
-                                                        .SETTLEMENT_BATCH_EXECUTION_REQUESTED);
+                                                        .SETTLEMENT_BATCH_REQUESTED);
                                     }
                                     return new BatchLaunchResult(newBatch, true);
                                 });
