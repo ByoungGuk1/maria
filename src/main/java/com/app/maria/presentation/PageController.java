@@ -23,6 +23,12 @@ public class PageController {
         return "dashboard";
     }
 
+    @GetMapping("/admin/target-products")
+    public String targetProducts(Model model) {
+        model.addAttribute("activePath", "/admin/target-products");
+        return "target-products";
+    }
+
     @GetMapping("/admin/sell-orders")
     public String sellOrders(Model model) {
         model.addAttribute("activePath", "/admin/sell-orders");
@@ -40,5 +46,4 @@ public class PageController {
         model.addAttribute("activePath", "/admin/audit-log");
         return "audit-log";
     }
-
 }
