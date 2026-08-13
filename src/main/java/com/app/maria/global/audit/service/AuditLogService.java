@@ -10,5 +10,4 @@ public interface AuditLogService {
     PageResponseDTO<AuditLogResponseDTO> searchAuditLogs(AuditLogSearchRequestDTO requestDTO);
 
     void log(AuditLogDTO auditLogDTO);
-
 }

@@ -22,5 +22,6 @@ public interface TargetProductMapper {
 
     int countFilteredJudgements(TargetProductSearchDTO searchDTO);
 
-    TargetProductSummaryDTO selectSummary(@Param("today") LocalDate today, @Param("tomorrow") LocalDate tomorrow);
+    TargetProductSummaryDTO selectSummary(
+            @Param("today") LocalDate today, @Param("tomorrow") LocalDate tomorrow);
 }

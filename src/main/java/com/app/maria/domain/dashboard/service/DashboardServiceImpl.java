@@ -54,7 +54,9 @@ public class DashboardServiceImpl implements DashboardService {
         List<AuditLogResponseDTO> recentAuditLogs =
                 auditLogService
                         .searchAuditLogs(
-                                AuditLogSearchRequestDTO.builder().size(RECENT_AUDIT_LOG_LIMIT).build())
+                                AuditLogSearchRequestDTO.builder()
+                                        .size(RECENT_AUDIT_LOG_LIMIT)
+                                        .build())
                         .getContent();
 
         return DashboardSummaryDTO.builder()

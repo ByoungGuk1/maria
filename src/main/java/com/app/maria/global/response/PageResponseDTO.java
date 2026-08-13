@@ -1,10 +1,9 @@
 package com.app.maria.global.response;
 
+import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
-
-import java.util.List;
 
 @Getter
 @ToString
@@ -24,5 +23,4 @@ public class PageResponseDTO<T> {
                 .size(size)
                 .build();
     }
-
 }

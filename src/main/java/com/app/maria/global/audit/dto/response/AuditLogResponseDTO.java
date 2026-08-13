@@ -1,9 +1,8 @@
 package com.app.maria.global.audit.dto.response;
 
 import com.app.maria.global.audit.dto.AuditLogDTO;
-import lombok.*;
-
 import java.time.LocalDateTime;
+import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor

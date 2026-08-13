@@ -75,7 +75,8 @@ class AuditLogServiceImplTest {
     @Test
     @DisplayName("page/size로 offset을 계산해 Mapper에 전달한다")
     void searchAuditLogsComputesOffsetFromPageAndSize() {
-        AuditLogSearchRequestDTO request = AuditLogSearchRequestDTO.builder().page(2).size(10).build();
+        AuditLogSearchRequestDTO request =
+                AuditLogSearchRequestDTO.builder().page(2).size(10).build();
         when(auditLogMapper.selectAuditLogs(any())).thenReturn(List.of());
         when(auditLogMapper.countAuditLogs(any())).thenReturn(0L);
 

@@ -69,7 +69,8 @@ class DashboardServiceImplTest {
         when(accountService.getAppliedAccounts()).thenReturn(List.of());
         SettlementBatchDTO batch = SettlementBatchDTO.builder().batchId(100L).build();
         when(settlementService.getSettlementBatches()).thenReturn(List.of(batch));
-        when(auditLogService.searchAuditLogs(any())).thenReturn(PageResponseDTO.of(List.of(), 0L, 0, 4));
+        when(auditLogService.searchAuditLogs(any()))
+                .thenReturn(PageResponseDTO.of(List.of(), 0L, 0, 4));
 
         DashboardSummaryDTO result = service.getDashboardSummary();
 
@@ -212,7 +213,8 @@ class DashboardServiceImplTest {
     private void stubUnrelatedDependencies() {
         when(businessClockService.now()).thenReturn(LocalDateTime.of(2026, 8, 11, 10, 0));
         when(settlementService.getSettlementBatches()).thenReturn(List.of());
-        when(auditLogService.searchAuditLogs(any())).thenReturn(PageResponseDTO.of(List.of(), 0L, 0, 4));
+        when(auditLogService.searchAuditLogs(any()))
+                .thenReturn(PageResponseDTO.of(List.of(), 0L, 0, 4));
     }
 
     private AccountLimitUsageResponseDTO accountUsage(
