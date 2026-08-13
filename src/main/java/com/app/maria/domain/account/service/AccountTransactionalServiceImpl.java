@@ -107,12 +107,12 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
         accountLogService.recordStatusChange(openedAccount, Status.APPLIED, appliedAt, "자동 판정 승인");
         assertBenefit(openedAccount, BenefitType.POSSIBLE);
         accountLogService.recordBenefitChange(openedAccount, null, appliedAt, "계좌 개설에 따른 세제혜택 가능");
-      logAudit(
-          adminId,
-          openedAccount.getAccountId(),
-          Status.APPLIED.name(),
-          openedAccount.getStatus().name(),
-          AuditLogReasonCode.ACCOUNT_OPENED);
+        logAudit(
+                adminId,
+                openedAccount.getAccountId(),
+                Status.APPLIED.name(),
+                openedAccount.getStatus().name(),
+                AuditLogReasonCode.ACCOUNT_OPENED);
         return openedAccount;
     }
 
@@ -127,9 +127,9 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
         assertStatus(openedAccount, Status.OPENED);
         accountLogService.recordStatusChange(
                 openedAccount, account.getStatus(), openedAt, "사용자 계좌 개설");
-      assertBenefit(openedAccount, BenefitType.POSSIBLE);
-      accountLogService.recordBenefitChange(openedAccount, null, openedAt, "계좌 개설에 따른 세제혜택 가능");
-      logAudit(
+        assertBenefit(openedAccount, BenefitType.POSSIBLE);
+        accountLogService.recordBenefitChange(openedAccount, null, openedAt, "계좌 개설에 따른 세제혜택 가능");
+        logAudit(
                 adminId,
                 openedAccount.getAccountId(),
                 account.getStatus().name(),

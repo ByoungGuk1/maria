@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -13,8 +14,8 @@ import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.exception.AccountException;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
-import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.AuditLogReasonCode;
+import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.global.audit.dto.AuditLogDTO;
 import com.app.maria.global.audit.service.AuditLogService;
@@ -148,9 +149,21 @@ class AccountTransactionalServiceImplTest {
                 .thenReturn(Optional.of(applied), Optional.of(opened));
         when(accountMapper.approve(any(AccountDTO.class))).thenReturn(1);
 
-        service.apply(account(Status.APPLIED, LIMIT), NOW, true);
+        service.apply(ADMIN_ID, account(Status.APPLIED, LIMIT), NOW, true);
 
         verify(accountLogService).recordBenefitChange(opened, null, NOW, "계좌 개설에 따른 세제혜택 가능");
+        ArgumentCaptor<AuditLogDTO> auditLogCaptor = ArgumentCaptor.forClass(AuditLogDTO.class);
+        verify(auditLogService, times(2)).log(auditLogCaptor.capture());
+        assertThat(auditLogCaptor.getAllValues())
+                .extracting(
+                        AuditLogDTO::getBeforeValue,
+                        AuditLogDTO::getAfterValue,
+                        AuditLogDTO::getReasonCode)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(
+                                null, "APPLIED", AuditLogReasonCode.ACCOUNT_APPLY.name()),
+                        org.assertj.core.groups.Tuple.tuple(
+                                "APPLIED", "OPENED", AuditLogReasonCode.ACCOUNT_OPENED.name()));
     }
 
     @Test
@@ -206,9 +219,10 @@ class AccountTransactionalServiceImplTest {
                 .thenReturn(Optional.of(rejected), Optional.of(opened));
         when(accountMapper.overrideToOpened(any(AccountDTO.class))).thenReturn(1);
 
-        service.override(ACCOUNT_ID, "관리자 오버라이드 승인", NOW);
+        service.override(ADMIN_ID, ACCOUNT_ID, "관리자 오버라이드 승인", NOW);
 
         verify(accountLogService).recordBenefitChange(opened, null, NOW, "계좌 개설에 따른 세제혜택 가능");
+        assertAuditLog("REJECTED", "OPENED", AuditLogReasonCode.ACCOUNT_OVERRIDE_OPENED);
     }
 
     @Test
@@ -227,7 +241,7 @@ class AccountTransactionalServiceImplTest {
     @Test
     void overrideWritesAuditLogWithStatusTransition() {
         AccountDTO rejected = account(Status.REJECTED, LIMIT);
-        AccountDTO opened = account(Status.OPENED, LIMIT);
+        AccountDTO opened = openedAccount();
         when(accountMapper.selectByAccountId(ACCOUNT_ID))
                 .thenReturn(Optional.of(rejected), Optional.of(opened));
         when(accountMapper.overrideToOpened(any(AccountDTO.class))).thenReturn(1);
