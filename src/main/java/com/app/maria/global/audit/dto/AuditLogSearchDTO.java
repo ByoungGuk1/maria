@@ -21,6 +21,7 @@ public class AuditLogSearchDTO {
 
     private String reasonKeyword;
     private List<String> matchedReasonCodes;
+    private List<String> knownReasonCodes;
 
     private LocalDateTime startDate;
     private LocalDateTime endDate;

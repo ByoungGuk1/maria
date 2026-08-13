@@ -18,10 +18,19 @@ import lombok.*;
 public class AuditLogSearchRequestDTO {
 
     private static final Map<String, String> REASON_CODE_LABELS =
-            Map.of(
-                    "ADMIN_ROLE_UPDATE", "관리자 권한 변경",
-                    "SELL_ORDER_EXECUTED", "매도 체결",
-                    "SELL_ORDER_REJECTED", "매도 반려");
+            Map.ofEntries(
+                    Map.entry("ADMIN_ROLE_UPDATE", "관리자 권한 변경"),
+                    Map.entry("SELL_ORDER_EXECUTED", "매도 체결"),
+                    Map.entry("SELL_ORDER_REJECTED", "매도 반려"),
+                    Map.entry("ACCOUNT_APPLY", "계좌 개설 신청"),
+                    Map.entry("ACCOUNT_REAPPLY", "계좌 재신청"),
+                    Map.entry("ACCOUNT_CHANGE_LIMIT_AMOUNT", "한도 변경"),
+                    Map.entry("ACCOUNT_OPENED", "계좌 개설"),
+                    Map.entry("ACCOUNT_REJECTED", "계좌 반려"),
+                    Map.entry("ACCOUNT_OVERRIDE_OPENED", "계좌 오버라이드 개설"),
+                    Map.entry("SETTLEMENT_BATCH_REQUESTED", "정산 배치 실행 요청"),
+                    Map.entry("SETTLEMENT_BATCH_RETRIED", "정산 배치 재처리"),
+                    Map.entry("SETTLEMENT_ITEM_RETRIED", "정산 항목 재처리"));
 
     private static final Map<String, String> ROLE_LABELS =
             Map.of(
@@ -71,6 +80,7 @@ public class AuditLogSearchRequestDTO {
                 .targetKeyword(targetKeyword)
                 .reasonKeyword(reasonKeyword)
                 .matchedReasonCodes(matchLabels(reasonKeyword, REASON_CODE_LABELS))
+                .knownReasonCodes(List.copyOf(REASON_CODE_LABELS.keySet()))
                 .startDate(startDate)
                 .endDate(endDate)
                 .size(size)

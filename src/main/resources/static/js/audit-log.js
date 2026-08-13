@@ -2,12 +2,24 @@ $(function () {
     var TARGET_TABLE_LABEL = {
         ADMIN_USER: "관리자",
         SELL_ORDER: "매도주문",
-        SYSTEM_CLOCK: "시스템 시각"
+        SYSTEM_CLOCK: "시스템 시각",
+        ACCOUNT: "계좌",
+        SETTLEMENT_BATCH: "정산배치",
+        SETTLEMENT_ITEM: "정산항목"
     };
     var REASON_CODE_LABEL = {
         ADMIN_ROLE_UPDATE: "관리자 권한 변경",
         SELL_ORDER_EXECUTED: "매도 체결",
-        SELL_ORDER_REJECTED: "매도 반려"
+        SELL_ORDER_REJECTED: "매도 반려",
+        ACCOUNT_APPLY: "계좌 개설 신청",
+        ACCOUNT_REAPPLY: "계좌 재신청",
+        ACCOUNT_CHANGE_LIMIT_AMOUNT: "한도 변경",
+        ACCOUNT_OPENED: "계좌 개설",
+        ACCOUNT_REJECTED: "계좌 반려",
+        ACCOUNT_OVERRIDE_OPENED: "계좌 오버라이드 개설",
+        SETTLEMENT_BATCH_REQUESTED: "정산 배치 실행 요청",
+        SETTLEMENT_BATCH_RETRIED: "정산 배치 재처리",
+        SETTLEMENT_ITEM_RETRIED: "정산 항목 재처리"
     };
     var ROLE_LABEL = {
         VIEWER: "조회전용",
@@ -33,7 +45,10 @@ $(function () {
     var TARGET_TABLE_BADGE_CLASS = {
         ADMIN_USER: "type-admin-user",
         SELL_ORDER: "type-sell-order",
-        SYSTEM_CLOCK: "type-system-clock"
+        SYSTEM_CLOCK: "type-system-clock",
+        ACCOUNT: "type-account",
+        SETTLEMENT_BATCH: "type-settlement-batch",
+        SETTLEMENT_ITEM: "type-settlement-item"
     };
 
     function targetTableLabel(value) {

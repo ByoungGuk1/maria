@@ -178,6 +178,70 @@ class AuditLogMapperTest {
     }
 
     @Test
+    @DisplayName("작업유형이 ACCOUNT면 account를 직접 join해서 계좌번호를 targetOwnerAccountNo로 조회한다")
+    void selectAuditLogsResolvesAccountTargetOwnerAccountNo() throws SQLException {
+        insertAccount(200L, "9000000001");
+        auditLogMapper.insertLog(auditLog(1L, "ACCOUNT", "200", "ACCOUNT_OPENED"));
+
+        List<AuditLogDTO> result = auditLogMapper.selectAuditLogs(searchDefaults().build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTargetOwnerAccountNo()).isEqualTo("9000000001");
+    }
+
+    @Test
+    @DisplayName("targetKeyword가 ACCOUNT 대상 계좌번호에 포함되면 매치된다 (account 직접 join)")
+    void selectAuditLogsFiltersByTargetKeywordMatchingAccountOwnerAccountNo() throws SQLException {
+        insertAccount(200L, "9000000001");
+        auditLogMapper.insertLog(auditLog(1L, "ACCOUNT", "200", "ACCOUNT_OPENED"));
+
+        List<AuditLogDTO> result =
+                auditLogMapper.selectAuditLogs(
+                        searchDefaults().targetKeyword("9000000001").build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTargetOwnerAccountNo()).isEqualTo("9000000001");
+    }
+
+    @Test
+    @DisplayName("작업유형이 SETTLEMENT_BATCH면 settlement_batch를 직접 join해서 executed_at을 조회한다")
+    void selectAuditLogsResolvesSettlementBatchExecutedAt() throws SQLException {
+        insertSettlementBatch(300L, "2026-08-13 09:00:00");
+        auditLogMapper.insertLog(
+                auditLog(1L, "SETTLEMENT_BATCH", "300", "SETTLEMENT_BATCH_REQUESTED"));
+
+        List<AuditLogDTO> result = auditLogMapper.selectAuditLogs(searchDefaults().build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTargetBatchExecutedAt())
+                .isEqualTo(LocalDateTime.of(2026, 8, 13, 9, 0));
+    }
+
+    @Test
+    @DisplayName("대응하는 settlement_batch가 없어도 조회는 되고, executed_at은 null이다")
+    void selectAuditLogsLeavesTargetBatchExecutedAtNullWhenBatchMissing() {
+        auditLogMapper.insertLog(
+                auditLog(1L, "SETTLEMENT_BATCH", "999", "SETTLEMENT_BATCH_REQUESTED"));
+
+        List<AuditLogDTO> result = auditLogMapper.selectAuditLogs(searchDefaults().build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTargetBatchExecutedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("작업유형이 SETTLEMENT_ITEM이면 settlement_batch join과 무관하게 정상 조회된다 (join 대상 아님)")
+    void selectAuditLogsHandlesSettlementItemWithoutBatchJoin() {
+        auditLogMapper.insertLog(auditLog(1L, "SETTLEMENT_ITEM", "46", "SETTLEMENT_ITEM_RETRIED"));
+
+        List<AuditLogDTO> result = auditLogMapper.selectAuditLogs(searchDefaults().build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTargetBatchExecutedAt()).isNull();
+        assertThat(result.get(0).getTargetPk()).isEqualTo("46");
+    }
+
+    @Test
     @DisplayName("targetKeyword가 target_pk 원문에 포함되면 매치된다")
     void selectAuditLogsFiltersByTargetKeywordMatchingRawTargetPk() {
         auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "12345", "SELL_ORDER_EXECUTED"));
@@ -218,6 +282,36 @@ class AuditLogMapperTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getReasonCode()).isEqualTo("SELL_ORDER_REJECTED");
+    }
+
+    @Test
+    @DisplayName(
+            "knownReasonCodes에 있는(=한글 라벨이 있는) 코드는 원문 부분일치로 안 잡히고, 라벨 없는 자유텍스트만 원문으로 잡힌다"
+                    + " (화면엔 라벨만 보이는데 원문으로 걸리면 화면과 검색이 안 맞는 문제 방지)")
+    void selectAuditLogsExcludesKnownReasonCodesFromRawTextMatch() {
+        auditLogMapper.insertLog(auditLog(1L, "ADMIN_USER", "2", "ADMIN_ROLE_UPDATE"));
+        auditLogMapper.insertLog(auditLog(1L, "SYSTEM_CLOCK", "1", "test-debug"));
+
+        List<AuditLogDTO> result =
+                auditLogMapper.selectAuditLogs(
+                        searchDefaults()
+                                .reasonKeyword("t")
+                                .knownReasonCodes(List.of("ADMIN_ROLE_UPDATE"))
+                                .build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getReasonCode()).isEqualTo("test-debug");
+    }
+
+    @Test
+    @DisplayName("knownReasonCodes가 비어있으면(=null) 기존처럼 원문 매칭이 전부 적용된다")
+    void selectAuditLogsAppliesRawTextMatchToAllCodesWhenKnownReasonCodesAbsent() {
+        auditLogMapper.insertLog(auditLog(1L, "ADMIN_USER", "2", "ADMIN_ROLE_UPDATE"));
+
+        List<AuditLogDTO> result =
+                auditLogMapper.selectAuditLogs(searchDefaults().reasonKeyword("UPDATE").build());
+
+        assertThat(result).hasSize(1);
     }
 
     @Test
@@ -346,27 +440,33 @@ class AuditLogMapperTest {
 
     @Test
     @DisplayName(
-            "countAuditLogs도 adminKeyword/targetKeyword 조건에 필요한 join(admin_user×2, sell_order, account)이 걸려있어 에러 없이 동작한다")
+            "countAuditLogs도 adminKeyword/targetKeyword 조건에 필요한 join(admin_user×2, sell_order, account×2)이 걸려있어 에러 없이 동작한다")
     void countAuditLogsWorksWithFieldFiltersRequiringAllJoins() throws SQLException {
         insertAdmin(1L, "박지훈", "REVIEWER");
         insertAdmin(2L, "이국희", "VIEWER");
         insertAccount(100L, "1234567890");
         insertSellOrder(50L, 100L);
+        insertAccount(200L, "9000000001");
         auditLogMapper.insertLog(auditLog(1L, "ADMIN_USER", "2", "ADMIN_ROLE_UPDATE"));
         auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "50", "SELL_ORDER_EXECUTED"));
+        auditLogMapper.insertLog(auditLog(1L, "ACCOUNT", "200", "ACCOUNT_OPENED"));
 
-        // adminKeyword는 au.name, targetKeyword는 target_admin.name/acc.account_no를 참조하는
-        // WHERE 절을 타므로, 4개 조인이 select뿐 아니라 count에도 없으면 "Unknown column" 에러가 난다.
+        // adminKeyword는 au.name, targetKeyword는
+        // target_admin.name/acc.account_no/target_account.account_no를
+        // 참조하는 WHERE 절을 타므로, 5개 조인이 select뿐 아니라 count에도 없으면 "Unknown column" 에러가 난다.
         long totalForActor =
                 auditLogMapper.countAuditLogs(searchDefaults().adminKeyword("박지훈").build());
         long totalForTargetAdmin =
                 auditLogMapper.countAuditLogs(searchDefaults().targetKeyword("이국희").build());
         long totalForAccountNo =
                 auditLogMapper.countAuditLogs(searchDefaults().targetKeyword("1234567890").build());
+        long totalForAccountOwnerAccountNo =
+                auditLogMapper.countAuditLogs(searchDefaults().targetKeyword("9000000001").build());
 
-        assertThat(totalForActor).isEqualTo(2);
+        assertThat(totalForActor).isEqualTo(3);
         assertThat(totalForTargetAdmin).isEqualTo(1);
         assertThat(totalForAccountNo).isEqualTo(1);
+        assertThat(totalForAccountOwnerAccountNo).isEqualTo(1);
     }
 
     private void insertAdmin(Long adminId, String name, String role) throws SQLException {
@@ -404,6 +504,18 @@ class AuditLogMapperTest {
                             + ", "
                             + accountId
                             + ")");
+        }
+    }
+
+    private void insertSettlementBatch(Long batchId, String executedAt) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "INSERT INTO settlement_batch (batch_id, executed_at) VALUES ("
+                            + batchId
+                            + ", '"
+                            + executedAt
+                            + "')");
         }
     }
 
@@ -456,6 +568,13 @@ class AuditLogMapperTest {
                     CREATE TABLE sell_order (
                         order_id   BIGINT AUTO_INCREMENT PRIMARY KEY,
                         account_id BIGINT NOT NULL
+                    )
+                    """);
+            statement.execute(
+                    """
+                    CREATE TABLE settlement_batch (
+                        batch_id    BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        executed_at DATETIME NOT NULL
                     )
                     """);
             statement.execute(

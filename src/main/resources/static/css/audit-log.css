@@ -131,6 +131,17 @@
     background: var(--successBg);
 }
 
+.audit-log-target-badge.type-account {
+    color: var(--info);
+    background: var(--infoBg);
+}
+
+.audit-log-target-badge.type-settlement-batch,
+.audit-log-target-badge.type-settlement-item {
+    color: var(--teal);
+    background: var(--tealBg);
+}
+
 .audit-log-target-name {
     color: var(--textPrimary);
     font-weight: 500;
