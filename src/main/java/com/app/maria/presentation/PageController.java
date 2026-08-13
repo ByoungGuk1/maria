@@ -34,4 +34,11 @@ public class PageController {
         model.addAttribute("activePath", "/admin/account");
         return "account-management";
     }
+
+    @GetMapping("/admin/audit-log")
+    public String audit(Model model) {
+        model.addAttribute("activePath", "/admin/audit-log");
+        return "audit-log";
+    }
+
 }
