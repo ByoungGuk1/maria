@@ -48,20 +48,12 @@ $(function () {
 
     function buildSearchParams() {
         var params = { page: currentPage, size: PAGE_SIZE };
-        var targetTable = $("#auditTargetTableFilter").val();
-        var adminId = $("#auditAdminIdFilter").val();
-        var reasonCode = ($("#auditReasonCodeFilter").val() || "").trim();
+        var keyword = ($("#auditKeywordFilter").val() || "").trim();
         var startDate = $("#auditStartDateFilter").val();
         var endDate = $("#auditEndDateFilter").val();
 
-        if (targetTable) {
-            params.targetTable = targetTable;
-        }
-        if (adminId) {
-            params.adminId = adminId;
-        }
-        if (reasonCode) {
-            params.reasonCode = reasonCode;
+        if (keyword) {
+            params.keyword = keyword;
         }
         if (startDate) {
             params.startDate = startDate;
@@ -77,20 +69,21 @@ $(function () {
 
         if (!logs.length) {
             $body.append(
-                '<tr><td colspan="6" class="audit-log-empty">조회된 감사로그가 없습니다.</td></tr>'
+                '<tr><td colspan="7" class="audit-log-empty">조회된 감사로그가 없습니다.</td></tr>'
             );
             return;
         }
 
         logs.forEach(function (log) {
             var adminLabel = log.adminName ? log.adminName : "관리자 ID " + log.adminId;
+            var targetLabel = log.targetName ? log.targetName : "#" + log.targetPk;
             $body.append(
                 "<tr>" +
                 "<td>" + formatDateTime(log.processedAt) + "</td>" +
                 "<td><div class=\"audit-log-admin-name\">" + escapeHtml(adminLabel) + "</div>" +
                 "<div class=\"audit-log-admin-role\">" + escapeHtml(roleLabel(log.adminRole)) + "</div></td>" +
-                "<td><span class=\"audit-log-target-badge\">" + escapeHtml(targetTableLabel(log.targetTable)) + "</span>" +
-                "<div class=\"audit-log-target-pk\">#" + escapeHtml(log.targetPk) + "</div></td>" +
+                "<td><span class=\"audit-log-target-badge\">" + escapeHtml(targetTableLabel(log.targetTable)) + "</span></td>" +
+                "<td class=\"audit-log-target-name\">" + escapeHtml(targetLabel) + "</td>" +
                 "<td>" + escapeHtml(reasonCodeLabel(log.reasonCode)) + "</td>" +
                 "<td class=\"audit-log-before\">" + escapeHtml(log.beforeValue || "-") + "</td>" +
                 "<td class=\"audit-log-after\">" + escapeHtml(log.afterValue || "-") + "</td>" +
@@ -109,7 +102,7 @@ $(function () {
 
     function loadAuditLogs() {
         $("#auditLogListBody").html(
-            '<tr><td colspan="6" class="audit-log-loading">불러오는 중...</td></tr>'
+            '<tr><td colspan="7" class="audit-log-loading">불러오는 중...</td></tr>'
         );
         MARIA.auth.ajax({
             url: "/api/admin/audit-logs",
@@ -126,7 +119,7 @@ $(function () {
             .fail(function (xhr) {
                 if (xhr.status !== 401) {
                     $("#auditLogListBody").html(
-                        '<tr><td colspan="6" class="audit-log-error">감사로그를 불러오지 못했습니다.</td></tr>'
+                        '<tr><td colspan="7" class="audit-log-error">감사로그를 불러오지 못했습니다.</td></tr>'
                     );
                     showError((xhr.responseJSON && xhr.responseJSON.message) || "감사로그를 불러오지 못했습니다.");
                 }
@@ -138,10 +131,15 @@ $(function () {
         loadAuditLogs();
     });
 
+    $("#auditKeywordFilter").on("keydown", function (event) {
+        if (event.key === "Enter") {
+            currentPage = 0;
+            loadAuditLogs();
+        }
+    });
+
     $("#auditLogReset").on("click", function () {
-        $("#auditTargetTableFilter").val("");
-        $("#auditAdminIdFilter").val("");
-        $("#auditReasonCodeFilter").val("");
+        $("#auditKeywordFilter").val("");
         $("#auditStartDateFilter").val("");
         $("#auditEndDateFilter").val("");
         currentPage = 0;

@@ -17,7 +17,6 @@
     color: var(--textPrimary);
 }
 
-.audit-log-description,
 .audit-log-count {
     margin: 4px 0 0;
     font: 400 12px 'Noto Sans KR', sans-serif;
@@ -51,8 +50,9 @@
     box-shadow: 0 0 0 2px var(--accentBg);
 }
 
-.audit-log-filter-narrow {
-    width: 110px;
+.audit-log-search-input {
+    flex: 1;
+    min-width: 220px;
 }
 
 .audit-log-filter-separator {
@@ -108,10 +108,9 @@
     font: 600 11px 'Noto Sans KR', sans-serif;
 }
 
-.audit-log-target-pk {
-    margin-top: 3px;
-    color: var(--textMuted);
-    font-size: 11px;
+.audit-log-target-name {
+    color: var(--textPrimary);
+    font-weight: 500;
 }
 
 .audit-log-before {
@@ -157,7 +156,7 @@
     }
 
     .audit-log-filter,
-    .audit-log-filter-narrow {
+    .audit-log-search-input {
         width: 100%;
     }
 }
