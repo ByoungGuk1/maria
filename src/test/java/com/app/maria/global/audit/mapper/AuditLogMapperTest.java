@@ -138,7 +138,10 @@ class AuditLogMapperTest {
 
         List<AuditLogDTO> result =
                 auditLogMapper.selectAuditLogs(
-                        searchDefaults().adminKeyword("최고관리자").matchedRoles(List.of("ADMIN")).build());
+                        searchDefaults()
+                                .adminKeyword("최고관리자")
+                                .matchedRoles(List.of("ADMIN"))
+                                .build());
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getAdminId()).isEqualTo(1L);
@@ -167,7 +170,8 @@ class AuditLogMapperTest {
         auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "50", "SELL_ORDER_EXECUTED"));
 
         List<AuditLogDTO> result =
-                auditLogMapper.selectAuditLogs(searchDefaults().targetKeyword("1234567890").build());
+                auditLogMapper.selectAuditLogs(
+                        searchDefaults().targetKeyword("1234567890").build());
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getTargetAccountNo()).isEqualTo("1234567890");
@@ -341,7 +345,8 @@ class AuditLogMapperTest {
     }
 
     @Test
-    @DisplayName("countAuditLogs도 adminKeyword/targetKeyword 조건에 필요한 join(admin_user×2, sell_order, account)이 걸려있어 에러 없이 동작한다")
+    @DisplayName(
+            "countAuditLogs도 adminKeyword/targetKeyword 조건에 필요한 join(admin_user×2, sell_order, account)이 걸려있어 에러 없이 동작한다")
     void countAuditLogsWorksWithFieldFiltersRequiringAllJoins() throws SQLException {
         insertAdmin(1L, "박지훈", "REVIEWER");
         insertAdmin(2L, "이국희", "VIEWER");
@@ -352,7 +357,8 @@ class AuditLogMapperTest {
 
         // adminKeyword는 au.name, targetKeyword는 target_admin.name/acc.account_no를 참조하는
         // WHERE 절을 타므로, 4개 조인이 select뿐 아니라 count에도 없으면 "Unknown column" 에러가 난다.
-        long totalForActor = auditLogMapper.countAuditLogs(searchDefaults().adminKeyword("박지훈").build());
+        long totalForActor =
+                auditLogMapper.countAuditLogs(searchDefaults().adminKeyword("박지훈").build());
         long totalForTargetAdmin =
                 auditLogMapper.countAuditLogs(searchDefaults().targetKeyword("이국희").build());
         long totalForAccountNo =
