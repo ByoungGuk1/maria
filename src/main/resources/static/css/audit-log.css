@@ -17,7 +17,6 @@
     color: var(--textPrimary);
 }
 
-.audit-log-description,
 .audit-log-count {
     margin: 4px 0 0;
     font: 400 12px 'Noto Sans KR', sans-serif;
@@ -26,13 +25,22 @@
 
 .audit-log-toolbar {
     padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
-.audit-log-filter-group {
+.audit-log-filter-row {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
+}
+
+.audit-log-filter-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
 }
 
 .audit-log-filter {
@@ -51,8 +59,8 @@
     box-shadow: 0 0 0 2px var(--accentBg);
 }
 
-.audit-log-filter-narrow {
-    width: 110px;
+.audit-log-search-input {
+    flex: 0 1 140px;
 }
 
 .audit-log-filter-separator {
@@ -108,10 +116,24 @@
     font: 600 11px 'Noto Sans KR', sans-serif;
 }
 
-.audit-log-target-pk {
-    margin-top: 3px;
-    color: var(--textMuted);
-    font-size: 11px;
+.audit-log-target-badge.type-admin-user {
+    color: var(--accent);
+    background: var(--accentBg);
+}
+
+.audit-log-target-badge.type-sell-order {
+    color: var(--warning);
+    background: var(--warningBg);
+}
+
+.audit-log-target-badge.type-system-clock {
+    color: var(--success);
+    background: var(--successBg);
+}
+
+.audit-log-target-name {
+    color: var(--textPrimary);
+    font-weight: 500;
 }
 
 .audit-log-before {
@@ -151,13 +173,22 @@
 
 @media (max-width: 620px) {
     .audit-log-header,
-    .audit-log-filter-group {
+    .audit-log-filter-row {
         align-items: stretch;
         flex-direction: column;
     }
 
     .audit-log-filter,
-    .audit-log-filter-narrow {
+    .audit-log-search-input {
         width: 100%;
+    }
+
+    .audit-log-filter-actions {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .audit-log-filter-actions .btn {
+        flex: 1;
     }
 }

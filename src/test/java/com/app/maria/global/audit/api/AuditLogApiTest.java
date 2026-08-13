@@ -86,10 +86,10 @@ class AuditLogApiTest {
 
         mockMvc.perform(
                         get("/api/admin/audit-logs")
-                                .param("adminId", "1")
                                 .param("targetTable", "ADMIN_USER")
-                                .param("targetPk", "2")
-                                .param("reasonCode", "ADMIN_ROLE_UPDATE")
+                                .param("adminKeyword", "박지훈")
+                                .param("targetKeyword", "이국희")
+                                .param("reasonKeyword", "권한")
                                 .param("startDate", "2026-01-01T00:00:00")
                                 .param("endDate", "2026-12-31T23:59:59"))
                 .andExpect(status().isOk());
@@ -98,10 +98,10 @@ class AuditLogApiTest {
                 ArgumentCaptor.forClass(AuditLogSearchRequestDTO.class);
         verify(auditLogService).searchAuditLogs(captor.capture());
         AuditLogSearchRequestDTO bound = captor.getValue();
-        assertThat(bound.getAdminId()).isEqualTo(1L);
         assertThat(bound.getTargetTable()).isEqualTo("ADMIN_USER");
-        assertThat(bound.getTargetPk()).isEqualTo("2");
-        assertThat(bound.getReasonCode()).isEqualTo("ADMIN_ROLE_UPDATE");
+        assertThat(bound.getAdminKeyword()).isEqualTo("박지훈");
+        assertThat(bound.getTargetKeyword()).isEqualTo("이국희");
+        assertThat(bound.getReasonKeyword()).isEqualTo("권한");
         assertThat(bound.getStartDate()).isEqualTo(LocalDateTime.of(2026, 1, 1, 0, 0));
         assertThat(bound.getEndDate()).isEqualTo(LocalDateTime.of(2026, 12, 31, 23, 59, 59));
     }

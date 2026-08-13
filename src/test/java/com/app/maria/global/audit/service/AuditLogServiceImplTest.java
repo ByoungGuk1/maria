@@ -47,7 +47,7 @@ class AuditLogServiceImplTest {
     @DisplayName("검색 조건을 VO로 변환해 Mapper에 넘기고, 결과를 PageResponseDTO로 변환해 반환한다")
     void searchAuditLogsConvertsRequestToVoAndMapsResultToPageResponseDto() {
         AuditLogSearchRequestDTO request =
-                AuditLogSearchRequestDTO.builder().adminId(1L).targetTable("ADMIN_USER").build();
+                AuditLogSearchRequestDTO.builder().targetTable("ADMIN_USER").build();
 
         when(auditLogMapper.selectAuditLogs(any(AuditLogSearchDTO.class)))
                 .thenReturn(List.of(auditLog(10L, 1L, "ADMIN_USER", "2")));
@@ -68,8 +68,45 @@ class AuditLogServiceImplTest {
         ArgumentCaptor<AuditLogSearchDTO> captor = ArgumentCaptor.forClass(AuditLogSearchDTO.class);
         verify(auditLogMapper).selectAuditLogs(captor.capture());
         AuditLogSearchDTO passedVo = captor.getValue();
-        assertThat(passedVo.getAdminId()).isEqualTo(1L);
         assertThat(passedVo.getTargetTable()).isEqualTo("ADMIN_USER");
+    }
+
+    @Test
+    @DisplayName("adminKeyword/reasonKeyword를 한글 라벨과 대조해 role/reasonCode 코드 목록으로 변환해 Mapper에 전달한다")
+    void searchAuditLogsResolvesKeywordsIntoMatchedCodeLists() {
+        AuditLogSearchRequestDTO request =
+                AuditLogSearchRequestDTO.builder()
+                        .adminKeyword("최고관리자")
+                        .reasonKeyword("관리자 권한 변경")
+                        .build();
+        when(auditLogMapper.selectAuditLogs(any())).thenReturn(List.of());
+        when(auditLogMapper.countAuditLogs(any())).thenReturn(0L);
+
+        auditLogService.searchAuditLogs(request);
+
+        ArgumentCaptor<AuditLogSearchDTO> captor = ArgumentCaptor.forClass(AuditLogSearchDTO.class);
+        verify(auditLogMapper).selectAuditLogs(captor.capture());
+        AuditLogSearchDTO passedVo = captor.getValue();
+        assertThat(passedVo.getAdminKeyword()).isEqualTo("최고관리자");
+        assertThat(passedVo.getMatchedRoles()).containsExactly("ADMIN");
+        assertThat(passedVo.getReasonKeyword()).isEqualTo("관리자 권한 변경");
+        assertThat(passedVo.getMatchedReasonCodes()).containsExactly("ADMIN_ROLE_UPDATE");
+    }
+
+    @Test
+    @DisplayName("adminKeyword/reasonKeyword가 비어있으면 매치되는 코드 목록도 전부 빈 리스트다")
+    void searchAuditLogsProducesEmptyMatchedListsWhenKeywordsBlank() {
+        AuditLogSearchRequestDTO request = AuditLogSearchRequestDTO.builder().build();
+        when(auditLogMapper.selectAuditLogs(any())).thenReturn(List.of());
+        when(auditLogMapper.countAuditLogs(any())).thenReturn(0L);
+
+        auditLogService.searchAuditLogs(request);
+
+        ArgumentCaptor<AuditLogSearchDTO> captor = ArgumentCaptor.forClass(AuditLogSearchDTO.class);
+        verify(auditLogMapper).selectAuditLogs(captor.capture());
+        AuditLogSearchDTO passedVo = captor.getValue();
+        assertThat(passedVo.getMatchedRoles()).isEmpty();
+        assertThat(passedVo.getMatchedReasonCodes()).isEmpty();
     }
 
     @Test
