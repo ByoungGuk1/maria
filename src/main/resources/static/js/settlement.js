@@ -29,6 +29,10 @@ $(function () {
     function statusBadge(status) { var key = (status || "").toLowerCase(); return '<span class="settlement-status ' + key + '">' + escapeHtml(LABELS[status] || status) + "</span>"; }
     function errorMessage(xhr, fallback) { return (xhr.responseJSON && xhr.responseJSON.message) || fallback; }
     function handleRequestFailure(xhr, fallback) { if (xhr.status !== 401) showError(errorMessage(xhr, fallback)); }
+    function canExecuteSettlement() {
+        var admin = MARIA.auth.currentAdmin();
+        return !!admin && (admin.role === "ADMIN" || admin.role === "SETTLEMENT");
+    }
     function setTextValues(values) {
         Object.keys(values).forEach(function (selector) { $(selector).text(values[selector]); });
     }
@@ -212,29 +216,51 @@ $(function () {
             "#detailBatchFailedCount": batch.failedCount + "건",
             "#detailBatchProcessedCount": batch.processedCount + "건"
         });
-        $("#retrySettlementBatch").toggle(batch.status === "FAILED");
+        $("#retrySettlementBatch").toggle(canExecuteSettlement() && batch.status === "FAILED");
         $("#settlementItemFilter").toggle(batch.status === "FAILED");
     }
 
     function loadBatchItems(preserveItemPage) {
         $("#settlementItemBody").html('<tr><td colspan="8" class="settlement-empty">불러오는 중...</td></tr>');
-        var url = itemFilter === "failed"
-            ? "/api/settlement/batches/detail/fail/" + selectedBatchId
-            : "/api/settlement/batches/detail/" + selectedBatchId;
-        MARIA.auth.ajax({ url: url, method: "GET" })
+        if (itemFilter === "failed") {
+            loadFailedItemsWithHistory(preserveItemPage);
+            return;
+        }
+        loadAllBatchItems(preserveItemPage);
+    }
+
+    function applyItems(responseItems, preserveItemPage) {
+        items = itemFilter === "success"
+            ? responseItems.filter(function (item) { return item.result === "SUCCESS"; })
+            : responseItems;
+        if (!preserveItemPage) {
+            currentItemPage = 1;
+            selectedItemId = null;
+            $("#settlementItemDetail").hide();
+        }
+        renderItems(items);
+    }
+
+    function loadAllBatchItems(preserveItemPage) {
+        MARIA.auth.ajax({ url: "/api/settlement/batches/detail/" + selectedBatchId, method: "GET" })
             .done(function (res) {
                 allBatchItems = res.data || [];
-                items = itemFilter === "success"
-                    ? allBatchItems.filter(function (item) { return item.result === "SUCCESS"; })
-                    : allBatchItems;
-                if (!preserveItemPage) {
-                    currentItemPage = 1;
-                    selectedItemId = null;
-                    $("#settlementItemDetail").hide();
-                }
-                renderItems(items);
+                applyItems(allBatchItems, preserveItemPage);
             })
             .fail(function (xhr) { if (xhr.status !== 401) $("#settlementItemBody").empty(); handleRequestFailure(xhr, "정산 항목을 불러오지 못했습니다."); });
+    }
+
+    function loadFailedItemsWithHistory(preserveItemPage) {
+        $.when(
+            MARIA.auth.ajax({ url: "/api/settlement/batches/detail/" + selectedBatchId, method: "GET" }),
+            MARIA.auth.ajax({ url: "/api/settlement/batches/detail/fail/" + selectedBatchId, method: "GET" })
+        ).done(function (allResponse, failedResponse) {
+            allBatchItems = allResponse[0].data || [];
+            applyItems(failedResponse[0].data || [], preserveItemPage);
+        }).fail(function (xhr) {
+            if (xhr.status !== 401) $("#settlementItemBody").empty();
+            handleRequestFailure(xhr, "정산 항목을 불러오지 못했습니다.");
+        });
     }
 
     function selectItem(itemId) {
@@ -264,7 +290,7 @@ $(function () {
                     "#detailItemDifference": difference == null ? "-" : (difference > 0 ? "+" : "") + formatAmount(difference)
                 });
                 renderRetryHistory(item.exchangeId);
-                $("#retrySettlementItem").toggle(item.result === "FAILED");
+                $("#retrySettlementItem").toggle(canExecuteSettlement() && item.result === "FAILED");
             })
             .fail(function (xhr) { handleRequestFailure(xhr, "정산 항목 상세를 불러오지 못했습니다."); });
     }
@@ -296,8 +322,8 @@ $(function () {
         itemFilter = $(this).val();
         loadBatchItems();
     });
-    $("#executeSettlement").on("click", function () { MARIA.auth.ajax({ url: "/api/settlement/jobs", method: "POST" }).done(function (res) { selectedBatchId = res.data.batchId; currentPage = 1; loadBatches(); }).fail(function (xhr) { handleRequestFailure(xhr, "정산 배치 실행에 실패했습니다."); }); });
-    $("#retrySettlementBatch").on("click", function () { if (!selectedBatchId) return; MARIA.auth.ajax({ url: "/api/settlement/batches/" + selectedBatchId + "/retry", method: "POST" }).done(function () { loadBatches(); }).fail(function (xhr) { handleRequestFailure(xhr, "정산 배치 재처리에 실패했습니다."); }); });
-    $("#retrySettlementItem").on("click", function () { if (!selectedBatchId || !selectedItemId) return; MARIA.auth.ajax({ url: "/api/settlement/batches/" + selectedBatchId + "/items/" + selectedItemId + "/retry", method: "POST" }).done(function () { selectBatch(selectedBatchId, true); }).fail(function (xhr) { handleRequestFailure(xhr, "정산 항목 재처리에 실패했습니다."); }); });
+    $("#executeSettlement").prop("disabled", !canExecuteSettlement()).on("click", function () { if (!canExecuteSettlement()) return; MARIA.auth.ajax({ url: "/api/settlement/jobs", method: "POST" }).done(function (res) { selectedBatchId = res.data.batchId; currentPage = 1; loadBatches(); }).fail(function (xhr) { handleRequestFailure(xhr, "정산 배치 실행에 실패했습니다."); }); });
+    $("#retrySettlementBatch").on("click", function () { if (!selectedBatchId || !canExecuteSettlement()) return; MARIA.auth.ajax({ url: "/api/settlement/batches/" + selectedBatchId + "/retry", method: "POST" }).done(function () { loadBatches(); }).fail(function (xhr) { handleRequestFailure(xhr, "정산 배치 재처리에 실패했습니다."); }); });
+    $("#retrySettlementItem").on("click", function () { if (!selectedBatchId || !selectedItemId || !canExecuteSettlement()) return; MARIA.auth.ajax({ url: "/api/settlement/batches/" + selectedBatchId + "/items/" + selectedItemId + "/retry", method: "POST" }).done(function () { selectBatch(selectedBatchId, true); }).fail(function (xhr) { handleRequestFailure(xhr, "정산 항목 재처리에 실패했습니다."); }); });
     loadBatches();
 });
