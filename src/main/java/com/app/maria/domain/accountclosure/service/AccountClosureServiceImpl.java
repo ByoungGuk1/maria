@@ -13,6 +13,7 @@ import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingExc
 import com.app.maria.domain.accountclosure.exception.AccountClosureStateConflictException;
 import com.app.maria.domain.accountclosure.mapper.AccountClosureMapper;
 import com.app.maria.domain.accountclosure.type.AccountClosureStatus;
+import com.app.maria.domain.customer.mapper.CustomerMapper;
 import com.app.maria.domain.withdrawal.dto.WithdrawalResultDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
 import com.app.maria.domain.withdrawal.exception.EarlyWithdrawalConsentRequiredException;
@@ -33,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(rollbackFor = Exception.class)
 public class AccountClosureServiceImpl implements AccountClosureService {
     private final AccountMapper accountMapper;
+    private final CustomerMapper customerMapper;
     private final AccountClosureMapper accountClosureMapper;
     private final BusinessClockService businessClockService;
     private final GeneralAccountClient generalAccountClient;
@@ -48,7 +50,7 @@ public class AccountClosureServiceImpl implements AccountClosureService {
             throw new AccountClosureNotAllowedException("개설 완료된 계좌만 해지를 할 수 있습니다.");
         }
         String ciHash =
-                accountMapper
+                customerMapper
                         .selectCiHashByCustomerId(account.getCustomerId())
                         .orElseThrow(() -> new AccountNotFoundException("존재하지않는 고객입니다."));
 

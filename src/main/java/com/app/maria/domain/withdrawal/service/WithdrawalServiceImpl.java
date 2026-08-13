@@ -10,6 +10,7 @@ import com.app.maria.domain.account.mapper.AccountBenefitLogMapper;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
+import com.app.maria.domain.customer.mapper.CustomerMapper;
 import com.app.maria.domain.withdrawal.dto.LeftAmountDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalDTO;
@@ -40,6 +41,7 @@ public class WithdrawalServiceImpl implements WithdrawalService {
 
     private final BusinessClockService businessClockService;
     private final AccountMapper accountMapper;
+    private final CustomerMapper customerMapper;
     private final WithdrawalMapper withdrawalMapper;
     private final AccountBenefitLogMapper accountBenefitLogMapper;
     private final GeneralAccountClient generalAccountClient;
@@ -64,7 +66,7 @@ public class WithdrawalServiceImpl implements WithdrawalService {
                         .selectByAccountId(accountId)
                         .orElseThrow(() -> new AccountNotFoundException("인출 대상 계좌가 존재하지 않습니다."));
         String ciHash =
-                accountMapper
+                customerMapper
                         .selectCiHashByCustomerId(accountBeforeLock.getCustomerId())
                         .orElseThrow(
                                 () -> new AccountNotFoundException("인출 계좌의 고객 식별정보를 찾을 수 없습니다."));

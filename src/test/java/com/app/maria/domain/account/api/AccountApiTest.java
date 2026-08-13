@@ -372,7 +372,10 @@ class AccountApiTest {
                         .build();
         when(accountService.searchAccounts(any())).thenReturn(List.of(response));
 
-        mockMvc.perform(get("/api/account/search").param("accountNo", "1234"))
+        mockMvc.perform(
+                        post("/api/account/search")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"accountNo\":\"1234\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("계좌 검색"))
                 .andExpect(jsonPath("$.data[0].accountNo").value("1234567890"))
@@ -382,8 +385,26 @@ class AccountApiTest {
     }
 
     @Test
+    void searchAcceptsCustomerNameOnly() throws Exception {
+        when(accountService.searchAccounts(any())).thenReturn(List.of());
+
+        mockMvc.perform(
+                        post("/api/account/search")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"customerName\":\"홍길동\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("계좌 검색"));
+
+        verify(accountService).searchAccounts(any());
+    }
+
+    @Test
     void searchRejectsRequestWithoutAccountNoOrCustomerName() throws Exception {
-        mockMvc.perform(get("/api/account/search")).andExpect(status().isBadRequest());
+        mockMvc.perform(
+                        post("/api/account/search")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{}"))
+                .andExpect(status().isBadRequest());
 
         verify(accountService, never()).searchAccounts(any());
     }

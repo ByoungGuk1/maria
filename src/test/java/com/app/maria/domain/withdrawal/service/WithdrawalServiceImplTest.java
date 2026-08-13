@@ -20,6 +20,7 @@ import com.app.maria.domain.account.mapper.AccountBenefitLogMapper;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
+import com.app.maria.domain.customer.mapper.CustomerMapper;
 import com.app.maria.domain.withdrawal.dto.LeftAmountDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalDTO;
@@ -59,6 +60,7 @@ class WithdrawalServiceImplTest {
 
     @Mock BusinessClockService businessClockService;
     @Mock AccountMapper accountMapper;
+    @Mock CustomerMapper customerMapper;
     @Mock WithdrawalMapper withdrawalMapper;
     @Mock AccountBenefitLogMapper accountBenefitLogMapper;
     @Mock GeneralAccountClient generalAccountClient;
@@ -285,11 +287,12 @@ class WithdrawalServiceImplTest {
         InOrder order =
                 inOrder(
                         accountMapper,
+                        customerMapper,
                         generalAccountClient,
                         withdrawalMapper,
                         businessClockService);
         order.verify(accountMapper).selectByAccountId(ACCOUNT_ID);
-        order.verify(accountMapper).selectCiHashByCustomerId(CUSTOMER_ID);
+        order.verify(customerMapper).selectCiHashByCustomerId(CUSTOMER_ID);
         order.verify(generalAccountClient).verifyGeneralAccount(any());
         order.verify(accountMapper).selectByAccountIdForUpdate(ACCOUNT_ID);
         order.verify(withdrawalMapper).selectAvailableLeftAmountsByAccountId(ACCOUNT_ID);
@@ -491,7 +494,7 @@ class WithdrawalServiceImplTest {
             AccountDTO accountBeforeLock, GeneralAccountStatus destinationStatus) {
         when(accountMapper.selectByAccountId(ACCOUNT_ID))
                 .thenReturn(Optional.of(accountBeforeLock));
-        when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID))
+        when(customerMapper.selectCiHashByCustomerId(CUSTOMER_ID))
                 .thenReturn(Optional.of("customer-ci-hash"));
         when(generalAccountClient.verifyGeneralAccount(any()))
                 .thenReturn(

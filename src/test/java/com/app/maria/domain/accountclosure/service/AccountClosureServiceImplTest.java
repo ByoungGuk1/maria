@@ -23,6 +23,7 @@ import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingExc
 import com.app.maria.domain.accountclosure.exception.AccountClosureStateConflictException;
 import com.app.maria.domain.accountclosure.mapper.AccountClosureMapper;
 import com.app.maria.domain.accountclosure.type.AccountClosureStatus;
+import com.app.maria.domain.customer.mapper.CustomerMapper;
 import com.app.maria.domain.withdrawal.dto.WithdrawalResultDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
 import com.app.maria.domain.withdrawal.exception.EarlyWithdrawalConsentRequiredException;
@@ -54,6 +55,7 @@ class AccountClosureServiceImplTest {
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 12, 10, 0);
 
     @Mock private AccountMapper accountMapper;
+    @Mock private CustomerMapper customerMapper;
     @Mock private AccountClosureMapper accountClosureMapper;
     @Mock private BusinessClockService businessClockService;
     @Mock private GeneralAccountClient generalAccountClient;
@@ -80,7 +82,7 @@ class AccountClosureServiceImplTest {
         assertThatThrownBy(() -> accountClosureService.applyClosure(CUSTOMER_ID, request(true)))
                 .isInstanceOf(AccountClosureNotAllowedException.class);
 
-        verify(accountMapper, never()).selectCiHashByCustomerId(any());
+        verify(customerMapper, never()).selectCiHashByCustomerId(any());
         verifyNoInteractions(generalAccountClient, accountClosureMapper, businessClockService);
     }
 
@@ -88,7 +90,7 @@ class AccountClosureServiceImplTest {
     void missingCiStopsBeforeExternalValidationAndStateChange() {
         when(accountMapper.selectByCustomerId(CUSTOMER_ID))
                 .thenReturn(Optional.of(account(Status.OPENED)));
-        when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID)).thenReturn(Optional.empty());
+        when(customerMapper.selectCiHashByCustomerId(CUSTOMER_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> accountClosureService.applyClosure(CUSTOMER_ID, request(true)))
                 .isInstanceOf(AccountNotFoundException.class);
@@ -177,11 +179,12 @@ class AccountClosureServiceImplTest {
         InOrder order =
                 inOrder(
                         accountMapper,
+                        customerMapper,
                         generalAccountClient,
                         businessClockService,
                         accountClosureMapper);
         order.verify(accountMapper).selectByCustomerId(CUSTOMER_ID);
-        order.verify(accountMapper).selectCiHashByCustomerId(CUSTOMER_ID);
+        order.verify(customerMapper).selectCiHashByCustomerId(CUSTOMER_ID);
         order.verify(generalAccountClient).verifyGeneralAccount(any());
         order.verify(accountMapper).requestClosure(ACCOUNT_ID);
         order.verify(businessClockService).now();
@@ -524,7 +527,7 @@ class AccountClosureServiceImplTest {
     private void prepareAccountAndCi() {
         when(accountMapper.selectByCustomerId(CUSTOMER_ID))
                 .thenReturn(Optional.of(account(Status.OPENED)));
-        when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID))
+        when(customerMapper.selectCiHashByCustomerId(CUSTOMER_ID))
                 .thenReturn(Optional.of("customer-ci-hash"));
     }
 

@@ -4,13 +4,6 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.app.maria.domain.account.mapper.AccountMapper">
-    <select id="existsCustomerById" resultType="boolean" parameterType="Long">
-        SELECT EXISTS (
-            SELECT 1
-            FROM customer
-            WHERE customer_id = #{customerId}
-        )
-    </select>
     <select id="selectByAccountId" resultType="AccountDTO" parameterType="Long">
         SELECT
         *
@@ -151,13 +144,6 @@
         WHERE account_id = #{accountId}
         AND benefit IN('POSSIBLE','REDUCED')
     </update>
-
-    <select id="selectCiHashByCustomerId" parameterType="Long" resultType="String">
-        SELECT
-        ci_hash
-        FROM customer
-        WHERE customer_id = #{customerId}
-    </select>
 
     <update id="updateProvisionalAmount" parameterType="AccountDTO">
         UPDATE account

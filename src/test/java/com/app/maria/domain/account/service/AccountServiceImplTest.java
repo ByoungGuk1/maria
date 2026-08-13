@@ -18,6 +18,7 @@ import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.provider.MydataProvider;
 import com.app.maria.domain.account.type.Status;
+import com.app.maria.domain.customer.mapper.CustomerMapper;
 import com.app.maria.global.audit.provider.AuditActorProvider;
 import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
@@ -46,6 +47,7 @@ class AccountServiceImplTest {
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 2, 10, 30);
 
     @Mock private AccountMapper accountMapper;
+    @Mock private CustomerMapper customerMapper;
     @Mock private MydataProvider mydataProvider;
     @Mock private AccountLogService accountLogService;
     @Mock private BusinessClockService businessClockService;
@@ -57,8 +59,8 @@ class AccountServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        when(accountMapper.existsCustomerById(CUSTOMER_ID)).thenReturn(true);
-        when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID))
+        when(customerMapper.existsByCustomerId(CUSTOMER_ID)).thenReturn(true);
+        when(customerMapper.selectCiHashByCustomerId(CUSTOMER_ID))
                 .thenReturn(Optional.of("ci-hash"));
         when(mydataProvider.getExternalConfiguredLimit("ci-hash")).thenReturn(BigDecimal.ZERO);
         when(businessClockService.now()).thenReturn(NOW);

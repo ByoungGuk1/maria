@@ -78,20 +78,21 @@ $(function () {
             return;
         }
 
-        var params = {};
+        var request = {};
         if (accountNo) {
-            params.accountNo = accountNo;
+            request.accountNo = accountNo;
         }
         if (customerName) {
-            params.customerName = customerName;
+            request.customerName = customerName;
         }
 
         $("#searchResultsBody").html('<tr><td colspan="3" class="sellorder-loading">검색 중...</td></tr>');
 
         MARIA.auth.ajax({
             url: "/api/account/search",
-            method: "GET",
-            data: params
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify(request)
         })
             .done(function (res) {
                 renderSearchResults(res.data || []);

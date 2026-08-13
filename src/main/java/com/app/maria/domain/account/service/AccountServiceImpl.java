@@ -14,6 +14,7 @@ import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.provider.MydataProvider;
 import com.app.maria.domain.account.type.Status;
+import com.app.maria.domain.customer.mapper.CustomerMapper;
 import com.app.maria.global.audit.provider.AuditActorProvider;
 import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
@@ -33,6 +34,7 @@ public class AccountServiceImpl implements AccountService {
     private static final LocalDate RIA_APPLICATION_END_DATE = LocalDate.of(2026, 12, 31);
 
     private final AccountMapper accountMapper;
+    private final CustomerMapper customerMapper;
     private final MydataProvider mydataProvider;
     private final AccountLogService accountLogService;
     private final BusinessClockService businessClockService;
@@ -189,7 +191,7 @@ public class AccountServiceImpl implements AccountService {
 
     private BigDecimal calculateAvailableLimit(Long customerId) {
         String ciHash =
-                accountMapper
+                customerMapper
                         .selectCiHashByCustomerId(customerId)
                         .orElseThrow(() -> new AccountNotFoundException("개설할 계좌의 사용자를 찾을 수 없습니다."));
         return MAX_LIMIT_AMOUNT
@@ -224,7 +226,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     private void validateCustomerExists(Long customerId) {
-        if (!accountMapper.existsCustomerById(customerId)) {
+        if (!customerMapper.existsByCustomerId(customerId)) {
             throw new AccountNotFoundException("개설할 계좌의 사용자를 찾을 수 없습니다.");
         }
     }

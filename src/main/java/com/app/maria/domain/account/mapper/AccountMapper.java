@@ -12,9 +12,6 @@ import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
 public interface AccountMapper {
-    // 고객 존재 여부 확인
-    boolean existsCustomerById(Long customerId);
-
     // account_id 기준 단건 조회
     Optional<AccountDTO> selectByAccountId(Long accountId);
 
@@ -62,9 +59,6 @@ public interface AccountMapper {
 
     // 세제혜택 불가 변경
     int updateBenefitToImpossible(Long accountId);
-
-    // customerId를 통해 ci_hash 값 가져오기
-    Optional<String> selectCiHashByCustomerId(Long customerId);
 
     // 계좌 잔액 변경
 

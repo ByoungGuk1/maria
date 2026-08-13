@@ -117,9 +117,9 @@ public class AccountApi {
                 .body(ApiResponseDTO.of("계좌 한도 변경", accountService.updateAccountLimit(requestDTO)));
     }
 
-    @GetMapping("/search")
+    @PostMapping("/search")
     public ResponseEntity<ApiResponseDTO<List<AccountLimitUsageResponseDTO>>> searchAccounts(
-            @Valid @ModelAttribute AccountSearchRequestDTO requestDTO) {
+            @Valid @RequestBody AccountSearchRequestDTO requestDTO) {
         return ResponseEntity.ok(
                 ApiResponseDTO.of("계좌 검색", accountService.searchAccounts(requestDTO)));
     }

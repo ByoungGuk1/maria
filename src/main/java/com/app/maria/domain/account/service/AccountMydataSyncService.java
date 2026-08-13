@@ -7,6 +7,7 @@ import com.app.maria.domain.account.infra.RedisMydataSyncTaskRepository.ClaimedT
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.provider.MydataProvider;
 import com.app.maria.domain.account.type.Status;
+import com.app.maria.domain.customer.mapper.CustomerMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,6 +20,7 @@ public class AccountMydataSyncService {
     private static final int RETRY_BATCH_SIZE = 100;
 
     private final AccountMapper accountMapper;
+    private final CustomerMapper customerMapper;
     private final MydataProvider mydataProvider;
     private final RedisMydataSyncTaskRepository taskRepository;
 
@@ -58,7 +60,7 @@ public class AccountMydataSyncService {
             }
 
             String ciHash =
-                    accountMapper
+                    customerMapper
                             .selectCiHashByCustomerId(account.getCustomerId())
                             .orElseThrow(
                                     () -> new AccountNotFoundException("개설할 계좌의 사용자를 찾을 수 없습니다."));

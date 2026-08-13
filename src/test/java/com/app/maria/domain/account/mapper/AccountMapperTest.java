@@ -76,10 +76,8 @@ class AccountMapperTest {
     }
 
     @Test
-    @DisplayName("고객과 고객 계좌 존재 여부를 구분해 조회한다")
-    void existsQueriesReturnExpectedValues() {
-        assertThat(accountMapper.existsCustomerById(1L)).isTrue();
-        assertThat(accountMapper.existsCustomerById(999L)).isFalse();
+    @DisplayName("고객 계좌 존재 여부를 조회한다")
+    void existsByCustomerIdReturnsExpectedValue() {
         assertThat(accountMapper.existsByCustomerId(1L)).isFalse();
 
         insertApplication(1L, DEFAULT_LIMIT);

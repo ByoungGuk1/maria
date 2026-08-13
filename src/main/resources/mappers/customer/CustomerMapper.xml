@@ -4,11 +4,35 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.app.maria.domain.customer.mapper.CustomerMapper">
 
-    <select id="selectActiveRiaCustomers" resultType="CustomerCiHashDTO">
+    <select id="selectActiveRiaCustomers" resultType="com.app.maria.domain.customer.dto.CustomerCiHashDTO">
         SELECT c.customer_id, c.ci_hash
         FROM customer c
         JOIN account a ON a.customer_id = c.customer_id
         WHERE a.status = 'OPENED'
+    </select>
+
+    <select id="selectAll" resultType="com.app.maria.domain.customer.dto.CustomerDTO">
+        SELECT customer_id, name, birth_date, phone, investor_type, ci_hash, created_at
+        FROM customer
+    </select>
+    <select id="selectByName" resultType="com.app.maria.domain.customer.dto.CustomerDTO" parameterType="String">
+        SELECT customer_id, name, birth_date, phone, investor_type, ci_hash, created_at
+        FROM customer
+        WHERE name LIKE CONCAT('%', #{name}, '%')
+    </select>
+
+    <select id="existsByCustomerId" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM customer
+            WHERE customer_id = #{customerId}
+        )
+    </select>
+
+    <select id="selectCiHashByCustomerId" resultType="String">
+        SELECT ci_hash
+        FROM customer
+        WHERE customer_id = #{customerId}
     </select>
 
 </mapper>

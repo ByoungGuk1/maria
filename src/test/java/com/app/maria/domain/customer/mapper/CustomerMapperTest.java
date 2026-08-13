@@ -3,6 +3,7 @@ package com.app.maria.domain.customer.mapper;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.app.maria.domain.customer.dto.CustomerCiHashDTO;
+import com.app.maria.domain.customer.dto.CustomerDTO;
 import java.io.IOException;
 import java.io.Reader;
 import java.sql.Connection;
@@ -115,15 +116,47 @@ class CustomerMapperTest {
                 .containsExactlyInAnyOrder("ci-1", "ci-2");
     }
 
+    @Test
+    @DisplayName("고객 존재 여부와 CI hash를 고객 ID로 조회한다")
+    void findsCustomerExistenceAndCiHashByCustomerId() throws SQLException {
+        insertCustomer(1L, "ci-1");
+
+        assertThat(customerMapper.existsByCustomerId(1L)).isTrue();
+        assertThat(customerMapper.existsByCustomerId(999L)).isFalse();
+        assertThat(customerMapper.selectCiHashByCustomerId(1L)).contains("ci-1");
+        assertThat(customerMapper.selectCiHashByCustomerId(999L)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("전체 고객과 이름 부분 일치 고객을 조회한다")
+    void selectsAllCustomersAndFindsCustomersByPartialName() throws SQLException {
+        insertCustomer(1L, "홍길동", "ci-1");
+        insertCustomer(2L, "김리아", "ci-2");
+
+        List<CustomerDTO> allCustomers = customerMapper.selectAll();
+        List<CustomerDTO> matchedCustomers = customerMapper.selectByName("길동");
+
+        assertThat(allCustomers)
+                .extracting(CustomerDTO::getName)
+                .containsExactlyInAnyOrder("홍길동", "김리아");
+        assertThat(matchedCustomers).extracting(CustomerDTO::getCustomerId).containsExactly(1L);
+    }
+
     private void insertCustomer(Long customerId, String ciHash) throws SQLException {
+        insertCustomer(customerId, "고객" + customerId, ciHash);
+    }
+
+    private void insertCustomer(Long customerId, String name, String ciHash) throws SQLException {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement()) {
             statement.execute(
-                    "INSERT INTO customer (customer_id, ci_hash) VALUES ("
+                    "INSERT INTO customer (customer_id, name, birth_date, phone, investor_type, ci_hash, created_at) VALUES ("
                             + customerId
                             + ", '"
+                            + name
+                            + "', DATE '1990-01-01', '010-1234-5678', 'NEUTRAL', '"
                             + ciHash
-                            + "')");
+                            + "', TIMESTAMP '2026-08-13 10:00:00')");
         }
     }
 
@@ -147,7 +180,12 @@ class CustomerMapperTest {
                     """
                     CREATE TABLE customer (
                         customer_id BIGINT PRIMARY KEY,
-                        ci_hash VARCHAR(64) NOT NULL
+                        name VARCHAR(100) NOT NULL,
+                        birth_date DATE NOT NULL,
+                        phone VARCHAR(20) NOT NULL,
+                        investor_type VARCHAR(20) NOT NULL,
+                        ci_hash VARCHAR(64) NOT NULL,
+                        created_at TIMESTAMP NOT NULL
                     )
                     """);
             statement.execute(

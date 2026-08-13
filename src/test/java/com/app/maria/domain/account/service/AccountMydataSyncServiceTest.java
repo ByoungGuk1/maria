@@ -11,6 +11,7 @@ import com.app.maria.domain.account.infra.RedisMydataSyncTaskRepository.ClaimedT
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.provider.MydataProvider;
 import com.app.maria.domain.account.type.Status;
+import com.app.maria.domain.customer.mapper.CustomerMapper;
 import com.app.maria.global.exception.MydataApiException;
 import java.math.BigDecimal;
 import java.util.List;
@@ -28,6 +29,7 @@ class AccountMydataSyncServiceTest {
     private static final String CI_HASH = "ci-hash";
 
     @Mock private AccountMapper accountMapper;
+    @Mock private CustomerMapper customerMapper;
     @Mock private MydataProvider mydataProvider;
     @Mock private RedisMydataSyncTaskRepository taskRepository;
     @InjectMocks private AccountMydataSyncService service;
@@ -58,7 +60,7 @@ class AccountMydataSyncServiceTest {
         ClaimedTask task = claimed(10L, "SYNC:0:token-10");
         when(taskRepository.claimDueTasks(100)).thenReturn(List.of(task));
         when(accountMapper.selectByAccountId(10L)).thenReturn(Optional.of(account));
-        when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(CI_HASH));
+        when(customerMapper.selectCiHashByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(CI_HASH));
         when(mydataProvider.syncRiaAccount(CI_HASH, account)).thenReturn(HttpStatus.OK);
 
         service.retryOpenedAccounts();
@@ -77,7 +79,7 @@ class AccountMydataSyncServiceTest {
         when(taskRepository.claimDueTasks(100)).thenReturn(List.of(createTask, updateTask));
         when(accountMapper.selectByAccountId(10L)).thenReturn(Optional.of(createAccount));
         when(accountMapper.selectByAccountId(11L)).thenReturn(Optional.of(updateAccount));
-        when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(CI_HASH));
+        when(customerMapper.selectCiHashByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(CI_HASH));
         when(mydataProvider.syncRiaAccount(CI_HASH, createAccount)).thenReturn(HttpStatus.OK);
         when(mydataProvider.syncRiaAccount(CI_HASH, updateAccount)).thenReturn(HttpStatus.OK);
 
@@ -110,7 +112,7 @@ class AccountMydataSyncServiceTest {
         ClaimedTask task = claimed(10L, "SYNC:0:token-10");
         when(taskRepository.claimDueTasks(100)).thenReturn(List.of(task));
         when(accountMapper.selectByAccountId(10L)).thenReturn(Optional.of(account));
-        when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(CI_HASH));
+        when(customerMapper.selectCiHashByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(CI_HASH));
         when(mydataProvider.syncRiaAccount(CI_HASH, account))
                 .thenThrow(new MydataApiException("동기화 실패", null));
 
