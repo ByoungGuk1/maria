@@ -136,20 +136,22 @@ class TargetProductServiceImplTest {
     }
 
     @Test
-    @DisplayName("getSummary()는 BusinessClockService의 오늘 날짜로 매퍼를 조회하고 결과를 그대로 담는다")
+    @DisplayName("getSummary()는 BusinessClockService의 오늘~내일 범위로 매퍼를 조회하고 결과를 그대로 담는다")
     void getSummaryDelegatesToMapperUsingClockToday() {
+        LocalDate today = FIXED_NOW.toLocalDate();
+        LocalDate tomorrow = today.plusDays(1);
         TargetProductSummaryDTO todayStats =
                 TargetProductSummaryDTO.builder()
                         .todayJudgementCount(3)
                         .todayTargetCount(2)
                         .todayTargetNetBuyAmount(new BigDecimal("1500000.00"))
                         .build();
-        when(targetProductMapper.selectSummary(FIXED_NOW.toLocalDate())).thenReturn(todayStats);
+        when(targetProductMapper.selectSummary(today, tomorrow)).thenReturn(todayStats);
         when(targetProductMapper.countJudgements()).thenReturn(50);
 
         TargetProductSummaryDTO result = targetProductService.getSummary();
 
-        verify(targetProductMapper).selectSummary(FIXED_NOW.toLocalDate());
+        verify(targetProductMapper).selectSummary(today, tomorrow);
         assertThat(result.getTodayJudgementCount()).isEqualTo(3);
         assertThat(result.getTodayTargetCount()).isEqualTo(2);
         assertThat(result.getTodayTargetNetBuyAmount()).isEqualByComparingTo("1500000.00");
@@ -158,13 +160,14 @@ class TargetProductServiceImplTest {
     @Test
     @DisplayName("getSummary()의 totalJudgementCount는 selectSummary가 아니라 countJudgements() 결과로 채워진다")
     void getSummarySetsTotalJudgementCountFromCountJudgements() {
+        LocalDate today = FIXED_NOW.toLocalDate();
         TargetProductSummaryDTO todayStats =
                 TargetProductSummaryDTO.builder()
                         .todayJudgementCount(0)
                         .todayTargetCount(0)
                         .todayTargetNetBuyAmount(BigDecimal.ZERO)
                         .build();
-        when(targetProductMapper.selectSummary(FIXED_NOW.toLocalDate())).thenReturn(todayStats);
+        when(targetProductMapper.selectSummary(today, today.plusDays(1))).thenReturn(todayStats);
         when(targetProductMapper.countJudgements()).thenReturn(50);
 
         TargetProductSummaryDTO result = targetProductService.getSummary();

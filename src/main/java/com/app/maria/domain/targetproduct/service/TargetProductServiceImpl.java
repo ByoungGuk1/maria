@@ -106,7 +106,8 @@ public class TargetProductServiceImpl implements TargetProductService {
     @Transactional(readOnly = true)
     public TargetProductSummaryDTO getSummary() {
         LocalDate today = businessClockService.now().toLocalDate();
-        TargetProductSummaryDTO todayStats = targetProductMapper.selectSummary(today);
+        LocalDate tomorrow = today.plusDays(1);
+        TargetProductSummaryDTO todayStats = targetProductMapper.selectSummary(today, tomorrow);
         int totalCount = targetProductMapper.countJudgements();
 
         return TargetProductSummaryDTO.builder()

@@ -2,8 +2,6 @@ package com.app.maria.domain.targetproduct.dto.request;
 
 import com.app.maria.domain.targetproduct.dto.TargetProductSearchDTO;
 import com.app.maria.domain.targetproduct.type.StockType;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.PositiveOrZero;
 import lombok.*;
 
 @AllArgsConstructor
@@ -17,9 +15,9 @@ public class TargetProductSearchRequestDTO {
     private StockType stockType;
     private Boolean isTarget;
 
-    @PositiveOrZero private int page;
+    private int page;
 
-    @Positive private int size;
+    private int size;
 
     public TargetProductSearchDTO toTargetProductSearchDTO() {
         return TargetProductSearchDTO.builder()

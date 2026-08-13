@@ -74,7 +74,7 @@
         COALESCE(SUM(CASE WHEN is_target = TRUE THEN 1 ELSE 0 END), 0) AS todayTargetCount,
         COALESCE(SUM(CASE WHEN is_target = TRUE THEN net_buy_amount ELSE 0 END), 0) AS todayTargetNetBuyAmount
         FROM target_product_judgement
-        WHERE DATE(judged_at) = #{today}
+        WHERE judged_at &gt;= #{today} AND judged_at &lt; #{tomorrow}
     </select>
 
 </mapper>
