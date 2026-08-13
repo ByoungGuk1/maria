@@ -25,7 +25,7 @@ public class AuditLogDTO {
 
     private String targetAdminName;
     private String targetAccountNo;
-
     private String targetOwnerAccountNo;
+    private LocalDateTime targetBatchExecutedAt;
 
 }
