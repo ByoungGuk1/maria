@@ -18,4 +18,7 @@ public class AuditLogSearchDTO {
 
     private LocalDateTime startDate;
     private LocalDateTime endDate;
+
+    private int size;
+    private int offset;
 }

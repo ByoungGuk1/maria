@@ -20,6 +20,8 @@ public class AuditLogResponseDTO {
     private String afterValue;
     private String reasonCode;
     private LocalDateTime processedAt;
+    private String adminName;
+    private String adminRole;
 
     public AuditLogResponseDTO(AuditLogDTO dto) {
         this.auditId = dto.getAuditId();
@@ -30,5 +32,7 @@ public class AuditLogResponseDTO {
         this.afterValue = dto.getAfterValue();
         this.reasonCode = dto.getReasonCode();
         this.processedAt = dto.getProcessedAt();
+        this.adminName = dto.getAdminName();
+        this.adminRole = dto.getAdminRole();
     }
 }

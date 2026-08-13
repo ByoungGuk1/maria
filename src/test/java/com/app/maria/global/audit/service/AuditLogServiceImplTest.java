@@ -12,6 +12,7 @@ import com.app.maria.global.audit.dto.request.AuditLogSearchRequestDTO;
 import com.app.maria.global.audit.dto.response.AuditLogResponseDTO;
 import com.app.maria.global.audit.exception.AuditLogInsertException;
 import com.app.maria.global.audit.mapper.AuditLogMapper;
+import com.app.maria.global.response.PageResponseDTO;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -43,22 +44,26 @@ class AuditLogServiceImplTest {
     }
 
     @Test
-    @DisplayName("검색 조건을 VO로 변환해 Mapper에 넘기고, 결과를 ResponseDTO 리스트로 변환해 반환한다")
-    void searchAuditLogsConvertsRequestToVoAndMapsResultToResponseDto() {
+    @DisplayName("검색 조건을 VO로 변환해 Mapper에 넘기고, 결과를 PageResponseDTO로 변환해 반환한다")
+    void searchAuditLogsConvertsRequestToVoAndMapsResultToPageResponseDto() {
         AuditLogSearchRequestDTO request =
                 AuditLogSearchRequestDTO.builder().adminId(1L).targetTable("ADMIN_USER").build();
 
         when(auditLogMapper.selectAuditLogs(any(AuditLogSearchDTO.class)))
                 .thenReturn(List.of(auditLog(10L, 1L, "ADMIN_USER", "2")));
+        when(auditLogMapper.countAuditLogs(any(AuditLogSearchDTO.class))).thenReturn(1L);
 
-        List<AuditLogResponseDTO> result = auditLogService.searchAuditLogs(request);
+        PageResponseDTO<AuditLogResponseDTO> result = auditLogService.searchAuditLogs(request);
 
-        assertThat(result).hasSize(1);
-        AuditLogResponseDTO response = result.get(0);
+        assertThat(result.getContent()).hasSize(1);
+        AuditLogResponseDTO response = result.getContent().get(0);
         assertThat(response.getAuditId()).isEqualTo(10L);
         assertThat(response.getAdminId()).isEqualTo(1L);
         assertThat(response.getTargetTable()).isEqualTo("ADMIN_USER");
         assertThat(response.getTargetPk()).isEqualTo("2");
+        assertThat(result.getTotalCount()).isEqualTo(1L);
+        assertThat(result.getPage()).isEqualTo(0);
+        assertThat(result.getSize()).isEqualTo(20);
 
         ArgumentCaptor<AuditLogSearchDTO> captor = ArgumentCaptor.forClass(AuditLogSearchDTO.class);
         verify(auditLogMapper).selectAuditLogs(captor.capture());
@@ -68,14 +73,46 @@ class AuditLogServiceImplTest {
     }
 
     @Test
-    @DisplayName("검색 결과가 없으면 빈 리스트를 반환한다")
-    void searchAuditLogsReturnsEmptyListWhenNoResults() {
+    @DisplayName("page/size로 offset을 계산해 Mapper에 전달한다")
+    void searchAuditLogsComputesOffsetFromPageAndSize() {
+        AuditLogSearchRequestDTO request =
+                AuditLogSearchRequestDTO.builder().page(2).size(10).build();
+        when(auditLogMapper.selectAuditLogs(any())).thenReturn(List.of());
+        when(auditLogMapper.countAuditLogs(any())).thenReturn(0L);
+
+        auditLogService.searchAuditLogs(request);
+
+        ArgumentCaptor<AuditLogSearchDTO> captor = ArgumentCaptor.forClass(AuditLogSearchDTO.class);
+        verify(auditLogMapper).selectAuditLogs(captor.capture());
+        assertThat(captor.getValue().getOffset()).isEqualTo(20);
+        assertThat(captor.getValue().getSize()).isEqualTo(10);
+    }
+
+    @Test
+    @DisplayName("전체 건수는 content 크기와 무관하게 Mapper의 count 결과를 그대로 쓴다")
+    void searchAuditLogsReturnsTotalCountFromMapperRegardlessOfContentSize() {
         AuditLogSearchRequestDTO request = AuditLogSearchRequestDTO.builder().build();
-        when(auditLogMapper.selectAuditLogs(any(AuditLogSearchDTO.class))).thenReturn(List.of());
+        when(auditLogMapper.selectAuditLogs(any()))
+                .thenReturn(List.of(auditLog(1L, 1L, "ADMIN_USER", "2")));
+        when(auditLogMapper.countAuditLogs(any())).thenReturn(50L);
 
-        List<AuditLogResponseDTO> result = auditLogService.searchAuditLogs(request);
+        PageResponseDTO<AuditLogResponseDTO> result = auditLogService.searchAuditLogs(request);
 
-        assertThat(result).isEmpty();
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getTotalCount()).isEqualTo(50L);
+    }
+
+    @Test
+    @DisplayName("검색 결과가 없으면 빈 content와 0건을 반환한다")
+    void searchAuditLogsReturnsEmptyContentWhenNoResults() {
+        AuditLogSearchRequestDTO request = AuditLogSearchRequestDTO.builder().build();
+        when(auditLogMapper.selectAuditLogs(any())).thenReturn(List.of());
+        when(auditLogMapper.countAuditLogs(any())).thenReturn(0L);
+
+        PageResponseDTO<AuditLogResponseDTO> result = auditLogService.searchAuditLogs(request);
+
+        assertThat(result.getContent()).isEmpty();
+        assertThat(result.getTotalCount()).isZero();
     }
 
     @Test

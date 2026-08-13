@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}">
+<head>
+    <title>감사 로그 - MARIA</title>
+    <th:block layout:fragment="pageStyles">
+        <link rel="stylesheet" th:href="@{/css/audit-log.css}">
+    </th:block>
+</head>
+<body>
+<div layout:fragment="breadcrumb">감사 로그</div>
+
+<div layout:fragment="content" class="audit-log">
+    <div class="audit-log-header">
+        <div>
+            <h1 class="audit-log-title">감사 로그</h1>
+            <p class="audit-log-description">관리자 권한 변경, 매도 체결/반려, 시스템 시각 조작 이력을 조회합니다.</p>
+        </div>
+        <span class="audit-log-count" id="auditLogCount">-</span>
+    </div>
+
+    <div class="card audit-log-toolbar">
+        <div class="audit-log-filter-group">
+            <select id="auditTargetTableFilter" class="audit-log-filter">
+                <option value="">전체 대상</option>
+                <option value="ADMIN_USER">관리자</option>
+                <option value="SELL_ORDER">매도주문</option>
+                <option value="SYSTEM_CLOCK">시스템 시각</option>
+            </select>
+            <input id="auditAdminIdFilter" class="audit-log-filter audit-log-filter-narrow" type="number"
+                   min="1" step="1" placeholder="관리자 ID">
+            <input id="auditReasonCodeFilter" class="audit-log-filter" type="text"
+                   placeholder="사유 코드 (예: SELL_ORDER_EXECUTED)">
+            <input id="auditStartDateFilter" class="audit-log-filter" type="datetime-local">
+            <span class="audit-log-filter-separator">~</span>
+            <input id="auditEndDateFilter" class="audit-log-filter" type="datetime-local">
+            <button id="auditLogSearch" class="btn btn-primary" type="button">조회</button>
+            <button id="auditLogReset" class="btn" type="button">초기화</button>
+        </div>
+    </div>
+
+    <div class="card audit-log-table-wrap">
+        <table class="audit-log-table">
+            <thead>
+            <tr>
+                <th>일시</th>
+                <th>관리자</th>
+                <th>대상</th>
+                <th>사유</th>
+                <th>변경 전</th>
+                <th>변경 후</th>
+            </tr>
+            </thead>
+            <tbody id="auditLogListBody">
+            <tr>
+                <td colspan="6" class="audit-log-loading">불러오는 중...</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="audit-log-pagination" id="auditLogPagination" style="display:none">
+        <button id="previousAuditLogPage" class="btn" type="button">이전</button>
+        <span id="auditLogPageInfo"></span>
+        <button id="nextAuditLogPage" class="btn" type="button">다음</button>
+    </div>
+</div>
+
+<th:block layout:fragment="pageScripts">
+    <script th:src="@{/js/audit-log.js}"></script>
+</th:block>
+</body>
+</html>
