@@ -204,8 +204,7 @@ class AccountTransactionalServiceImplTest {
 
         service.override(ADMIN_ID, ACCOUNT_ID, "재심사 승인", NOW);
 
-        assertAuditLog(
-                "REJECTED", "OPENED", AuditLogReasonCode.ACCOUNT_OVERRIDE_OPENED);
+        assertAuditLog("REJECTED", "OPENED", AuditLogReasonCode.ACCOUNT_OVERRIDE_OPENED);
     }
 
     @Test
