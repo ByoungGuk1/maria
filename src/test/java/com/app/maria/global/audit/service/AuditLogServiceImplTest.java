@@ -91,6 +91,22 @@ class AuditLogServiceImplTest {
         assertThat(passedVo.getMatchedRoles()).containsExactly("ADMIN");
         assertThat(passedVo.getReasonKeyword()).isEqualTo("관리자 권한 변경");
         assertThat(passedVo.getMatchedReasonCodes()).containsExactly("ADMIN_ROLE_UPDATE");
+        assertThat(passedVo.getKnownReasonCodes()).contains("ADMIN_ROLE_UPDATE", "SELL_ORDER_EXECUTED");
+    }
+
+    @Test
+    @DisplayName("knownReasonCodes는 reasonKeyword가 비어있어도 항상 전체 사유코드 목록으로 채워진다")
+    void searchAuditLogsAlwaysPassesFullKnownReasonCodesRegardlessOfKeyword() {
+        AuditLogSearchRequestDTO request = AuditLogSearchRequestDTO.builder().build();
+        when(auditLogMapper.selectAuditLogs(any())).thenReturn(List.of());
+        when(auditLogMapper.countAuditLogs(any())).thenReturn(0L);
+
+        auditLogService.searchAuditLogs(request);
+
+        ArgumentCaptor<AuditLogSearchDTO> captor = ArgumentCaptor.forClass(AuditLogSearchDTO.class);
+        verify(auditLogMapper).selectAuditLogs(captor.capture());
+        assertThat(captor.getValue().getKnownReasonCodes())
+                .contains("ADMIN_ROLE_UPDATE", "SELL_ORDER_EXECUTED", "ACCOUNT_APPLY", "SETTLEMENT_BATCH_REQUESTED");
     }
 
     @Test

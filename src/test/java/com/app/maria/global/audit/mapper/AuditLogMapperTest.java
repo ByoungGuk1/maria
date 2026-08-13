@@ -282,6 +282,36 @@ class AuditLogMapperTest {
     }
 
     @Test
+    @DisplayName(
+            "knownReasonCodes에 있는(=한글 라벨이 있는) 코드는 원문 부분일치로 안 잡히고, 라벨 없는 자유텍스트만 원문으로 잡힌다"
+                    + " (화면엔 라벨만 보이는데 원문으로 걸리면 화면과 검색이 안 맞는 문제 방지)")
+    void selectAuditLogsExcludesKnownReasonCodesFromRawTextMatch() {
+        auditLogMapper.insertLog(auditLog(1L, "ADMIN_USER", "2", "ADMIN_ROLE_UPDATE"));
+        auditLogMapper.insertLog(auditLog(1L, "SYSTEM_CLOCK", "1", "test-debug"));
+
+        List<AuditLogDTO> result =
+                auditLogMapper.selectAuditLogs(
+                        searchDefaults()
+                                .reasonKeyword("t")
+                                .knownReasonCodes(List.of("ADMIN_ROLE_UPDATE"))
+                                .build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getReasonCode()).isEqualTo("test-debug");
+    }
+
+    @Test
+    @DisplayName("knownReasonCodes가 비어있으면(=null) 기존처럼 원문 매칭이 전부 적용된다")
+    void selectAuditLogsAppliesRawTextMatchToAllCodesWhenKnownReasonCodesAbsent() {
+        auditLogMapper.insertLog(auditLog(1L, "ADMIN_USER", "2", "ADMIN_ROLE_UPDATE"));
+
+        List<AuditLogDTO> result =
+                auditLogMapper.selectAuditLogs(searchDefaults().reasonKeyword("UPDATE").build());
+
+        assertThat(result).hasSize(1);
+    }
+
+    @Test
     @DisplayName("기간(startDate~endDate)으로 필터링한다")
     void selectAuditLogsFiltersByDateRange() throws SQLException {
         insertLogAt(1L, "ADMIN_USER", "2", "ADMIN_ROLE_UPDATE", "2026-01-01 09:00:00");
