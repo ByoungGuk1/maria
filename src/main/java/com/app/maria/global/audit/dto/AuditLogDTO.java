@@ -1,7 +1,8 @@
 package com.app.maria.global.audit.dto;
 
-import java.time.LocalDateTime;
 import lombok.*;
+
+import java.time.LocalDateTime;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -24,4 +25,7 @@ public class AuditLogDTO {
 
     private String targetAdminName;
     private String targetAccountNo;
+
+    private String targetOwnerAccountNo;
+
 }

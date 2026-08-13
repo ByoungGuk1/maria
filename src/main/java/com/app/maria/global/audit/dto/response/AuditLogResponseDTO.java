@@ -1,8 +1,9 @@
 package com.app.maria.global.audit.dto.response;
 
 import com.app.maria.global.audit.dto.AuditLogDTO;
-import java.time.LocalDateTime;
 import lombok.*;
+
+import java.time.LocalDateTime;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -40,6 +41,7 @@ public class AuditLogResponseDTO {
                 switch (dto.getTargetTable()) {
                     case "ADMIN_USER" -> dto.getTargetAdminName();
                     case "SELL_ORDER" -> dto.getTargetAccountNo();
+                    case "ACCOUNT"    -> dto.getTargetOwnerAccountNo();
                     default -> dto.getTargetTable();
                 };
     }

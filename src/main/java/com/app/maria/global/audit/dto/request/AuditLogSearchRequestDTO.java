@@ -4,10 +4,11 @@ import com.app.maria.global.audit.dto.AuditLogSearchDTO;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import lombok.*;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -21,7 +22,13 @@ public class AuditLogSearchRequestDTO {
             Map.of(
                     "ADMIN_ROLE_UPDATE", "관리자 권한 변경",
                     "SELL_ORDER_EXECUTED", "매도 체결",
-                    "SELL_ORDER_REJECTED", "매도 반려");
+                    "SELL_ORDER_REJECTED", "매도 반려",
+                    "ACCOUNT_APPLY", "계좌 개설 신청",
+                    "ACCOUNT_REAPPLY", "계좌 재신청",
+                    "ACCOUNT_CHANGE_LIMIT_AMOUNT", "한도 변경",
+                    "ACCOUNT_OPENED", "계좌 개설",
+                    "ACCOUNT_REJECTED", "계좌 반려",
+                    "ACCOUNT_OVERRIDE_OPENED", "계좌 오버라이드 개설");
 
     private static final Map<String, String> ROLE_LABELS =
             Map.of(
