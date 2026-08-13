@@ -13,13 +13,18 @@ import java.util.List;
 @Builder
 public class AuditLogSearchDTO {
 
+    private String targetTable;
+
+    private String adminKeyword;
+    private List<String> matchedRoles;
+
+    private String targetKeyword;
+
+    private String reasonKeyword;
+    private List<String> matchedReasonCodes;
+
     private LocalDateTime startDate;
     private LocalDateTime endDate;
-
-    private String keyword;
-    private List<String> matchedTargetTables;
-    private List<String> matchedReasonCodes;
-    private List<String> matchedRoles;
 
     private int size;
     private int offset;

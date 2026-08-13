@@ -25,13 +25,22 @@
 
 .audit-log-toolbar {
     padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
-.audit-log-filter-group {
+.audit-log-filter-row {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
+}
+
+.audit-log-filter-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
 }
 
 .audit-log-filter {
@@ -51,8 +60,7 @@
 }
 
 .audit-log-search-input {
-    flex: 1;
-    min-width: 220px;
+    flex: 0 1 140px;
 }
 
 .audit-log-filter-separator {
@@ -150,7 +158,7 @@
 
 @media (max-width: 620px) {
     .audit-log-header,
-    .audit-log-filter-group {
+    .audit-log-filter-row {
         align-items: stretch;
         flex-direction: column;
     }
@@ -158,5 +166,14 @@
     .audit-log-filter,
     .audit-log-search-input {
         width: 100%;
+    }
+
+    .audit-log-filter-actions {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .audit-log-filter-actions .btn {
+        flex: 1;
     }
 }

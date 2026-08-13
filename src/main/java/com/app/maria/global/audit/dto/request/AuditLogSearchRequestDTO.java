@@ -18,11 +18,6 @@ import java.util.Map;
 @Builder
 public class AuditLogSearchRequestDTO {
 
-    private static final Map<String, String> TARGET_TABLE_LABELS = Map.of(
-            "ADMIN_USER", "관리자",
-            "SELL_ORDER", "매도주문",
-            "SYSTEM_CLOCK", "시스템 시각");
-
     private static final Map<String, String> REASON_CODE_LABELS = Map.of(
             "ADMIN_ROLE_UPDATE", "관리자 권한 변경",
             "SELL_ORDER_EXECUTED", "매도 체결",
@@ -34,7 +29,10 @@ public class AuditLogSearchRequestDTO {
             "SETTLEMENT", "정산담당",
             "ADMIN", "최고관리자");
 
-    private String keyword;
+    private String targetTable;
+    private String adminKeyword;
+    private String targetKeyword;
+    private String reasonKeyword;
 
     private LocalDateTime startDate;
     private LocalDateTime endDate;
@@ -53,22 +51,24 @@ public class AuditLogSearchRequestDTO {
     @Builder.Default
     private int size = 20;
 
-    private List<String> matchLabels(Map<String, String> labels) {
-        if (keyword == null || keyword.isBlank()) {
+    private List<String> matchLabels(String kw, Map<String, String> labels) {
+        if (kw == null || kw.isBlank()) {
             return List.of();
         }
         return labels.entrySet().stream()
-                .filter(entry -> entry.getValue().contains(keyword))
+                .filter(entry -> entry.getValue().contains(kw))
                 .map(Map.Entry::getKey)
                 .toList();
     }
 
     public AuditLogSearchDTO toAuditLogSearchDTO() {
         return AuditLogSearchDTO.builder()
-                .keyword(keyword)
-                .matchedTargetTables(matchLabels(TARGET_TABLE_LABELS))
-                .matchedReasonCodes(matchLabels(REASON_CODE_LABELS))
-                .matchedRoles(matchLabels(ROLE_LABELS))
+                .targetTable(targetTable)
+                .adminKeyword(adminKeyword)
+                .matchedRoles(matchLabels(adminKeyword, ROLE_LABELS))
+                .targetKeyword(targetKeyword)
+                .reasonKeyword(reasonKeyword)
+                .matchedReasonCodes(matchLabels(reasonKeyword, REASON_CODE_LABELS))
                 .startDate(startDate)
                 .endDate(endDate)
                 .size(size)

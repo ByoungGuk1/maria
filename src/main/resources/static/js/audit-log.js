@@ -48,12 +48,24 @@ $(function () {
 
     function buildSearchParams() {
         var params = { page: currentPage, size: PAGE_SIZE };
-        var keyword = ($("#auditKeywordFilter").val() || "").trim();
+        var targetTable = $("#auditTargetTableFilter").val();
+        var adminKeyword = ($("#auditAdminKeywordFilter").val() || "").trim();
+        var targetKeyword = ($("#auditTargetKeywordFilter").val() || "").trim();
+        var reasonKeyword = ($("#auditReasonKeywordFilter").val() || "").trim();
         var startDate = $("#auditStartDateFilter").val();
         var endDate = $("#auditEndDateFilter").val();
 
-        if (keyword) {
-            params.keyword = keyword;
+        if (targetTable) {
+            params.targetTable = targetTable;
+        }
+        if (adminKeyword) {
+            params.adminKeyword = adminKeyword;
+        }
+        if (targetKeyword) {
+            params.targetKeyword = targetKeyword;
+        }
+        if (reasonKeyword) {
+            params.reasonKeyword = reasonKeyword;
         }
         if (startDate) {
             params.startDate = startDate;
@@ -131,15 +143,21 @@ $(function () {
         loadAuditLogs();
     });
 
-    $("#auditKeywordFilter").on("keydown", function (event) {
-        if (event.key === "Enter") {
-            currentPage = 0;
-            loadAuditLogs();
+    $("#auditAdminKeywordFilter, #auditTargetKeywordFilter, #auditReasonKeywordFilter").on(
+        "keydown",
+        function (event) {
+            if (event.key === "Enter") {
+                currentPage = 0;
+                loadAuditLogs();
+            }
         }
-    });
+    );
 
     $("#auditLogReset").on("click", function () {
-        $("#auditKeywordFilter").val("");
+        $("#auditTargetTableFilter").val("");
+        $("#auditAdminKeywordFilter").val("");
+        $("#auditTargetKeywordFilter").val("");
+        $("#auditReasonKeywordFilter").val("");
         $("#auditStartDateFilter").val("");
         $("#auditEndDateFilter").val("");
         currentPage = 0;
