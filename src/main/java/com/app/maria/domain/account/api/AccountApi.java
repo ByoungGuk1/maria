@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -47,22 +48,30 @@ public class AccountApi {
 
     @PostMapping("/applications")
     public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> apply(
+            @AuthenticationPrincipal Long adminId,
             @Valid @RequestBody AccountRequestDTO requestDTO) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponseDTO.of("계좌 개설 신청 처리 완료", accountService.applyAccount(requestDTO)));
+                .body(
+                        ApiResponseDTO.of(
+                                "계좌 개설 신청 처리 완료",
+                                accountService.applyAccount(adminId, requestDTO)));
     }
 
     @PostMapping("/{accountId}/approve")
     @PreAuthorize("hasAnyRole('ADMIN', 'REVIEWER')")
     public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> approve(
+            @AuthenticationPrincipal Long adminId,
             @PathVariable @Positive(message = "계좌 ID는 0보다 커야 합니다.") Long accountId) {
         return ResponseEntity.status(HttpStatus.OK)
-                .body(ApiResponseDTO.of("계좌 승인", accountService.approveAccount(accountId)));
+                .body(
+                        ApiResponseDTO.of(
+                                "계좌 승인", accountService.approveAccount(adminId, accountId)));
     }
 
     @PostMapping("/{accountId}/reject")
     @PreAuthorize("hasAnyRole('ADMIN', 'REVIEWER')")
     public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> reject(
+            @AuthenticationPrincipal Long adminId,
             @PathVariable @Positive(message = "계좌 ID는 0보다 커야 합니다.") Long accountId,
             @Valid @RequestBody ReasonRequestDTO reasonRequestDTO) {
         return ResponseEntity.status(HttpStatus.OK)
@@ -70,17 +79,19 @@ public class AccountApi {
                         ApiResponseDTO.of(
                                 "계좌 반려",
                                 accountService.rejectAccount(
-                                        accountId, reasonRequestDTO.getReason())));
+                                        adminId, accountId, reasonRequestDTO.getReason())));
     }
 
     @PostMapping("/{accountId}/reapply")
     public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> reapply(
+            @AuthenticationPrincipal Long adminId,
             @PathVariable @Positive(message = "계좌 ID는 0보다 커야 합니다.") Long accountId,
             @Valid @RequestBody AccountReapplyRequestDTO accountRequestDTO) {
         return ResponseEntity.ok(
                 ApiResponseDTO.of(
                         "계좌 재신청",
-                        accountService.reapplyAccountByAccountId(accountId, accountRequestDTO)));
+                        accountService.reapplyAccountByAccountId(
+                                adminId, accountId, accountRequestDTO)));
     }
 
     @GetMapping("/{accountId}")
@@ -101,20 +112,26 @@ public class AccountApi {
     @PostMapping("/{accountId}/override")
     @PreAuthorize("hasAnyRole('ADMIN', 'REVIEWER')")
     public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> override(
+            @AuthenticationPrincipal Long adminId,
             @PathVariable @Positive(message = "계좌 ID는 0보다 커야 합니다.") Long accountId,
             @Valid @RequestBody ReasonRequestDTO reasonRequestDTO) {
         return ResponseEntity.ok(
                 ApiResponseDTO.of(
                         "계좌 상태 오버라이드",
-                        accountService.overrideAccount(accountId, reasonRequestDTO.getReason())));
+                        accountService.overrideAccount(
+                                adminId, accountId, reasonRequestDTO.getReason())));
     }
 
     @PutMapping("/update/limit")
     @PreAuthorize("hasAnyRole('ADMIN', 'REVIEWER')")
     public ResponseEntity<ApiResponseDTO<AccountResponseDTO>> updateLimit(
+            @AuthenticationPrincipal Long adminId,
             @Valid @RequestBody AccountLimitUpdateRequestDTO requestDTO) {
         return ResponseEntity.status(HttpStatus.OK)
-                .body(ApiResponseDTO.of("계좌 한도 변경", accountService.updateAccountLimit(requestDTO)));
+                .body(
+                        ApiResponseDTO.of(
+                                "계좌 한도 변경",
+                                accountService.updateAccountLimit(adminId, requestDTO)));
     }
 
     @GetMapping("/search")

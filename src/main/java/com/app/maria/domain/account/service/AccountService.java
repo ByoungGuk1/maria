@@ -19,24 +19,24 @@ public interface AccountService {
     BigDecimal getAvailableLimit(Long customerId);
 
     // 고객 마이페이지용 한도 변경: APPLIED, OPENED 상태에서만 허용
-    AccountResponseDTO updateAccountLimit(AccountLimitUpdateRequestDTO requestDTO);
+    AccountResponseDTO updateAccountLimit(Long adminId, AccountLimitUpdateRequestDTO requestDTO);
 
     // 관리자 대리 신청과 사용자 본인 신청이 공통으로 사용
-    AccountResponseDTO applyAccount(AccountRequestDTO requestDTO);
+    AccountResponseDTO applyAccount(Long adminId, AccountRequestDTO requestDTO);
 
     // 관리자 기능
-    AccountResponseDTO approveAccount(Long accountId);
+    AccountResponseDTO approveAccount(Long adminId, Long accountId);
 
-    AccountResponseDTO rejectAccount(Long accountId, String reason);
+    AccountResponseDTO rejectAccount(Long adminId, Long accountId, String reason);
 
     AccountResponseDTO reapplyAccountByAccountId(
-            Long accountId, AccountReapplyRequestDTO requestDTO);
+            Long adminId, Long accountId, AccountReapplyRequestDTO requestDTO);
 
     AccountResponseDTO getAccountByAccountId(Long accountId);
 
     List<AccountLogResponseDTO> getStatusLogsByAccountId(Long accountId);
 
-    AccountResponseDTO overrideAccount(Long accountId, String reason);
+    AccountResponseDTO overrideAccount(Long adminId, Long accountId, String reason);
 
     int getAppliedAccountCount();
 

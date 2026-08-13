@@ -55,7 +55,8 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public AccountResponseDTO updateAccountLimit(AccountLimitUpdateRequestDTO requestDTO) {
+    public AccountResponseDTO updateAccountLimit(
+            Long adminId, AccountLimitUpdateRequestDTO requestDTO) {
         validateCustomerExists(requestDTO.getCustomerId());
         Long customerId = requestDTO.getCustomerId();
         BigDecimal newLimitAmount = requestDTO.getLimitAmount();
@@ -64,6 +65,7 @@ public class AccountServiceImpl implements AccountService {
         validateLimitAvailability(newLimitAmount, calculateAvailableLimit(customerId));
         AccountDTO updatedAccount =
                 accountTransactionalService.updateLimit(
+                        adminId,
                         customerId,
                         requestDTO.getExpectedCurrentLimit(),
                         newLimitAmount,
@@ -75,7 +77,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public AccountResponseDTO applyAccount(AccountRequestDTO requestDTO) {
+    public AccountResponseDTO applyAccount(Long adminId, AccountRequestDTO requestDTO) {
         Long customerId = requestDTO.getCustomerId();
         validateCustomerExists(customerId);
         LocalDateTime appliedAt = businessClockService.now();
@@ -88,7 +90,7 @@ public class AccountServiceImpl implements AccountService {
                         && account.getLimitAmount().compareTo(availableLimit) <= 0
                         && availableLimit.compareTo(MIN_LIMIT_AMOUNT) >= 0;
         AccountDTO appliedAccount =
-                accountTransactionalService.apply(account, appliedAt, autoApprove);
+                accountTransactionalService.apply(adminId, account, appliedAt, autoApprove);
         if (appliedAccount.getStatus() == Status.OPENED) {
             accountMydataSyncService.create(appliedAccount);
         }
@@ -96,7 +98,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public AccountResponseDTO approveAccount(Long accountId) {
+    public AccountResponseDTO approveAccount(Long adminId, Long accountId) {
         AccountDTO account =
                 accountMapper
                         .selectByAccountId(accountId)
@@ -105,22 +107,23 @@ public class AccountServiceImpl implements AccountService {
         validateLimitAvailability(
                 account.getLimitAmount(), calculateAvailableLimit(account.getCustomerId()));
         AccountDTO openedAccount =
-                accountTransactionalService.approve(accountId, account.getLimitAmount(), openedAt);
+                accountTransactionalService.approve(
+                        adminId, accountId, account.getLimitAmount(), openedAt);
         accountMydataSyncService.create(openedAccount);
         return new AccountResponseDTO(openedAccount);
     }
 
     @Override
-    public AccountResponseDTO rejectAccount(Long accountId, String reason) {
+    public AccountResponseDTO rejectAccount(Long adminId, Long accountId, String reason) {
         AccountDTO rejectedAccount =
                 accountTransactionalService.reject(
-                        accountId, normalizeReason(reason), businessClockService.now());
+                        adminId, accountId, normalizeReason(reason), businessClockService.now());
         return new AccountResponseDTO(rejectedAccount);
     }
 
     @Override
     public AccountResponseDTO reapplyAccountByAccountId(
-            Long accountId, AccountReapplyRequestDTO requestDTO) {
+            Long adminId, Long accountId, AccountReapplyRequestDTO requestDTO) {
         AccountDTO foundAccount =
                 accountMapper
                         .selectByAccountId(accountId)
@@ -134,7 +137,7 @@ public class AccountServiceImpl implements AccountService {
         validateLimitAvailability(
                 limitAmount, calculateAvailableLimit(foundAccount.getCustomerId()));
         AccountDTO reappliedAccount =
-                accountTransactionalService.reapply(accountId, requestDTO, appliedAt);
+                accountTransactionalService.reapply(adminId, accountId, requestDTO, appliedAt);
         return new AccountResponseDTO(reappliedAccount);
     }
 
@@ -156,7 +159,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public AccountResponseDTO overrideAccount(Long accountId, String reason) {
+    public AccountResponseDTO overrideAccount(Long adminId, Long accountId, String reason) {
         String normalizedReason = normalizeReason(reason);
         AccountDTO account =
                 accountMapper
@@ -166,7 +169,8 @@ public class AccountServiceImpl implements AccountService {
         validateLimitAvailability(
                 account.getLimitAmount(), calculateAvailableLimit(account.getCustomerId()));
         AccountDTO openedAccount =
-                accountTransactionalService.override(accountId, normalizedReason, openedAt);
+                accountTransactionalService.override(
+                        adminId, accountId, normalizedReason, openedAt);
         accountMydataSyncService.create(openedAccount);
         return new AccountResponseDTO(openedAccount);
     }
