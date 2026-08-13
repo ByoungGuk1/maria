@@ -74,6 +74,9 @@ $(function () {
 
         var current = page.page;
         var totalPages = page.totalPages;
+        var BLOCK_SIZE = 10;
+        var blockStart = Math.floor(current / BLOCK_SIZE) * BLOCK_SIZE;
+        var blockEnd = Math.min(totalPages - 1, blockStart + BLOCK_SIZE - 1);
 
         function addButton(label, targetPage, isDisabled, isActive) {
             var classes = "page-btn" + (isActive ? " active" : "");
@@ -87,29 +90,13 @@ $(function () {
             $pagination.append($btn);
         }
 
-        addButton("이전", current - 1, current === 0, false);
+        addButton("이전", blockStart - 1, blockStart === 0, false);
 
-        var windowSize = 2;
-        var start = Math.max(0, current - windowSize);
-        var end = Math.min(totalPages - 1, current + windowSize);
-
-        if (start > 0) {
-            addButton("1", 0, false, false);
-            if (start > 1) {
-                $pagination.append('<span class="page-ellipsis">...</span>');
-            }
-        }
-        for (var i = start; i <= end; i++) {
+        for (var i = blockStart; i <= blockEnd; i++) {
             addButton(String(i + 1), i, false, i === current);
         }
-        if (end < totalPages - 1) {
-            if (end < totalPages - 2) {
-                $pagination.append('<span class="page-ellipsis">...</span>');
-            }
-            addButton(String(totalPages), totalPages - 1, false, false);
-        }
 
-        addButton("다음", current + 1, current === totalPages - 1, false);
+        addButton("다음", blockEnd + 1, blockEnd === totalPages - 1, false);
     }
 
     function renderSummary(summary) {
