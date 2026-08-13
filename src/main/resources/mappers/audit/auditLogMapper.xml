@@ -46,9 +46,9 @@
         FROM audit_log al
         LEFT JOIN admin_user au ON au.admin_id = al.admin_id
         LEFT JOIN admin_user target_admin
-            ON al.target_table = 'ADMIN_USER' AND target_admin.admin_id = CAST(al.target_pk AS UNSIGNED)
+            ON al.target_table = 'ADMIN_USER' AND CAST(target_admin.admin_id AS CHAR(20)) = al.target_pk
         LEFT JOIN sell_order so
-            ON al.target_table = 'SELL_ORDER' AND so.order_id = CAST(al.target_pk AS UNSIGNED)
+            ON al.target_table = 'SELL_ORDER' AND CAST(so.order_id AS CHAR(20)) = al.target_pk
         LEFT JOIN account acc ON acc.account_id = so.account_id
         <include refid="auditLogSearchCondition"/>
         ORDER BY al.processed_at DESC
@@ -60,9 +60,9 @@
         FROM audit_log al
         LEFT JOIN admin_user au ON au.admin_id = al.admin_id
         LEFT JOIN admin_user target_admin
-            ON al.target_table = 'ADMIN_USER' AND target_admin.admin_id = CAST(al.target_pk AS UNSIGNED)
+            ON al.target_table = 'ADMIN_USER' AND CAST(target_admin.admin_id AS CHAR(20)) = al.target_pk
         LEFT JOIN sell_order so
-            ON al.target_table = 'SELL_ORDER' AND so.order_id = CAST(al.target_pk AS UNSIGNED)
+            ON al.target_table = 'SELL_ORDER' AND CAST(so.order_id AS CHAR(20)) = al.target_pk
         LEFT JOIN account acc ON acc.account_id = so.account_id
         <include refid="auditLogSearchCondition"/>
     </select>

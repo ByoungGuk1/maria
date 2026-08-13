@@ -101,56 +101,123 @@ class AuditLogMapperTest {
     }
 
     @Test
-    @DisplayName("adminId로 필터링한다")
-    void selectAuditLogsFiltersByAdminId() {
-        auditLogMapper.insertLog(auditLog(1L, "ADMIN_USER", "2", "ADMIN_ROLE_UPDATE"));
-        auditLogMapper.insertLog(auditLog(2L, "ADMIN_USER", "3", "ADMIN_ROLE_UPDATE"));
+    @DisplayName("keyword가 수행자(actor) 이름에 포함되면 매치된다")
+    void selectAuditLogsFiltersByKeywordMatchingActorAdminName() throws SQLException {
+        insertAdmin(1L, "박지훈", "REVIEWER");
+        insertAdmin(2L, "최동수", "SETTLEMENT");
+        auditLogMapper.insertLog(auditLog(1L, "ADMIN_USER", "9", "ADMIN_ROLE_UPDATE"));
+        auditLogMapper.insertLog(auditLog(2L, "ADMIN_USER", "9", "ADMIN_ROLE_UPDATE"));
 
         List<AuditLogDTO> result =
-                auditLogMapper.selectAuditLogs(searchDefaults().adminId(1L).build());
+                auditLogMapper.selectAuditLogs(searchDefaults().keyword("박지훈").build());
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getAdminId()).isEqualTo(1L);
     }
 
     @Test
-    @DisplayName("targetTable로 필터링한다")
-    void selectAuditLogsFiltersByTargetTable() {
+    @DisplayName("keyword가 대상(target) 관리자 이름에 포함되면 매치된다 (actor와 다른 별도 join)")
+    void selectAuditLogsFiltersByKeywordMatchingTargetAdminName() throws SQLException {
+        insertAdmin(1L, "박지훈", "REVIEWER");
+        insertAdmin(2L, "이국희", "VIEWER");
+        // 1번(박지훈)이 2번(이국희)의 권한을 변경한 로그: 수행자=1, 대상=targetPk 2
+        auditLogMapper.insertLog(auditLog(1L, "ADMIN_USER", "2", "ADMIN_ROLE_UPDATE"));
+
+        List<AuditLogDTO> result =
+                auditLogMapper.selectAuditLogs(searchDefaults().keyword("이국희").build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTargetAdminName()).isEqualTo("이국희");
+    }
+
+    @Test
+    @DisplayName("keyword가 매도주문 대상 계좌번호에 포함되면 매치된다 (sell_order+account join)")
+    void selectAuditLogsFiltersByKeywordMatchingAccountNo() throws SQLException {
+        insertAccount(100L, "1234567890");
+        insertSellOrder(50L, 100L);
+        auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "50", "SELL_ORDER_EXECUTED"));
+
+        List<AuditLogDTO> result =
+                auditLogMapper.selectAuditLogs(searchDefaults().keyword("1234567890").build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTargetAccountNo()).isEqualTo("1234567890");
+    }
+
+    @Test
+    @DisplayName("keyword가 작업유형 한글라벨에 매치되는 코드 목록(matchedTargetTables)에 걸리면 조회된다")
+    void selectAuditLogsFiltersByMatchedTargetTables() {
         auditLogMapper.insertLog(auditLog(1L, "ADMIN_USER", "2", "ADMIN_ROLE_UPDATE"));
         auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "10", "SELL_ORDER_EXECUTED"));
 
         List<AuditLogDTO> result =
-                auditLogMapper.selectAuditLogs(searchDefaults().targetTable("SELL_ORDER").build());
+                auditLogMapper.selectAuditLogs(
+                        searchDefaults()
+                                .keyword("매도주문")
+                                .matchedTargetTables(List.of("SELL_ORDER"))
+                                .build());
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getTargetTable()).isEqualTo("SELL_ORDER");
     }
 
     @Test
-    @DisplayName("targetPk로 필터링한다")
-    void selectAuditLogsFiltersByTargetPk() {
-        auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "10", "SELL_ORDER_EXECUTED"));
-        auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "11", "SELL_ORDER_EXECUTED"));
-
-        List<AuditLogDTO> result =
-                auditLogMapper.selectAuditLogs(searchDefaults().targetPk("11").build());
-
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getTargetPk()).isEqualTo("11");
-    }
-
-    @Test
-    @DisplayName("reasonCode로 필터링한다")
-    void selectAuditLogsFiltersByReasonCode() {
+    @DisplayName("keyword가 사유 한글라벨에 매치되는 코드 목록(matchedReasonCodes)에 걸리면 조회된다")
+    void selectAuditLogsFiltersByMatchedReasonCodes() {
         auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "10", "SELL_ORDER_EXECUTED"));
         auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "11", "SELL_ORDER_REJECTED"));
 
         List<AuditLogDTO> result =
                 auditLogMapper.selectAuditLogs(
-                        searchDefaults().reasonCode("SELL_ORDER_REJECTED").build());
+                        searchDefaults()
+                                .keyword("반려")
+                                .matchedReasonCodes(List.of("SELL_ORDER_REJECTED"))
+                                .build());
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getReasonCode()).isEqualTo("SELL_ORDER_REJECTED");
+    }
+
+    @Test
+    @DisplayName("keyword가 수행자 역할 한글라벨에 매치되는 코드 목록(matchedRoles)에 걸리면 조회된다")
+    void selectAuditLogsFiltersByMatchedRoles() throws SQLException {
+        insertAdmin(1L, "천유진", "ADMIN");
+        insertAdmin(2L, "박지훈", "REVIEWER");
+        auditLogMapper.insertLog(auditLog(1L, "ADMIN_USER", "9", "ADMIN_ROLE_UPDATE"));
+        auditLogMapper.insertLog(auditLog(2L, "ADMIN_USER", "9", "ADMIN_ROLE_UPDATE"));
+
+        List<AuditLogDTO> result =
+                auditLogMapper.selectAuditLogs(
+                        searchDefaults().keyword("최고관리자").matchedRoles(List.of("ADMIN")).build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getAdminId()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("keyword가 target_pk 원문에 포함되면 매치된다")
+    void selectAuditLogsFiltersByKeywordMatchingRawTargetPk() {
+        auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "12345", "SELL_ORDER_EXECUTED"));
+        auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "99999", "SELL_ORDER_EXECUTED"));
+
+        List<AuditLogDTO> result =
+                auditLogMapper.selectAuditLogs(searchDefaults().keyword("123").build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTargetPk()).isEqualTo("12345");
+    }
+
+    @Test
+    @DisplayName("keyword가 reason_code 원문(자유텍스트)에 포함되면 매치된다 - 시스템시각 사유 케이스")
+    void selectAuditLogsFiltersByKeywordMatchingRawReasonCodeText() {
+        auditLogMapper.insertLog(auditLog(1L, "SYSTEM_CLOCK", "1", "1년 경과 시연을 위한 시각 조작"));
+        auditLogMapper.insertLog(auditLog(1L, "SYSTEM_CLOCK", "1", "감면구간 테스트"));
+
+        List<AuditLogDTO> result =
+                auditLogMapper.selectAuditLogs(searchDefaults().keyword("시연").build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getReasonCode()).isEqualTo("1년 경과 시연을 위한 시각 조작");
     }
 
     @Test
@@ -172,18 +239,20 @@ class AuditLogMapperTest {
     }
 
     @Test
-    @DisplayName("여러 조건을 동시에 걸면 AND로 결합되어 전부 만족하는 행만 반환한다")
-    void selectAuditLogsCombinesMultipleFiltersWithAnd() {
-        auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "10", "SELL_ORDER_EXECUTED"));
-        auditLogMapper.insertLog(auditLog(2L, "SELL_ORDER", "11", "SELL_ORDER_EXECUTED"));
-        auditLogMapper.insertLog(auditLog(1L, "ADMIN_USER", "3", "ADMIN_ROLE_UPDATE"));
+    @DisplayName("keyword와 기간 조건은 AND로 결합되어 둘 다 만족하는 행만 반환한다")
+    void selectAuditLogsCombinesKeywordAndDateRangeWithAnd() throws SQLException {
+        insertLogAt(1L, "SELL_ORDER", "10", "SELL_ORDER_EXECUTED", "2026-01-01 09:00:00");
+        insertLogAt(1L, "SELL_ORDER", "11", "SELL_ORDER_EXECUTED", "2026-08-05 09:00:00");
 
         List<AuditLogDTO> result =
                 auditLogMapper.selectAuditLogs(
-                        searchDefaults().adminId(1L).targetTable("SELL_ORDER").build());
+                        searchDefaults()
+                                .keyword("11")
+                                .startDate(LocalDateTime.of(2026, 6, 1, 0, 0))
+                                .build());
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getTargetPk()).isEqualTo("10");
+        assertThat(result.get(0).getTargetPk()).isEqualTo("11");
     }
 
     @Test
@@ -192,13 +261,13 @@ class AuditLogMapperTest {
         auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "10", "SELL_ORDER_EXECUTED"));
 
         List<AuditLogDTO> result =
-                auditLogMapper.selectAuditLogs(searchDefaults().adminId(999L).build());
+                auditLogMapper.selectAuditLogs(searchDefaults().keyword("존재하지않는키워드").build());
 
         assertThat(result).isEmpty();
     }
 
     @Test
-    @DisplayName("admin_user와 join되어 관리자 이름/역할이 함께 조회된다")
+    @DisplayName("admin_user와 join되어 수행자 이름/역할이 함께 조회된다")
     void selectAuditLogsJoinsAdminNameAndRole() throws SQLException {
         insertAdmin(1L, "박지훈", "REVIEWER");
         auditLogMapper.insertLog(auditLog(1L, "ADMIN_USER", "2", "ADMIN_ROLE_UPDATE"));
@@ -220,6 +289,18 @@ class AuditLogMapperTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getAdminName()).isNull();
         assertThat(result.get(0).getAdminRole()).isNull();
+    }
+
+    @Test
+    @DisplayName("작업유형이 SYSTEM_CLOCK이면 target 관련 join 결과 없이도 정상 조회된다")
+    void selectAuditLogsHandlesSystemClockTargetWithoutTargetJoins() {
+        auditLogMapper.insertLog(auditLog(1L, "SYSTEM_CLOCK", "1", "시연용 시각 조작"));
+
+        List<AuditLogDTO> result = auditLogMapper.selectAuditLogs(searchDefaults().build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTargetAdminName()).isNull();
+        assertThat(result.get(0).getTargetAccountNo()).isNull();
     }
 
     @Test
@@ -251,11 +332,15 @@ class AuditLogMapperTest {
 
         long total =
                 auditLogMapper.countAuditLogs(
-                        AuditLogSearchDTO.builder().targetTable("SELL_ORDER").build());
+                        searchDefaults()
+                                .keyword("매도주문")
+                                .matchedTargetTables(List.of("SELL_ORDER"))
+                                .build());
         List<AuditLogDTO> onePage =
                 auditLogMapper.selectAuditLogs(
-                        AuditLogSearchDTO.builder()
-                                .targetTable("SELL_ORDER")
+                        searchDefaults()
+                                .keyword("매도주문")
+                                .matchedTargetTables(List.of("SELL_ORDER"))
                                 .size(1)
                                 .offset(0)
                                 .build());
@@ -265,14 +350,26 @@ class AuditLogMapperTest {
     }
 
     @Test
-    @DisplayName("countAuditLogs도 select와 동일한 조건 필터를 적용한다")
-    void countAuditLogsAppliesSameFiltersAsSelect() {
-        auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "10", "SELL_ORDER_EXECUTED"));
-        auditLogMapper.insertLog(auditLog(2L, "SELL_ORDER", "11", "SELL_ORDER_EXECUTED"));
+    @DisplayName("countAuditLogs도 keyword 조건에 필요한 join(admin_user×2, sell_order, account)이 걸려있어 에러 없이 동작한다")
+    void countAuditLogsWorksWithKeywordRequiringAllJoins() throws SQLException {
+        insertAdmin(1L, "박지훈", "REVIEWER");
+        insertAdmin(2L, "이국희", "VIEWER");
+        insertAccount(100L, "1234567890");
+        insertSellOrder(50L, 100L);
+        auditLogMapper.insertLog(auditLog(1L, "ADMIN_USER", "2", "ADMIN_ROLE_UPDATE"));
+        auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "50", "SELL_ORDER_EXECUTED"));
 
-        long total = auditLogMapper.countAuditLogs(AuditLogSearchDTO.builder().adminId(1L).build());
+        // keyword가 actor 이름(au.name)/target 이름(target_admin.name)/계좌번호(acc.account_no)를
+        // 전부 참조하는 WHERE 절을 타므로, 4개 조인이 select뿐 아니라 count에도 없으면 "Unknown column" 에러가 난다.
+        long totalForActor = auditLogMapper.countAuditLogs(searchDefaults().keyword("박지훈").build());
+        long totalForTargetAdmin =
+                auditLogMapper.countAuditLogs(searchDefaults().keyword("이국희").build());
+        long totalForAccountNo =
+                auditLogMapper.countAuditLogs(searchDefaults().keyword("1234567890").build());
 
-        assertThat(total).isEqualTo(1);
+        assertThat(totalForActor).isEqualTo(2);
+        assertThat(totalForTargetAdmin).isEqualTo(1);
+        assertThat(totalForAccountNo).isEqualTo(1);
     }
 
     private void insertAdmin(Long adminId, String name, String role) throws SQLException {
@@ -286,6 +383,30 @@ class AuditLogMapperTest {
                             + "', '"
                             + role
                             + "')");
+        }
+    }
+
+    private void insertAccount(Long accountId, String accountNo) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "INSERT INTO account (account_id, account_no) VALUES ("
+                            + accountId
+                            + ", '"
+                            + accountNo
+                            + "')");
+        }
+    }
+
+    private void insertSellOrder(Long orderId, Long accountId) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "INSERT INTO sell_order (order_id, account_id) VALUES ("
+                            + orderId
+                            + ", "
+                            + accountId
+                            + ")");
         }
     }
 
@@ -324,6 +445,20 @@ class AuditLogMapperTest {
                         admin_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                         name     VARCHAR(50) NOT NULL,
                         role     VARCHAR(20) NOT NULL
+                    )
+                    """);
+            statement.execute(
+                    """
+                    CREATE TABLE account (
+                        account_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        account_no VARCHAR(20) NOT NULL
+                    )
+                    """);
+            statement.execute(
+                    """
+                    CREATE TABLE sell_order (
+                        order_id   BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        account_id BIGINT NOT NULL
                     )
                     """);
             statement.execute(
