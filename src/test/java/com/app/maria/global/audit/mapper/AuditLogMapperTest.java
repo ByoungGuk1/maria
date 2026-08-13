@@ -203,6 +203,42 @@ class AuditLogMapperTest {
     }
 
     @Test
+    @DisplayName("작업유형이 SETTLEMENT_BATCH면 settlement_batch를 직접 join해서 executed_at을 조회한다")
+    void selectAuditLogsResolvesSettlementBatchExecutedAt() throws SQLException {
+        insertSettlementBatch(300L, "2026-08-13 09:00:00");
+        auditLogMapper.insertLog(auditLog(1L, "SETTLEMENT_BATCH", "300", "SETTLEMENT_BATCH_REQUESTED"));
+
+        List<AuditLogDTO> result = auditLogMapper.selectAuditLogs(searchDefaults().build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTargetBatchExecutedAt())
+                .isEqualTo(LocalDateTime.of(2026, 8, 13, 9, 0));
+    }
+
+    @Test
+    @DisplayName("대응하는 settlement_batch가 없어도 조회는 되고, executed_at은 null이다")
+    void selectAuditLogsLeavesTargetBatchExecutedAtNullWhenBatchMissing() {
+        auditLogMapper.insertLog(auditLog(1L, "SETTLEMENT_BATCH", "999", "SETTLEMENT_BATCH_REQUESTED"));
+
+        List<AuditLogDTO> result = auditLogMapper.selectAuditLogs(searchDefaults().build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTargetBatchExecutedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("작업유형이 SETTLEMENT_ITEM이면 settlement_batch join과 무관하게 정상 조회된다 (join 대상 아님)")
+    void selectAuditLogsHandlesSettlementItemWithoutBatchJoin() {
+        auditLogMapper.insertLog(auditLog(1L, "SETTLEMENT_ITEM", "46", "SETTLEMENT_ITEM_RETRIED"));
+
+        List<AuditLogDTO> result = auditLogMapper.selectAuditLogs(searchDefaults().build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTargetBatchExecutedAt()).isNull();
+        assertThat(result.get(0).getTargetPk()).isEqualTo("46");
+    }
+
+    @Test
     @DisplayName("targetKeyword가 target_pk 원문에 포함되면 매치된다")
     void selectAuditLogsFiltersByTargetKeywordMatchingRawTargetPk() {
         auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "12345", "SELL_ORDER_EXECUTED"));
@@ -437,6 +473,18 @@ class AuditLogMapperTest {
         }
     }
 
+    private void insertSettlementBatch(Long batchId, String executedAt) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "INSERT INTO settlement_batch (batch_id, executed_at) VALUES ("
+                            + batchId
+                            + ", '"
+                            + executedAt
+                            + "')");
+        }
+    }
+
     private void insertLogAt(
             Long adminId,
             String targetTable,
@@ -486,6 +534,13 @@ class AuditLogMapperTest {
                     CREATE TABLE sell_order (
                         order_id   BIGINT AUTO_INCREMENT PRIMARY KEY,
                         account_id BIGINT NOT NULL
+                    )
+                    """);
+            statement.execute(
+                    """
+                    CREATE TABLE settlement_batch (
+                        batch_id    BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        executed_at DATETIME NOT NULL
                     )
                     """);
             statement.execute(
