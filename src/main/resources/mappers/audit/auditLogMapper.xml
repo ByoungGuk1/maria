@@ -26,4 +26,31 @@
         ORDER BY al.processed_at DESC
     </select>
 
+    <sql id="auditLogSearchCondition">
+        <where>
+            <if test="adminId != null">AND al.admin_id = #{adminId}</if>
+            <if test="targetTable != null and targetTable != ''">AND al.target_table = #{targetTable}</if>
+            <if test="targetPk != null and targetPk != ''">AND al.target_pk = #{targetPk}</if>
+            <if test="reasonCode != null and reasonCode != ''">AND al.reason_code = #{reasonCode}</if>
+            <if test="startDate != null">AND al.processed_at &gt;= #{startDate}</if>
+            <if test="endDate != null">AND al.processed_at &lt;= #{endDate}</if>
+        </where>
+    </sql>
+
+    <select id="selectAuditLogs" parameterType="AuditLogSearchDTO" resultType="AuditLogDTO">
+        SELECT al.audit_id, al.admin_id, al.target_table, al.target_pk, al.before_value, al.after_value,
+        al.reason_code, al.processed_at, au.name AS admin_name, au.role AS admin_role
+        FROM audit_log al
+        LEFT JOIN admin_user au ON au.admin_id = al.admin_id
+        <include refid="auditLogSearchCondition"/>
+        ORDER BY al.processed_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countAuditLogs" parameterType="AuditLogSearchDTO" resultType="long">
+        SELECT COUNT(*)
+        FROM audit_log al
+        <include refid="auditLogSearchCondition"/>
+    </select>
+
 </mapper>

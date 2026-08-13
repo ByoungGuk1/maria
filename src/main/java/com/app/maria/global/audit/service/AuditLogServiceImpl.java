@@ -6,10 +6,12 @@ import com.app.maria.global.audit.dto.request.AuditLogSearchRequestDTO;
 import com.app.maria.global.audit.dto.response.AuditLogResponseDTO;
 import com.app.maria.global.audit.exception.AuditLogInsertException;
 import com.app.maria.global.audit.mapper.AuditLogMapper;
-import java.util.List;
+import com.app.maria.global.response.PageResponseDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -19,10 +21,11 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<AuditLogResponseDTO> searchAuditLogs(AuditLogSearchRequestDTO requestDTO) {
+    public PageResponseDTO<AuditLogResponseDTO> searchAuditLogs(AuditLogSearchRequestDTO requestDTO) {
         AuditLogSearchDTO searchDTO = requestDTO.toAuditLogSearchDTO();
-        List<AuditLogDTO> auditLogs = auditLogMapper.selectAuditLogs(searchDTO);
-        return auditLogs.stream().map(AuditLogResponseDTO::new).toList();
+        List<AuditLogResponseDTO> content = auditLogMapper.selectAuditLogs(searchDTO).stream().map(AuditLogResponseDTO::new).toList();
+        long totalCount = auditLogMapper.countAuditLogs(searchDTO);
+        return PageResponseDTO.of(content, totalCount, requestDTO.getPage(), requestDTO.getSize());
     }
 
     @Override

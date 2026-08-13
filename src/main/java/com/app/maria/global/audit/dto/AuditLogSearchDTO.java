@@ -1,7 +1,8 @@
 package com.app.maria.global.audit.dto;
 
-import java.time.LocalDateTime;
 import lombok.*;
+
+import java.time.LocalDateTime;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -18,4 +19,8 @@ public class AuditLogSearchDTO {
 
     private LocalDateTime startDate;
     private LocalDateTime endDate;
+
+    private int size;
+    private int offset;
+
 }

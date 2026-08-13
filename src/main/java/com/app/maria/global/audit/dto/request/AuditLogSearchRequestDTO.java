@@ -2,8 +2,11 @@ package com.app.maria.global.audit.dto.request;
 
 import com.app.maria.global.audit.dto.AuditLogSearchDTO;
 import jakarta.validation.constraints.AssertTrue;
-import java.time.LocalDateTime;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.*;
+
+import java.time.LocalDateTime;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -26,6 +29,13 @@ public class AuditLogSearchRequestDTO {
         return startDate == null || endDate == null || !startDate.isAfter(endDate);
     }
 
+    @Min(0)
+    private int page = 0;
+
+    @Min(1)
+    @Max(100)
+    private int size = 20;
+
     public AuditLogSearchDTO toAuditLogSearchDTO() {
         return AuditLogSearchDTO.builder()
                 .adminId(adminId)
@@ -34,6 +44,8 @@ public class AuditLogSearchRequestDTO {
                 .reasonCode(reasonCode)
                 .startDate(startDate)
                 .endDate(endDate)
+                .size(size)
+                .offset(page * size)
                 .build();
     }
 }
