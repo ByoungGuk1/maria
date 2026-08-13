@@ -26,7 +26,9 @@ $(function () {
         return DATETIME_FORMATTER.format(new Date(isoString)).replace(/\. /g, "-").replace(".", "");
     }
     function formatAmount(amount) {
-        return "₩" + KRW_FORMATTER.format(amount || 0);
+        var value = amount || 0;
+        var sign = value < 0 ? "-" : "";
+        return sign + "₩" + KRW_FORMATTER.format(Math.abs(value));
     }
     function escapeHtml(value) {
         return $("<div>").text(value).html();
