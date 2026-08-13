@@ -21,6 +21,8 @@
     --danger: #c53030;
     --dangerBg: #fbe9e9;
     --dangerRowBg: #fdf3f3;
+    --warning: #c2650c;
+    --warningBg: #fbeee0;
 }
 
 :root[data-theme="dark"] {
@@ -43,6 +45,8 @@
     --danger: #e2685f;
     --dangerBg: rgba(226, 104, 95, 0.14);
     --dangerRowBg: rgba(226, 104, 95, 0.08);
+    --warning: #e0972f;
+    --warningBg: rgba(224, 151, 47, 0.15);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -66,6 +70,8 @@
         --danger: #e2685f;
         --dangerBg: rgba(226, 104, 95, 0.14);
         --dangerRowBg: rgba(226, 104, 95, 0.08);
+        --warning: #e0972f;
+        --warningBg: rgba(224, 151, 47, 0.15);
     }
 }
 

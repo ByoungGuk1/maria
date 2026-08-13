@@ -1,6 +1,7 @@
 package com.app.maria.global.audit.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.*;
 
 @AllArgsConstructor
@@ -11,11 +12,19 @@ import lombok.*;
 @Builder
 public class AuditLogSearchDTO {
 
-    private Long adminId;
     private String targetTable;
-    private String targetPk;
-    private String reasonCode;
+
+    private String adminKeyword;
+    private List<String> matchedRoles;
+
+    private String targetKeyword;
+
+    private String reasonKeyword;
+    private List<String> matchedReasonCodes;
 
     private LocalDateTime startDate;
     private LocalDateTime endDate;
+
+    private int size;
+    private int offset;
 }
