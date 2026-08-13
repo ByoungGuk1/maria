@@ -81,6 +81,7 @@ public class AuditLogSearchRequestDTO {
                 .targetKeyword(targetKeyword)
                 .reasonKeyword(reasonKeyword)
                 .matchedReasonCodes(matchLabels(reasonKeyword, REASON_CODE_LABELS))
+                .knownReasonCodes(List.copyOf(REASON_CODE_LABELS.keySet()))
                 .startDate(startDate)
                 .endDate(endDate)
                 .size(size)

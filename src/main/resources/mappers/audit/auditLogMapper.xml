@@ -35,7 +35,13 @@
             </if>
             <if test="reasonKeyword != null and reasonKeyword != ''">
                 AND (
+                (
                 al.reason_code LIKE CONCAT('%', #{reasonKeyword}, '%')
+                <if test="knownReasonCodes != null and !knownReasonCodes.isEmpty()">
+                    AND al.reason_code NOT IN
+                    <foreach item="r" collection="knownReasonCodes" open="(" separator="," close=")">#{r}</foreach>
+                </if>
+                )
                 <if test="matchedReasonCodes != null and !matchedReasonCodes.isEmpty()">
                     OR al.reason_code IN
                     <foreach item="r" collection="matchedReasonCodes" open="(" separator="," close=")">#{r}</foreach>
