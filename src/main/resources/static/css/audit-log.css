@@ -131,6 +131,11 @@
     background: var(--successBg);
 }
 
+.audit-log-target-badge.type-account {
+    color: var(--info);
+    background: var(--infoBg);
+}
+
 .audit-log-target-name {
     color: var(--textPrimary);
     font-weight: 500;
