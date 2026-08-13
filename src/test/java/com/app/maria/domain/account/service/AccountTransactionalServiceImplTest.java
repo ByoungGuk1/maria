@@ -12,6 +12,7 @@ import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.exception.AccountException;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
+import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -105,9 +106,25 @@ class AccountTransactionalServiceImplTest {
     }
 
     @Test
+    void applyWithAutoApprovalRecordsPossibleBenefit() {
+        AccountDTO applied = account(Status.APPLIED, LIMIT);
+        AccountDTO opened = openedAccount();
+        when(accountMapper.existsByCustomerId(CUSTOMER_ID)).thenReturn(false);
+        when(accountMapper.insertApplication(any(AccountDTO.class))).thenReturn(1);
+        when(accountMapper.selectByCustomerId(CUSTOMER_ID))
+                .thenReturn(Optional.of(applied), Optional.of(opened));
+        when(accountMapper.approve(any(AccountDTO.class))).thenReturn(1);
+
+        service.apply(account(Status.APPLIED, LIMIT), NOW, true);
+
+        verify(accountLogService)
+                .recordBenefitChange(opened, null, NOW, "계좌 개설에 따른 세제혜택 가능");
+    }
+
+    @Test
     void approveUsesValidatedLimitAsOptimisticLockCondition() {
         AccountDTO applied = account(Status.APPLIED, BigDecimal.valueOf(40_000_000L));
-        AccountDTO opened = account(Status.OPENED, LIMIT);
+        AccountDTO opened = openedAccount();
         when(accountMapper.selectByAccountId(ACCOUNT_ID))
                 .thenReturn(Optional.of(applied), Optional.of(opened));
         when(accountMapper.approve(any(AccountDTO.class))).thenReturn(1);
@@ -117,6 +134,7 @@ class AccountTransactionalServiceImplTest {
         ArgumentCaptor<AccountDTO> captor = ArgumentCaptor.forClass(AccountDTO.class);
         verify(accountMapper).approve(captor.capture());
         assertThat(captor.getValue().getLimitAmount()).isEqualByComparingTo(LIMIT);
+        verify(accountLogService).recordBenefitChange(opened, null, NOW, "계좌 개설에 따른 세제혜택 가능");
     }
 
     @Test
@@ -128,6 +146,20 @@ class AccountTransactionalServiceImplTest {
         assertThatThrownBy(() -> service.approve(ACCOUNT_ID, LIMIT, NOW))
                 .isInstanceOf(InvalidAccountRequestException.class)
                 .hasMessage("심사 도중 계좌 한도가 변경되었습니다. 다시 심사하세요.");
+    }
+
+    @Test
+    void overrideRecordsPossibleBenefit() {
+        AccountDTO rejected = account(Status.REJECTED, LIMIT);
+        AccountDTO opened = openedAccount();
+        when(accountMapper.selectByAccountId(ACCOUNT_ID))
+                .thenReturn(Optional.of(rejected), Optional.of(opened));
+        when(accountMapper.overrideToOpened(any(AccountDTO.class))).thenReturn(1);
+
+        service.override(ACCOUNT_ID, "관리자 오버라이드 승인", NOW);
+
+        verify(accountLogService)
+                .recordBenefitChange(opened, null, NOW, "계좌 개설에 따른 세제혜택 가능");
     }
 
     @Test
@@ -169,5 +201,11 @@ class AccountTransactionalServiceImplTest {
                 .status(status)
                 .limitAmount(limit)
                 .build();
+    }
+
+    private AccountDTO openedAccount() {
+        AccountDTO account = account(Status.OPENED, LIMIT);
+        account.setBenefit(BenefitType.POSSIBLE);
+        return account;
     }
 }
