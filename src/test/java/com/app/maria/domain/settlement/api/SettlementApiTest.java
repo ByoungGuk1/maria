@@ -41,7 +41,7 @@ class SettlementApiTest {
     @Test
     void executeSettlementBatchReturnsAcceptedBatch() throws Exception {
         SettlementBatchDTO batch = batch();
-        when(settlementService.executeSettlementBatch()).thenReturn(batch);
+        when(settlementService.executeSettlementBatchByAdmin()).thenReturn(batch);
 
         mockMvc.perform(post("/api/settlement/jobs"))
                 .andExpect(status().isAccepted())
@@ -49,14 +49,14 @@ class SettlementApiTest {
                 .andExpect(jsonPath("$.data.batchId").value(1L))
                 .andExpect(jsonPath("$.data.status").value("RUNNING"));
 
-        verify(settlementService).executeSettlementBatch();
+        verify(settlementService).executeSettlementBatchByAdmin();
     }
 
     @Test
     void executeSettlementBatchReturnsExistingCompletedBatch() throws Exception {
         SettlementBatchDTO completedBatch = batch();
         completedBatch.setStatus(BatchStatus.COMPLETED);
-        when(settlementService.executeSettlementBatch()).thenReturn(completedBatch);
+        when(settlementService.executeSettlementBatchByAdmin()).thenReturn(completedBatch);
 
         mockMvc.perform(post("/api/settlement/jobs"))
                 .andExpect(status().isOk())
@@ -68,7 +68,7 @@ class SettlementApiTest {
     void viewerCannotExecuteSettlementBatch() throws Exception {
         mockMvc.perform(post("/api/settlement/jobs")).andExpect(status().isForbidden());
 
-        verify(settlementService, never()).executeSettlementBatch();
+        verify(settlementService, never()).executeSettlementBatchByAdmin();
     }
 
     @Test
@@ -256,7 +256,7 @@ class SettlementApiTest {
 
     @Test
     void settlementCalculationExceptionReturnsBadRequest() throws Exception {
-        when(settlementService.executeSettlementBatch())
+        when(settlementService.executeSettlementBatchByAdmin())
                 .thenThrow(new SettlementCalculationException("확정산 금액 계산 실패"));
 
         mockMvc.perform(post("/api/settlement/jobs"))
@@ -266,7 +266,7 @@ class SettlementApiTest {
 
     @Test
     void settlementStateConflictExceptionReturnsConflict() throws Exception {
-        when(settlementService.executeSettlementBatch())
+        when(settlementService.executeSettlementBatchByAdmin())
                 .thenThrow(new SettlementStateConflictException("확정산 Batch가 이미 실행 중입니다."));
 
         mockMvc.perform(post("/api/settlement/jobs"))

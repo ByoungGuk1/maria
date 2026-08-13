@@ -29,14 +29,19 @@ import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
 import com.app.maria.domain.settlement.mapper.SettlementJoinMapper;
 import com.app.maria.domain.settlement.provider.ExchangeRateProvider;
 import com.app.maria.domain.settlement.type.BatchStatus;
+import com.app.maria.domain.settlement.type.SettlementAuditLogReasonCode;
 import com.app.maria.domain.settlement.type.SettlementItemResult;
 import com.app.maria.domain.settlement.type.SettlementStatus;
+import com.app.maria.global.audit.dto.AuditLogDTO;
+import com.app.maria.global.audit.provider.AuditActorProvider;
+import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,6 +59,7 @@ class SettlementServiceImplTest {
     private static final Long BATCH_ID = 1L;
     private static final Long ITEM_ID = 10L;
     private static final Long EXCHANGE_ID = 100L;
+    private static final Long ADMIN_ID = 99L;
     private static final String RUN_ID = "run-1";
 
     @Mock private KrwExchangeMapper krwExchangeMapper;
@@ -76,8 +82,17 @@ class SettlementServiceImplTest {
     @Mock private SettlementFailureRecorder settlementFailureRecorder;
     @Mock private SettlementBatchStatusUpdater settlementBatchStatusUpdater;
     @Mock private ExchangeRateProvider exchangeRateProvider;
+    @Mock private AuditActorProvider auditActorProvider;
+    @Mock private AuditLogService auditLogService;
 
     @InjectMocks private SettlementServiceImpl settlementService;
+
+    @BeforeEach
+    void setUp() {
+        org.mockito.Mockito.lenient()
+                .when(auditActorProvider.getCurrentAdminId())
+                .thenReturn(ADMIN_ID);
+    }
 
     @Test
     @DisplayName("Guard 잠금 후 Batch와 Snapshot을 같은 트랜잭션에서 생성한다")
@@ -98,7 +113,7 @@ class SettlementServiceImplTest {
                 .when(settlementBatchMapper)
                 .insertBatch(any(SettlementBatchDTO.class));
 
-        SettlementBatchDTO result = settlementService.executeSettlementBatch();
+        SettlementBatchDTO result = settlementService.executeSettlementBatchByAdmin();
 
         assertThat(result.getBatchId()).isEqualTo(BATCH_ID);
         assertThat(result.getStatus()).isEqualTo(BatchStatus.RUNNING);
@@ -108,6 +123,12 @@ class SettlementServiceImplTest {
         verify(settlementItemMapper).insertItemsForTargets(result);
         verify(transactionManager).commit(transactionStatus);
         verify(settlementBatchLauncher).launch(result);
+        assertAuditLog(
+                "SETTLEMENT_BATCH",
+                BATCH_ID,
+                null,
+                "RUNNING",
+                SettlementAuditLogReasonCode.SETTLEMENT_BATCH_EXECUTION_REQUESTED);
     }
 
     @Test
@@ -129,6 +150,30 @@ class SettlementServiceImplTest {
         verify(settlementItemMapper, never()).insertItemsForTargets(any());
         verify(transactionManager).commit(transactionStatus);
         verify(settlementBatchLauncher, never()).launch(any());
+    }
+
+    @Test
+    void adminExecutionRequestForExistingBatchWritesAuditLog() {
+        LocalDate businessDate = LocalDate.of(2026, 8, 9);
+        SettlementBatchDTO existingBatch = batch();
+        existingBatch.setStatus(BatchStatus.COMPLETED);
+        when(businessClockService.now()).thenReturn(businessDate.atStartOfDay());
+        when(transactionManager.getTransaction(any())).thenReturn(transactionStatus);
+        when(settlementBatchGuardMapper.selectGuardForUpdate(businessDate))
+                .thenReturn(Optional.of(businessDate));
+        when(settlementBatchMapper.selectBatchByBusinessDate(businessDate))
+                .thenReturn(Optional.of(existingBatch));
+
+        SettlementBatchDTO result = settlementService.executeSettlementBatchByAdmin();
+
+        assertThat(result).isSameAs(existingBatch);
+        verify(settlementBatchLauncher, never()).launch(any());
+        assertAuditLog(
+                "SETTLEMENT_BATCH",
+                BATCH_ID,
+                "COMPLETED",
+                "COMPLETED",
+                SettlementAuditLogReasonCode.SETTLEMENT_BATCH_EXECUTION_REQUESTED);
     }
 
     @Test
@@ -175,6 +220,12 @@ class SettlementServiceImplTest {
         assertThat(result.getStatus()).isEqualTo(BatchStatus.RUNNING);
         verify(settlementBatchStatusUpdater).startBatchRetry(eq(BATCH_ID), anyString());
         verify(settlementBatchLauncher).launch(any(SettlementBatchDTO.class));
+        assertAuditLog(
+                "SETTLEMENT_BATCH",
+                BATCH_ID,
+                "FAILED",
+                "RUNNING",
+                SettlementAuditLogReasonCode.SETTLEMENT_BATCH_RETRIED);
     }
 
     @Test
@@ -226,6 +277,12 @@ class SettlementServiceImplTest {
         assertThat(result.getResult()).isEqualTo(SettlementItemResult.SUCCESS);
         verify(settlementBatchStatusUpdater).startItemRetry(BATCH_ID);
         verify(settlementBatchStatusUpdater).completeFromLatestItems(BATCH_ID);
+        assertAuditLog(
+                "SETTLEMENT_ITEM",
+                11L,
+                "FAILED / sourceItemId=10",
+                "RETRY_REQUESTED / batchId=1",
+                SettlementAuditLogReasonCode.SETTLEMENT_ITEM_RETRIED);
     }
 
     @Test
@@ -404,5 +461,22 @@ class SettlementServiceImplTest {
                 .accountId(1L)
                 .settlementStatus(SettlementStatus.PROVISIONAL)
                 .build();
+    }
+
+    private void assertAuditLog(
+            String targetTable,
+            Long targetId,
+            String beforeValue,
+            String afterValue,
+            SettlementAuditLogReasonCode reasonCode) {
+        ArgumentCaptor<AuditLogDTO> captor = ArgumentCaptor.forClass(AuditLogDTO.class);
+        verify(auditLogService).log(captor.capture());
+        AuditLogDTO auditLog = captor.getValue();
+        assertThat(auditLog.getAdminId()).isEqualTo(ADMIN_ID);
+        assertThat(auditLog.getTargetTable()).isEqualTo(targetTable);
+        assertThat(auditLog.getTargetPk()).isEqualTo(String.valueOf(targetId));
+        assertThat(auditLog.getBeforeValue()).isEqualTo(beforeValue);
+        assertThat(auditLog.getAfterValue()).isEqualTo(afterValue);
+        assertThat(auditLog.getReasonCode()).isEqualTo(reasonCode.name());
     }
 }

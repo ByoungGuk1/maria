@@ -15,8 +15,12 @@ import com.app.maria.domain.settlement.mapper.SettlementBatchMapper;
 import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
 import com.app.maria.domain.settlement.mapper.SettlementJoinMapper;
 import com.app.maria.domain.settlement.type.BatchStatus;
+import com.app.maria.domain.settlement.type.SettlementAuditLogReasonCode;
 import com.app.maria.domain.settlement.type.SettlementItemResult;
 import com.app.maria.domain.settlement.type.SettlementStatus;
+import com.app.maria.global.audit.dto.AuditLogDTO;
+import com.app.maria.global.audit.provider.AuditActorProvider;
+import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -44,11 +48,22 @@ public class SettlementServiceImpl implements SettlementService {
     private final SettlementTransactionExecutor settlementTransactionExecutor;
     private final SettlementFailureRecorder settlementFailureRecorder;
     private final SettlementBatchStatusUpdater settlementBatchStatusUpdater;
+    private final AuditActorProvider auditActorProvider;
+    private final AuditLogService auditLogService;
     private final com.app.maria.domain.settlement.provider.ExchangeRateProvider
             exchangeRateProvider;
 
     @Override
     public SettlementBatchDTO executeSettlementBatch() {
+        return executeSettlementBatch(null);
+    }
+
+    @Override
+    public SettlementBatchDTO executeSettlementBatchByAdmin() {
+        return executeSettlementBatch(auditActorProvider.getCurrentAdminId());
+    }
+
+    private SettlementBatchDTO executeSettlementBatch(Long adminId) {
         LocalDateTime executedAt = businessClockService.now();
         LocalDate businessDate = executedAt.toLocalDate();
 
@@ -70,6 +85,16 @@ public class SettlementServiceImpl implements SettlementService {
                                                     .selectBatchByBusinessDate(businessDate)
                                                     .orElse(null);
                                     if (existingBatch != null) {
+                                        if (adminId != null) {
+                                            logAudit(
+                                                    adminId,
+                                                    "SETTLEMENT_BATCH",
+                                                    existingBatch.getBatchId(),
+                                                    existingBatch.getStatus().name(),
+                                                    existingBatch.getStatus().name(),
+                                                    SettlementAuditLogReasonCode
+                                                            .SETTLEMENT_BATCH_EXECUTION_REQUESTED);
+                                        }
                                         return new BatchLaunchResult(existingBatch, false);
                                     }
 
@@ -87,6 +112,16 @@ public class SettlementServiceImpl implements SettlementService {
                                     }
 
                                     settlementItemMapper.insertItemsForTargets(newBatch);
+                                    if (adminId != null) {
+                                        logAudit(
+                                                adminId,
+                                                "SETTLEMENT_BATCH",
+                                                newBatch.getBatchId(),
+                                                null,
+                                                newBatch.getStatus().name(),
+                                                SettlementAuditLogReasonCode
+                                                        .SETTLEMENT_BATCH_EXECUTION_REQUESTED);
+                                    }
                                     return new BatchLaunchResult(newBatch, true);
                                 });
 
@@ -155,6 +190,7 @@ public class SettlementServiceImpl implements SettlementService {
 
     @Override
     public SettlementItemDTO retryFailedSettlementItem(Long batchId, Long itemId) {
+        Long adminId = auditActorProvider.getCurrentAdminId();
         SettlementItemDTO retryItem =
                 new TransactionTemplate(transactionManager)
                         .execute(
@@ -204,6 +240,13 @@ public class SettlementServiceImpl implements SettlementService {
                                                 "정산 Item 재처리 이력 생성에 실패했습니다.");
                                     }
                                     settlementBatchStatusUpdater.startItemRetry(batchId);
+                                    logAudit(
+                                            adminId,
+                                            "SETTLEMENT_ITEM",
+                                            command.getItemId(),
+                                            "FAILED / sourceItemId=" + itemId,
+                                            "RETRY_REQUESTED / batchId=" + batchId,
+                                            SettlementAuditLogReasonCode.SETTLEMENT_ITEM_RETRIED);
                                     return command;
                                 });
         if (retryItem == null) {
@@ -222,7 +265,14 @@ public class SettlementServiceImpl implements SettlementService {
                                     () ->
                                             new SettlementItemNotFoundException(
                                                     "재처리 대상 정산 정보를 찾을 수 없습니다."));
-            LocalDate rateDate = getSettlementBatch(batchId).getExecutedAt().toLocalDate();
+            SettlementBatchDTO batch =
+                    settlementBatchMapper
+                            .selectBatchById(batchId)
+                            .orElseThrow(
+                                    () ->
+                                            new SettlementBatchNotFoundException(
+                                                    "batch id로 배치 조회 실패"));
+            LocalDate rateDate = batch.getExecutedAt().toLocalDate();
             BigDecimal finalRate =
                     exchangeRateProvider.getFinalRate(target.getPurchaseCurrency(), rateDate);
             settlementTransactionExecutor.execute(target, finalRate);
@@ -239,6 +289,7 @@ public class SettlementServiceImpl implements SettlementService {
 
     @Override
     public SettlementBatchDTO retryFailedSettlementBatch(Long batchId) {
+        Long adminId = auditActorProvider.getCurrentAdminId();
         SettlementBatchDTO batch =
                 new TransactionTemplate(transactionManager)
                         .execute(
@@ -265,6 +316,13 @@ public class SettlementServiceImpl implements SettlementService {
                                     foundBatch.setStatus(BatchStatus.RUNNING);
                                     foundBatch.setFailureMessage(null);
                                     foundBatch.setRunId(retryRunId);
+                                    logAudit(
+                                            adminId,
+                                            "SETTLEMENT_BATCH",
+                                            batchId,
+                                            BatchStatus.FAILED.name(),
+                                            BatchStatus.RUNNING.name(),
+                                            SettlementAuditLogReasonCode.SETTLEMENT_BATCH_RETRIED);
                                     return foundBatch;
                                 });
         if (batch == null) {
@@ -283,6 +341,24 @@ public class SettlementServiceImpl implements SettlementService {
     }
 
     private record BatchLaunchResult(SettlementBatchDTO batch, boolean shouldLaunch) {}
+
+    private void logAudit(
+            Long adminId,
+            String targetTable,
+            Long targetId,
+            String beforeValue,
+            String afterValue,
+            SettlementAuditLogReasonCode reasonCode) {
+        auditLogService.log(
+                AuditLogDTO.builder()
+                        .adminId(adminId)
+                        .targetTable(targetTable)
+                        .targetPk(String.valueOf(targetId))
+                        .beforeValue(beforeValue)
+                        .afterValue(afterValue)
+                        .reasonCode(reasonCode.name())
+                        .build());
+    }
 
     private void launchBatch(SettlementBatchDTO batch) {
         try {
