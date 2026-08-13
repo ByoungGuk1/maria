@@ -196,7 +196,8 @@ class AuditLogMapperTest {
         auditLogMapper.insertLog(auditLog(1L, "ACCOUNT", "200", "ACCOUNT_OPENED"));
 
         List<AuditLogDTO> result =
-                auditLogMapper.selectAuditLogs(searchDefaults().targetKeyword("9000000001").build());
+                auditLogMapper.selectAuditLogs(
+                        searchDefaults().targetKeyword("9000000001").build());
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getTargetOwnerAccountNo()).isEqualTo("9000000001");
@@ -206,7 +207,8 @@ class AuditLogMapperTest {
     @DisplayName("작업유형이 SETTLEMENT_BATCH면 settlement_batch를 직접 join해서 executed_at을 조회한다")
     void selectAuditLogsResolvesSettlementBatchExecutedAt() throws SQLException {
         insertSettlementBatch(300L, "2026-08-13 09:00:00");
-        auditLogMapper.insertLog(auditLog(1L, "SETTLEMENT_BATCH", "300", "SETTLEMENT_BATCH_REQUESTED"));
+        auditLogMapper.insertLog(
+                auditLog(1L, "SETTLEMENT_BATCH", "300", "SETTLEMENT_BATCH_REQUESTED"));
 
         List<AuditLogDTO> result = auditLogMapper.selectAuditLogs(searchDefaults().build());
 
@@ -218,7 +220,8 @@ class AuditLogMapperTest {
     @Test
     @DisplayName("대응하는 settlement_batch가 없어도 조회는 되고, executed_at은 null이다")
     void selectAuditLogsLeavesTargetBatchExecutedAtNullWhenBatchMissing() {
-        auditLogMapper.insertLog(auditLog(1L, "SETTLEMENT_BATCH", "999", "SETTLEMENT_BATCH_REQUESTED"));
+        auditLogMapper.insertLog(
+                auditLog(1L, "SETTLEMENT_BATCH", "999", "SETTLEMENT_BATCH_REQUESTED"));
 
         List<AuditLogDTO> result = auditLogMapper.selectAuditLogs(searchDefaults().build());
 
@@ -448,7 +451,8 @@ class AuditLogMapperTest {
         auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "50", "SELL_ORDER_EXECUTED"));
         auditLogMapper.insertLog(auditLog(1L, "ACCOUNT", "200", "ACCOUNT_OPENED"));
 
-        // adminKeyword는 au.name, targetKeyword는 target_admin.name/acc.account_no/target_account.account_no를
+        // adminKeyword는 au.name, targetKeyword는
+        // target_admin.name/acc.account_no/target_account.account_no를
         // 참조하는 WHERE 절을 타므로, 5개 조인이 select뿐 아니라 count에도 없으면 "Unknown column" 에러가 난다.
         long totalForActor =
                 auditLogMapper.countAuditLogs(searchDefaults().adminKeyword("박지훈").build());

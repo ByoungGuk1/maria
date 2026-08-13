@@ -38,7 +38,9 @@ class AuditLogResponseDTOTest {
     void targetNameUsesTargetOwnerAccountNoForAccount() {
         AuditLogResponseDTO response =
                 new AuditLogResponseDTO(
-                        auditLogBuilder("ACCOUNT", "200").targetOwnerAccountNo("9000000001").build());
+                        auditLogBuilder("ACCOUNT", "200")
+                                .targetOwnerAccountNo("9000000001")
+                                .build());
 
         assertThat(response.getTargetName()).isEqualTo("9000000001");
     }
