@@ -199,14 +199,18 @@ $(function () {
     }
 
     function filteredAccounts() {
-        var keyword = ($("#accountSearch").val() || "").trim().toLowerCase();
-
+        var customerId = ($("#accountCustomerIdSearch").val() || "").trim();
+        var customerName = ($("#accountCustomerNameSearch").val() || "").trim().toLowerCase();
+        var accountNo = ($("#accountNoSearch").val() || "").trim().toLowerCase();
         var status = $("#accountStatusFilter").val();
         return accounts.filter(function (account) {
             var matchesStatus = !status || account.status === status;
-            var searchable = [account.accountNo, account.customerId, account.customerName, statusLabel(account.status)]
-                .join(" ").toLowerCase();
-            return matchesStatus && (!keyword || searchable.indexOf(keyword) !== -1);
+            var matchesCustomerId = !customerId || String(account.customerId) === customerId;
+            var matchesCustomerName = !customerName
+                || String(account.customerName || "").toLowerCase().indexOf(customerName) !== -1;
+            var matchesAccountNo = !accountNo
+                || String(account.accountNo || "").toLowerCase().indexOf(accountNo) !== -1;
+            return matchesStatus && matchesCustomerId && matchesCustomerName && matchesAccountNo;
         });
     }
 
@@ -433,7 +437,7 @@ $(function () {
 
     $(document).on("click", ".account-row", function () { selectAccount($(this).data("account-id")); });
     $(document).on("input", ".account-currency-input", function () { formatLimitInput(this); });
-    $("#accountSearch, #accountStatusFilter").on("input change", function () {
+    $("#accountCustomerIdSearch, #accountCustomerNameSearch, #accountNoSearch, #accountStatusFilter").on("input change", function () {
         currentPage = 1;
         renderAccounts();
     });
