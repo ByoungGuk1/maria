@@ -49,37 +49,32 @@ class AccountApiTest {
 
         assertThat(
                         AccountApi.class
-                                .getDeclaredMethod("approve", Long.class, Long.class)
+                                .getDeclaredMethod("approve", Long.class)
                                 .getAnnotation(PreAuthorize.class)
                                 .value())
                 .isEqualTo("hasAnyRole('ADMIN', 'REVIEWER')");
         assertThat(
                         AccountApi.class
-                                .getDeclaredMethod(
-                                        "reject", Long.class, Long.class, ReasonRequestDTO.class)
+                                .getDeclaredMethod("reject", Long.class, ReasonRequestDTO.class)
                                 .getAnnotation(PreAuthorize.class)
                                 .value())
                 .isEqualTo("hasAnyRole('ADMIN', 'REVIEWER')");
         assertThat(
                         AccountApi.class
-                                .getDeclaredMethod(
-                                        "override", Long.class, Long.class, ReasonRequestDTO.class)
+                                .getDeclaredMethod("override", Long.class, ReasonRequestDTO.class)
                                 .getAnnotation(PreAuthorize.class)
                                 .value())
                 .isEqualTo("hasAnyRole('ADMIN', 'REVIEWER')");
 
         assertThat(
                         AccountApi.class
-                                .getDeclaredMethod("apply", Long.class, AccountRequestDTO.class)
+                                .getDeclaredMethod("apply", AccountRequestDTO.class)
                                 .getAnnotation(PreAuthorize.class))
                 .isNull();
         assertThat(
                         AccountApi.class
                                 .getDeclaredMethod(
-                                        "reapply",
-                                        Long.class,
-                                        Long.class,
-                                        AccountReapplyRequestDTO.class)
+                                        "reapply", Long.class, AccountReapplyRequestDTO.class)
                                 .getAnnotation(PreAuthorize.class))
                 .isNull();
         assertThat(
@@ -92,7 +87,7 @@ class AccountApiTest {
     @Test
     void applyAcceptsValidRequest() throws Exception {
         AccountResponseDTO response = mock(AccountResponseDTO.class);
-        when(accountService.applyAccount(any(), any(AccountRequestDTO.class))).thenReturn(response);
+        when(accountService.applyAccount(any(AccountRequestDTO.class))).thenReturn(response);
 
         mockMvc.perform(
                         post("/api/account/applications")
@@ -107,7 +102,7 @@ class AccountApiTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.message").value("계좌 개설 신청 처리 완료"));
 
-        verify(accountService).applyAccount(any(), any(AccountRequestDTO.class));
+        verify(accountService).applyAccount(any(AccountRequestDTO.class));
     }
 
     @Test
@@ -157,7 +152,7 @@ class AccountApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("개설할 계좌의 사용자 정보는 필수입니다."));
 
-        verify(accountService, never()).applyAccount(anyLong(), any());
+        verify(accountService, never()).applyAccount(any());
     }
 
     @Test
@@ -175,7 +170,7 @@ class AccountApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("사용자 ID는 0보다 커야 합니다."));
 
-        verify(accountService, never()).applyAccount(anyLong(), any());
+        verify(accountService, never()).applyAccount(any());
     }
 
     @ParameterizedTest
@@ -194,7 +189,7 @@ class AccountApiTest {
                                                 .formatted(limitAmount)))
                 .andExpect(status().isBadRequest());
 
-        verify(accountService, never()).applyAccount(anyLong(), any());
+        verify(accountService, never()).applyAccount(any());
     }
 
     @Test
@@ -211,7 +206,7 @@ class AccountApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("계좌 한도는 필수입니다."));
 
-        verify(accountService, never()).applyAccount(anyLong(), any());
+        verify(accountService, never()).applyAccount(any());
     }
 
     @Test
@@ -229,7 +224,7 @@ class AccountApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("현재 계좌 한도 입력이 필요합니다."));
 
-        verify(accountService, never()).updateAccountLimit(anyLong(), any());
+        verify(accountService, never()).updateAccountLimit(any());
     }
 
     @Test
@@ -247,7 +242,7 @@ class AccountApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("계좌 ID는 0보다 커야 합니다."));
 
-        verify(accountService, never()).approveAccount(anyLong(), anyLong());
+        verify(accountService, never()).approveAccount(anyLong());
     }
 
     @Test
@@ -264,7 +259,7 @@ class AccountApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("사유를 입력해야 합니다."));
 
-        verify(accountService, never()).rejectAccount(anyLong(), anyLong(), anyString());
+        verify(accountService, never()).rejectAccount(anyLong(), anyString());
     }
 
     @Test
@@ -284,14 +279,14 @@ class AccountApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("사유는 200자 이하로 입력해야 합니다."));
 
-        verify(accountService, never()).rejectAccount(anyLong(), anyLong(), anyString());
+        verify(accountService, never()).rejectAccount(anyLong(), anyString());
     }
 
     @Test
     void reapplyAcceptsValidRequest() throws Exception {
         AccountResponseDTO response = mock(AccountResponseDTO.class);
         when(accountService.reapplyAccountByAccountId(
-                        any(), anyLong(), any(AccountReapplyRequestDTO.class)))
+                        anyLong(), any(AccountReapplyRequestDTO.class)))
                 .thenReturn(response);
 
         mockMvc.perform(
@@ -307,14 +302,14 @@ class AccountApiTest {
                 .andExpect(jsonPath("$.message").value("계좌 재신청"));
 
         verify(accountService)
-                .reapplyAccountByAccountId(any(), anyLong(), any(AccountReapplyRequestDTO.class));
+                .reapplyAccountByAccountId(anyLong(), any(AccountReapplyRequestDTO.class));
     }
 
     @Test
     void reapplyAcceptsMissingLimitForCurrentLimitReuse() throws Exception {
         AccountResponseDTO response = mock(AccountResponseDTO.class);
         when(accountService.reapplyAccountByAccountId(
-                        any(), anyLong(), any(AccountReapplyRequestDTO.class)))
+                        anyLong(), any(AccountReapplyRequestDTO.class)))
                 .thenReturn(response);
 
         mockMvc.perform(
@@ -325,7 +320,7 @@ class AccountApiTest {
                 .andExpect(jsonPath("$.message").value("계좌 재신청"));
 
         verify(accountService)
-                .reapplyAccountByAccountId(any(), anyLong(), any(AccountReapplyRequestDTO.class));
+                .reapplyAccountByAccountId(anyLong(), any(AccountReapplyRequestDTO.class));
     }
 
     @ParameterizedTest
@@ -344,8 +339,7 @@ class AccountApiTest {
                 .andExpect(status().isBadRequest());
 
         verify(accountService, never())
-                .reapplyAccountByAccountId(
-                        anyLong(), anyLong(), any(AccountReapplyRequestDTO.class));
+                .reapplyAccountByAccountId(anyLong(), any(AccountReapplyRequestDTO.class));
     }
 
     @Test
@@ -362,7 +356,7 @@ class AccountApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("사유를 입력해야 합니다."));
 
-        verify(accountService, never()).overrideAccount(anyLong(), anyLong(), anyString());
+        verify(accountService, never()).overrideAccount(anyLong(), anyString());
     }
 
     @Test
