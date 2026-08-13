@@ -89,7 +89,8 @@
         UPDATE account
         SET status = 'OPENED',
         account_no = #{accountNo},
-        opened_at = #{openedAt}
+        opened_at = #{openedAt},
+        benefit = 'POSSIBLE'
         WHERE account_id = #{accountId}
         AND status = 'APPLIED'
         AND limit_amount = #{limitAmount}
@@ -137,7 +138,8 @@
         UPDATE account
         SET status = 'OPENED',
         account_no = #{accountNo},
-        opened_at = #{openedAt}
+        opened_at = #{openedAt},
+        benefit = 'POSSIBLE'
         WHERE account_id = #{accountId}
         AND status = 'REJECTED'
         AND account_no IS NULL

@@ -7,6 +7,7 @@ import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.exception.DuplicateAccountException;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
+import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -83,10 +84,12 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
             return appliedAccount;
         }
         open(appliedAccount, appliedAt);
-        AccountDTO opened = findByCustomer(account.getCustomerId());
-        assertStatus(opened, Status.OPENED);
-        accountLogService.recordStatusChange(opened, Status.APPLIED, appliedAt, "자동 판정 승인");
-        return opened;
+        AccountDTO openedAccount = findByCustomer(account.getCustomerId());
+        assertStatus(openedAccount, Status.OPENED);
+        accountLogService.recordStatusChange(openedAccount, Status.APPLIED, appliedAt, "자동 판정 승인");
+        assertBenefit(openedAccount, BenefitType.POSSIBLE);
+        accountLogService.recordBenefitChange(openedAccount, null, appliedAt, "계좌 개설에 따른 세제혜택 가능");
+        return openedAccount;
     }
 
     @Override
@@ -99,6 +102,8 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
         assertStatus(openedAccount, Status.OPENED);
         accountLogService.recordStatusChange(
                 openedAccount, account.getStatus(), openedAt, "사용자 계좌 개설");
+        assertBenefit(openedAccount, BenefitType.POSSIBLE);
+        accountLogService.recordBenefitChange(openedAccount, null, openedAt, "계좌 개설에 따른 세제혜택 가능");
         return openedAccount;
     }
 
@@ -147,6 +152,8 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
         AccountDTO openedAccount = find(accountId);
         assertStatus(openedAccount, Status.OPENED);
         accountLogService.recordStatusChange(openedAccount, Status.REJECTED, openedAt, reason);
+        assertBenefit(openedAccount, BenefitType.POSSIBLE);
+        accountLogService.recordBenefitChange(openedAccount, null, openedAt, "계좌 개설에 따른 세제혜택 가능");
         return openedAccount;
     }
 
@@ -202,5 +209,11 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
 
     private void assertStatus(AccountDTO account, Status status) {
         if (account.getStatus() != status) throw new AccountException("상태 변경 실패");
+    }
+
+    private void assertBenefit(AccountDTO account, BenefitType benefitType) {
+        if (account.getBenefit() != benefitType) {
+            throw new AccountException("혜택 설정 변경 실패");
+        }
     }
 }
