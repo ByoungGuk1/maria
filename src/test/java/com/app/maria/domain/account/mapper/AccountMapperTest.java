@@ -8,6 +8,7 @@ import com.app.maria.domain.account.dto.AccountJoinDTO;
 import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.dto.AccountSearchDTO;
 import com.app.maria.domain.account.dto.AccountStatusLogDTO;
+import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
 import java.io.IOException;
 import java.io.Reader;
@@ -137,6 +138,7 @@ class AccountMapperTest {
         assertThat(openedAccount.getStatus()).isEqualTo(Status.OPENED);
         assertThat(openedAccount.getAccountNo()).isEqualTo(accountNo);
         assertThat(openedAccount.getOpenedAt()).isEqualTo(openedAt);
+        assertThat(openedAccount.getBenefit()).isEqualTo(BenefitType.POSSIBLE);
     }
 
     @Test
@@ -311,6 +313,7 @@ class AccountMapperTest {
         assertThat(openedAccount.getStatus()).isEqualTo(Status.OPENED);
         assertThat(openedAccount.getAccountNo()).isEqualTo(rejectedOverride.getAccountNo());
         assertThat(openedAccount.getOpenedAt()).isEqualTo(openedAt);
+        assertThat(openedAccount.getBenefit()).isEqualTo(BenefitType.POSSIBLE);
         assertThat(accountMapper.selectByAccountId(appliedAccountId).orElseThrow().getStatus())
                 .isEqualTo(Status.APPLIED);
     }
