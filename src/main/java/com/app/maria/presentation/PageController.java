@@ -56,7 +56,7 @@ public class PageController {
     @GetMapping("/admin/admin-users")
     public String admin(Model model) {
         model.addAttribute("activePath", "/admin/admin-users");
-        return "admin";
+        return "admin-users";
     }
 
 }
