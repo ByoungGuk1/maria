@@ -7,7 +7,10 @@ import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
 public interface AuditLogMapper {
+
     int insertLog(AuditLogDTO auditLogDTO);
 
     List<AuditLogDTO> selectAuditLogs(AuditLogSearchDTO auditLogSearchDTO);
+
+    long countAuditLogs(AuditLogSearchDTO auditLogSearchDTO);
 }

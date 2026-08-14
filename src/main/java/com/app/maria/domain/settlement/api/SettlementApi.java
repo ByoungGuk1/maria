@@ -36,7 +36,7 @@ public class SettlementApi {
     @PreAuthorize("hasAnyRole('ADMIN', 'SETTLEMENT')")
     // Batch 실행 요청
     public ResponseEntity<ApiResponseDTO<SettlementBatchDTO>> executeSettlementBatch() {
-        SettlementBatchDTO batch = settlementService.executeSettlementBatch();
+        SettlementBatchDTO batch = settlementService.executeSettlementBatchByAdmin();
         HttpStatus status =
                 batch.getStatus() == BatchStatus.RUNNING ? HttpStatus.ACCEPTED : HttpStatus.OK;
         return ResponseEntity.status(status).body(ApiResponseDTO.of("확정산 배치 실행 요청 완료", batch));

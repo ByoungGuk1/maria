@@ -1,9 +1,13 @@
 package com.app.maria.domain.inbound.service;
 
+import com.app.maria.domain.foreignproduct.dto.ForeignProductDTO;
+import com.app.maria.domain.foreignproduct.exception.ForeignProductNotFoundException;
+import com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper;
 import com.app.maria.domain.inbound.dto.InboundDTO;
 import com.app.maria.domain.inbound.dto.InboundDetailDTO;
 import com.app.maria.domain.inbound.dto.InboundMinDTO;
 import com.app.maria.domain.inbound.dto.request.InboundRequestDTO;
+import com.app.maria.domain.inbound.dto.response.AccountHoldingResponseDTO;
 import com.app.maria.domain.inbound.dto.response.InboundResponseDTO;
 import com.app.maria.domain.inbound.exception.InboundNotFoundException;
 import com.app.maria.domain.inbound.mapper.InboundMapper;
@@ -11,6 +15,7 @@ import com.app.maria.domain.registrablestock.dto.RegistrableStockResponseDTO;
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.response.ApiResponseDTO;
 import java.math.BigDecimal;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
@@ -22,14 +27,17 @@ import org.springframework.web.client.RestClient;
 public class InboundServiceImpl implements InboundService {
 
     private final InboundMapper inboundMapper;
+    private final ForeignProductMapper foreignProductMapper;
     private final RestClient restClient;
     private final BusinessClockService businessClockService;
 
     public InboundServiceImpl(
             InboundMapper inboundMapper,
+            ForeignProductMapper foreignProductMapper,
             @Qualifier("returnSecuritiesRestClient") RestClient restClient,
             BusinessClockService businessClockService) {
         this.inboundMapper = inboundMapper;
+        this.foreignProductMapper = foreignProductMapper;
         this.restClient = restClient;
         this.businessClockService = businessClockService;
     }
@@ -105,5 +113,23 @@ public class InboundServiceImpl implements InboundService {
         inboundMapper.insertInboundMin(inboundMinDTO);
 
         return InboundResponseDTO.of(inboundDTO, snapshotQty);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AccountHoldingResponseDTO> getHoldings(Long accountId) {
+        return inboundMapper.selectHoldingsByAccount(accountId).stream()
+                .map(
+                        holding -> {
+                            ForeignProductDTO product =
+                                    foreignProductMapper
+                                            .selectById(holding.getForeignProductId())
+                                            .orElseThrow(
+                                                    () ->
+                                                            new ForeignProductNotFoundException(
+                                                                    "종목 정보를 찾을 수 없습니다."));
+                            return new AccountHoldingResponseDTO(product, holding.getCurrentQty());
+                        })
+                .toList();
     }
 }

@@ -23,9 +23,33 @@ public class PageController {
         return "dashboard";
     }
 
+    @GetMapping("/admin/target-products")
+    public String targetProducts(Model model) {
+        model.addAttribute("activePath", "/admin/target-products");
+        return "target-products";
+    }
+
+    @GetMapping("/admin/sell-orders")
+    public String sellOrders(Model model) {
+        model.addAttribute("activePath", "/admin/sell-orders");
+        return "sellOrder";
+    }
+
     @GetMapping("/admin/account")
     public String account(Model model) {
         model.addAttribute("activePath", "/admin/account");
         return "account-management";
+    }
+
+    @GetMapping("/admin/audit-log")
+    public String audit(Model model) {
+        model.addAttribute("activePath", "/admin/audit-log");
+        return "audit-log";
+    }
+
+    @GetMapping("/admin/settlement")
+    public String settlement(Model model) {
+        model.addAttribute("activePath", "/admin/settlement");
+        return "settlement";
     }
 }

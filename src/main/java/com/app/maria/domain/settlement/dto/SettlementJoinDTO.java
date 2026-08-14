@@ -35,7 +35,15 @@ public class SettlementJoinDTO {
     private Long orderId;
     private BigDecimal provisionalAmount;
     private LocalDateTime provisionalAt;
+    private BigDecimal finalRate;
+    private BigDecimal finalAmount;
+    private LocalDateTime finalAt;
     private SettlementStatus settlementStatus;
+
+    // account / foreign_product
+    private String accountNo;
+    private String ticker;
+    private String productName;
 
     // sell_order
     private BigDecimal settlementFxRate;

@@ -1,7 +1,9 @@
 package com.app.maria.domain.account.mapper;
 
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.dto.AccountJoinDTO;
 import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
+import com.app.maria.domain.account.dto.AccountSearchDTO;
 import com.app.maria.domain.account.type.Status;
 import java.math.BigDecimal;
 import java.util.List;
@@ -54,6 +56,8 @@ public interface AccountMapper {
     // 상태별 계좌 목록
     List<AccountDTO> selectAllAccount();
 
+    List<AccountJoinDTO> selectAccountList();
+
     // 관리자 반려 판정 오버라이드
     int overrideToOpened(AccountDTO accountDTO);
 
@@ -82,6 +86,17 @@ public interface AccountMapper {
 
     // applied 계좌 목록
     List<AccountLimitUsageDTO> selectAppliedAccounts();
+
+    List<AccountLimitUsageDTO> searchAccounts(AccountSearchDTO condition);
+
+    // 해지 신청 상태로 변경
+    int requestClosure(Long accountId);
+
+    // 해지 반려 시 계좌 상태 변경
+    int reopenAfterClosureRejection(Long accountId);
+
+    // 해지 완료 상태변경
+    int completeClosure(Long accountId);
 
     List<AccountDTO> selectOpenedAccountsAfter(
             @Param("lastAccountId") long lastAccountId, @Param("pageSize") int pageSize);

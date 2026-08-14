@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.app.maria.domain.settlement.exception.ExchangeRateExternalApiException;
 import com.app.maria.domain.settlement.exception.InvalidSettlementException;
 import com.app.maria.global.client.exchange.ExchangeRateClient;
 import com.app.maria.global.exception.ExchangeRateNotFoundException;
@@ -81,23 +82,23 @@ class ExchangeRateProviderImplTest {
     }
 
     @Test
-    @DisplayName("외부 환율 응답이 null이면 조회 실패로 처리한다")
+    @DisplayName("외부 환율 응답이 null이면 외부 API 오류로 처리한다")
     void getFinalRateRejectsNullRate() {
         when(exchangeRateClient.getBaseRate("USD", SEARCH_DATE)).thenReturn(null);
 
         assertThatThrownBy(() -> exchangeRateProvider.getFinalRate("USD", SEARCH_DATE))
-                .isInstanceOf(ExchangeRateNotFoundException.class)
+                .isInstanceOf(ExchangeRateExternalApiException.class)
                 .hasMessage("유효하지 않은 환율 응답");
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"0", "-0.01"})
-    @DisplayName("외부 환율 응답이 0 이하이면 조회 실패로 처리한다")
+    @DisplayName("외부 환율 응답이 0 이하이면 외부 API 오류로 처리한다")
     void getFinalRateRejectsNonPositiveRate(String rate) {
         when(exchangeRateClient.getBaseRate("USD", SEARCH_DATE)).thenReturn(new BigDecimal(rate));
 
         assertThatThrownBy(() -> exchangeRateProvider.getFinalRate("USD", SEARCH_DATE))
-                .isInstanceOf(ExchangeRateNotFoundException.class)
+                .isInstanceOf(ExchangeRateExternalApiException.class)
                 .hasMessage("유효하지 않은 환율 응답");
     }
 
@@ -114,14 +115,14 @@ class ExchangeRateProviderImplTest {
     }
 
     @Test
-    @DisplayName("외부 환율 Client의 연결 또는 응답 시간 초과를 환율 조회 예외로 변환한다")
+    @DisplayName("외부 환율 Client의 연결 또는 응답 시간 초과를 외부 API 예외로 변환한다")
     void getFinalRateConvertsResourceAccessException() {
         ResourceAccessException timeoutException = new ResourceAccessException("Read timed out");
         when(exchangeRateClient.getBaseRate(eq("USD"), any(LocalDate.class)))
                 .thenThrow(timeoutException);
 
         assertThatThrownBy(() -> exchangeRateProvider.getFinalRate("USD", SEARCH_DATE))
-                .isInstanceOf(ExchangeRateNotFoundException.class)
+                .isInstanceOf(ExchangeRateExternalApiException.class)
                 .hasMessage("환율 API 연결 또는 응답 시간 초과")
                 .hasCause(timeoutException);
 
@@ -167,14 +168,14 @@ class ExchangeRateProviderImplTest {
         when(exchangeRateClient.getBaseRate("USD", SEARCH_DATE)).thenThrow(clientException);
 
         assertThatThrownBy(() -> exchangeRateProvider.getFinalRate("USD", SEARCH_DATE))
-                .isInstanceOf(ExchangeRateNotFoundException.class)
+                .isInstanceOf(ExchangeRateExternalApiException.class)
                 .hasMessage("환율 API 호출 실패");
 
         verify(exchangeRateClient).getBaseRate("USD", SEARCH_DATE);
     }
 
     @Test
-    @DisplayName("재시도 대기 중 interrupt는 환율 데이터 없음으로 처리하지 않는다")
+    @DisplayName("재시도 대기 중 interrupt는 외부 API 오류로 처리한다")
     void getFinalRateRejectsInterruptedRetry() {
         ResourceAccessException timeoutException = new ResourceAccessException("Read timed out");
         when(exchangeRateClient.getBaseRate("USD", SEARCH_DATE)).thenThrow(timeoutException);
@@ -182,7 +183,7 @@ class ExchangeRateProviderImplTest {
         Thread.currentThread().interrupt();
         try {
             assertThatThrownBy(() -> exchangeRateProvider.getFinalRate("USD", SEARCH_DATE))
-                    .isInstanceOf(ExchangeRateNotFoundException.class)
+                    .isInstanceOf(ExchangeRateExternalApiException.class)
                     .hasMessage("환율 API 재시도 대기 중단");
         } finally {
             Thread.interrupted();
@@ -190,14 +191,14 @@ class ExchangeRateProviderImplTest {
     }
 
     @Test
-    @DisplayName("외부 환율 Client의 일반 HTTP 호출 실패를 환율 조회 예외로 변환한다")
+    @DisplayName("외부 환율 Client의 일반 HTTP 호출 실패를 외부 API 예외로 변환한다")
     void getFinalRateConvertsRestClientException() {
         RestClientException clientException = new RestClientException("HTTP 호출 실패") {};
         when(exchangeRateClient.getBaseRate(eq("USD"), any(LocalDate.class)))
                 .thenThrow(clientException);
 
         assertThatThrownBy(() -> exchangeRateProvider.getFinalRate("USD", SEARCH_DATE))
-                .isInstanceOf(ExchangeRateNotFoundException.class)
+                .isInstanceOf(ExchangeRateExternalApiException.class)
                 .hasMessage("환율 API 호출 실패")
                 .hasCause(clientException);
     }
