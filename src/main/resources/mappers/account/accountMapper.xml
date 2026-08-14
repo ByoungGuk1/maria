@@ -259,4 +259,16 @@
         AND amount = 0
     </update>
 
+    <!-- APPLIED/REJECTED는 매도건이 존재할 수 없어 제외된다. -->
+    <select id="selectOpenedAccountsAfter" resultType="AccountDTO">
+        select
+            account_id,
+            benefit
+        from account
+        where opened_at is not null
+            and account_id > #{lastAccountId}
+        order by account_id
+        limit #{pageSize}
+    </select>
+
 </mapper>

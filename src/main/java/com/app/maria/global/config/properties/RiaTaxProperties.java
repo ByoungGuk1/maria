@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 @Getter
 @Component
 @Setter
-@ConfigurationProperties(prefix = "ria")
+@ConfigurationProperties(prefix = "custom.tax")
 public class RiaTaxProperties {
-    private int taxYear;
+    private int year;
 }

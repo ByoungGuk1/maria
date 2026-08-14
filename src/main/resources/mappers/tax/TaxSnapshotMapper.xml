@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.app.maria.domain.tax.mapper.TaxSnapshotMapper">
+    <insert id="upsertSnapshots">
+        insert into tax_snapshot (
+            account_id,
+            calculated_at,
+                                  weighted_sell,
+                                  original_gain_amount,
+                                  weighted_gain,
+                                  weighted_external_amount,
+                                  adjust_ratio,
+                                  final_deduction,
+                                  final_tax
+        )values
+             <foreach collection="snapshots" item="snapshot" separator=",">
+                 (
+                    #{snapshot.accountId},
+                  #{snapshot.calculatedAt},
+                  #{snapshot.weightedSell},
+                  #{snapshot.originalGainAmount},
+                  #{snapshot.weightedGain},
+                  #{snapshot.weightedExternalAmount},
+                  #{snapshot.adjustRatio},
+                 #{snapshot.finalDeduction},
+                  #{snapshot.finalTax}
+                 )
+             </foreach>
+        on duplicate key update
+        calculated_at            = values(calculated_at),
+        weighted_sell            = values(weighted_sell),
+        original_gain_amount     = values(original_gain_amount),
+        weighted_gain            = values(weighted_gain),
+        weighted_external_amount = values(weighted_external_amount),
+        adjust_ratio             = values(adjust_ratio),
+        final_deduction          = values(final_deduction),
+        final_tax                = values(final_tax)
+    </insert>
+    <select id="selectByAccountId" resultType="TaxSnapshotDTO">
+        select
+            snapshot_id,
+            account_id,
+            calculated_at,
+            weighted_sell,
+            original_gain_amount,
+            weighted_gain,
+            weighted_external_amount,
+            adjust_ratio,
+            final_deduction,
+            final_tax
+        from tax_snapshot
+        where account_id = #{accountId}
+    </select>
+
+    <select id="selectByAccountIds" resultType="TaxSnapshotDTO">
+        select
+        snapshot_id,
+        account_id,
+        calculated_at,
+        weighted_sell,
+        original_gain_amount,
+        weighted_gain,
+        weighted_external_amount,
+        adjust_ratio,
+        final_deduction,
+        final_tax
+        from tax_snapshot
+        where account_id in
+        <foreach collection="accountIds" item="accountId" open="(" close=")" separator=",">
+            #{accountId}
+        </foreach>
+    </select>
+
+</mapper>

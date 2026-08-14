@@ -1,6 +1,5 @@
 package com.app.maria.domain.tax.dto;
 
-import com.app.maria.domain.tax.type.TaxBasisType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -12,11 +11,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class TaxCalculationDTO {
-    private Long calcId;
+public class TaxSnapshotDTO {
+    private Long snapshotId;
     private Long accountId;
     private LocalDateTime calculatedAt;
-    private TaxBasisType basisType;
     private BigDecimal weightedSell;
     private BigDecimal originalGainAmount;
     private BigDecimal weightedGain;
@@ -25,14 +23,10 @@ public class TaxCalculationDTO {
     private BigDecimal finalDeduction;
     private BigDecimal finalTax;
 
-    public static TaxCalculationDTO of(
-            Long accountId,
-            TaxBasisType basisType,
-            LocalDateTime calculatedAt,
-            TaxCalculationResultDTO result) {
-        return TaxCalculationDTO.builder()
+    public static TaxSnapshotDTO of(
+            Long accountId, LocalDateTime calculatedAt, TaxCalculationResultDTO result) {
+        return TaxSnapshotDTO.builder()
                 .accountId(accountId)
-                .basisType(basisType)
                 .calculatedAt(calculatedAt)
                 .weightedSell(result.getWeightedSell())
                 .originalGainAmount(result.getOriginalGainAmount())
