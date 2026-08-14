@@ -58,5 +58,4 @@ public class PageController {
         model.addAttribute("activePath", "/admin/admin-users");
         return "admin-users";
     }
-
 }
