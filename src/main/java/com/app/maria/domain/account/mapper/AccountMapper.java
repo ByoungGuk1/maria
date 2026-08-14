@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface AccountMapper {
@@ -81,4 +82,7 @@ public interface AccountMapper {
 
     // applied 계좌 목록
     List<AccountLimitUsageDTO> selectAppliedAccounts();
+
+    List<AccountDTO> selectOpenedAccountsAfter(
+            @Param("lastAccountId") long lastAccountId, @Param("pageSize") int pageSize);
 }
