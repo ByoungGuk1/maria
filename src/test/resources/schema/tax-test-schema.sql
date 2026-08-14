@@ -96,16 +96,30 @@ CREATE TABLE target_product_judgement (
 );
 
 CREATE TABLE tax_calculation (
-    calc_id       BIGINT PRIMARY KEY AUTO_INCREMENT,
-    account_id    BIGINT        NOT NULL,
-    calculated_at DATETIME      NOT NULL,
-    basis_type    VARCHAR(30)   NOT NULL,
-    sell_amount   DECIMAL(15,2) NOT NULL,
-    gain_amount   DECIMAL(15,2) NOT NULL,
-    gain_weighted DECIMAL(15,2) NOT NULL,
-    ext_amount    DECIMAL(15,2) NOT NULL,
-    ratio         DECIMAL(7,4)  NOT NULL,
-    deduction     DECIMAL(15,2) NOT NULL,
-    tax           DECIMAL(15,2) NOT NULL,
+    calc_id                  BIGINT PRIMARY KEY AUTO_INCREMENT,
+    account_id               BIGINT        NOT NULL,
+    calculated_at            DATETIME      NOT NULL,
+    basis_type               VARCHAR(30)   NOT NULL,
+    weighted_sell            DECIMAL(15,2) NOT NULL,
+    original_gain_amount     DECIMAL(15,2) NOT NULL,
+    weighted_gain            DECIMAL(15,2) NOT NULL,
+    weighted_external_amount DECIMAL(15,2) NOT NULL,
+    adjust_ratio             DECIMAL(7,4)  NOT NULL,
+    final_deduction          DECIMAL(15,2) NOT NULL,
+    final_tax                DECIMAL(15,2) NOT NULL,
     CONSTRAINT uk_tax_calc__account_basis UNIQUE (account_id, basis_type)
+);
+
+CREATE TABLE tax_snapshot (
+    snapshot_id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+    account_id               BIGINT        NOT NULL,
+    calculated_at            DATETIME      NOT NULL,
+    weighted_sell            DECIMAL(15,2) NOT NULL,
+    original_gain_amount     DECIMAL(15,2) NOT NULL,
+    weighted_gain            DECIMAL(15,2) NOT NULL,
+    weighted_external_amount DECIMAL(15,2) NOT NULL,
+    adjust_ratio             DECIMAL(7,4)  NOT NULL,
+    final_deduction          DECIMAL(15,2) NOT NULL,
+    final_tax                DECIMAL(15,2) NOT NULL,
+    CONSTRAINT uk_tax_snapshot__account UNIQUE (account_id)
 );

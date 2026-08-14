@@ -13,6 +13,7 @@
         <typeAlias alias="TaxRuleDTO" type="com.app.maria.domain.tax.dto.TaxRuleDTO"/>
         <typeAlias alias="ExternalBuyDTO" type="com.app.maria.domain.tax.dto.ExternalBuyDTO"/>
         <typeAlias alias="TaxCalculationDTO" type="com.app.maria.domain.tax.dto.TaxCalculationDTO"/>
+        <typeAlias alias="TaxSnapshotDTO" type="com.app.maria.domain.tax.dto.TaxSnapshotDTO"/>
     </typeAliases>
 
     <environments default="tax-mapper-test">
@@ -29,5 +30,6 @@
 
     <mappers>
         <mapper resource="mappers/tax/TaxMapper.xml"/>
+        <mapper resource="mappers/tax/TaxSnapshotMapper.xml"/>
     </mappers>
 </configuration>

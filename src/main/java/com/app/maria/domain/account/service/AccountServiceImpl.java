@@ -1,10 +1,12 @@
 package com.app.maria.domain.account.service;
 
 import com.app.maria.domain.account.dto.AccountDTO;
-import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.request.AccountSearchRequestDTO;
+import com.app.maria.domain.account.dto.response.AccountJoinResponseDTO;
+import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
@@ -12,6 +14,7 @@ import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.provider.MydataProvider;
 import com.app.maria.domain.account.type.Status;
+import com.app.maria.global.audit.provider.AuditActorProvider;
 import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -35,10 +38,16 @@ public class AccountServiceImpl implements AccountService {
     private final BusinessClockService businessClockService;
     private final AccountTransactionalService accountTransactionalService;
     private final AccountMydataSyncService accountMydataSyncService;
+    private final AuditActorProvider auditActorProvider;
 
     @Override
-    public List<AccountResponseDTO> findAll() {
-        return accountMapper.selectAllAccount().stream().map(AccountResponseDTO::new).toList();
+    public List<AccountJoinResponseDTO> findAll() {
+        return accountMapper.selectAccountList().stream().map(AccountJoinResponseDTO::new).toList();
+    }
+
+    @Override
+    public int getAccountsRequiringActionCount() {
+        return accountMapper.countAccountsRequiringAction();
     }
 
     @Override
@@ -57,6 +66,7 @@ public class AccountServiceImpl implements AccountService {
         validateLimitAvailability(newLimitAmount, calculateAvailableLimit(customerId));
         AccountDTO updatedAccount =
                 accountTransactionalService.updateLimit(
+                        auditActorProvider.getCurrentAdminId(),
                         customerId,
                         requestDTO.getExpectedCurrentLimit(),
                         newLimitAmount,
@@ -81,7 +91,8 @@ public class AccountServiceImpl implements AccountService {
                         && account.getLimitAmount().compareTo(availableLimit) <= 0
                         && availableLimit.compareTo(MIN_LIMIT_AMOUNT) >= 0;
         AccountDTO appliedAccount =
-                accountTransactionalService.apply(account, appliedAt, autoApprove);
+                accountTransactionalService.apply(
+                        auditActorProvider.getCurrentAdminId(), account, appliedAt, autoApprove);
         if (appliedAccount.getStatus() == Status.OPENED) {
             accountMydataSyncService.create(appliedAccount);
         }
@@ -98,7 +109,11 @@ public class AccountServiceImpl implements AccountService {
         validateLimitAvailability(
                 account.getLimitAmount(), calculateAvailableLimit(account.getCustomerId()));
         AccountDTO openedAccount =
-                accountTransactionalService.approve(accountId, account.getLimitAmount(), openedAt);
+                accountTransactionalService.approve(
+                        auditActorProvider.getCurrentAdminId(),
+                        accountId,
+                        account.getLimitAmount(),
+                        openedAt);
         accountMydataSyncService.create(openedAccount);
         return new AccountResponseDTO(openedAccount);
     }
@@ -107,7 +122,10 @@ public class AccountServiceImpl implements AccountService {
     public AccountResponseDTO rejectAccount(Long accountId, String reason) {
         AccountDTO rejectedAccount =
                 accountTransactionalService.reject(
-                        accountId, normalizeReason(reason), businessClockService.now());
+                        auditActorProvider.getCurrentAdminId(),
+                        accountId,
+                        normalizeReason(reason),
+                        businessClockService.now());
         return new AccountResponseDTO(rejectedAccount);
     }
 
@@ -127,7 +145,8 @@ public class AccountServiceImpl implements AccountService {
         validateLimitAvailability(
                 limitAmount, calculateAvailableLimit(foundAccount.getCustomerId()));
         AccountDTO reappliedAccount =
-                accountTransactionalService.reapply(accountId, requestDTO, appliedAt);
+                accountTransactionalService.reapply(
+                        auditActorProvider.getCurrentAdminId(), accountId, requestDTO, appliedAt);
         return new AccountResponseDTO(reappliedAccount);
     }
 
@@ -159,7 +178,11 @@ public class AccountServiceImpl implements AccountService {
         validateLimitAvailability(
                 account.getLimitAmount(), calculateAvailableLimit(account.getCustomerId()));
         AccountDTO openedAccount =
-                accountTransactionalService.override(accountId, normalizedReason, openedAt);
+                accountTransactionalService.override(
+                        auditActorProvider.getCurrentAdminId(),
+                        accountId,
+                        normalizedReason,
+                        openedAt);
         accountMydataSyncService.create(openedAccount);
         return new AccountResponseDTO(openedAccount);
     }
@@ -232,13 +255,25 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<AccountLimitUsageDTO> selectAccountLimitUsage() {
-        return accountMapper.selectAccountLimitUsage();
+    public List<AccountLimitUsageResponseDTO> selectAccountLimitUsage() {
+        return accountMapper.selectAccountLimitUsage().stream()
+                .map(AccountLimitUsageResponseDTO::new)
+                .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<AccountLimitUsageDTO> getAppliedAccounts() {
-        return accountMapper.selectAppliedAccounts();
+    public List<AccountLimitUsageResponseDTO> getAppliedAccounts() {
+        return accountMapper.selectAppliedAccounts().stream()
+                .map(AccountLimitUsageResponseDTO::new)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AccountLimitUsageResponseDTO> searchAccounts(AccountSearchRequestDTO request) {
+        return accountMapper.searchAccounts(request.toAccountSearchDTO()).stream()
+                .map(AccountLimitUsageResponseDTO::new)
+                .toList();
     }
 }

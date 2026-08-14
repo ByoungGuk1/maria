@@ -7,20 +7,28 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
+import com.app.maria.domain.account.dto.AccountSearchDTO;
 import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.request.AccountSearchRequestDTO;
+import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.provider.MydataProvider;
 import com.app.maria.domain.account.type.Status;
+import com.app.maria.global.audit.provider.AuditActorProvider;
 import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -32,6 +40,7 @@ import org.mockito.quality.Strictness;
 class AccountServiceImplTest {
     private static final Long CUSTOMER_ID = 1L;
     private static final Long ACCOUNT_ID = 10L;
+    private static final Long ADMIN_ID = 99L;
     private static final BigDecimal LIMIT = BigDecimal.valueOf(30_000_000L);
     private static final BigDecimal CHANGED_LIMIT = BigDecimal.valueOf(40_000_000L);
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 2, 10, 30);
@@ -42,6 +51,7 @@ class AccountServiceImplTest {
     @Mock private BusinessClockService businessClockService;
     @Mock private AccountTransactionalService accountTransactionalService;
     @Mock private AccountMydataSyncService accountMydataSyncService;
+    @Mock private AuditActorProvider auditActorProvider;
 
     @InjectMocks private AccountServiceImpl accountService;
 
@@ -52,11 +62,13 @@ class AccountServiceImplTest {
                 .thenReturn(Optional.of("ci-hash"));
         when(mydataProvider.getExternalConfiguredLimit("ci-hash")).thenReturn(BigDecimal.ZERO);
         when(businessClockService.now()).thenReturn(NOW);
+        when(auditActorProvider.getCurrentAdminId()).thenReturn(ADMIN_ID);
     }
 
     @Test
     void updateLimitDoesNotSyncMydataForAppliedAccount() {
-        when(accountTransactionalService.updateLimit(CUSTOMER_ID, LIMIT, CHANGED_LIMIT, NOW))
+        when(accountTransactionalService.updateLimit(
+                        ADMIN_ID, CUSTOMER_ID, LIMIT, CHANGED_LIMIT, NOW))
                 .thenReturn(account(Status.APPLIED, CHANGED_LIMIT));
 
         AccountResponseDTO result =
@@ -69,7 +81,8 @@ class AccountServiceImplTest {
     @Test
     void updateLimitSyncsOnlyLimitForOpenedAccount() {
         AccountDTO updated = account(Status.OPENED, CHANGED_LIMIT);
-        when(accountTransactionalService.updateLimit(CUSTOMER_ID, LIMIT, CHANGED_LIMIT, NOW))
+        when(accountTransactionalService.updateLimit(
+                        ADMIN_ID, CUSTOMER_ID, LIMIT, CHANGED_LIMIT, NOW))
                 .thenReturn(updated);
 
         accountService.updateAccountLimit(limitUpdateRequest(LIMIT, CHANGED_LIMIT));
@@ -90,13 +103,14 @@ class AccountServiceImplTest {
                 .isInstanceOf(InvalidAccountRequestException.class)
                 .hasMessageContaining("30000000");
 
-        verify(accountTransactionalService, never()).updateLimit(any(), any(), any(), any());
+        verify(accountTransactionalService, never()).updateLimit(any(), any(), any(), any(), any());
     }
 
     @Test
     void applyUsesSingleBusinessClockSnapshotAndCreatesMydataForOpenedAccount() {
         AccountDTO opened = account(Status.OPENED, LIMIT);
-        when(accountTransactionalService.apply(any(AccountDTO.class), eq(NOW), eq(true)))
+        when(accountTransactionalService.apply(
+                        eq(ADMIN_ID), any(AccountDTO.class), eq(NOW), eq(true)))
                 .thenReturn(opened);
 
         accountService.applyAccount(request(LIMIT));
@@ -110,13 +124,15 @@ class AccountServiceImplTest {
         AccountDTO applied = account(Status.APPLIED, LIMIT);
         when(mydataProvider.getExternalConfiguredLimit("ci-hash"))
                 .thenReturn(BigDecimal.valueOf(25_000_000L));
-        when(accountTransactionalService.apply(any(AccountDTO.class), eq(NOW), eq(false)))
+        when(accountTransactionalService.apply(
+                        eq(ADMIN_ID), any(AccountDTO.class), eq(NOW), eq(false)))
                 .thenReturn(applied);
 
         AccountResponseDTO result = accountService.applyAccount(request(LIMIT));
 
         assertThat(result.getStatus()).isEqualTo(Status.APPLIED);
-        verify(accountTransactionalService).apply(any(AccountDTO.class), eq(NOW), eq(false));
+        verify(accountTransactionalService)
+                .apply(eq(ADMIN_ID), any(AccountDTO.class), eq(NOW), eq(false));
         verify(accountMydataSyncService, never()).create(any());
     }
 
@@ -125,7 +141,8 @@ class AccountServiceImplTest {
         LocalDateTime outsidePeriod = LocalDateTime.of(2027, 1, 1, 10, 0);
         AccountDTO applied = account(Status.APPLIED, LIMIT);
         when(businessClockService.now()).thenReturn(outsidePeriod);
-        when(accountTransactionalService.apply(any(AccountDTO.class), eq(outsidePeriod), eq(false)))
+        when(accountTransactionalService.apply(
+                        eq(ADMIN_ID), any(AccountDTO.class), eq(outsidePeriod), eq(false)))
                 .thenReturn(applied);
 
         AccountResponseDTO result = accountService.applyAccount(request(LIMIT));
@@ -139,11 +156,12 @@ class AccountServiceImplTest {
         AccountDTO applied = account(Status.APPLIED, LIMIT);
         AccountDTO opened = account(Status.OPENED, LIMIT);
         when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(applied));
-        when(accountTransactionalService.approve(ACCOUNT_ID, LIMIT, NOW)).thenReturn(opened);
+        when(accountTransactionalService.approve(ADMIN_ID, ACCOUNT_ID, LIMIT, NOW))
+                .thenReturn(opened);
 
         accountService.approveAccount(ACCOUNT_ID);
 
-        verify(accountTransactionalService).approve(ACCOUNT_ID, LIMIT, NOW);
+        verify(accountTransactionalService).approve(ADMIN_ID, ACCOUNT_ID, LIMIT, NOW);
         verify(accountMydataSyncService).create(opened);
     }
 
@@ -154,12 +172,70 @@ class AccountServiceImplTest {
         AccountDTO opened = account(Status.OPENED, LIMIT);
         when(businessClockService.now()).thenReturn(afterApplicationPeriod);
         when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(applied));
-        when(accountTransactionalService.approve(ACCOUNT_ID, LIMIT, afterApplicationPeriod))
+        when(accountTransactionalService.approve(
+                        ADMIN_ID, ACCOUNT_ID, LIMIT, afterApplicationPeriod))
                 .thenReturn(opened);
 
         accountService.approveAccount(ACCOUNT_ID);
 
-        verify(accountTransactionalService).approve(ACCOUNT_ID, LIMIT, afterApplicationPeriod);
+        verify(accountTransactionalService)
+                .approve(ADMIN_ID, ACCOUNT_ID, LIMIT, afterApplicationPeriod);
+    }
+
+    @Test
+    @DisplayName("검색 조건을 VO로 변환해 Mapper를 호출하고, 결과를 Response DTO로 감싸 반환한다")
+    void searchAccountsConvertsRequestToVoAndWrapsMapperResultAsResponseDto() {
+        AccountLimitUsageDTO vo = accountLimitUsage(Status.OPENED);
+        AccountSearchRequestDTO request =
+                AccountSearchRequestDTO.builder().accountNo("123").customerName("김").build();
+        when(accountMapper.searchAccounts(any(AccountSearchDTO.class))).thenReturn(List.of(vo));
+
+        List<AccountLimitUsageResponseDTO> result = accountService.searchAccounts(request);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getAccountId()).isEqualTo(vo.getAccountId());
+        assertThat(result.get(0).getAccountNo()).isEqualTo(vo.getAccountNo());
+
+        ArgumentCaptor<AccountSearchDTO> captor = ArgumentCaptor.forClass(AccountSearchDTO.class);
+        verify(accountMapper).searchAccounts(captor.capture());
+        assertThat(captor.getValue().getAccountNo()).isEqualTo("123");
+        assertThat(captor.getValue().getCustomerName()).isEqualTo("김");
+    }
+
+    @Test
+    @DisplayName("한도 사용률 조회 결과를 Response DTO로 감싸 반환한다")
+    void selectAccountLimitUsageWrapsMapperResultAsResponseDto() {
+        AccountLimitUsageDTO vo = accountLimitUsage(Status.OPENED);
+        when(accountMapper.selectAccountLimitUsage()).thenReturn(List.of(vo));
+
+        List<AccountLimitUsageResponseDTO> result = accountService.selectAccountLimitUsage();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getStatus()).isEqualTo(Status.OPENED);
+        assertThat(result.get(0).getUsedAmount()).isEqualByComparingTo(vo.getUsedAmount());
+    }
+
+    @Test
+    @DisplayName("심사대기 계좌 조회 결과를 Response DTO로 감싸 반환한다")
+    void getAppliedAccountsWrapsMapperResultAsResponseDto() {
+        AccountLimitUsageDTO vo = accountLimitUsage(Status.APPLIED);
+        when(accountMapper.selectAppliedAccounts()).thenReturn(List.of(vo));
+
+        List<AccountLimitUsageResponseDTO> result = accountService.getAppliedAccounts();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getStatus()).isEqualTo(Status.APPLIED);
+    }
+
+    private AccountLimitUsageDTO accountLimitUsage(Status status) {
+        return AccountLimitUsageDTO.builder()
+                .accountId(ACCOUNT_ID)
+                .accountNo("1234567890")
+                .customerName("김리아")
+                .status(status)
+                .limitAmount(LIMIT)
+                .usedAmount(BigDecimal.ZERO)
+                .build();
     }
 
     private AccountRequestDTO request(BigDecimal limit) {

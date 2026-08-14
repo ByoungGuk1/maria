@@ -2,7 +2,11 @@ package com.app.maria.global.audit.dto.request;
 
 import com.app.maria.global.audit.dto.AuditLogSearchDTO;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import lombok.*;
 
 @AllArgsConstructor
@@ -13,10 +17,23 @@ import lombok.*;
 @Builder
 public class AuditLogSearchRequestDTO {
 
-    private Long adminId;
+    private static final Map<String, String> REASON_CODE_LABELS =
+            Map.of(
+                    "ADMIN_ROLE_UPDATE", "관리자 권한 변경",
+                    "SELL_ORDER_EXECUTED", "매도 체결",
+                    "SELL_ORDER_REJECTED", "매도 반려");
+
+    private static final Map<String, String> ROLE_LABELS =
+            Map.of(
+                    "VIEWER", "조회전용",
+                    "REVIEWER", "심사담당",
+                    "SETTLEMENT", "정산담당",
+                    "ADMIN", "최고관리자");
+
     private String targetTable;
-    private String targetPk;
-    private String reasonCode;
+    private String adminKeyword;
+    private String targetKeyword;
+    private String reasonKeyword;
 
     private LocalDateTime startDate;
     private LocalDateTime endDate;
@@ -26,14 +43,38 @@ public class AuditLogSearchRequestDTO {
         return startDate == null || endDate == null || !startDate.isAfter(endDate);
     }
 
+    @Min(0)
+    @Max(1_000_000)
+    @Builder.Default
+    private int page = 0;
+
+    @Min(1)
+    @Max(100)
+    @Builder.Default
+    private int size = 20;
+
+    private List<String> matchLabels(String kw, Map<String, String> labels) {
+        if (kw == null || kw.isBlank()) {
+            return List.of();
+        }
+        return labels.entrySet().stream()
+                .filter(entry -> entry.getValue().contains(kw))
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
     public AuditLogSearchDTO toAuditLogSearchDTO() {
         return AuditLogSearchDTO.builder()
-                .adminId(adminId)
                 .targetTable(targetTable)
-                .targetPk(targetPk)
-                .reasonCode(reasonCode)
+                .adminKeyword(adminKeyword)
+                .matchedRoles(matchLabels(adminKeyword, ROLE_LABELS))
+                .targetKeyword(targetKeyword)
+                .reasonKeyword(reasonKeyword)
+                .matchedReasonCodes(matchLabels(reasonKeyword, REASON_CODE_LABELS))
                 .startDate(startDate)
                 .endDate(endDate)
+                .size(size)
+                .offset(page * size)
                 .build();
     }
 }

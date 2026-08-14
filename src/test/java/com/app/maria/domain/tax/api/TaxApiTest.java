@@ -66,13 +66,13 @@ class TaxApiTest {
                 .accountId(ACCOUNT_ID)
                 .basisType(TaxBasisType.FINAL_REPORT)
                 .calculatedAt(LocalDateTime.of(2027, 5, 1, 9, 0))
-                .sellAmount(new BigDecimal("43000000.00"))
-                .gainAmount(new BigDecimal("32000000.00"))
-                .gainWeighted(new BigDecimal("27800000.00"))
-                .extAmount(new BigDecimal("11000000.00"))
-                .ratio(new BigDecimal("0.7442"))
-                .deduction(new BigDecimal("20688760.00"))
-                .tax(new BigDecimal("1938472.80"))
+                .weightedSell(new BigDecimal("43000000.00"))
+                .originalGainAmount(new BigDecimal("32000000.00"))
+                .weightedGain(new BigDecimal("27800000.00"))
+                .weightedExternalAmount(new BigDecimal("11000000.00"))
+                .adjustRatio(new BigDecimal("0.7442"))
+                .finalDeduction(new BigDecimal("20688760.00"))
+                .finalTax(new BigDecimal("1938472.80"))
                 .build();
     }
 
@@ -111,7 +111,7 @@ class TaxApiTest {
                 .andExpect(jsonPath("$.message").value("세액 확정 저장 성공"))
                 .andExpect(jsonPath("$.data.calcId").value(10L))
                 .andExpect(jsonPath("$.data.basisType").value("FINAL_REPORT"))
-                .andExpect(jsonPath("$.data.tax").value(1938472.80));
+                .andExpect(jsonPath("$.data.finalTax").value(1938472.80));
 
         verify(taxCalculationService).calculateAndSave(ACCOUNT_ID);
     }

@@ -1,6 +1,6 @@
 package com.app.maria.domain.dashboard.service;
 
-import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
+import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.account.service.AccountLogService;
 import com.app.maria.domain.account.service.AccountService;
 import com.app.maria.domain.account.type.Status;
@@ -38,12 +38,13 @@ public class DashboardServiceImpl implements DashboardService {
     @Override
     @Transactional(readOnly = true)
     public DashboardSummaryDTO getDashboardSummary() {
-        List<AccountLimitUsageDTO> openAccountUsages = accountService.selectAccountLimitUsage();
+        List<AccountLimitUsageResponseDTO> openAccountUsages =
+                accountService.selectAccountLimitUsage();
 
-        List<AccountLimitUsageDTO> nearLimitAccounts =
+        List<AccountLimitUsageResponseDTO> nearLimitAccounts =
                 openAccountUsages.stream().filter(this::isNearLimit).toList();
 
-        List<AccountLimitUsageDTO> priorityAccounts = new ArrayList<>();
+        List<AccountLimitUsageResponseDTO> priorityAccounts = new ArrayList<>();
         priorityAccounts.addAll(accountService.getAppliedAccounts());
         priorityAccounts.addAll(nearLimitAccounts);
 
@@ -51,9 +52,12 @@ public class DashboardServiceImpl implements DashboardService {
         SettlementBatchDTO latestBatch = batches.isEmpty() ? null : batches.get(0);
 
         List<AuditLogResponseDTO> recentAuditLogs =
-                auditLogService.searchAuditLogs(AuditLogSearchRequestDTO.builder().build()).stream()
-                        .limit(RECENT_AUDIT_LOG_LIMIT)
-                        .toList();
+                auditLogService
+                        .searchAuditLogs(
+                                AuditLogSearchRequestDTO.builder()
+                                        .size(RECENT_AUDIT_LOG_LIMIT)
+                                        .build())
+                        .getContent();
 
         return DashboardSummaryDTO.builder()
                 .referenceDateTime(businessClockService.now())
@@ -70,7 +74,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .build();
     }
 
-    private boolean isNearLimit(AccountLimitUsageDTO usageDTO) {
+    private boolean isNearLimit(AccountLimitUsageResponseDTO usageDTO) {
         if (usageDTO.getLimitAmount() == null || usageDTO.getLimitAmount().signum() <= 0) {
             return false;
         }

@@ -20,8 +20,9 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 
 /**
- * D2(현금 직접입금 차단): account.amount를 변경하는 <update>가 아래 3개 외에 새로 생기면 실패한다. 이 3개는 전부 실제 매도/환전/인출 레코드에서
- * 계산된 값만 반영하며, 임의 금액을 받는 입금 경로는 없다. 새 write path를 추가하려면 이 목록에 의도적으로 추가해야 한다(실수로 생긴 직접입금 경로 차단).
+ * D2(현금 직접입금 차단): account.amount를 SET 절에서 변경하는 <update>가 아래 3개 외에 새로 생기면 실패한다. 이 3개는 전부 실제 매도/환전/인출
+ * 레코드에서 계산된 값만 반영하며, 임의 금액을 받는 입금 경로는 없다. 새 write path를 추가하려면 이 목록에 의도적으로 추가해야 한다(실수로 생긴 직접입금 경로
+ * 차단).
  */
 class AccountAmountWritePathTest {
 
@@ -30,8 +31,8 @@ class AccountAmountWritePathTest {
 
     private static final Pattern TARGETS_ACCOUNT_TABLE =
             Pattern.compile("(?i)\\bupdate\\s+account\\b");
-    // \b는 '_'를 단어문자로 취급하므로 limit_amount/final_amount 등은 매칭되지 않는다
-    private static final Pattern TOUCHES_AMOUNT_COLUMN = Pattern.compile("(?i)\\bamount\\b");
+    private static final Pattern SETS_AMOUNT_COLUMN =
+            Pattern.compile("(?is)\\bset\\b(?:(?!\\bwhere\\b).)*\\bamount\\b\\s*=");
 
     private static final Pattern INSERT_INTO_ACCOUNT =
             Pattern.compile(
@@ -39,7 +40,7 @@ class AccountAmountWritePathTest {
     private static final Pattern PARAMETER_PLACEHOLDER = Pattern.compile("^#\\{.*}$");
 
     @Test
-    @DisplayName("account.amount를 변경하는 <update>는 정해진 3개(가환전/확정산/인출 차감)뿐이다")
+    @DisplayName("account.amount를 SET 절에서 변경하는 <update>는 정해진 3개(가환전/확정산/인출 차감)뿐이다")
     void onlyKnownWritersModifyAccountAmount() throws Exception {
         Set<String> actualWriters = new HashSet<>();
 
@@ -50,7 +51,7 @@ class AccountAmountWritePathTest {
                 Element update = (Element) updates.item(i);
                 String sql = update.getTextContent();
                 if (TARGETS_ACCOUNT_TABLE.matcher(sql).find()
-                        && TOUCHES_AMOUNT_COLUMN.matcher(sql).find()) {
+                        && SETS_AMOUNT_COLUMN.matcher(sql).find()) {
                     actualWriters.add(update.getAttribute("id"));
                 }
             }

@@ -21,6 +21,8 @@
     --danger: #c53030;
     --dangerBg: #fbe9e9;
     --dangerRowBg: #fdf3f3;
+    --warning: #c2650c;
+    --warningBg: #fbeee0;
 }
 
 :root[data-theme="dark"] {
@@ -43,6 +45,8 @@
     --danger: #e2685f;
     --dangerBg: rgba(226, 104, 95, 0.14);
     --dangerRowBg: rgba(226, 104, 95, 0.08);
+    --warning: #e0972f;
+    --warningBg: rgba(224, 151, 47, 0.15);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -66,6 +70,8 @@
         --danger: #e2685f;
         --dangerBg: rgba(226, 104, 95, 0.14);
         --dangerRowBg: rgba(226, 104, 95, 0.08);
+        --warning: #e0972f;
+        --warningBg: rgba(224, 151, 47, 0.15);
     }
 }
 
@@ -120,6 +126,38 @@ a {
 
 .btn-primary:hover {
     filter: brightness(1.05);
+}
+
+.toast-container {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.toast {
+    max-width: min(360px, calc(100vw - 40px));
+    padding: 11px 14px;
+    border: 1px solid var(--cardBorder);
+    border-left: 3px solid var(--danger);
+    border-radius: 5px;
+    background: var(--cardBg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+    color: var(--textPrimary);
+    font: 500 12px 'Noto Sans KR', sans-serif;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.toast.is-visible {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 /* ---------- 앱 셸 레이아웃 ---------- */
@@ -330,4 +368,11 @@ a.sidebar-item:hover {
     flex: 1;
     padding: 16px 20px;
     overflow: auto;
+}
+
+.sidebar-brand-mark {
+    background-image: url("../images/company-icon.png");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
 }

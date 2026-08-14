@@ -1,9 +1,11 @@
 package com.app.maria.domain.account.service;
 
-import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.dto.request.AccountLimitUpdateRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountReapplyRequestDTO;
 import com.app.maria.domain.account.dto.request.AccountRequestDTO;
+import com.app.maria.domain.account.dto.request.AccountSearchRequestDTO;
+import com.app.maria.domain.account.dto.response.AccountJoinResponseDTO;
+import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import java.math.BigDecimal;
@@ -11,7 +13,7 @@ import java.util.List;
 
 public interface AccountService {
     // 관리자 목록 조회
-    List<AccountResponseDTO> findAll();
+    List<AccountJoinResponseDTO> findAll();
 
     // 고객의 전 금융회사 RIA 납입한도를 반영한 현재 설정 가능 최대 한도
     BigDecimal getAvailableLimit(Long customerId);
@@ -38,7 +40,11 @@ public interface AccountService {
 
     int getAppliedAccountCount();
 
-    List<AccountLimitUsageDTO> selectAccountLimitUsage();
+    int getAccountsRequiringActionCount();
 
-    List<AccountLimitUsageDTO> getAppliedAccounts();
+    List<AccountLimitUsageResponseDTO> selectAccountLimitUsage();
+
+    List<AccountLimitUsageResponseDTO> getAppliedAccounts();
+
+    List<AccountLimitUsageResponseDTO> searchAccounts(AccountSearchRequestDTO request);
 }

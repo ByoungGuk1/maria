@@ -20,6 +20,10 @@ public class AuditLogResponseDTO {
     private String afterValue;
     private String reasonCode;
     private LocalDateTime processedAt;
+    private String adminName;
+    private String adminRole;
+
+    private String targetName;
 
     public AuditLogResponseDTO(AuditLogDTO dto) {
         this.auditId = dto.getAuditId();
@@ -30,5 +34,13 @@ public class AuditLogResponseDTO {
         this.afterValue = dto.getAfterValue();
         this.reasonCode = dto.getReasonCode();
         this.processedAt = dto.getProcessedAt();
+        this.adminName = dto.getAdminName();
+        this.adminRole = dto.getAdminRole();
+        this.targetName =
+                switch (dto.getTargetTable()) {
+                    case "ADMIN_USER" -> dto.getTargetAdminName();
+                    case "SELL_ORDER" -> dto.getTargetAccountNo();
+                    default -> dto.getTargetTable();
+                };
     }
 }

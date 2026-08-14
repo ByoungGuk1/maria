@@ -6,7 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
+import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.dashboard.dto.DashboardSummaryDTO;
 import com.app.maria.domain.dashboard.service.DashboardService;
@@ -73,8 +73,8 @@ class DashboardApiTest {
     }
 
     private DashboardSummaryDTO summary() {
-        AccountLimitUsageDTO priorityAccount =
-                AccountLimitUsageDTO.builder()
+        AccountLimitUsageResponseDTO priorityAccount =
+                AccountLimitUsageResponseDTO.builder()
                         .accountId(1L)
                         .accountNo("110-1")
                         .customerName("홍길동")

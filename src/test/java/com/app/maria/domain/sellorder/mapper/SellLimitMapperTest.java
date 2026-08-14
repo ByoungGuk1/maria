@@ -85,57 +85,100 @@ class SellLimitMapperTest {
         assertThat(result).isEmpty();
     }
 
-    // ---- sumFinalizedExchangeAmount ----
+    // ---- sumUsedAmount ----
 
     @Test
-    @DisplayName("확정산(krw_exchange) 이력이 하나도 없으면 null이 아니라 0을 반환한다")
-    void sumFinalizedExchangeAmountReturnsZeroNotNullWhenNoExchangesExist() throws SQLException {
+    @DisplayName("매도 주문이 하나도 없으면 null이 아니라 0을 반환한다")
+    void sumUsedAmountReturnsZeroNotNullWhenNoOrdersExist() throws SQLException {
         Long customerId = insertCustomer("ci-hash-none");
         Long accountId = insertAccount(customerId, "10000000");
 
-        BigDecimal result = sellLimitMapper.sumFinalizedExchangeAmount(accountId);
+        BigDecimal result = sellLimitMapper.sumUsedAmount(accountId);
 
         assertThat(result).isNotNull();
         assertThat(result).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     @Test
-    @DisplayName("PROVISIONAL 상태 건은 제외하고 FINALIZED 건만 더한다")
-    void sumFinalizedExchangeAmountExcludesProvisionalRows() throws SQLException {
+    @DisplayName("FINALIZED 건은 확정환전액(final_amount)으로 잡는다")
+    void sumUsedAmountUsesFinalAmountForFinalizedOrders() throws SQLException {
+        Long customerId = insertCustomer("ci-hash-finalized");
+        Long accountId = insertAccount(customerId, "10000000");
+        Long orderId = insertSellOrder(accountId, "EXECUTED", "1000", "10");
+        insertExchange(orderId, accountId, "9500", "9800", "FINALIZED");
+
+        BigDecimal result = sellLimitMapper.sumUsedAmount(accountId);
+
+        assertThat(result).isEqualByComparingTo("9800");
+    }
+
+    @Test
+    @DisplayName("PROVISIONAL(가환전만 된) 건은 base_price*qty가 아니라 provisional_amount로 잡는다")
+    void sumUsedAmountUsesProvisionalAmountForProvisionalOrders() throws SQLException {
+        Long customerId = insertCustomer("ci-hash-provisional");
+        Long accountId = insertAccount(customerId, "10000000");
+        Long orderId = insertSellOrder(accountId, "EXECUTED", "1000", "10");
+        insertExchange(orderId, accountId, "9900", null, "PROVISIONAL");
+
+        BigDecimal result = sellLimitMapper.sumUsedAmount(accountId);
+
+        assertThat(result).isEqualByComparingTo("9900");
+    }
+
+    @Test
+    @DisplayName("환전 이력이 전혀 없는 주문은 base_price*qty로 잡는다")
+    void sumUsedAmountUsesBasePriceTimesQtyWhenNoExchangeExists() throws SQLException {
+        Long customerId = insertCustomer("ci-hash-pending");
+        Long accountId = insertAccount(customerId, "10000000");
+        insertSellOrder(accountId, "RECEIVED", "1000", "10");
+
+        BigDecimal result = sellLimitMapper.sumUsedAmount(accountId);
+
+        assertThat(result).isEqualByComparingTo("10000");
+    }
+
+    @Test
+    @DisplayName("REJECTED 주문은 합계에서 제외한다")
+    void sumUsedAmountExcludesRejectedOrders() throws SQLException {
+        Long customerId = insertCustomer("ci-hash-rejected");
+        Long accountId = insertAccount(customerId, "10000000");
+        insertSellOrder(accountId, "REJECTED", "1000", "10");
+
+        BigDecimal result = sellLimitMapper.sumUsedAmount(accountId);
+
+        assertThat(result).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    @DisplayName("FINALIZED+PROVISIONAL+미확정 건을 각자 다른 산식으로 계산해 합산한다")
+    void sumUsedAmountSumsMixedOrdersWithEachOwnFormula() throws SQLException {
         Long customerId = insertCustomer("ci-hash-mixed");
         Long accountId = insertAccount(customerId, "10000000");
-        insertExchange(accountId, "500", "FINALIZED");
-        insertExchange(accountId, "9999999", "PROVISIONAL");
 
-        BigDecimal result = sellLimitMapper.sumFinalizedExchangeAmount(accountId);
+        Long finalizedOrder = insertSellOrder(accountId, "EXECUTED", "1000", "10");
+        insertExchange(finalizedOrder, accountId, "9500", "9800", "FINALIZED");
 
-        assertThat(result).isEqualByComparingTo("500");
+        Long provisionalOrder = insertSellOrder(accountId, "EXECUTED", "2000", "5");
+        insertExchange(provisionalOrder, accountId, "9900", null, "PROVISIONAL");
+
+        insertSellOrder(accountId, "RECEIVED", "500", "4");
+
+        BigDecimal result = sellLimitMapper.sumUsedAmount(accountId);
+
+        assertThat(result).isEqualByComparingTo("21700"); // 9800 + 9900 + (500*4)
     }
 
     @Test
-    @DisplayName("같은 계좌의 FINALIZED 건 여러 개를 합산한다")
-    void sumFinalizedExchangeAmountSumsMultipleFinalizedRows() throws SQLException {
-        Long customerId = insertCustomer("ci-hash-multi");
-        Long accountId = insertAccount(customerId, "10000000");
-        insertExchange(accountId, "1000000", "FINALIZED");
-        insertExchange(accountId, "2500000", "FINALIZED");
-
-        BigDecimal result = sellLimitMapper.sumFinalizedExchangeAmount(accountId);
-
-        assertThat(result).isEqualByComparingTo("3500000");
-    }
-
-    @Test
-    @DisplayName("다른 계좌의 FINALIZED 금액은 이 계좌 합계에 안 섞인다")
-    void sumFinalizedExchangeAmountDoesNotLeakAmountsFromOtherAccounts() throws SQLException {
+    @DisplayName("다른 계좌의 매도 금액은 이 계좌 합계에 안 섞인다")
+    void sumUsedAmountDoesNotLeakAmountsFromOtherAccounts() throws SQLException {
         Long customerA = insertCustomer("ci-hash-x");
         Long customerB = insertCustomer("ci-hash-y");
         Long accountA = insertAccount(customerA, "10000000");
         Long accountB = insertAccount(customerB, "10000000");
-        insertExchange(accountA, "700", "FINALIZED");
-        insertExchange(accountB, "88888888", "FINALIZED");
+        insertSellOrder(accountA, "RECEIVED", "700", "1");
+        insertSellOrder(accountB, "RECEIVED", "88888888", "1");
 
-        BigDecimal result = sellLimitMapper.sumFinalizedExchangeAmount(accountA);
+        BigDecimal result = sellLimitMapper.sumUsedAmount(accountA);
 
         assertThat(result).isEqualByComparingTo("700");
     }
@@ -184,9 +227,21 @@ class SellLimitMapperTest {
                     """);
             statement.execute(
                     """
+                    CREATE TABLE sell_order (
+                        order_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                        account_id BIGINT NOT NULL,
+                        status VARCHAR(12) NOT NULL,
+                        base_price DECIMAL(15,4) NOT NULL,
+                        sell_qty DECIMAL(15,4) NOT NULL
+                    )
+                    """);
+            statement.execute(
+                    """
                     CREATE TABLE krw_exchange (
                         exchange_id BIGINT PRIMARY KEY AUTO_INCREMENT,
                         account_id BIGINT NOT NULL,
+                        order_id BIGINT NOT NULL,
+                        provisional_amount DECIMAL(15,0),
                         final_amount DECIMAL(15,0),
                         settlement_status VARCHAR(12) NOT NULL
                     )
@@ -221,15 +276,41 @@ class SellLimitMapperTest {
         }
     }
 
-    private void insertExchange(Long accountId, String finalAmount, String settlementStatus)
+    private Long insertSellOrder(Long accountId, String status, String basePrice, String sellQty)
             throws SQLException {
         String sql =
-                "INSERT INTO krw_exchange (account_id, final_amount, settlement_status) VALUES (?, ?, ?)";
+                "INSERT INTO sell_order (account_id, status, base_price, sell_qty) VALUES (?, ?, ?, ?)";
+        try (Connection connection = dataSource.getConnection();
+                PreparedStatement statement =
+                        connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            statement.setLong(1, accountId);
+            statement.setString(2, status);
+            statement.setBigDecimal(3, new BigDecimal(basePrice));
+            statement.setBigDecimal(4, new BigDecimal(sellQty));
+            statement.executeUpdate();
+            var keys = statement.getGeneratedKeys();
+            keys.next();
+            return keys.getLong(1);
+        }
+    }
+
+    private void insertExchange(
+            Long orderId,
+            Long accountId,
+            String provisionalAmount,
+            String finalAmount,
+            String settlementStatus)
+            throws SQLException {
+        String sql =
+                "INSERT INTO krw_exchange (account_id, order_id, provisional_amount, final_amount, settlement_status) "
+                        + "VALUES (?, ?, ?, ?, ?)";
         try (Connection connection = dataSource.getConnection();
                 PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setLong(1, accountId);
-            statement.setBigDecimal(2, new BigDecimal(finalAmount));
-            statement.setString(3, settlementStatus);
+            statement.setLong(2, orderId);
+            statement.setBigDecimal(3, new BigDecimal(provisionalAmount));
+            statement.setBigDecimal(4, finalAmount == null ? null : new BigDecimal(finalAmount));
+            statement.setString(5, settlementStatus);
             statement.executeUpdate();
         }
     }

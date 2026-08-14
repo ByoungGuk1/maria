@@ -17,13 +17,13 @@ public class TaxCalculationDTO {
     private Long accountId;
     private LocalDateTime calculatedAt;
     private TaxBasisType basisType;
-    private BigDecimal sellAmount;
-    private BigDecimal gainAmount;
-    private BigDecimal gainWeighted;
-    private BigDecimal extAmount;
-    private BigDecimal ratio;
-    private BigDecimal deduction;
-    private BigDecimal tax;
+    private BigDecimal weightedSell;
+    private BigDecimal originalGainAmount;
+    private BigDecimal weightedGain;
+    private BigDecimal weightedExternalAmount;
+    private BigDecimal adjustRatio;
+    private BigDecimal finalDeduction;
+    private BigDecimal finalTax;
 
     public static TaxCalculationDTO of(
             Long accountId,
@@ -34,13 +34,13 @@ public class TaxCalculationDTO {
                 .accountId(accountId)
                 .basisType(basisType)
                 .calculatedAt(calculatedAt)
-                .sellAmount(result.getWeightedSell())
-                .gainAmount(result.getOriginalGainAmount())
-                .gainWeighted(result.getWeightedGain())
-                .extAmount(result.getWeightedExternalAmount())
-                .ratio(result.getAdjustRatio())
-                .deduction(result.getFinalDeduction())
-                .tax(result.getFinalTax())
+                .weightedSell(result.getWeightedSell())
+                .originalGainAmount(result.getOriginalGainAmount())
+                .weightedGain(result.getWeightedGain())
+                .weightedExternalAmount(result.getWeightedExternalAmount())
+                .adjustRatio(result.getAdjustRatio())
+                .finalDeduction(result.getFinalDeduction())
+                .finalTax(result.getFinalTax())
                 .build();
     }
 }

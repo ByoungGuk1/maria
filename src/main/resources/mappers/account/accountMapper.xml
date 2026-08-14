@@ -76,11 +76,7 @@
     </update>
     <select id="selectOwnUsedAndReservedAmount" parameterType="Long" resultType="java.math.BigDecimal">
         SELECT COALESCE(SUM(
-            CASE
-                WHEN ke.settlement_status = 'FINALIZED' THEN ke.final_amount
-                WHEN ke.exchange_id IS NOT NULL THEN ke.provisional_amount
-                ELSE so.sell_qty * so.base_price
-            END
+            <include refid="com.app.maria.domain.sellorder.mapper.SellLimitMapper.usedAmountCase"/>
         ), 0)
         FROM sell_order so
         INNER JOIN inbound_detail ind ON ind.inbound_detail_id = so.inbound_detail_id
@@ -93,7 +89,8 @@
         UPDATE account
         SET status = 'OPENED',
         account_no = #{accountNo},
-        opened_at = #{openedAt}
+        opened_at = #{openedAt},
+        benefit = 'POSSIBLE'
         WHERE account_id = #{accountId}
         AND status = 'APPLIED'
         AND limit_amount = #{limitAmount}
@@ -112,13 +109,37 @@
         SELECT
         *
         FROM account
-        ORDER BY status DESC
+        ORDER BY customer_id DESC
+    </select>
+    <select id="selectAccountList" resultType="AccountJoinDTO">
+        SELECT
+            a.account_id AS accountId,
+            a.customer_id AS customerId,
+            c.name AS customerName,
+            a.account_no AS accountNo,
+            a.status,
+            a.limit_amount AS limitAmount,
+            COALESCE(SUM(
+                <include refid="com.app.maria.domain.sellorder.mapper.SellLimitMapper.usedAmountCase"/>
+            ), 0) AS usedAmount,
+            a.amount,
+            a.created_at AS createdAt,
+            a.opened_at AS openedAt,
+            a.benefit
+        FROM account a
+        JOIN customer c ON c.customer_id = a.customer_id
+        LEFT JOIN sell_order so ON so.account_id = a.account_id AND so.status IN ('RECEIVED', 'EXECUTED')
+        LEFT JOIN krw_exchange ke ON ke.order_id = so.order_id
+        GROUP BY a.account_id, a.customer_id, c.name, a.account_no, a.status, a.limit_amount,
+                 a.amount, a.created_at, a.opened_at, a.benefit
+        ORDER BY a.created_at DESC, a.account_id DESC
     </select>
     <update id="overrideToOpened" parameterType="AccountDTO">
         UPDATE account
         SET status = 'OPENED',
         account_no = #{accountNo},
-        opened_at = #{openedAt}
+        opened_at = #{openedAt},
+        benefit = 'POSSIBLE'
         WHERE account_id = #{accountId}
         AND status = 'REJECTED'
         AND account_no IS NULL
@@ -151,6 +172,12 @@
         WHERE status = #{status}
     </select>
 
+    <select id="countAccountsRequiringAction" resultType="int">
+        SELECT COUNT(*)
+        FROM account
+        WHERE status IN ('APPLIED', 'CLOSURE_REQUESTED')
+    </select>
+
     <select id="selectAccountLimitUsage" resultType="AccountLimitUsageDTO">
         SELECT
         a.account_id     AS accountId,
@@ -159,11 +186,7 @@
         a.status         AS status,
         a.limit_amount   AS limitAmount,
         COALESCE(SUM(
-        CASE
-        WHEN ke.settlement_status = 'FINALIZED' THEN ke.final_amount
-        WHEN ke.exchange_id IS NOT NULL THEN ke.provisional_amount
-        ELSE so.sell_qty * so.base_price
-        END
+            <include refid="com.app.maria.domain.sellorder.mapper.SellLimitMapper.usedAmountCase"/>
         ), 0) AS usedAmount
         FROM account a
         JOIN customer c ON c.customer_id = a.customer_id
@@ -184,6 +207,68 @@
         FROM account a
         JOIN customer c ON c.customer_id = a.customer_id
         WHERE a.status = 'APPLIED'
+    </select>
+
+    <select id="searchAccounts" parameterType="AccountSearchDTO" resultType="AccountLimitUsageDTO">
+        SELECT
+        a.account_id     AS accountId,
+        a.account_no     AS accountNo,
+        c.name           AS customerName,
+        a.status         AS status,
+        a.limit_amount   AS limitAmount,
+        COALESCE(SUM(
+            <include refid="com.app.maria.domain.sellorder.mapper.SellLimitMapper.usedAmountCase"/>
+        ), 0) AS usedAmount
+        FROM account a
+        JOIN customer c ON c.customer_id = a.customer_id
+        LEFT JOIN sell_order so ON so.account_id = a.account_id AND so.status IN ('RECEIVED', 'EXECUTED')
+        LEFT JOIN krw_exchange ke ON ke.order_id = so.order_id
+        <where>
+            AND a.status = 'OPENED'
+            <if test="accountNo != null and accountNo != ''">
+                AND a.account_no LIKE CONCAT('%', #{accountNo}, '%')
+            </if>
+            <if test="customerName != null and customerName != ''">
+                AND c.name LIKE CONCAT('%', #{customerName}, '%')
+            </if>
+        </where>
+        GROUP BY a.account_id, a.account_no, c.name, a.status, a.limit_amount
+    </select>
+
+    <!--해지로 상태변경-->
+    <update id="requestClosure">
+        UPDATE account
+        SET status = 'CLOSURE_REQUESTED'
+        WHERE account_id = #{accountId}
+        AND status = 'OPENED'
+    </update>
+
+    <!--해지 반려시 재오픈 -->
+    <update id="reopenAfterClosureRejection">
+        UPDATE account
+        SET status = 'OPENED'
+        WHERE account_id = #{accountId}
+        AND status = 'CLOSURE_REQUESTED'
+    </update>
+
+    <update id="completeClosure">
+        UPDATE account
+        SET status = 'CLOSED'
+        WHERE account_id = #{accountId}
+        AND status = 'CLOSURE_REQUESTED'
+        AND amount = 0
+    </update>
+
+    <!-- APPLIED/REJECTED는 매도건이 존재할 수 없어 제외된다. -->
+    <select id="selectOpenedAccountsAfter" resultType="AccountDTO">
+        select
+            account_id,
+            benefit
+        from account
+        where opened_at is not null
+            and account_id > #{lastAccountId}
+        order by account_id
+        limit #{pageSize}
     </select>
 
 </mapper>
