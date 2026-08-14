@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class SellLotDTO {
+    private Long accountId;
     private Long orderId;
     private Long inboundDetailId;
     private BigDecimal purchaseFxRate;
