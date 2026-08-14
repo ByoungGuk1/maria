@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}">
+<head>
+    <title>관리자 - MARIA</title>
+    <th:block layout:fragment="pageStyles">
+        <link rel="stylesheet" th:href="@{/css/admin-users.css}">
+    </th:block>
+</head>
+<body>
+<div layout:fragment="breadcrumb">관리자</div>
+
+<div layout:fragment="content" class="admin-users">
+    <div class="admin-users-header">
+        <div>
+            <h1 class="admin-users-title">관리자 계정 관리</h1>
+            <p class="admin-users-description">관리자 계정 목록을 조회하고 역할(Role)을 변경합니다. 역할 변경은 ADMIN 권한만 가능합니다.</p>
+        </div>
+        <span class="admin-users-count" id="adminUserCount">-</span>
+    </div>
+
+    <section class="card admin-users-list-card">
+        <div class="admin-users-table-wrap">
+            <table class="admin-users-table">
+                <thead>
+                <tr>
+                    <th>이름</th>
+                    <th>아이디</th>
+                    <th>현재 역할</th>
+                    <th>역할 변경</th>
+                </tr>
+                </thead>
+                <tbody id="adminUserListBody">
+                <tr>
+                    <td colspan="4" class="admin-users-loading">불러오는 중...</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<th:block layout:fragment="pageScripts">
+    <script th:src="@{/js/admin-users.js}"></script>
+</th:block>
+</body>
+</html>
