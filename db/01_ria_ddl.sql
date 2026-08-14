@@ -14,6 +14,7 @@ DROP TABLE IF EXISTS admin_user;
 DROP TABLE IF EXISTS settlement_batch_guard;
 DROP TABLE IF EXISTS settlement_item;
 DROP TABLE IF EXISTS settlement_batch;
+DROP TABLE IF EXISTS tax_snapshot;
 DROP TABLE IF EXISTS tax_calculation;
 DROP TABLE IF EXISTS tax_rule;
 DROP TABLE IF EXISTS withdrawal_allocation;
@@ -371,17 +372,35 @@ CREATE TABLE tax_calculation (
     account_id    BIGINT        NOT NULL,
     calculated_at DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     basis_type    VARCHAR(30)   NOT NULL COMMENT 'FINAL_REPORT(확정신고)/EARLY_WITHDRAWAL_CLAWBACK(조기인출추징). 미리보기는 저장 안 함',
-    sell_amount   DECIMAL(15,2) NOT NULL COMMENT '[1] 가중매도금액(조정비율 분모)',
-    gain_amount   DECIMAL(15,2) NOT NULL COMMENT '비가중 총양도소득(F6용)',
-    gain_weighted DECIMAL(15,2) NOT NULL COMMENT '[1] 가중양도소득 = 조정전공제액',
-    ext_amount    DECIMAL(15,2) NOT NULL COMMENT '[2] 외부 순매수 가중합산(myData 스냅샷)',
-    ratio         DECIMAL(7,4)  NOT NULL COMMENT '[3] 조정비율(0~1 clamp)',
-    deduction     DECIMAL(15,2) NOT NULL COMMENT '[4] 최종공제액',
-    tax           DECIMAL(15,2) NOT NULL COMMENT '[5] 최종세액',
+    weighted_sell            DECIMAL(15,2) NOT NULL COMMENT '[1] 가중매도금액(조정비율 분모)',
+    original_gain_amount     DECIMAL(15,2) NOT NULL COMMENT '비가중 총양도소득([5]단계 기준)',
+    weighted_gain            DECIMAL(15,2) NOT NULL COMMENT '[1] 가중양도소득 = 조정전공제액',
+    weighted_external_amount DECIMAL(15,2) NOT NULL COMMENT '[2] 외부 순매수 가중합산(myData 스냅샷)',
+    adjust_ratio             DECIMAL(7,4)  NOT NULL COMMENT '[3] 조정비율(0~1 clamp)',
+    final_deduction          DECIMAL(15,2) NOT NULL COMMENT '[4] 최종공제액',
+    final_tax                DECIMAL(15,2) NOT NULL COMMENT '[5] 최종세액',
     PRIMARY KEY (calc_id),
     UNIQUE KEY uk_tax_calc__account_basis (account_id, basis_type),
     CONSTRAINT chk_tax_calc_basis CHECK (basis_type IN ('FINAL_REPORT','EARLY_WITHDRAWAL_CLAWBACK'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='세액 계산 확정 근거 스냅샷';
+
+-- [NO-SEED] 계산 데이터(배치가 생성). 표시용 캐시이며 확정 근거가 아니다.
+-- 계좌 목록 화면에서 행마다 실시간 계산이 불가능해 매일 배치가 UPSERT한다.
+-- 확정 근거는 tax_calculation, 상세 내역은 실시간 조회(GET /api/tax/preview)가 담당.
+CREATE TABLE tax_snapshot (
+    snapshot_id   BIGINT        NOT NULL AUTO_INCREMENT,
+    account_id    BIGINT        NOT NULL COMMENT '계좌당 1행. 배치가 UPSERT',
+    calculated_at DATETIME      NOT NULL COMMENT '배치 실행 시각. 화면에 "OO 기준"으로 노출',
+    weighted_sell            DECIMAL(15,2) NOT NULL COMMENT '[1] 가중매도금액',
+    original_gain_amount     DECIMAL(15,2) NOT NULL COMMENT '비가중 총양도소득',
+    weighted_gain            DECIMAL(15,2) NOT NULL COMMENT '[1] 가중양도소득 = 조정전공제액',
+    weighted_external_amount DECIMAL(15,2) NOT NULL COMMENT '[2] 외부 순매수 가중합산',
+    adjust_ratio             DECIMAL(7,4)  NOT NULL COMMENT '[3] 조정비율',
+    final_deduction          DECIMAL(15,2) NOT NULL COMMENT '[4] 최종공제액',
+    final_tax                DECIMAL(15,2) NOT NULL COMMENT '[5] 최종세액',
+    PRIMARY KEY (snapshot_id),
+    UNIQUE KEY uk_tax_snapshot__account (account_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='세액 스냅샷(표시용 캐시. 확정 근거 아님)';
 
 -- ---------------------------------------------------------------------
 -- 정산 배치
@@ -475,6 +494,7 @@ ALTER TABLE withdrawal             ADD CONSTRAINT fk_withdrawal__account        
 ALTER TABLE withdrawal_allocation  ADD CONSTRAINT fk_wa__withdrawal                    FOREIGN KEY (withdrawal_id)        REFERENCES withdrawal (withdrawal_id);
 ALTER TABLE withdrawal_allocation  ADD CONSTRAINT fk_wa__left_amount                   FOREIGN KEY (left_amount_id)       REFERENCES left_amount (left_amount_id);
 ALTER TABLE tax_calculation        ADD CONSTRAINT fk_tax_calc__account                 FOREIGN KEY (account_id)           REFERENCES account (account_id);
+ALTER TABLE tax_snapshot           ADD CONSTRAINT fk_tax_snapshot__account             FOREIGN KEY (account_id)           REFERENCES account (account_id);
 ALTER TABLE settlement_item        ADD CONSTRAINT fk_settlement_item__batch            FOREIGN KEY (batch_id)             REFERENCES settlement_batch (batch_id);
 ALTER TABLE settlement_item        ADD CONSTRAINT fk_settlement_item__krw_exchange     FOREIGN KEY (exchange_id)          REFERENCES krw_exchange (exchange_id);
 ALTER TABLE audit_log              ADD CONSTRAINT fk_audit_log__admin_user             FOREIGN KEY (admin_id)             REFERENCES admin_user (admin_id);
