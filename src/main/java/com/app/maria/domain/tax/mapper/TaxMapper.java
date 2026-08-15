@@ -15,7 +15,7 @@ public interface TaxMapper {
     List<SellLotDTO> findFinalizedLotsByAccountIdsAndYear(
             @Param("accountIds") List<Long> accountIds,
             @Param("year") int year,
-            @Param("calcBaseDateTime") LocalDateTime calcBaseDateTime);
+            @Param("calcBaseTime") LocalDateTime calcBaseTime);
 
     List<TaxRuleDTO> findTaxRules();
 
