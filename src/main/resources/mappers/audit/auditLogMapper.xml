@@ -29,12 +29,19 @@
                 AND (
                 target_admin.name LIKE CONCAT('%', #{targetKeyword}, '%')
                 OR acc.account_no LIKE CONCAT('%', #{targetKeyword}, '%')
+                OR target_account.account_no LIKE CONCAT('%', #{targetKeyword}, '%')
                 OR al.target_pk LIKE CONCAT('%', #{targetKeyword}, '%')
                 )
             </if>
             <if test="reasonKeyword != null and reasonKeyword != ''">
                 AND (
+                (
                 al.reason_code LIKE CONCAT('%', #{reasonKeyword}, '%')
+                <if test="knownReasonCodes != null and !knownReasonCodes.isEmpty()">
+                    AND al.reason_code NOT IN
+                    <foreach item="r" collection="knownReasonCodes" open="(" separator="," close=")">#{r}</foreach>
+                </if>
+                )
                 <if test="matchedReasonCodes != null and !matchedReasonCodes.isEmpty()">
                     OR al.reason_code IN
                     <foreach item="r" collection="matchedReasonCodes" open="(" separator="," close=")">#{r}</foreach>
@@ -48,9 +55,8 @@
 
     <select id="selectAuditLogs" parameterType="com.app.maria.global.audit.dto.AuditLogSearchDTO"
             resultType="com.app.maria.global.audit.dto.AuditLogDTO">
-        SELECT al.audit_id, al.admin_id, al.target_table, al.target_pk, al.before_value, al.after_value,
-            al.reason_code, al.processed_at, au.name AS admin_name, au.role AS admin_role,
-            target_admin.name AS target_admin_name, acc.account_no AS target_account_no
+        SELECT al.audit_id, al.admin_id, al.target_table, al.target_pk, al.before_value, al.after_value, al.reason_code, al.processed_at, au.name AS admin_name, au.role AS admin_role,
+            target_admin.name AS target_admin_name, acc.account_no AS target_account_no, target_account.account_no AS target_owner_account_no, target_batch.executed_at AS target_batch_executed_at
         FROM audit_log al
         LEFT JOIN admin_user au ON au.admin_id = al.admin_id
         LEFT JOIN admin_user target_admin
@@ -58,6 +64,10 @@
         LEFT JOIN sell_order so
             ON al.target_table = 'SELL_ORDER' AND CAST(so.order_id AS CHAR(20)) = al.target_pk
         LEFT JOIN account acc ON acc.account_id = so.account_id
+        LEFT JOIN account target_account
+            ON al.target_table = 'ACCOUNT' AND CAST(target_account.account_id AS CHAR(20)) = al.target_pk
+        LEFT JOIN settlement_batch target_batch
+            ON al.target_table = 'SETTLEMENT_BATCH' AND CAST(target_batch.batch_id AS CHAR(20)) = al.target_pk
         <include refid="auditLogSearchCondition"/>
         ORDER BY al.processed_at DESC
         LIMIT #{size} OFFSET #{offset}
@@ -72,6 +82,10 @@
         LEFT JOIN sell_order so
             ON al.target_table = 'SELL_ORDER' AND CAST(so.order_id AS CHAR(20)) = al.target_pk
         LEFT JOIN account acc ON acc.account_id = so.account_id
+        LEFT JOIN account target_account
+            ON al.target_table = 'ACCOUNT' AND CAST(target_account.account_id AS CHAR(20)) = al.target_pk
+        LEFT JOIN settlement_batch target_batch
+            ON al.target_table = 'SETTLEMENT_BATCH' AND CAST(target_batch.batch_id AS CHAR(20)) = al.target_pk
         <include refid="auditLogSearchCondition"/>
     </select>
 
