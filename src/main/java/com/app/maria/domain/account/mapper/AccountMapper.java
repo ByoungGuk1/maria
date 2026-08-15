@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface AccountMapper {
@@ -96,4 +97,7 @@ public interface AccountMapper {
 
     // 해지 완료 상태변경
     int completeClosure(Long accountId);
+
+    List<AccountDTO> selectOpenedAccountsAfter(
+            @Param("lastAccountId") long lastAccountId, @Param("pageSize") int pageSize);
 }

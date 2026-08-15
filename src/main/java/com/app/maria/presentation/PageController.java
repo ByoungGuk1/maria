@@ -41,6 +41,12 @@ public class PageController {
         return "account-management";
     }
 
+    @GetMapping("/admin/audit-log")
+    public String audit(Model model) {
+        model.addAttribute("activePath", "/admin/audit-log");
+        return "audit-log";
+    }
+
     @GetMapping("/admin/settlement")
     public String settlement(Model model) {
         model.addAttribute("activePath", "/admin/settlement");
@@ -51,5 +57,11 @@ public class PageController {
     public String inbound(Model model) {
         model.addAttribute("activePath", "/admin/inbound");
         return "inbound-management";
+    }
+
+    @GetMapping("/admin/admin-users")
+    public String admin(Model model) {
+        model.addAttribute("activePath", "/admin/admin-users");
+        return "admin-users";
     }
 }

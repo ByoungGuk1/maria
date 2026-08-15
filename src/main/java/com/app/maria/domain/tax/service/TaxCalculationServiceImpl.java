@@ -11,11 +11,14 @@ import com.app.maria.domain.tax.dto.TaxCalculationResultDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationPreviewResponseDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationSaveResponseDTO;
+import com.app.maria.domain.tax.dto.response.TaxSnapshotResponseDTO;
 import com.app.maria.domain.tax.exception.TaxCalculationAlreadyExistsException;
 import com.app.maria.domain.tax.mapper.TaxMapper;
+import com.app.maria.domain.tax.mapper.TaxSnapshotMapper;
 import com.app.maria.domain.tax.type.TaxBasisType;
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.config.properties.RiaTaxProperties;
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
@@ -30,6 +33,7 @@ public class TaxCalculationServiceImpl implements TaxCalculationService {
     private final BusinessClockService clockService;
     private final RiaTaxProperties riaTaxProperties;
     private final TaxCalculator taxCalculator;
+    private final TaxSnapshotMapper taxSnapshotMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -50,13 +54,19 @@ public class TaxCalculationServiceImpl implements TaxCalculationService {
         try {
             taxMapper.insertCalculation(taxCalculationDTO);
         } catch (DuplicateKeyException e) {
-            // resolveBasisType은 조회라 동시 요청을 막지 못한다.
-            // UNIQUE(account_id, basis_type)가 최종 방어선이고, 진 쪽도 409로 응답한다.
             throw new TaxCalculationAlreadyExistsException(
                     "이미 " + basisType + " 계산이 저장되었습니다. accountId=" + accountId);
         }
 
         return TaxCalculationSaveResponseDTO.of(taxCalculationDTO);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TaxSnapshotResponseDTO> findSnapshots(List<Long> accountIds) {
+        return taxSnapshotMapper.selectByAccountIds(accountIds).stream()
+                .map(TaxSnapshotResponseDTO::of)
+                .toList();
     }
 
     private TaxBasisType resolveBasisType(AccountDTO account) {
@@ -83,16 +93,20 @@ public class TaxCalculationServiceImpl implements TaxCalculationService {
     }
 
     private TaxCalculationResultDTO calculateFor(AccountDTO account) {
-        Long accountId = account.getAccountId();
-        int taxYear = riaTaxProperties.getTaxYear();
+        int taxYear = riaTaxProperties.getYear();
+        List<Long> accountIds = List.of(account.getAccountId());
+        LocalDateTime now = clockService.now();
 
         List<SellLotDTO> sellLots =
-                taxMapper.findFinalizedLotsByAccountAndYear(accountId, taxYear, clockService.now());
+                taxMapper.findFinalizedLotsByAccountIdsAndYear(accountIds, taxYear, now);
         List<TaxRuleDTO> taxRules = taxMapper.findTaxRules();
         List<ExternalBuyDTO> externalTrades =
-                taxMapper.findExternalBuysByAccountAndYear(accountId, taxYear);
+                taxMapper.findExternalBuysByAccountIdsAndYear(accountIds, taxYear, now);
 
         return taxCalculator.calculate(
-                sellLots, taxRules, externalTrades, account.getBenefit() == BenefitType.IMPOSSIBLE);
+                sellLots,
+                taxRules,
+                externalTrades,
+                BenefitType.isReliefExcluded(account.getBenefit()));
     }
 }
