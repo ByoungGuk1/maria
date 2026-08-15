@@ -46,12 +46,13 @@
         <div class="sidebar-group">
             <div class="sidebar-group-label">입고 · 매도</div>
             <div class="sidebar-items">
-                <span class="sidebar-item disabled">
+                <a class="sidebar-item" th:href="@{/admin/inbound}"
+                    th:classappend="${activePath == '/admin/inbound'} ? ' active' : ''">
                     <span class="sidebar-item-label">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#e2e8f0" stroke-width="1.3"><polyline points="2,6 7,2 12,6"/><line x1="7" y1="2" x2="7" y2="10"/><line x1="2" y1="10" x2="12" y2="10"/><line x1="2" y1="12" x2="12" y2="12"/></svg>
                         입고 관리
                     </span>
-                </span>
+                </a>
                 <a class="sidebar-item"
                    th:classappend="${activePath == '/admin/sell-orders'} ? ' active' : ''"
                    th:href="@{/admin/sell-orders}">

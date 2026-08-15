@@ -1,0 +1,168 @@
+:root {
+    --ibUnmatchedBg: #faf9f7;
+}
+
+:root[data-theme="dark"] {
+    --ibUnmatchedBg: #2f3646;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --ibUnmatchedBg: #2f3646;
+    }
+}
+
+.ib-layout {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.ib-list-card {
+    width: 360px;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.ib-detail-card {
+    flex: 1;
+    min-width: 0;
+}
+
+.ib-list-items {
+    display: flex;
+    flex-direction: column;
+}
+
+.ib-list-item {
+    padding: 12px 14px;
+    border-top: 1px solid var(--cardBorder);
+    border-left: 3px solid transparent;
+    background: var(--cardBg);
+    cursor: pointer;
+}
+
+.ib-list-items .ib-list-item:first-child {
+    border-top: none;
+}
+
+.ib-list-item:hover {
+    background: var(--tableHeaderBg);
+}
+
+.ib-list-item.selected {
+    background: var(--accentBg);
+    border-left-color: var(--accent);
+}
+
+.ib-list-item-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font: 700 13px 'Noto Sans KR', sans-serif;
+    color: var(--textPrimary);
+    margin-bottom: 6px;
+}
+
+.ib-list-item-ticker {
+    font: 700 12px 'Noto Sans KR', sans-serif;
+    color: var(--accent);
+}
+
+.ib-list-item-bottom {
+    display: flex;
+    justify-content: space-between;
+    font: 500 11px 'Noto Sans KR', sans-serif;
+    color: var(--textMuted);
+    font-variant-numeric: tabular-nums;
+}
+
+.ib-min-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 12px 14px;
+}
+
+.ib-min-card {
+    position: relative;
+    padding: 12px;
+    border: 1px solid var(--cardBorder);
+    border-radius: 4px;
+    background: var(--ibUnmatchedBg);
+    text-align: center;
+    opacity: 0.7;
+}
+
+.ib-min-card.matched {
+    border-color: var(--success);
+    background: var(--successBg);
+    opacity: 1;
+}
+
+.ib-min-badge {
+    position: absolute;
+    top: -9px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--success);
+    color: #fff;
+    font: 700 9px 'Noto Sans KR', sans-serif;
+    white-space: nowrap;
+}
+
+.ib-min-label {
+    font: 600 10.5px 'Noto Sans KR', sans-serif;
+    color: var(--textMuted);
+    margin-bottom: 5px;
+}
+
+.ib-min-value {
+    font: 700 17px 'Noto Sans KR', sans-serif;
+    color: var(--textPrimary);
+    font-variant-numeric: tabular-nums;
+}
+
+.ib-min-note {
+    font: 500 10px 'Noto Sans KR', sans-serif;
+    color: var(--textMuted);
+    margin-top: 4px;
+}
+
+.ib-min-formula {
+    margin: 0 14px 12px;
+    padding: 9px 12px;
+    border: 1px solid var(--cardBorder);
+    border-radius: 4px;
+    background: var(--tableHeaderBg);
+    font: 500 12px 'Noto Sans KR', sans-serif;
+    color: var(--textSecondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.ib-min-info {
+    margin: 0 14px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    font: 500 12px 'Noto Sans KR', sans-serif;
+    color: var(--textSecondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.ib-zero-text {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+.ib-zero-warning {
+    margin: 12px 14px 0;
+    padding: 10px 12px;
+    border: 1px solid var(--danger);
+    border-radius: 4px;
+    background: var(--dangerBg);
+    color: var(--danger);
+    font: 600 12px 'Noto Sans KR', sans-serif;
+}
