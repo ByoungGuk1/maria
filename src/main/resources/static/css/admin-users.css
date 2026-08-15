@@ -134,6 +134,11 @@
     padding: 6px 10px;
 }
 
+.admin-users-role-fixed {
+    color: var(--textMuted);
+    font-style: italic;
+}
+
 .admin-users-empty,
 .admin-users-loading {
     padding: 30px 14px;
