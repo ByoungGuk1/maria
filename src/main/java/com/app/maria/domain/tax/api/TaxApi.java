@@ -2,6 +2,7 @@ package com.app.maria.domain.tax.api;
 
 import com.app.maria.domain.tax.dto.response.TaxCalculationPreviewResponseDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationSaveResponseDTO;
+import com.app.maria.domain.tax.dto.response.TaxSnapshotBatchResultResponseDTO;
 import com.app.maria.domain.tax.dto.response.TaxSnapshotResponseDTO;
 import com.app.maria.domain.tax.service.TaxCalculationService;
 import com.app.maria.global.response.ApiResponseDTO;
@@ -49,5 +50,13 @@ public class TaxApi {
             @RequestParam List<Long> accountIds) {
         return ResponseEntity.ok(
                 ApiResponseDTO.of("세액 스냅샷 조회 성공", taxCalculationService.findSnapshots(accountIds)));
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'SETTLEMENT')")
+    @PostMapping("/snapshots/jobs")
+    public ResponseEntity<ApiResponseDTO<TaxSnapshotBatchResultResponseDTO>>
+            triggerSnapshotBatch() {
+        return ResponseEntity.ok(
+                ApiResponseDTO.of("세액 스냅샷 배치 실행 완료", taxCalculationService.triggerSnapshotBatch()));
     }
 }
