@@ -4,8 +4,8 @@
 
     <insert id="insertInbound" parameterType="InboundDTO"
             useGeneratedKeys="true" keyProperty="inboundId">
-        INSERT INTO inbound (account_id, requested_qty, current_holding_at_request, approved_qty)
-        VALUES (#{accountId}, #{requestedQty}, #{currentHoldingAtRequest}, #{approvedQty})
+        INSERT INTO inbound (account_id, requested_qty, current_holding_at_request, approved_qty, processed_at)
+        VALUES (#{accountId}, #{requestedQty}, #{currentHoldingAtRequest}, #{approvedQty}, #{processedAt})
     </insert>
 
     <insert id="insertInboundDetail" parameterType="InboundDetailDTO"
@@ -66,6 +66,40 @@
         AND id.current_qty > 0
         GROUP BY id.foreign_product_id
         ORDER BY id.foreign_product_id
+    </select>
+
+    <select id="selectInbounds" resultType="InboundListDTO">
+        SELECT
+        i.inbound_id     AS inboundId,
+        a.account_no     AS accountNo,
+        c.name           AS customerName,
+        fp.ticker        AS ticker,
+        fp.name          AS productName,
+        id.source_broker AS sourceBroker,
+        i.requested_qty  AS requestedQty,
+        i.current_holding_at_request AS currentHoldingAtRequest,
+        im.snapshot_qty  AS snapshotQty,
+        i.approved_qty   AS approvedQty,
+        im.snapshot_qty - (
+        SELECT COALESCE(SUM(id2.qty), 0)
+        FROM inbound_detail id2
+        JOIN inbound i2 ON i2.inbound_id = id2.inbound_id
+        WHERE i2.account_id = i.account_id
+        AND id2.foreign_product_id = id.foreign_product_id
+        ) AS remainingQty,
+        i.processed_at   AS processedAt
+        FROM inbound i
+        JOIN account a ON a.account_id = i.account_id
+        JOIN customer c ON c.customer_id = a.customer_id
+        JOIN inbound_detail id ON id.inbound_id = i.inbound_id
+        JOIN foreign_product fp ON fp.foreign_product_id = id.foreign_product_id
+        JOIN inbound_min im ON im.inbound_detail_id = id.inbound_detail_id
+        ORDER BY i.processed_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countInbounds" resultType="int">
+        SELECT COUNT(*) FROM inbound
     </select>
 
 </mapper>

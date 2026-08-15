@@ -46,4 +46,10 @@ public class PageController {
         model.addAttribute("activePath", "/admin/settlement");
         return "settlement";
     }
+
+    @GetMapping("/admin/inbound")
+    public String inbound(Model model) {
+        model.addAttribute("activePath", "/admin/inbound");
+        return "inbound-management";
+    }
 }

@@ -5,7 +5,9 @@ import com.app.maria.domain.foreignproduct.exception.ForeignProductNotFoundExcep
 import com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper;
 import com.app.maria.domain.inbound.dto.InboundDTO;
 import com.app.maria.domain.inbound.dto.InboundDetailDTO;
+import com.app.maria.domain.inbound.dto.InboundListDTO;
 import com.app.maria.domain.inbound.dto.InboundMinDTO;
+import com.app.maria.domain.inbound.dto.InboundPageDTO;
 import com.app.maria.domain.inbound.dto.request.InboundRequestDTO;
 import com.app.maria.domain.inbound.dto.response.AccountHoldingResponseDTO;
 import com.app.maria.domain.inbound.dto.response.InboundResponseDTO;
@@ -131,5 +133,22 @@ public class InboundServiceImpl implements InboundService {
                             return new AccountHoldingResponseDTO(product, holding.getCurrentQty());
                         })
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InboundPageDTO getInbounds(int page, int size) {
+        int offset = page * size;
+        List<InboundListDTO> content = inboundMapper.selectInbounds(offset, size);
+        long totalElements = inboundMapper.countInbounds();
+        int totalPages = (int) Math.ceil((double) totalElements / size);
+
+        return InboundPageDTO.builder()
+                .content(content)
+                .page(page)
+                .size(size)
+                .totalElements(totalElements)
+                .totalPages(totalPages)
+                .build();
     }
 }

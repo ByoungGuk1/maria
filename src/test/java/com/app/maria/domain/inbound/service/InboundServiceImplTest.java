@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.app.maria.domain.foreignproduct.dto.ForeignProductDTO;
@@ -12,6 +13,8 @@ import com.app.maria.domain.foreignproduct.exception.ForeignProductNotFoundExcep
 import com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper;
 import com.app.maria.domain.foreignproduct.type.ForeignProductType;
 import com.app.maria.domain.inbound.dto.InboundHoldingDTO;
+import com.app.maria.domain.inbound.dto.InboundListDTO;
+import com.app.maria.domain.inbound.dto.InboundPageDTO;
 import com.app.maria.domain.inbound.dto.request.InboundRequestDTO;
 import com.app.maria.domain.inbound.dto.response.AccountHoldingResponseDTO;
 import com.app.maria.domain.inbound.dto.response.InboundResponseDTO;
@@ -222,6 +225,42 @@ class InboundServiceImplTest {
         assertThatThrownBy(() -> inboundService.getHoldings(ACCOUNT_ID))
                 .isInstanceOf(ForeignProductNotFoundException.class)
                 .hasMessage("종목 정보를 찾을 수 없습니다.");
+    }
+
+    @Test
+    void getInboundsCalculatesOffsetAndDelegatesToMapper() {
+        List<InboundListDTO> expected = List.of(InboundListDTO.builder().inboundId(1L).build());
+        when(inboundMapper.selectInbounds(20, 10)).thenReturn(expected);
+        when(inboundMapper.countInbounds()).thenReturn(25);
+
+        InboundPageDTO result = inboundService.getInbounds(2, 10);
+
+        verify(inboundMapper).selectInbounds(20, 10);
+        assertThat(result.getContent()).isEqualTo(expected);
+        assertThat(result.getPage()).isEqualTo(2);
+        assertThat(result.getSize()).isEqualTo(10);
+    }
+
+    @Test
+    void getInboundsCalculatesTotalPagesFromTotalElements() {
+        when(inboundMapper.selectInbounds(0, 20)).thenReturn(List.of());
+        when(inboundMapper.countInbounds()).thenReturn(45);
+
+        InboundPageDTO result = inboundService.getInbounds(0, 20);
+
+        assertThat(result.getTotalElements()).isEqualTo(45);
+        assertThat(result.getTotalPages()).isEqualTo(3);
+    }
+
+    @Test
+    void getInboundsReturnsZeroTotalPagesWhenNoRows() {
+        when(inboundMapper.selectInbounds(0, 20)).thenReturn(List.of());
+        when(inboundMapper.countInbounds()).thenReturn(0);
+
+        InboundPageDTO result = inboundService.getInbounds(0, 20);
+
+        assertThat(result.getTotalElements()).isEqualTo(0);
+        assertThat(result.getTotalPages()).isEqualTo(0);
     }
 
     private InboundHoldingDTO holding(Long foreignProductId, BigDecimal currentQty) {

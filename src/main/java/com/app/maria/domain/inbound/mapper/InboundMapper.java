@@ -3,6 +3,7 @@ package com.app.maria.domain.inbound.mapper;
 import com.app.maria.domain.inbound.dto.InboundDTO;
 import com.app.maria.domain.inbound.dto.InboundDetailDTO;
 import com.app.maria.domain.inbound.dto.InboundHoldingDTO;
+import com.app.maria.domain.inbound.dto.InboundListDTO;
 import com.app.maria.domain.inbound.dto.InboundMinDTO;
 import java.math.BigDecimal;
 import java.util.List;
@@ -30,4 +31,8 @@ public interface InboundMapper {
             @Param("accountId") Long accountId, @Param("foreignProductId") Long foreignProductId);
 
     List<InboundHoldingDTO> selectHoldingsByAccount(@Param("accountId") Long accountId);
+
+    List<InboundListDTO> selectInbounds(@Param("offset") int offset, @Param("size") int size);
+
+    int countInbounds();
 }

@@ -13,6 +13,7 @@
         <typeAlias alias="InboundDetailDTO" type="com.app.maria.domain.inbound.dto.InboundDetailDTO"/>
         <typeAlias alias="InboundMinDTO" type="com.app.maria.domain.inbound.dto.InboundMinDTO"/>
         <typeAlias alias="InboundHoldingDTO" type="com.app.maria.domain.inbound.dto.InboundHoldingDTO"/>
+        <typeAlias alias="InboundListDTO" type="com.app.maria.domain.inbound.dto.InboundListDTO"/>
     </typeAliases>
 
     <environments default="inbound-mapper-test">
