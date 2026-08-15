@@ -40,6 +40,12 @@ public class AuditLogResponseDTO {
                 switch (dto.getTargetTable()) {
                     case "ADMIN_USER" -> dto.getTargetAdminName();
                     case "SELL_ORDER" -> dto.getTargetAccountNo();
+                    case "ACCOUNT" -> dto.getTargetOwnerAccountNo();
+                    case "SETTLEMENT_BATCH" ->
+                            dto.getTargetBatchExecutedAt() != null
+                                    ? dto.getTargetBatchExecutedAt().toLocalDate().toString()
+                                    : dto.getTargetPk();
+                    case "SETTLEMENT_ITEM" -> dto.getTargetPk();
                     default -> dto.getTargetTable();
                 };
     }
