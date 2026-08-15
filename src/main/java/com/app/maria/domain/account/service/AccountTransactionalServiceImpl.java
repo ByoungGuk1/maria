@@ -9,7 +9,6 @@ import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.type.AuditLogReasonCode;
 import com.app.maria.domain.account.type.BenefitType;
-import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.global.audit.dto.AuditLogDTO;
 import com.app.maria.global.audit.service.AuditLogService;
