@@ -22,7 +22,7 @@
             and ke.settlement_status = 'FINALIZED'
             and so.status = 'EXECUTED'
             and YEAR(so.processed_at) = #{year}
-            and #{calcBaseDateTime} >= so.processed_at
+            and #{calcBaseTime} >= so.processed_at
     </select>
 
     <select id="findTaxRules" resultType="TaxRuleDTO">
