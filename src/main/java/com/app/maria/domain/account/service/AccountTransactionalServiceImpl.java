@@ -7,8 +7,12 @@ import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.exception.DuplicateAccountException;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
+import com.app.maria.domain.account.type.AuditLogReasonCode;
+import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
+import com.app.maria.global.audit.dto.AuditLogDTO;
+import com.app.maria.global.audit.service.AuditLogService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.concurrent.ThreadLocalRandom;
@@ -26,10 +30,12 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
     private static final long ACCOUNT_NO_MAX_EXCLUSIVE = 10_000_000_000L;
     private final AccountMapper accountMapper;
     private final AccountLogService accountLogService;
+    private final AuditLogService auditLogService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public AccountDTO updateLimit(
+            Long adminId,
             Long customerId,
             BigDecimal expectedCurrentLimit,
             BigDecimal newLimit,
@@ -56,6 +62,12 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
             throw new InvalidAccountRequestException("계좌 한도 변경 중 상태 또는 한도가 변경되었습니다.");
         }
         AccountDTO updatedAccount = find(account.getAccountId());
+        logAudit(
+                adminId,
+                updatedAccount.getAccountId(),
+                "limitAmount=" + account.getLimitAmount(),
+                "limitAmount=" + updatedAccount.getLimitAmount(),
+                AuditLogReasonCode.ACCOUNT_CHANGE_LIMIT_AMOUNT);
         String logMessage =
                 accountLogService.createLimitChangeReason(
                         account.getLimitAmount(), updatedAccount.getLimitAmount());
@@ -66,7 +78,8 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public AccountDTO apply(AccountDTO account, LocalDateTime appliedAt, boolean autoApprove) {
+    public AccountDTO apply(
+            Long adminId, AccountDTO account, LocalDateTime appliedAt, boolean autoApprove) {
         if (accountMapper.existsByCustomerId(account.getCustomerId())) {
             throw new DuplicateAccountException("사용자의 기존 계좌 정보가 있습니다.");
         }
@@ -80,19 +93,34 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
         }
         AccountDTO appliedAccount = findByCustomer(account.getCustomerId());
         accountLogService.recordStatusChange(appliedAccount, null, appliedAt, "최초 개설 신청");
+        logAudit(
+                adminId,
+                appliedAccount.getAccountId(),
+                null,
+                appliedAccount.getStatus().name(),
+                AuditLogReasonCode.ACCOUNT_APPLY);
         if (!autoApprove) {
             return appliedAccount;
         }
         open(appliedAccount, appliedAt);
-        AccountDTO opened = findByCustomer(account.getCustomerId());
-        assertStatus(opened, Status.OPENED);
-        accountLogService.recordStatusChange(opened, Status.APPLIED, appliedAt, "자동 판정 승인");
-        return opened;
+        AccountDTO openedAccount = findByCustomer(account.getCustomerId());
+        assertStatus(openedAccount, Status.OPENED);
+        accountLogService.recordStatusChange(openedAccount, Status.APPLIED, appliedAt, "자동 판정 승인");
+        assertBenefit(openedAccount, BenefitType.POSSIBLE);
+        accountLogService.recordBenefitChange(openedAccount, null, appliedAt, "계좌 개설에 따른 세제혜택 가능");
+        logAudit(
+                adminId,
+                openedAccount.getAccountId(),
+                Status.APPLIED.name(),
+                openedAccount.getStatus().name(),
+                AuditLogReasonCode.ACCOUNT_OPENED);
+        return openedAccount;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public AccountDTO approve(Long accountId, BigDecimal expectedLimit, LocalDateTime openedAt) {
+    public AccountDTO approve(
+            Long adminId, Long accountId, BigDecimal expectedLimit, LocalDateTime openedAt) {
         AccountDTO account = find(accountId);
         account.setLimitAmount(expectedLimit);
         open(account, openedAt, "심사 도중 계좌 한도가 변경되었습니다. 다시 심사하세요.");
@@ -100,12 +128,20 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
         assertStatus(openedAccount, Status.OPENED);
         accountLogService.recordStatusChange(
                 openedAccount, account.getStatus(), openedAt, "사용자 계좌 개설");
+        assertBenefit(openedAccount, BenefitType.POSSIBLE);
+        accountLogService.recordBenefitChange(openedAccount, null, openedAt, "계좌 개설에 따른 세제혜택 가능");
+        logAudit(
+                adminId,
+                openedAccount.getAccountId(),
+                account.getStatus().name(),
+                openedAccount.getStatus().name(),
+                AuditLogReasonCode.ACCOUNT_OPENED);
         return openedAccount;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public AccountDTO reject(Long accountId, String reason, LocalDateTime changedAt) {
+    public AccountDTO reject(Long adminId, Long accountId, String reason, LocalDateTime changedAt) {
         AccountDTO account = find(accountId);
         if (accountMapper.reject(account) != 1) {
             throw new InvalidAccountRequestException("사용자 계좌 신청 반려 실패");
@@ -114,13 +150,22 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
         assertStatus(rejectedAccount, Status.REJECTED);
         accountLogService.recordStatusChange(
                 rejectedAccount, account.getStatus(), changedAt, reason);
+        logAudit(
+                adminId,
+                rejectedAccount.getAccountId(),
+                account.getStatus().name(),
+                rejectedAccount.getStatus().name(),
+                AuditLogReasonCode.ACCOUNT_REJECTED);
         return rejectedAccount;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public AccountDTO reapply(
-            Long accountId, AccountReapplyRequestDTO request, LocalDateTime appliedAt) {
+            Long adminId,
+            Long accountId,
+            AccountReapplyRequestDTO request,
+            LocalDateTime appliedAt) {
         AccountDTO account = find(accountId);
         AccountDTO newAccount = request.toAccountDTO();
         newAccount.setAccountId(accountId);
@@ -134,12 +179,19 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
         assertStatus(appliedAccount, Status.APPLIED);
         accountLogService.recordStatusChange(
                 appliedAccount, account.getStatus(), appliedAt, "사용자 계좌 개설 재신청");
+        logAudit(
+                adminId,
+                appliedAccount.getAccountId(),
+                account.getStatus().name(),
+                appliedAccount.getStatus().name(),
+                AuditLogReasonCode.ACCOUNT_REAPPLY);
         return appliedAccount;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public AccountDTO override(Long accountId, String reason, LocalDateTime openedAt) {
+    public AccountDTO override(
+            Long adminId, Long accountId, String reason, LocalDateTime openedAt) {
         AccountDTO account = find(accountId);
         if (account.getStatus() != Status.REJECTED) {
             throw new InvalidAccountRequestException("반려 상태의 계좌만 오버라이드할 수 있습니다.");
@@ -148,6 +200,14 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
         AccountDTO openedAccount = find(accountId);
         assertStatus(openedAccount, Status.OPENED);
         accountLogService.recordStatusChange(openedAccount, Status.REJECTED, openedAt, reason);
+        assertBenefit(openedAccount, BenefitType.POSSIBLE);
+        accountLogService.recordBenefitChange(openedAccount, null, openedAt, "계좌 개설에 따른 세제혜택 가능");
+        logAudit(
+                adminId,
+                openedAccount.getAccountId(),
+                Status.REJECTED.name(),
+                openedAccount.getStatus().name(),
+                AuditLogReasonCode.ACCOUNT_OVERRIDE_OPENED);
         return openedAccount;
     }
 
@@ -222,7 +282,30 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
                 .orElseThrow(() -> new AccountNotFoundException("계좌 조회 실패"));
     }
 
+    private void logAudit(
+            Long adminId,
+            Long accountId,
+            String beforeValue,
+            String afterValue,
+            AuditLogReasonCode reasonCode) {
+        auditLogService.log(
+                AuditLogDTO.builder()
+                        .adminId(adminId)
+                        .targetTable("ACCOUNT")
+                        .targetPk(String.valueOf(accountId))
+                        .beforeValue(beforeValue)
+                        .afterValue(afterValue)
+                        .reasonCode(reasonCode.name())
+                        .build());
+    }
+
     private void assertStatus(AccountDTO account, Status status) {
         if (account.getStatus() != status) throw new AccountException("상태 변경 실패");
+    }
+
+    private void assertBenefit(AccountDTO account, BenefitType benefitType) {
+        if (account.getBenefit() != benefitType) {
+            throw new AccountException("혜택 설정 변경 실패");
+        }
     }
 }

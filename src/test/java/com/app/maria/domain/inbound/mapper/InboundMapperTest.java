@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.app.maria.domain.inbound.dto.InboundDTO;
 import com.app.maria.domain.inbound.dto.InboundDetailDTO;
+import com.app.maria.domain.inbound.dto.InboundHoldingDTO;
 import java.io.IOException;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -184,6 +185,66 @@ class InboundMapperTest {
         List<InboundDetailDTO> lots = inboundMapper.selectFifoLots(1L, 1L);
 
         assertThat(lots).isEmpty();
+    }
+
+    // ---- selectHoldingsByAccount ----
+
+    @Test
+    @DisplayName("동일 종목의 여러 lot은 수량을 합산해 한 건으로 반환한다")
+    void selectHoldingsByAccountSumsQtyAcrossLotsOfSameProduct() {
+        insertApprovedInbound(1L, 1L, BigDecimal.valueOf(30));
+        insertApprovedInbound(1L, 1L, BigDecimal.valueOf(20));
+
+        List<InboundHoldingDTO> holdings = inboundMapper.selectHoldingsByAccount(1L);
+
+        assertThat(holdings).hasSize(1);
+        assertThat(holdings.get(0).getForeignProductId()).isEqualTo(1L);
+        assertThat(holdings.get(0).getCurrentQty()).isEqualByComparingTo(BigDecimal.valueOf(50));
+    }
+
+    @Test
+    @DisplayName("종목이 다르면 각각 별도 행으로 반환한다")
+    void selectHoldingsByAccountGroupsByDistinctProduct() {
+        insertApprovedInbound(1L, 1L, BigDecimal.valueOf(30));
+        insertApprovedInbound(1L, 2L, BigDecimal.valueOf(10));
+
+        List<InboundHoldingDTO> holdings = inboundMapper.selectHoldingsByAccount(1L);
+
+        assertThat(holdings)
+                .extracting(InboundHoldingDTO::getForeignProductId)
+                .containsExactlyInAnyOrder(1L, 2L);
+    }
+
+    @Test
+    @DisplayName("current_qty가 0인 lot만 있는 종목은 결과에서 제외한다")
+    void selectHoldingsByAccountExcludesProductWithOnlyZeroCurrentQtyLots() {
+        Long depleted = insertApprovedInbound(1L, 1L, BigDecimal.valueOf(30));
+        reduceCurrentQty(depleted, BigDecimal.ZERO);
+        insertApprovedInbound(1L, 2L, BigDecimal.valueOf(10));
+
+        List<InboundHoldingDTO> holdings = inboundMapper.selectHoldingsByAccount(1L);
+
+        assertThat(holdings).extracting(InboundHoldingDTO::getForeignProductId).containsExactly(2L);
+    }
+
+    @Test
+    @DisplayName("다른 계좌의 보유종목은 섞이지 않는다")
+    void selectHoldingsByAccountExcludesOtherAccounts() {
+        insertApprovedInbound(1L, 1L, BigDecimal.valueOf(30));
+        insertApprovedInbound(2L, 1L, BigDecimal.valueOf(999));
+
+        List<InboundHoldingDTO> holdings = inboundMapper.selectHoldingsByAccount(1L);
+
+        assertThat(holdings).hasSize(1);
+        assertThat(holdings.get(0).getCurrentQty()).isEqualByComparingTo(BigDecimal.valueOf(30));
+    }
+
+    @Test
+    @DisplayName("보유종목이 없으면 빈 목록을 반환한다")
+    void selectHoldingsByAccountReturnsEmptyListWhenNoHoldingsExist() {
+        List<InboundHoldingDTO> holdings = inboundMapper.selectHoldingsByAccount(1L);
+
+        assertThat(holdings).isEmpty();
     }
 
     private void resetSchema() throws SQLException {

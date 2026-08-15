@@ -4,6 +4,10 @@ import com.app.maria.domain.account.exception.AccountException;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.exception.DuplicateAccountException;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
+import com.app.maria.domain.accountclosure.exception.AccountClosureException;
+import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundException;
+import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingException;
+import com.app.maria.domain.accountclosure.exception.AccountClosureStateConflictException;
 import com.app.maria.domain.admin.exception.AdminException;
 import com.app.maria.domain.admin.exception.AdminNotFoundException;
 import com.app.maria.domain.domestic.exception.DomesticProductException;
@@ -334,7 +338,7 @@ public class GlobalExceptionHandler {
                 .body(ApiResponseDTO.of(e.getMessage()));
     }
 
-    // GeneralAccount 예외
+    // 15. GeneralAccount 예외
     @ExceptionHandler(GeneralAccountApiException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleGeneralAccountApiException(
             GeneralAccountApiException e) {
@@ -342,7 +346,7 @@ public class GlobalExceptionHandler {
                 .body(ApiResponseDTO.of(e.getMessage()));
     }
 
-    // 세액 계산 예외
+    // 16. 세액 계산 예외
     @ExceptionHandler(TaxCalculationException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleTaxCalculationException(
             TaxCalculationException e) {
@@ -358,6 +362,33 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(TaxCalculationAlreadyExistsException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleTaxCalculationAlreadyExists(
             TaxCalculationAlreadyExistsException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    // 17. 계좌 해지 예외
+    @ExceptionHandler(AccountClosureNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleAccountClosureNotFoundException(
+            AccountClosureNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(AccountClosureException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleAccountClosureException(
+            AccountClosureException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(AccountClosureProcessingException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleAccountClosureProcessingException(
+            AccountClosureProcessingException e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(AccountClosureStateConflictException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleAccountClosureStateConflictException(
+            AccountClosureStateConflictException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
     }
 }

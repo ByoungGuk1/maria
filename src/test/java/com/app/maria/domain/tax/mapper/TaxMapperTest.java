@@ -150,7 +150,8 @@ class TaxMapperTest {
         fixture.insertKrwExchange(ACCOUNT_ID, orderId, "FINALIZED", "24000000.00");
 
         List<SellLotDTO> lots =
-                taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, CALC_BASE);
+                taxMapper.findFinalizedLotsByAccountIdsAndYear(
+                        List.of(ACCOUNT_ID), TAX_YEAR, CALC_BASE);
 
         assertThat(lots)
                 .singleElement()
@@ -175,7 +176,9 @@ class TaxMapperTest {
                         lotId, "EXECUTED", LocalDateTime.of(2026, 3, 10, 10, 0), "100.0000");
         fixture.insertKrwExchange(ACCOUNT_ID, orderId, "PROVISIONAL", "23760000.00");
 
-        assertThat(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, CALC_BASE))
+        assertThat(
+                        taxMapper.findFinalizedLotsByAccountIdsAndYear(
+                                List.of(ACCOUNT_ID), TAX_YEAR, CALC_BASE))
                 .isEmpty();
     }
 
@@ -188,7 +191,9 @@ class TaxMapperTest {
                         lotId, "RECEIVED", LocalDateTime.of(2026, 3, 10, 10, 0), "100.0000");
         fixture.insertKrwExchange(ACCOUNT_ID, orderId, "FINALIZED", "24000000.00");
 
-        assertThat(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, CALC_BASE))
+        assertThat(
+                        taxMapper.findFinalizedLotsByAccountIdsAndYear(
+                                List.of(ACCOUNT_ID), TAX_YEAR, CALC_BASE))
                 .isEmpty();
     }
 
@@ -201,7 +206,9 @@ class TaxMapperTest {
                         lotId, "EXECUTED", LocalDateTime.of(2026, 3, 10, 10, 0), "100.0000");
         fixture.insertKrwExchange(OTHER_ACCOUNT_ID, orderId, "FINALIZED", "24000000.00");
 
-        assertThat(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, CALC_BASE))
+        assertThat(
+                        taxMapper.findFinalizedLotsByAccountIdsAndYear(
+                                List.of(ACCOUNT_ID), TAX_YEAR, CALC_BASE))
                 .isEmpty();
     }
 
@@ -214,7 +221,9 @@ class TaxMapperTest {
                         lotId, "EXECUTED", LocalDateTime.of(2025, 12, 31, 10, 0), "100.0000");
         fixture.insertKrwExchange(ACCOUNT_ID, orderId, "FINALIZED", "24000000.00");
 
-        assertThat(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, CALC_BASE))
+        assertThat(
+                        taxMapper.findFinalizedLotsByAccountIdsAndYear(
+                                List.of(ACCOUNT_ID), TAX_YEAR, CALC_BASE))
                 .isEmpty();
     }
 
@@ -229,9 +238,13 @@ class TaxMapperTest {
 
         LocalDateTime before = LocalDateTime.of(2026, 6, 30, 0, 0);
 
-        assertThat(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, before))
+        assertThat(
+                        taxMapper.findFinalizedLotsByAccountIdsAndYear(
+                                List.of(ACCOUNT_ID), TAX_YEAR, before))
                 .isEmpty();
-        assertThat(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, CALC_BASE))
+        assertThat(
+                        taxMapper.findFinalizedLotsByAccountIdsAndYear(
+                                List.of(ACCOUNT_ID), TAX_YEAR, CALC_BASE))
                 .hasSize(1);
     }
 
@@ -249,7 +262,8 @@ class TaxMapperTest {
         fixture.insertKrwExchange(ACCOUNT_ID, second, "FINALIZED", "15000000.00");
 
         List<SellLotDTO> lots =
-                taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, CALC_BASE);
+                taxMapper.findFinalizedLotsByAccountIdsAndYear(
+                        List.of(ACCOUNT_ID), TAX_YEAR, CALC_BASE);
 
         assertThat(lots).hasSize(2);
         assertThat(lots).extracting(SellLotDTO::getInboundDetailId).containsOnly(lotId);
@@ -262,8 +276,64 @@ class TaxMapperTest {
     @Test
     @DisplayName("매도 이력이 없으면 빈 목록을 반환한다")
     void findLots_없으면_빈목록() {
-        assertThat(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, CALC_BASE))
+        assertThat(
+                        taxMapper.findFinalizedLotsByAccountIdsAndYear(
+                                List.of(ACCOUNT_ID), TAX_YEAR, CALC_BASE))
                 .isEmpty();
+    }
+
+    @Test
+    @DisplayName("여러 계좌를 IN절 하나로 조회해도 계좌별 lot이 섞이지 않는다")
+    void findLots_여러계좌_한번에_조회해도_섞이지_않는다() {
+        Long lotA = fixture.insertLot(ACCOUNT_ID, "150.0000", "1300.0000", "100.0000");
+        Long orderA =
+                fixture.insertSellOrder(
+                        lotA, "EXECUTED", LocalDateTime.of(2026, 3, 10, 10, 0), "100.0000");
+        fixture.insertKrwExchange(ACCOUNT_ID, orderA, "FINALIZED", "24000000.00");
+
+        Long lotB = fixture.insertLot(OTHER_ACCOUNT_ID, "200.0000", "1300.0000", "50.0000");
+        Long orderB =
+                fixture.insertSellOrder(
+                        lotB, "EXECUTED", LocalDateTime.of(2026, 6, 15, 10, 0), "50.0000");
+        fixture.insertKrwExchange(OTHER_ACCOUNT_ID, orderB, "FINALIZED", "13000000.00");
+
+        List<SellLotDTO> lots =
+                taxMapper.findFinalizedLotsByAccountIdsAndYear(
+                        List.of(ACCOUNT_ID, OTHER_ACCOUNT_ID), TAX_YEAR, CALC_BASE);
+
+        assertThat(lots).hasSize(2);
+        assertThat(lots)
+                .filteredOn(lot -> lot.getAccountId().equals(ACCOUNT_ID))
+                .singleElement()
+                .satisfies(lot -> assertThat(lot.getInboundDetailId()).isEqualTo(lotA));
+        assertThat(lots)
+                .filteredOn(lot -> lot.getAccountId().equals(OTHER_ACCOUNT_ID))
+                .singleElement()
+                .satisfies(lot -> assertThat(lot.getInboundDetailId()).isEqualTo(lotB));
+    }
+
+    @Test
+    @DisplayName("IN절에 넣지 않은 계좌의 lot은 결과에 섞이지 않는다")
+    void findLots_IN절에_없는_계좌는_결과에서_빠진다() {
+        Long lotA = fixture.insertLot(ACCOUNT_ID, "150.0000", "1300.0000", "100.0000");
+        Long orderA =
+                fixture.insertSellOrder(
+                        lotA, "EXECUTED", LocalDateTime.of(2026, 3, 10, 10, 0), "100.0000");
+        fixture.insertKrwExchange(ACCOUNT_ID, orderA, "FINALIZED", "24000000.00");
+
+        Long lotB = fixture.insertLot(OTHER_ACCOUNT_ID, "200.0000", "1300.0000", "50.0000");
+        Long orderB =
+                fixture.insertSellOrder(
+                        lotB, "EXECUTED", LocalDateTime.of(2026, 6, 15, 10, 0), "50.0000");
+        fixture.insertKrwExchange(OTHER_ACCOUNT_ID, orderB, "FINALIZED", "13000000.00");
+
+        List<SellLotDTO> lots =
+                taxMapper.findFinalizedLotsByAccountIdsAndYear(
+                        List.of(ACCOUNT_ID), TAX_YEAR, CALC_BASE);
+
+        assertThat(lots)
+                .singleElement()
+                .satisfies(lot -> assertThat(lot.getAccountId()).isEqualTo(ACCOUNT_ID));
     }
 
     private static final String CI_HASH = "a".repeat(64);
@@ -276,7 +346,8 @@ class TaxMapperTest {
         fixture.insertJudgement(1L, CI_HASH, true, "2026-06-15", "20000000.00");
 
         List<ExternalBuyDTO> result =
-                taxMapper.findExternalBuysByAccountAndYear(accountId, TAX_YEAR);
+                taxMapper.findExternalBuysByAccountIdsAndYear(
+                        List.of(accountId), TAX_YEAR, CALC_BASE);
 
         assertThat(result)
                 .singleElement()
@@ -295,7 +366,8 @@ class TaxMapperTest {
         fixture.insertJudgement(1L, CI_HASH, true, "2026-09-20", "-10000000.00");
 
         List<ExternalBuyDTO> result =
-                taxMapper.findExternalBuysByAccountAndYear(accountId, TAX_YEAR);
+                taxMapper.findExternalBuysByAccountIdsAndYear(
+                        List.of(accountId), TAX_YEAR, CALC_BASE);
 
         assertThat(result)
                 .singleElement()
@@ -313,12 +385,16 @@ class TaxMapperTest {
         fixture.insertJudgement(1L, CI_HASH, true, "2026-06-15", "20000000.00");
         fixture.insertJudgement(2L, OTHER_CI_HASH, true, "2026-06-15", "70000000.00");
 
-        assertThat(taxMapper.findExternalBuysByAccountAndYear(accountId, TAX_YEAR))
+        assertThat(
+                        taxMapper.findExternalBuysByAccountIdsAndYear(
+                                List.of(accountId), TAX_YEAR, CALC_BASE))
                 .extracting(ExternalBuyDTO::getNetBuyAmount)
                 .usingElementComparator(BigDecimal::compareTo)
                 .containsExactly(new BigDecimal("20000000"));
 
-        assertThat(taxMapper.findExternalBuysByAccountAndYear(otherAccountId, TAX_YEAR))
+        assertThat(
+                        taxMapper.findExternalBuysByAccountIdsAndYear(
+                                List.of(otherAccountId), TAX_YEAR, CALC_BASE))
                 .extracting(ExternalBuyDTO::getNetBuyAmount)
                 .usingElementComparator(BigDecimal::compareTo)
                 .containsExactly(new BigDecimal("70000000"));
@@ -330,7 +406,10 @@ class TaxMapperTest {
         fixture.insertCustomerWithAccount(CI_HASH);
         fixture.insertJudgement(1L, CI_HASH, true, "2026-06-15", "20000000.00");
 
-        assertThat(taxMapper.findExternalBuysByAccountAndYear(999L, TAX_YEAR)).isEmpty();
+        assertThat(
+                        taxMapper.findExternalBuysByAccountIdsAndYear(
+                                List.of(999L), TAX_YEAR, CALC_BASE))
+                .isEmpty();
     }
 
     @Test
@@ -340,7 +419,10 @@ class TaxMapperTest {
         fixture.insertCustomerOnly(OTHER_CI_HASH);
         fixture.insertJudgement(1L, OTHER_CI_HASH, true, "2026-06-15", "70000000.00");
 
-        assertThat(taxMapper.findExternalBuysByAccountAndYear(accountId, TAX_YEAR)).isEmpty();
+        assertThat(
+                        taxMapper.findExternalBuysByAccountIdsAndYear(
+                                List.of(accountId), TAX_YEAR, CALC_BASE))
+                .isEmpty();
     }
 
     @Test
@@ -349,7 +431,10 @@ class TaxMapperTest {
         Long accountId = fixture.insertCustomerWithAccount(CI_HASH);
         fixture.insertJudgement(1L, CI_HASH, false, "2026-06-15", "20000000.00");
 
-        assertThat(taxMapper.findExternalBuysByAccountAndYear(accountId, TAX_YEAR)).isEmpty();
+        assertThat(
+                        taxMapper.findExternalBuysByAccountIdsAndYear(
+                                List.of(accountId), TAX_YEAR, CALC_BASE))
+                .isEmpty();
     }
 
     @Test
@@ -360,7 +445,9 @@ class TaxMapperTest {
         fixture.insertJudgement(2L, CI_HASH, true, "2027-01-01", "30000000.00");
         fixture.insertJudgement(3L, CI_HASH, true, "2026-01-01", "10000000.00");
 
-        assertThat(taxMapper.findExternalBuysByAccountAndYear(accountId, TAX_YEAR))
+        assertThat(
+                        taxMapper.findExternalBuysByAccountIdsAndYear(
+                                List.of(accountId), TAX_YEAR, CALC_BASE))
                 .extracting(ExternalBuyDTO::getNetBuyAmount)
                 .usingElementComparator(BigDecimal::compareTo)
                 .containsExactly(new BigDecimal("10000000"));
@@ -375,7 +462,8 @@ class TaxMapperTest {
         fixture.insertJudgement(3L, CI_HASH, true, "2026-09-20", "-10000000.00");
 
         List<ExternalBuyDTO> result =
-                taxMapper.findExternalBuysByAccountAndYear(accountId, TAX_YEAR);
+                taxMapper.findExternalBuysByAccountIdsAndYear(
+                        List.of(accountId), TAX_YEAR, CALC_BASE);
 
         assertThat(result).hasSize(3);
         assertThat(result)
@@ -387,11 +475,43 @@ class TaxMapperTest {
     }
 
     @Test
+    @DisplayName("여러 계좌를 IN절 하나로 조회해도 계좌별 판정건이 섞이지 않는다")
+    void findExternal_여러계좌_한번에_조회해도_섞이지_않는다() {
+        Long accountA = fixture.insertCustomerWithAccount(CI_HASH);
+        Long accountB = fixture.insertCustomerWithAccount(OTHER_CI_HASH);
+        fixture.insertJudgement(1L, CI_HASH, true, "2026-06-15", "20000000.00");
+        fixture.insertJudgement(2L, OTHER_CI_HASH, true, "2026-09-20", "-10000000.00");
+
+        List<ExternalBuyDTO> result =
+                taxMapper.findExternalBuysByAccountIdsAndYear(
+                        List.of(accountA, accountB), TAX_YEAR, CALC_BASE);
+
+        assertThat(result).hasSize(2);
+        assertThat(result)
+                .filteredOn(external -> external.getAccountId().equals(accountA))
+                .singleElement()
+                .satisfies(
+                        external ->
+                                assertThat(external.getNetBuyAmount())
+                                        .isEqualByComparingTo("20000000"));
+        assertThat(result)
+                .filteredOn(external -> external.getAccountId().equals(accountB))
+                .singleElement()
+                .satisfies(
+                        external ->
+                                assertThat(external.getNetBuyAmount())
+                                        .isEqualByComparingTo("-10000000"));
+    }
+
+    @Test
     @DisplayName("판정건이 없으면 빈 목록을 반환한다")
     void findExternal_없으면_빈목록() {
         Long accountId = fixture.insertCustomerWithAccount(CI_HASH);
 
-        assertThat(taxMapper.findExternalBuysByAccountAndYear(accountId, TAX_YEAR)).isEmpty();
+        assertThat(
+                        taxMapper.findExternalBuysByAccountIdsAndYear(
+                                List.of(accountId), TAX_YEAR, CALC_BASE))
+                .isEmpty();
     }
 
     private TaxCalculationDTO calculation(Long accountId, TaxBasisType basisType) {
@@ -399,13 +519,13 @@ class TaxMapperTest {
                 .accountId(accountId)
                 .calculatedAt(LocalDateTime.of(2027, 5, 1, 9, 0))
                 .basisType(basisType)
-                .sellAmount(new BigDecimal("43000000.00"))
-                .gainAmount(new BigDecimal("32000000.00"))
-                .gainWeighted(new BigDecimal("27800000.00"))
-                .extAmount(new BigDecimal("11000000.00"))
-                .ratio(new BigDecimal("0.7442"))
-                .deduction(new BigDecimal("20688760.00"))
-                .tax(new BigDecimal("1938472.80"))
+                .weightedSell(new BigDecimal("43000000.00"))
+                .originalGainAmount(new BigDecimal("32000000.00"))
+                .weightedGain(new BigDecimal("27800000.00"))
+                .weightedExternalAmount(new BigDecimal("11000000.00"))
+                .adjustRatio(new BigDecimal("0.7442"))
+                .finalDeduction(new BigDecimal("20688760.00"))
+                .finalTax(new BigDecimal("1938472.80"))
                 .build();
     }
 
@@ -434,10 +554,13 @@ class TaxMapperTest {
                 .isEqualTo("FINAL_REPORT");
         assertThat(
                         selectOne(
-                                "select ratio from tax_calculation where calc_id = "
+                                "select adjust_ratio from tax_calculation where calc_id = "
                                         + dto.getCalcId()))
                 .isEqualTo("0.7442");
-        assertThat(selectOne("select tax from tax_calculation where calc_id = " + dto.getCalcId()))
+        assertThat(
+                        selectOne(
+                                "select final_tax from tax_calculation where calc_id = "
+                                        + dto.getCalcId()))
                 .isEqualTo("1938472.80");
     }
 

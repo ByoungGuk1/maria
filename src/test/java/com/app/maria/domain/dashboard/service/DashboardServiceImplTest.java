@@ -6,7 +6,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
+import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.account.service.AccountLogService;
 import com.app.maria.domain.account.service.AccountService;
 import com.app.maria.domain.account.type.Status;
@@ -14,15 +14,18 @@ import com.app.maria.domain.dashboard.dto.DashboardSummaryDTO;
 import com.app.maria.domain.sellorder.service.SellOrderService;
 import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
 import com.app.maria.domain.settlement.service.SettlementService;
+import com.app.maria.global.audit.dto.request.AuditLogSearchRequestDTO;
 import com.app.maria.global.audit.dto.response.AuditLogResponseDTO;
 import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.clock.service.BusinessClockService;
+import com.app.maria.global.response.PageResponseDTO;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -66,7 +69,8 @@ class DashboardServiceImplTest {
         when(accountService.getAppliedAccounts()).thenReturn(List.of());
         SettlementBatchDTO batch = SettlementBatchDTO.builder().batchId(100L).build();
         when(settlementService.getSettlementBatches()).thenReturn(List.of(batch));
-        when(auditLogService.searchAuditLogs(any())).thenReturn(List.of());
+        when(auditLogService.searchAuditLogs(any()))
+                .thenReturn(PageResponseDTO.of(List.of(), 0L, 0, 4));
 
         DashboardSummaryDTO result = service.getDashboardSummary();
 
@@ -84,7 +88,8 @@ class DashboardServiceImplTest {
     void getDashboardSummaryIncludesAccountExactlyAtEightyPercentThreshold() {
         DashboardServiceImpl service = newService();
         stubUnrelatedDependencies();
-        AccountLimitUsageDTO exactlyEighty = accountUsage(1L, Status.OPENED, "8000000", "10000000");
+        AccountLimitUsageResponseDTO exactlyEighty =
+                accountUsage(1L, Status.OPENED, "8000000", "10000000");
         when(accountService.selectAccountLimitUsage()).thenReturn(List.of(exactlyEighty));
         when(accountService.getAppliedAccounts()).thenReturn(List.of());
 
@@ -99,7 +104,8 @@ class DashboardServiceImplTest {
     void getDashboardSummaryExcludesAccountJustBelowEightyPercentThreshold() {
         DashboardServiceImpl service = newService();
         stubUnrelatedDependencies();
-        AccountLimitUsageDTO justBelow = accountUsage(2L, Status.OPENED, "7994000", "10000000");
+        AccountLimitUsageResponseDTO justBelow =
+                accountUsage(2L, Status.OPENED, "7994000", "10000000");
         when(accountService.selectAccountLimitUsage()).thenReturn(List.of(justBelow));
         when(accountService.getAppliedAccounts()).thenReturn(List.of());
 
@@ -114,7 +120,7 @@ class DashboardServiceImplTest {
     void getDashboardSummaryTreatsNonPositiveLimitAmountAsNotNearLimit() {
         DashboardServiceImpl service = newService();
         stubUnrelatedDependencies();
-        AccountLimitUsageDTO zeroLimit = accountUsage(3L, Status.OPENED, "1000", "0");
+        AccountLimitUsageResponseDTO zeroLimit = accountUsage(3L, Status.OPENED, "1000", "0");
         when(accountService.selectAccountLimitUsage()).thenReturn(List.of(zeroLimit));
         when(accountService.getAppliedAccounts()).thenReturn(List.of());
 
@@ -129,7 +135,7 @@ class DashboardServiceImplTest {
     void getDashboardSummaryKeepsAppliedAccountsInPriorityListRegardlessOfUsage() {
         DashboardServiceImpl service = newService();
         stubUnrelatedDependencies();
-        AccountLimitUsageDTO applied = accountUsage(4L, Status.APPLIED, "0", "5000000");
+        AccountLimitUsageResponseDTO applied = accountUsage(4L, Status.APPLIED, "0", "5000000");
         when(accountService.selectAccountLimitUsage()).thenReturn(List.of());
         when(accountService.getAppliedAccounts()).thenReturn(List.of(applied));
 
@@ -151,24 +157,32 @@ class DashboardServiceImplTest {
     }
 
     @Test
-    @DisplayName("감사로그가 4건보다 많이 와도 최근 4건으로 잘라낸다")
-    void getDashboardSummaryLimitsRecentAuditLogsToFourEvenWhenMoreExist() {
+    @DisplayName("최근 감사로그는 4건으로 제한해서 요청한다 (백엔드 페이지네이션에 위임)")
+    void getDashboardSummaryRequestsAtMostFourRecentAuditLogs() {
         DashboardServiceImpl service = newService();
         stubUnrelatedDependencies();
-        List<AuditLogResponseDTO> sixLogs =
-                List.of(
-                        auditLog(1L),
-                        auditLog(2L),
-                        auditLog(3L),
-                        auditLog(4L),
-                        auditLog(5L),
-                        auditLog(6L));
-        when(auditLogService.searchAuditLogs(any())).thenReturn(sixLogs);
+
+        service.getDashboardSummary();
+
+        ArgumentCaptor<AuditLogSearchRequestDTO> captor =
+                ArgumentCaptor.forClass(AuditLogSearchRequestDTO.class);
+        verify(auditLogService).searchAuditLogs(captor.capture());
+        assertThat(captor.getValue().getSize()).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("Service가 반환한 감사로그 목록을 그대로 담는다")
+    void getDashboardSummaryKeepsRecentAuditLogsAsReturnedByService() {
+        DashboardServiceImpl service = newService();
+        stubUnrelatedDependencies();
+        List<AuditLogResponseDTO> fourLogs =
+                List.of(auditLog(1L), auditLog(2L), auditLog(3L), auditLog(4L));
+        when(auditLogService.searchAuditLogs(any()))
+                .thenReturn(PageResponseDTO.of(fourLogs, 4L, 0, 4));
 
         DashboardSummaryDTO result = service.getDashboardSummary();
 
-        assertThat(result.getRecentAuditLogs()).hasSize(4);
-        assertThat(result.getRecentAuditLogs()).containsExactlyElementsOf(sixLogs.subList(0, 4));
+        assertThat(result.getRecentAuditLogs()).containsExactlyElementsOf(fourLogs);
     }
 
     @Test
@@ -199,12 +213,13 @@ class DashboardServiceImplTest {
     private void stubUnrelatedDependencies() {
         when(businessClockService.now()).thenReturn(LocalDateTime.of(2026, 8, 11, 10, 0));
         when(settlementService.getSettlementBatches()).thenReturn(List.of());
-        when(auditLogService.searchAuditLogs(any())).thenReturn(List.of());
+        when(auditLogService.searchAuditLogs(any()))
+                .thenReturn(PageResponseDTO.of(List.of(), 0L, 0, 4));
     }
 
-    private AccountLimitUsageDTO accountUsage(
+    private AccountLimitUsageResponseDTO accountUsage(
             Long accountId, Status status, String usedAmount, String limitAmount) {
-        return AccountLimitUsageDTO.builder()
+        return AccountLimitUsageResponseDTO.builder()
                 .accountId(accountId)
                 .accountNo("110-" + accountId)
                 .customerName("고객" + accountId)

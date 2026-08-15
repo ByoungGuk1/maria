@@ -11,23 +11,23 @@
         WHERE account_id = #{accountId}
         FOR UPDATE
     </select>
+    
+    <sql id="usedAmountCase">
+        CASE
+            WHEN ke.settlement_status = 'FINALIZED' THEN ke.final_amount
+            WHEN ke.exchange_id IS NOT NULL THEN ke.provisional_amount
+            ELSE so.sell_qty * so.base_price
+        END
+    </sql>
 
-    <select id="sumPendingSellOrderAmount" parameterType="Long" resultType="BigDecimal">
-        SELECT COALESCE(SUM(s.base_price * s.sell_qty), 0)
-        FROM sell_order s
-        JOIN inbound_detail id ON s.inbound_detail_id = id.inbound_detail_id
-        JOIN inbound i ON id.inbound_id = i.inbound_id
-        LEFT JOIN krw_exchange k ON k.order_id = s.order_id AND k.settlement_status = 'FINALIZED'
-        WHERE i.account_id = #{accountId}
-        AND s.status != 'REJECTED'
-        AND k.exchange_id IS NULL
-    </select>
-
-    <select id="sumFinalizedExchangeAmount" parameterType="Long" resultType="BigDecimal">
-        SELECT COALESCE(SUM(final_amount), 0)
-        FROM krw_exchange
-        WHERE account_id = #{accountId}
-        AND settlement_status = 'FINALIZED'
+    <select id="sumUsedAmount" parameterType="Long" resultType="BigDecimal">
+        SELECT COALESCE(SUM(
+        <include refid="usedAmountCase"/>
+        ), 0)
+        FROM sell_order so
+        LEFT JOIN krw_exchange ke ON ke.order_id = so.order_id
+        WHERE so.account_id = #{accountId}
+        AND so.status != 'REJECTED'
     </select>
 
     <select id="selectCiHashByAccountId" parameterType="Long" resultType="String">

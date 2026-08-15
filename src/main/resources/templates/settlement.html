@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}">
+<head>
+    <title>정산 배치 - MARIA</title>
+    <th:block layout:fragment="pageStyles">
+        <link rel="stylesheet" th:href="@{/css/settlement.css}">
+    </th:block>
+</head>
+<body>
+<div layout:fragment="breadcrumb">정산 배치</div>
+
+<div layout:fragment="content" class="settlement-management">
+    <div class="settlement-header">
+        <div>
+            <h1>정산 배치</h1>
+            <p>가환전 완료 건을 확정산하고 배치 처리 결과를 확인합니다.</p>
+        </div>
+        <button id="executeSettlement" class="btn btn-primary" type="button">정산 배치 실행</button>
+    </div>
+
+    <section class="card settlement-trend-card">
+        <div class="settlement-section-header"><strong>최근 14일 정산 항목 처리 추이</strong><span id="settlementTrendTotal">-</span></div>
+        <div id="settlementTrendDetail" class="settlement-trend-detail" style="display:none">
+            <strong id="settlementTrendDetailDate">-</strong>
+            <div class="settlement-trend-detail-grid">
+                <div><span>전체</span><b id="settlementTrendDetailTotal">-</b></div>
+                <div><span>성공</span><b id="settlementTrendDetailSuccess">-</b></div>
+                <div><span>실패</span><b id="settlementTrendDetailFailed">-</b></div>
+                <div><span>처리 건수</span><b id="settlementTrendDetailProcessed">-</b></div>
+            </div>
+        </div>
+        <div class="settlement-application-trend"><canvas id="settlementBatchTrend" aria-label="최근 14일 정산 항목 처리 추이"></canvas></div>
+    </section>
+
+    <div class="card settlement-table-card">
+        <div class="settlement-section-header"><strong>배치 실행 이력</strong><span id="settlementBatchCount">-</span></div>
+        <div class="settlement-table-wrap">
+            <table class="settlement-table">
+                <thead><tr><th>배치 ID</th><th>실행 일시</th><th>상태</th><th>전체</th><th>성공</th><th>실패</th><th>처리</th><th>실행 ID</th></tr></thead>
+                <tbody id="settlementBatchBody"><tr><td colspan="8" class="settlement-empty">불러오는 중...</td></tr></tbody>
+            </table>
+        </div>
+        <div id="settlementPagination" class="settlement-pagination" style="display:none">
+            <button id="previousSettlementPage" class="btn" type="button">이전</button>
+            <span id="settlementPageInfo"></span>
+            <button id="nextSettlementPage" class="btn" type="button">다음</button>
+        </div>
+    </div>
+
+    <section id="settlementDetail" class="card settlement-detail" style="display:none">
+        <div class="settlement-detail-header">
+            <div><strong id="detailBatchTitle">배치 상세</strong><p id="detailBatchFailure"></p></div>
+            <div class="settlement-detail-actions">
+                <select id="settlementItemFilter" class="settlement-item-filter" style="display:none">
+                    <option value="all">모든 항목 보기</option>
+                    <option value="success">성공 항목만 보기</option>
+                    <option value="failed">실패 항목만 보기</option>
+                </select>
+                <button id="retrySettlementBatch" class="btn" type="button" style="display:none">실패 배치 재처리</button>
+            </div>
+        </div>
+        <div class="settlement-batch-summary">
+            <div><span>실행 일시</span><strong id="detailBatchExecutedAt">-</strong></div>
+            <div><span>Run ID</span><strong id="detailBatchRunId">-</strong></div>
+            <div><span>전체</span><strong id="detailBatchTotalCount">-</strong></div>
+            <div><span>성공</span><strong id="detailBatchSuccessCount">-</strong></div>
+            <div><span>실패</span><strong id="detailBatchFailedCount">-</strong></div>
+            <div><span>처리</span><strong id="detailBatchProcessedCount">-</strong></div>
+        </div>
+        <div class="settlement-table-wrap">
+            <table class="settlement-table settlement-item-table">
+                <thead><tr><th>Item ID</th><th>계좌번호</th><th>종목</th><th>가환전액</th><th>확정산액</th><th>결과</th><th>실패 사유</th><th>처리 일시</th></tr></thead>
+                <tbody id="settlementItemBody"><tr><td colspan="8" class="settlement-empty">배치를 선택하세요.</td></tr></tbody>
+            </table>
+        </div>
+        <div id="settlementItemPagination" class="settlement-pagination" style="display:none">
+            <button id="previousSettlementItemPage" class="btn" type="button">이전</button>
+            <span id="settlementItemPageInfo"></span>
+            <button id="nextSettlementItemPage" class="btn" type="button">다음</button>
+        </div>
+
+        <div id="settlementItemDetail" class="settlement-item-detail" style="display:none">
+            <div class="settlement-detail-header">
+                <div><strong id="detailItemTitle">정산 항목 상세</strong><p id="detailItemFailure"></p></div>
+                <button id="retrySettlementItem" class="btn" type="button" style="display:none">실패 항목 재처리</button>
+            </div>
+            <div class="settlement-item-detail-grid">
+                <div><span>환전 ID</span><strong id="detailItemExchangeId">-</strong></div>
+                <div><span>계좌 ID</span><strong id="detailItemAccountId">-</strong></div>
+                <div><span>계좌번호</span><strong id="detailItemAccountNo">-</strong></div>
+                <div><span>주문 ID</span><strong id="detailItemOrderId">-</strong></div>
+                <div><span>종목</span><strong id="detailItemProduct">-</strong></div>
+                <div><span>환전 상태</span><strong id="detailItemExchangeStatus">-</strong></div>
+                <div><span>실패 코드</span><strong id="detailItemFailureCode">-</strong></div>
+            </div>
+            <div class="settlement-comparison">
+                <div class="settlement-comparison-column"><span>가환전</span><strong id="detailItemProvisionalAmount">-</strong><small id="detailItemProvisionalAt">-</small><small>가환전 기준환율 <b id="detailItemProvisionalRate">-</b></small></div>
+                <div class="settlement-comparison-arrow">→</div>
+                <div class="settlement-comparison-column"><span>확정산</span><strong id="detailItemFinalAmount">-</strong><small id="detailItemFinalAt">-</small><small>최종 정산환율 <b id="detailItemFinalRate">-</b></small></div>
+                <div class="settlement-comparison-difference"><span>정산 차액</span><strong id="detailItemDifference">-</strong></div>
+            </div>
+            <div class="settlement-retry-history">
+                <strong>처리 이력</strong>
+                <ol id="settlementRetryHistory" class="settlement-retry-history-list"></ol>
+            </div>
+        </div>
+    </section>
+</div>
+
+<th:block layout:fragment="pageScripts">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"
+            integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ"
+            crossorigin="anonymous"></script>
+    <script th:src="@{/js/settlement.js}"></script>
+</th:block>
+</body>
+</html>
