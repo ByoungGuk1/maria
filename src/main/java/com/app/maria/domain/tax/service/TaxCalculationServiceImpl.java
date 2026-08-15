@@ -11,8 +11,10 @@ import com.app.maria.domain.tax.dto.TaxCalculationResultDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationPreviewResponseDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationSaveResponseDTO;
+import com.app.maria.domain.tax.dto.response.TaxSnapshotResponseDTO;
 import com.app.maria.domain.tax.exception.TaxCalculationAlreadyExistsException;
 import com.app.maria.domain.tax.mapper.TaxMapper;
+import com.app.maria.domain.tax.mapper.TaxSnapshotMapper;
 import com.app.maria.domain.tax.type.TaxBasisType;
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.config.properties.RiaTaxProperties;
@@ -31,6 +33,7 @@ public class TaxCalculationServiceImpl implements TaxCalculationService {
     private final BusinessClockService clockService;
     private final RiaTaxProperties riaTaxProperties;
     private final TaxCalculator taxCalculator;
+    private final TaxSnapshotMapper taxSnapshotMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -56,6 +59,14 @@ public class TaxCalculationServiceImpl implements TaxCalculationService {
         }
 
         return TaxCalculationSaveResponseDTO.of(taxCalculationDTO);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TaxSnapshotResponseDTO> findSnapshots(List<Long> accountIds) {
+        return taxSnapshotMapper.selectByAccountIds(accountIds).stream()
+                .map(TaxSnapshotResponseDTO::of)
+                .toList();
     }
 
     private TaxBasisType resolveBasisType(AccountDTO account) {
