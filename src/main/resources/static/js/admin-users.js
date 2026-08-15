@@ -1,5 +1,5 @@
 $(function () {
-    var ROLES = ["VIEWER", "REVIEWER", "SETTLEMENT", "ADMIN"];
+    var ROLES = ["VIEWER", "REVIEWER", "SETTLEMENT"];
     var ROLE_LABEL = {
         VIEWER: "조회전용",
         REVIEWER: "심사담당",
@@ -56,15 +56,19 @@ $(function () {
         }
 
         admins.forEach(function (admin) {
+            var roleCell = admin.role === "ADMIN"
+                ? '<td class="admin-users-role-fixed">담당자에게 문의</td>'
+                : '<td><form class="admin-users-role-form" data-admin-id="' + admin.adminId + '">' +
+                  '<select class="admin-users-role-select"' + (isAdmin ? "" : " disabled") + ">" + roleOptions(admin.role) + "</select>" +
+                  '<button type="submit" class="btn btn-primary admin-users-role-save"' + (isAdmin ? "" : " disabled") + ">저장</button>" +
+                  "</form></td>";
+
             $body.append(
                 '<tr data-admin-id="' + admin.adminId + '">' +
                 '<td class="admin-users-name">' + escapeHtml(admin.name || "-") + "</td>" +
                 "<td>" + escapeHtml(admin.loginId || "-") + "</td>" +
                 '<td><span class="admin-users-role-badge ' + roleClass(admin.role) + '">' + escapeHtml(roleLabel(admin.role)) + "</span></td>" +
-                '<td><form class="admin-users-role-form" data-admin-id="' + admin.adminId + '">' +
-                '<select class="admin-users-role-select"' + (isAdmin ? "" : " disabled") + ">" + roleOptions(admin.role) + "</select>" +
-                '<button type="submit" class="btn btn-primary admin-users-role-save"' + (isAdmin ? "" : " disabled") + ">저장</button>" +
-                "</form></td>" +
+                roleCell +
                 "</tr>"
             );
         });
