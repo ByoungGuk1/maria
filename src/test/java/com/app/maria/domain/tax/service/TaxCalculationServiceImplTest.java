@@ -21,6 +21,7 @@ import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.type.BenefitType;
+import com.app.maria.domain.tax.batch.TaxSnapshotJobLauncher;
 import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationDTO;
@@ -48,6 +49,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.batch.core.BatchStatus;
+import org.springframework.batch.core.JobExecution;
+import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 
@@ -67,6 +71,8 @@ class TaxCalculationServiceImplTest {
     @Mock RiaTaxProperties riaTaxProperties;
 
     @Mock TaxSnapshotMapper taxSnapshotMapper;
+
+    @Mock TaxSnapshotJobLauncher taxSnapshotJobLauncher;
 
     @Spy TaxCalculator taxCalculator = new TaxCalculator();
 
@@ -504,5 +510,30 @@ class TaxCalculationServiceImplTest {
         when(taxSnapshotMapper.selectByAccountIds(List.of(999L))).thenReturn(List.of());
 
         assertThat(taxCalculationService.findSnapshots(List.of(999L))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("배치를 실행하고 실행 결과를 응답으로 감싼다")
+    void 배치_수동실행() throws Exception {
+        when(clockService.now()).thenReturn(NOW);
+        JobExecution execution = new JobExecution(1L);
+        execution.setStatus(BatchStatus.COMPLETED);
+        when(taxSnapshotJobLauncher.launch(NOW)).thenReturn(execution);
+
+        var response = taxCalculationService.triggerSnapshotBatch();
+
+        assertThat(response.getJobExecutionId()).isEqualTo(1L);
+        assertThat(response.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+    }
+
+    @Test
+    @DisplayName("Job 실행 자체가 실패하면 IllegalStateException으로 감싸서 던진다")
+    void 배치_수동실행_실패() throws Exception {
+        when(clockService.now()).thenReturn(NOW);
+        when(taxSnapshotJobLauncher.launch(NOW))
+                .thenThrow(new JobExecutionAlreadyRunningException("이미 실행 중"));
+
+        assertThatThrownBy(() -> taxCalculationService.triggerSnapshotBatch())
+                .isInstanceOf(IllegalStateException.class);
     }
 }

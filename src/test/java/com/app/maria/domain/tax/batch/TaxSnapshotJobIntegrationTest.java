@@ -56,6 +56,7 @@ class TaxSnapshotJobIntegrationTest {
             statement.execute("DELETE FROM krw_exchange");
             statement.execute("DELETE FROM sell_order");
             statement.execute("DELETE FROM inbound_detail");
+            statement.execute("DELETE FROM account_benefit_log");
             statement.execute("DELETE FROM account");
             statement.execute("DELETE FROM customer");
             statement.execute("DELETE FROM tax_rule");
@@ -303,5 +304,39 @@ class TaxSnapshotJobIntegrationTest {
                 .isEqualByComparingTo("4000000.00");
         // adjustRatio = 1 - (4,000,000 / 20,000,000) = 0.8000
         assertThat(snapshotColumn(accountId, "adjust_ratio")).isEqualByComparingTo("0.8000");
+    }
+
+    @Test
+    @DisplayName("배치 실행 결과로 계좌의 benefit이 실제로 갱신된다")
+    void job_benefit이_외부순매수_여부에_따라_갱신된다() throws Exception {
+        String ciHashWithExternal = "benefitreduced".repeat(4) + "aaaa";
+        Long accountReduced = insertOpenedAccount(ciHashWithExternal);
+        insertFinalizedLot(accountReduced, LocalDateTime.of(2026, 3, 10, 10, 0), "20000000", "50");
+        insertExternalBuy(
+                ciHashWithExternal,
+                LocalDateTime.of(2026, 6, 15, 0, 0),
+                "5000000",
+                LocalDateTime.of(2026, 8, 13, 0, 0));
+
+        String ciHashNoExternal = "benefitpossible".repeat(4);
+        Long accountPossible = insertOpenedAccount(ciHashNoExternal);
+        insertFinalizedLot(accountPossible, LocalDateTime.of(2026, 3, 10, 10, 0), "20000000", "50");
+
+        JobExecution execution = jobLauncher.run(taxSnapshotJob, jobParameters());
+
+        assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(accountBenefit(accountReduced)).isEqualTo("REDUCED");
+        assertThat(accountBenefit(accountPossible)).isEqualTo("POSSIBLE");
+    }
+
+    private String accountBenefit(Long accountId) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rs =
+                        statement.executeQuery(
+                                "SELECT benefit FROM account WHERE account_id = " + accountId)) {
+            assertThat(rs.next()).isTrue();
+            return rs.getString(1);
+        }
     }
 }

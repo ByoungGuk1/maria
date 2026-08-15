@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.app.maria.domain.tax.dto.TaxCalculationResultDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationPreviewResponseDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationSaveResponseDTO;
+import com.app.maria.domain.tax.dto.response.TaxSnapshotBatchResultResponseDTO;
 import com.app.maria.domain.tax.dto.response.TaxSnapshotResponseDTO;
 import com.app.maria.domain.tax.exception.TaxCalculationAlreadyExistsException;
 import com.app.maria.domain.tax.exception.TaxRuleNotFoundException;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.batch.core.BatchStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -228,5 +230,42 @@ class TaxApiTest {
                 .andExpect(status().isUnauthorized());
 
         verify(taxCalculationService, never()).findSnapshots(anyList());
+    }
+
+    @ParameterizedTest(name = "{0}은 배치를 수동 실행할 수 있다")
+    @ValueSource(strings = {"ADMIN", "SETTLEMENT"})
+    @DisplayName("정산·관리자만 배치를 수동 실행할 수 있다")
+    void 배치_수동실행_허용역할(String role) throws Exception {
+        when(taxCalculationService.triggerSnapshotBatch())
+                .thenReturn(
+                        TaxSnapshotBatchResultResponseDTO.builder()
+                                .jobExecutionId(1L)
+                                .status(BatchStatus.COMPLETED)
+                                .build());
+
+        mockMvc.perform(post("/api/tax/snapshots/jobs").with(user("tester").roles(role)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("세액 스냅샷 배치 실행 완료"))
+                .andExpect(jsonPath("$.data.jobExecutionId").value(1))
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+    }
+
+    @ParameterizedTest(name = "{0}은 배치를 수동 실행할 수 없다")
+    @ValueSource(strings = {"REVIEWER", "VIEWER"})
+    @DisplayName("심사·조회 역할은 배치 수동 실행이 막힌다")
+    void 배치_수동실행_차단역할(String role) throws Exception {
+        mockMvc.perform(post("/api/tax/snapshots/jobs").with(user("tester").roles(role)))
+                .andExpect(status().isForbidden());
+
+        verify(taxCalculationService, never()).triggerSnapshotBatch();
+    }
+
+    @Test
+    @WithAnonymousUser
+    @DisplayName("미인증이면 배치 수동 실행도 막힌다")
+    void 배치_수동실행_미인증() throws Exception {
+        mockMvc.perform(post("/api/tax/snapshots/jobs")).andExpect(status().isUnauthorized());
+
+        verify(taxCalculationService, never()).triggerSnapshotBatch();
     }
 }
