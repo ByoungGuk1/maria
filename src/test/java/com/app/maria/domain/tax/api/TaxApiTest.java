@@ -1,5 +1,6 @@
 package com.app.maria.domain.tax.api;
 
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -13,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.app.maria.domain.tax.dto.TaxCalculationResultDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationPreviewResponseDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationSaveResponseDTO;
+import com.app.maria.domain.tax.dto.response.TaxSnapshotResponseDTO;
 import com.app.maria.domain.tax.exception.TaxCalculationAlreadyExistsException;
 import com.app.maria.domain.tax.exception.TaxRuleNotFoundException;
 import com.app.maria.domain.tax.service.TaxCalculationService;
@@ -21,6 +23,7 @@ import com.app.maria.global.config.SecurityConfig;
 import com.app.maria.global.jwt.JwtTokenProvider;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -179,5 +182,51 @@ class TaxApiTest {
                 .andExpect(status().isBadRequest());
 
         verify(taxCalculationService, never()).taxCalculate(anyLong());
+    }
+
+    @Test
+    @DisplayName("스냅샷 목록을 계좌 id 여러 개로 한 번에 조회한다")
+    void 스냅샷_목록조회() throws Exception {
+        when(taxCalculationService.findSnapshots(List.of(1L, 2L)))
+                .thenReturn(
+                        List.of(
+                                TaxSnapshotResponseDTO.builder()
+                                        .accountId(1L)
+                                        .finalTax(new BigDecimal("100000"))
+                                        .build(),
+                                TaxSnapshotResponseDTO.builder()
+                                        .accountId(2L)
+                                        .finalTax(new BigDecimal("0"))
+                                        .build()));
+
+        mockMvc.perform(get("/api/tax/snapshots").param("accountIds", "1,2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("세액 스냅샷 조회 성공"))
+                .andExpect(jsonPath("$.data[0].accountId").value(1))
+                .andExpect(jsonPath("$.data[0].finalTax").value(100000))
+                .andExpect(jsonPath("$.data[1].accountId").value(2));
+
+        verify(taxCalculationService).findSnapshots(List.of(1L, 2L));
+    }
+
+    @Test
+    @DisplayName("계좌 목록이 없는 계좌 id를 넣으면 빈 목록을 돌려준다")
+    void 스냅샷_결과없음() throws Exception {
+        when(taxCalculationService.findSnapshots(List.of(999L))).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/tax/snapshots").param("accountIds", "999"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    @WithAnonymousUser
+    @DisplayName("미인증이면 스냅샷 조회도 막힌다")
+    void 스냅샷_미인증() throws Exception {
+        mockMvc.perform(get("/api/tax/snapshots").param("accountIds", "1"))
+                .andExpect(status().isUnauthorized());
+
+        verify(taxCalculationService, never()).findSnapshots(anyList());
     }
 }

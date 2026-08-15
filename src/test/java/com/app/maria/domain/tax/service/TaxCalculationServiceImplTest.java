@@ -25,13 +25,17 @@ import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
+import com.app.maria.domain.tax.dto.TaxSnapshotDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationPreviewResponseDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationSaveResponseDTO;
+import com.app.maria.domain.tax.dto.response.TaxSnapshotResponseDTO;
 import com.app.maria.domain.tax.exception.TaxCalculationAlreadyExistsException;
 import com.app.maria.domain.tax.mapper.TaxMapper;
+import com.app.maria.domain.tax.mapper.TaxSnapshotMapper;
 import com.app.maria.domain.tax.type.TaxBasisType;
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.config.properties.RiaTaxProperties;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -61,6 +65,8 @@ class TaxCalculationServiceImplTest {
     @Mock BusinessClockService clockService;
 
     @Mock RiaTaxProperties riaTaxProperties;
+
+    @Mock TaxSnapshotMapper taxSnapshotMapper;
 
     @Spy TaxCalculator taxCalculator = new TaxCalculator();
 
@@ -452,5 +458,51 @@ class TaxCalculationServiceImplTest {
 
         assertThatThrownBy(() -> taxCalculationService.calculateAndSave(ACCOUNT_ID))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("스냅샷 조회 결과를 필드별로 정확히 응답 DTO로 옮긴다(필드 뒤바뀜 방지)")
+    void 스냅샷조회_필드매핑() {
+        LocalDateTime calculatedAt = LocalDateTime.of(2026, 8, 14, 2, 0);
+        when(taxSnapshotMapper.selectByAccountIds(List.of(1L, 2L)))
+                .thenReturn(
+                        List.of(
+                                TaxSnapshotDTO.builder()
+                                        .snapshotId(99L)
+                                        .accountId(1L)
+                                        .calculatedAt(calculatedAt)
+                                        .weightedSell(new BigDecimal("10"))
+                                        .originalGainAmount(new BigDecimal("20"))
+                                        .weightedGain(new BigDecimal("30"))
+                                        .weightedExternalAmount(new BigDecimal("40"))
+                                        .adjustRatio(new BigDecimal("0.5"))
+                                        .finalDeduction(new BigDecimal("60"))
+                                        .finalTax(new BigDecimal("70"))
+                                        .build()));
+
+        List<TaxSnapshotResponseDTO> result = taxCalculationService.findSnapshots(List.of(1L, 2L));
+
+        assertThat(result)
+                .singleElement()
+                .satisfies(
+                        dto -> {
+                            assertThat(dto.getAccountId()).isEqualTo(1L);
+                            assertThat(dto.getCalculatedAt()).isEqualTo(calculatedAt);
+                            assertThat(dto.getWeightedSell()).isEqualByComparingTo("10");
+                            assertThat(dto.getOriginalGainAmount()).isEqualByComparingTo("20");
+                            assertThat(dto.getWeightedGain()).isEqualByComparingTo("30");
+                            assertThat(dto.getWeightedExternalAmount()).isEqualByComparingTo("40");
+                            assertThat(dto.getAdjustRatio()).isEqualByComparingTo("0.5");
+                            assertThat(dto.getFinalDeduction()).isEqualByComparingTo("60");
+                            assertThat(dto.getFinalTax()).isEqualByComparingTo("70");
+                        });
+    }
+
+    @Test
+    @DisplayName("스냅샷이 없는 계좌는 빈 목록을 돌려준다")
+    void 스냅샷조회_결과없음() {
+        when(taxSnapshotMapper.selectByAccountIds(List.of(999L))).thenReturn(List.of());
+
+        assertThat(taxCalculationService.findSnapshots(List.of(999L))).isEmpty();
     }
 }
