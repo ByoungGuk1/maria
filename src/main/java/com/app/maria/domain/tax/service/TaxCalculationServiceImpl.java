@@ -4,6 +4,7 @@ import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.type.BenefitType;
+import com.app.maria.domain.tax.batch.TaxSnapshotJobLauncher;
 import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationDTO;
@@ -11,6 +12,7 @@ import com.app.maria.domain.tax.dto.TaxCalculationResultDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationPreviewResponseDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationSaveResponseDTO;
+import com.app.maria.domain.tax.dto.response.TaxSnapshotBatchResultResponseDTO;
 import com.app.maria.domain.tax.dto.response.TaxSnapshotResponseDTO;
 import com.app.maria.domain.tax.exception.TaxCalculationAlreadyExistsException;
 import com.app.maria.domain.tax.mapper.TaxMapper;
@@ -21,6 +23,7 @@ import com.app.maria.global.config.properties.RiaTaxProperties;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.batch.core.JobExecutionException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +37,7 @@ public class TaxCalculationServiceImpl implements TaxCalculationService {
     private final RiaTaxProperties riaTaxProperties;
     private final TaxCalculator taxCalculator;
     private final TaxSnapshotMapper taxSnapshotMapper;
+    private final TaxSnapshotJobLauncher taxSnapshotJobLauncher;
 
     @Override
     @Transactional(readOnly = true)
@@ -67,6 +71,16 @@ public class TaxCalculationServiceImpl implements TaxCalculationService {
         return taxSnapshotMapper.selectByAccountIds(accountIds).stream()
                 .map(TaxSnapshotResponseDTO::of)
                 .toList();
+    }
+
+    @Override
+    public TaxSnapshotBatchResultResponseDTO triggerSnapshotBatch() {
+        try {
+            return TaxSnapshotBatchResultResponseDTO.of(
+                    taxSnapshotJobLauncher.launch(clockService.now()));
+        } catch (JobExecutionException e) {
+            throw new IllegalStateException("세액 스냅샷 배치 실행에 실패했습니다.", e);
+        }
     }
 
     private TaxBasisType resolveBasisType(AccountDTO account) {
