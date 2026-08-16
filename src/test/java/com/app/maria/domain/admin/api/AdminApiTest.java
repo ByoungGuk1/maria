@@ -9,6 +9,7 @@ import com.app.maria.domain.admin.dto.request.AdminLoginRequestDTO;
 import com.app.maria.domain.admin.dto.request.AdminRefreshRequestDTO;
 import com.app.maria.domain.admin.dto.request.AdminRoleUpdateRequestDTO;
 import com.app.maria.domain.admin.dto.response.AdminLoginResponseDTO;
+import com.app.maria.domain.admin.dto.response.AdminSummaryResponseDTO;
 import com.app.maria.domain.admin.exception.AdminException;
 import com.app.maria.domain.admin.exception.AdminNotFoundException;
 import com.app.maria.domain.admin.service.AdminService;
@@ -16,6 +17,7 @@ import com.app.maria.domain.admin.type.AdminRole;
 import com.app.maria.global.config.SecurityConfig;
 import com.app.maria.global.jwt.JwtTokenProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -258,5 +260,52 @@ class AdminApiTest {
                                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("대상 관리자가 없습니다."));
+    }
+
+    @Test
+    @DisplayName("ADMIN 권한이면 관리자 목록을 200과 함께 반환한다")
+    @WithMockUser(roles = "ADMIN")
+    void getAllAdminsReturns200WithListWhenCallerIsAdmin() throws Exception {
+        List<AdminSummaryResponseDTO> response =
+                List.of(
+                        AdminSummaryResponseDTO.builder()
+                                .adminId(1L)
+                                .loginId("reviewer1")
+                                .name("이은정")
+                                .role(AdminRole.REVIEWER)
+                                .build(),
+                        AdminSummaryResponseDTO.builder()
+                                .adminId(2L)
+                                .loginId("admin1")
+                                .name("천유진")
+                                .role(AdminRole.ADMIN)
+                                .build());
+
+        when(adminService.getAllAdmins()).thenReturn(response);
+
+        mockMvc.perform(get("/api/auth/admin"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].loginId").value("reviewer1"))
+                .andExpect(jsonPath("$.data[0].role").value("REVIEWER"))
+                .andExpect(jsonPath("$.data[1].loginId").value("admin1"))
+                .andExpect(jsonPath("$.data[1].role").value("ADMIN"));
+    }
+
+    @Test
+    @DisplayName("인증되지 않은 요청이면 401을 반환하고 서비스는 호출되지 않는다")
+    void getAllAdminsReturns401WhenNotAuthenticated() throws Exception {
+        mockMvc.perform(get("/api/auth/admin")).andExpect(status().isUnauthorized());
+
+        verify(adminService, never()).getAllAdmins();
+    }
+
+    @Test
+    @DisplayName("ADMIN이 아니면 403을 반환하고 서비스는 호출되지 않는다")
+    @WithMockUser(roles = "VIEWER")
+    void getAllAdminsReturns403WhenCallerIsNotAdmin() throws Exception {
+        mockMvc.perform(get("/api/auth/admin")).andExpect(status().isForbidden());
+
+        verify(adminService, never()).getAllAdmins();
     }
 }
