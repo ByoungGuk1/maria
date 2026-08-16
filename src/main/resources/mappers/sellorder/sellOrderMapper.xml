@@ -22,6 +22,16 @@
         WHERE account_id = #{accountId}
     </select>
 
+    <select id="selectSellOrdersByInboundDetailIds" resultType="SellOrderDTO">
+        SELECT order_id, inbound_detail_id, account_id, foreign_product_id, sell_qty, base_price, settlement_fx_rate, status, processed_at
+        FROM sell_order
+        WHERE inbound_detail_id IN
+        <foreach item="inboundDetailId" collection="inboundDetailIds" open="(" separator="," close=")">
+            #{inboundDetailId}
+        </foreach>
+        ORDER BY inbound_detail_id, processed_at ASC
+    </select>
+
     <select id="sumSellAmountBetween" resultType="java.math.BigDecimal">
         SELECT COALESCE(SUM(sell_qty * base_price), 0)
         FROM sell_order

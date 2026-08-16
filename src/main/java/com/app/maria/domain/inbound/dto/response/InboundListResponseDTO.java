@@ -3,6 +3,7 @@ package com.app.maria.domain.inbound.dto.response;
 import com.app.maria.domain.inbound.dto.InboundListDTO;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.*;
 
 @AllArgsConstructor
@@ -24,6 +25,7 @@ public class InboundListResponseDTO {
     private BigDecimal approvedQty;
     private BigDecimal remainingQty;
     private LocalDateTime processedAt;
+    private List<InboundLotResponseDTO> lots;
 
     public InboundListResponseDTO(InboundListDTO dto) {
         this.inboundId = dto.getInboundId();
@@ -38,5 +40,9 @@ public class InboundListResponseDTO {
         this.approvedQty = dto.getApprovedQty();
         this.remainingQty = dto.getRemainingQty();
         this.processedAt = dto.getProcessedAt();
+        this.lots =
+                dto.getLots() == null
+                        ? List.of()
+                        : dto.getLots().stream().map(InboundLotResponseDTO::new).toList();
     }
 }

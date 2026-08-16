@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -18,13 +20,18 @@ import com.app.maria.domain.foreignproduct.type.ForeignProductType;
 import com.app.maria.domain.inbound.dto.InboundDetailDTO;
 import com.app.maria.domain.inbound.dto.InboundHoldingDTO;
 import com.app.maria.domain.inbound.dto.InboundListDTO;
+import com.app.maria.domain.inbound.dto.InboundLotDTO;
 import com.app.maria.domain.inbound.dto.InboundPageDTO;
+import com.app.maria.domain.inbound.dto.SourceLotApprovedQtyDTO;
 import com.app.maria.domain.inbound.dto.request.InboundRequestDTO;
 import com.app.maria.domain.inbound.dto.response.AccountHoldingResponseDTO;
 import com.app.maria.domain.inbound.dto.response.InboundResponseDTO;
 import com.app.maria.domain.inbound.exception.InboundNotFoundException;
 import com.app.maria.domain.inbound.mapper.InboundMapper;
 import com.app.maria.domain.registrablestock.dto.RegistrableStockResponseDTO;
+import com.app.maria.domain.sellorder.dto.SellOrderDTO;
+import com.app.maria.domain.sellorder.mapper.SellOrderMapper;
+import com.app.maria.domain.sellorder.type.SellOrderStatus;
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.response.ApiResponseDTO;
 import java.math.BigDecimal;
@@ -54,6 +61,8 @@ class InboundServiceImplTest {
     @Mock private ForeignProductMapper foreignProductMapper;
 
     @Mock private AccountMapper accountMapper;
+
+    @Mock private SellOrderMapper sellOrderMapper;
 
     @Mock private RestClient restClient;
 
@@ -90,8 +99,21 @@ class InboundServiceImplTest {
                                 eq(CI_HASH),
                                 eq(FOREIGN_PRODUCT_ID)))
                 .thenReturn(requestHeadersSpec);
+        lenient()
+                .when(
+                        requestHeadersUriSpec.uri(
+                                eq(
+                                        "/api/registrable-stocks/lots?ciHash={ciHash}&foreignProductId={foreignProductId}"),
+                                eq(CI_HASH),
+                                eq(FOREIGN_PRODUCT_ID)))
+                .thenReturn(requestHeadersSpec);
         lenient().when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         lenient().when(businessClockService.now()).thenReturn(NOW);
+        lenient()
+                .when(
+                        inboundMapper.sumApprovedQtyBySourceGeneralAccount(
+                                ACCOUNT_ID, FOREIGN_PRODUCT_ID))
+                .thenReturn(List.of());
     }
 
     @Test
@@ -247,6 +269,75 @@ class InboundServiceImplTest {
     }
 
     @Test
+    void processInboundSplitsAcrossMultipleLotsFifoByPurchaseDate() {
+        RegistrableStockResponseDTO irpLot =
+                lot(10L, BigDecimal.valueOf(40), LocalDateTime.of(2026, 1, 5, 9, 0));
+        RegistrableStockResponseDTO brokerageLot =
+                lot(20L, BigDecimal.valueOf(60), LocalDateTime.of(2026, 3, 10, 9, 0));
+        stubRegistrableStockLots(BigDecimal.valueOf(100), List.of(irpLot, brokerageLot));
+        when(inboundMapper.sumApprovedQtyByAccountAndProduct(ACCOUNT_ID, FOREIGN_PRODUCT_ID))
+                .thenReturn(BigDecimal.ZERO);
+        ArgumentCaptor<InboundDetailDTO> captor = ArgumentCaptor.forClass(InboundDetailDTO.class);
+
+        // IRP 40주(1월 매수, 먼저 채움) + 종합위탁 60주(3월 매수) 중 40주만 = 총 80주 승인
+        inboundService.processInbound(request(BigDecimal.valueOf(80), BigDecimal.valueOf(90)));
+
+        verify(inboundMapper, times(2)).insertInboundDetail(captor.capture());
+        List<InboundDetailDTO> details = captor.getAllValues();
+        assertThat(details.get(0).getSourceGeneralAccountId()).isEqualTo(10L);
+        assertThat(details.get(0).getQty()).isEqualByComparingTo(BigDecimal.valueOf(40));
+        assertThat(details.get(1).getSourceGeneralAccountId()).isEqualTo(20L);
+        assertThat(details.get(1).getQty()).isEqualByComparingTo(BigDecimal.valueOf(40));
+    }
+
+    @Test
+    void processInboundExcludesAlreadyApprovedQtyPerLotFromAllocation() {
+        RegistrableStockResponseDTO irpLot =
+                lot(10L, BigDecimal.valueOf(40), LocalDateTime.of(2026, 1, 5, 9, 0));
+        RegistrableStockResponseDTO brokerageLot =
+                lot(20L, BigDecimal.valueOf(60), LocalDateTime.of(2026, 3, 10, 9, 0));
+        stubRegistrableStockLots(BigDecimal.valueOf(100), List.of(irpLot, brokerageLot));
+        when(inboundMapper.sumApprovedQtyByAccountAndProduct(ACCOUNT_ID, FOREIGN_PRODUCT_ID))
+                .thenReturn(BigDecimal.valueOf(30));
+        when(inboundMapper.sumApprovedQtyBySourceGeneralAccount(ACCOUNT_ID, FOREIGN_PRODUCT_ID))
+                .thenReturn(
+                        List.of(
+                                SourceLotApprovedQtyDTO.builder()
+                                        .generalAccountId(10L)
+                                        .approvedQty(BigDecimal.valueOf(30))
+                                        .build()));
+        ArgumentCaptor<InboundDetailDTO> captor = ArgumentCaptor.forClass(InboundDetailDTO.class);
+
+        // availableQty = 100 - 30 = 70 -> 70주 그대로 승인
+        // IRP는 40주 중 이미 30주 승인돼서 10주만 남음, 나머지 60주는 종합위탁에서
+        inboundService.processInbound(request(BigDecimal.valueOf(70), BigDecimal.valueOf(90)));
+
+        verify(inboundMapper, times(2)).insertInboundDetail(captor.capture());
+        List<InboundDetailDTO> details = captor.getAllValues();
+        assertThat(details.get(0).getSourceGeneralAccountId()).isEqualTo(10L);
+        assertThat(details.get(0).getQty()).isEqualByComparingTo(BigDecimal.valueOf(10));
+        assertThat(details.get(1).getSourceGeneralAccountId()).isEqualTo(20L);
+        assertThat(details.get(1).getQty()).isEqualByComparingTo(BigDecimal.valueOf(60));
+    }
+
+    @Test
+    void processInboundCreatesSingleZeroQtyDetailWhenApprovedQtyIsZero() {
+        RegistrableStockResponseDTO irpLot =
+                lot(10L, BigDecimal.valueOf(40), LocalDateTime.of(2026, 1, 5, 9, 0));
+        stubRegistrableStockLots(BigDecimal.valueOf(40), List.of(irpLot));
+        when(inboundMapper.sumApprovedQtyByAccountAndProduct(ACCOUNT_ID, FOREIGN_PRODUCT_ID))
+                .thenReturn(BigDecimal.ZERO);
+        ArgumentCaptor<InboundDetailDTO> captor = ArgumentCaptor.forClass(InboundDetailDTO.class);
+
+        // currentHoldingAtRequest = 0 -> approvedQty = 0 (반려)이어도 lot 1건은 기록돼야 함
+        inboundService.processInbound(request(BigDecimal.valueOf(80), BigDecimal.ZERO));
+
+        verify(inboundMapper, times(1)).insertInboundDetail(captor.capture());
+        assertThat(captor.getValue().getQty()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(captor.getValue().getSourceGeneralAccountId()).isEqualTo(10L);
+    }
+
+    @Test
     void getHoldingsEnrichesEachHoldingWithProductInfo() {
         when(inboundMapper.selectHoldingsByAccount(ACCOUNT_ID))
                 .thenReturn(List.of(holding(FOREIGN_PRODUCT_ID, BigDecimal.valueOf(50))));
@@ -339,6 +430,61 @@ class InboundServiceImplTest {
         assertThat(result.getTotalPages()).isEqualTo(0);
     }
 
+    @Test
+    void getInboundsAttachesSellHistoryToMatchingLot() {
+        InboundListDTO item = InboundListDTO.builder().inboundId(1L).build();
+        InboundLotDTO lot = InboundLotDTO.builder().inboundId(1L).inboundDetailId(100L).build();
+        SellOrderDTO sellOrder =
+                SellOrderDTO.builder()
+                        .orderId(1L)
+                        .inboundDetailId(100L)
+                        .sellQty(BigDecimal.valueOf(10))
+                        .basePrice(BigDecimal.valueOf(150))
+                        .status(SellOrderStatus.EXECUTED)
+                        .processedAt(NOW)
+                        .build();
+        when(inboundMapper.selectInbounds(0, 20)).thenReturn(List.of(item));
+        when(inboundMapper.selectLotsByInboundIds(List.of(1L))).thenReturn(List.of(lot));
+        when(sellOrderMapper.selectSellOrdersByInboundDetailIds(List.of(100L)))
+                .thenReturn(List.of(sellOrder));
+        when(inboundMapper.countInbounds()).thenReturn(1);
+
+        InboundPageDTO result = inboundService.getInbounds(0, 20);
+
+        List<InboundLotDTO> lots = result.getContent().get(0).getLots();
+        assertThat(lots).hasSize(1);
+        assertThat(lots.get(0).getSellHistory()).hasSize(1);
+        assertThat(lots.get(0).getSellHistory().get(0).getSellQty())
+                .isEqualByComparingTo(BigDecimal.valueOf(10));
+        assertThat(lots.get(0).getSellHistory().get(0).getStatus())
+                .isEqualTo(SellOrderStatus.EXECUTED);
+    }
+
+    @Test
+    void getInboundsSetsEmptySellHistoryWhenNoSellOrdersExist() {
+        InboundListDTO item = InboundListDTO.builder().inboundId(1L).build();
+        InboundLotDTO lot = InboundLotDTO.builder().inboundId(1L).inboundDetailId(100L).build();
+        when(inboundMapper.selectInbounds(0, 20)).thenReturn(List.of(item));
+        when(inboundMapper.selectLotsByInboundIds(List.of(1L))).thenReturn(List.of(lot));
+        when(sellOrderMapper.selectSellOrdersByInboundDetailIds(List.of(100L)))
+                .thenReturn(List.of());
+        when(inboundMapper.countInbounds()).thenReturn(1);
+
+        InboundPageDTO result = inboundService.getInbounds(0, 20);
+
+        assertThat(result.getContent().get(0).getLots().get(0).getSellHistory()).isEmpty();
+    }
+
+    @Test
+    void getInboundsDoesNotQuerySellOrdersWhenNoLotsExist() {
+        when(inboundMapper.selectInbounds(0, 20)).thenReturn(List.of());
+        when(inboundMapper.countInbounds()).thenReturn(0);
+
+        inboundService.getInbounds(0, 20);
+
+        verify(sellOrderMapper, never()).selectSellOrdersByInboundDetailIds(any());
+    }
+
     private InboundHoldingDTO holding(Long foreignProductId, BigDecimal currentQty) {
         return InboundHoldingDTO.builder()
                 .foreignProductId(foreignProductId)
@@ -361,12 +507,18 @@ class InboundServiceImplTest {
         stubRegistrableStock(heldQty, null);
     }
 
-    @SuppressWarnings("unchecked")
     private void stubRegistrableStock(BigDecimal heldQty, Long generalAccountId) {
         RegistrableStockResponseDTO registrableStock =
+                lot(generalAccountId, heldQty, LocalDateTime.now());
+        stubRegistrableStockLots(heldQty, List.of(registrableStock));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void stubRegistrableStockLots(
+            BigDecimal aggregateHeldQty, List<RegistrableStockResponseDTO> lots) {
+        RegistrableStockResponseDTO aggregate =
                 RegistrableStockResponseDTO.builder()
-                        .generalAccountId(generalAccountId)
-                        .heldQty(heldQty)
+                        .heldQty(aggregateHeldQty)
                         .sourceBroker(null)
                         .purchaseDate(LocalDateTime.now())
                         .purchasePrice(BigDecimal.valueOf(150.25))
@@ -374,9 +526,24 @@ class InboundServiceImplTest {
                         .purchaseFxRate(BigDecimal.valueOf(1320.5))
                         .build();
         ApiResponseDTO<RegistrableStockResponseDTO> apiResponse =
-                ApiResponseDTO.of("등록가능 보유수량 조회 성공", registrableStock);
+                ApiResponseDTO.of("등록가능 보유수량 조회 성공", aggregate);
+        ApiResponseDTO<List<RegistrableStockResponseDTO>> lotsResponse =
+                ApiResponseDTO.of("조회 성공", lots);
         when(responseSpec.body(any(org.springframework.core.ParameterizedTypeReference.class)))
-                .thenReturn(apiResponse);
+                .thenReturn(apiResponse, lotsResponse);
+    }
+
+    private RegistrableStockResponseDTO lot(
+            Long generalAccountId, BigDecimal heldQty, LocalDateTime purchaseDate) {
+        return RegistrableStockResponseDTO.builder()
+                .generalAccountId(generalAccountId)
+                .heldQty(heldQty)
+                .sourceBroker(null)
+                .purchaseDate(purchaseDate)
+                .purchasePrice(BigDecimal.valueOf(150.25))
+                .purchaseCurrency("USD")
+                .purchaseFxRate(BigDecimal.valueOf(1320.5))
+                .build();
     }
 
     private InboundRequestDTO request(BigDecimal requestedQty, BigDecimal currentHoldingAtRequest) {

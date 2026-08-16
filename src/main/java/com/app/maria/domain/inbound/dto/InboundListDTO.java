@@ -2,6 +2,7 @@ package com.app.maria.domain.inbound.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.*;
 
 @AllArgsConstructor
@@ -23,4 +24,5 @@ public class InboundListDTO {
     private BigDecimal approvedQty;
     private BigDecimal remainingQty;
     private LocalDateTime processedAt;
+    private List<InboundLotDTO> lots;
 }

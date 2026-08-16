@@ -6,7 +6,9 @@ import com.app.maria.domain.inbound.dto.InboundDTO;
 import com.app.maria.domain.inbound.dto.InboundDetailDTO;
 import com.app.maria.domain.inbound.dto.InboundHoldingDTO;
 import com.app.maria.domain.inbound.dto.InboundListDTO;
+import com.app.maria.domain.inbound.dto.InboundLotDTO;
 import com.app.maria.domain.inbound.dto.InboundMinDTO;
+import com.app.maria.domain.inbound.dto.SourceLotApprovedQtyDTO;
 import java.io.IOException;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -134,6 +136,60 @@ class InboundMapperTest {
 
         assertThat(alreadyApprovedQty).isEqualByComparingTo(BigDecimal.valueOf(60));
         assertThat(availableQty).isEqualByComparingTo(BigDecimal.valueOf(40));
+    }
+
+    // ---- sumApprovedQtyBySourceGeneralAccount ----
+
+    @Test
+    @DisplayName("출처 일반계좌별로 승인수량을 합산한다")
+    void sumApprovedQtyBySourceGeneralAccountGroupsByGeneralAccountId() {
+        insertApprovedInboundWithSource(1L, 1L, 10L, BigDecimal.valueOf(40));
+        insertApprovedInboundWithSource(1L, 1L, 10L, BigDecimal.valueOf(20));
+        insertApprovedInboundWithSource(1L, 1L, 20L, BigDecimal.valueOf(15));
+
+        List<SourceLotApprovedQtyDTO> result =
+                inboundMapper.sumApprovedQtyBySourceGeneralAccount(1L, 1L);
+
+        assertThat(result)
+                .extracting(SourceLotApprovedQtyDTO::getGeneralAccountId)
+                .containsExactlyInAnyOrder(10L, 20L);
+        assertThat(
+                        result.stream()
+                                .filter(dto -> dto.getGeneralAccountId().equals(10L))
+                                .findFirst()
+                                .orElseThrow()
+                                .getApprovedQty())
+                .isEqualByComparingTo(BigDecimal.valueOf(60));
+        assertThat(
+                        result.stream()
+                                .filter(dto -> dto.getGeneralAccountId().equals(20L))
+                                .findFirst()
+                                .orElseThrow()
+                                .getApprovedQty())
+                .isEqualByComparingTo(BigDecimal.valueOf(15));
+    }
+
+    @Test
+    @DisplayName("source_general_account_id가 없는 lot(타사대체입고)은 집계에서 제외한다")
+    void sumApprovedQtyBySourceGeneralAccountExcludesNullSource() {
+        insertApprovedInboundWithSource(1L, 1L, null, BigDecimal.valueOf(40));
+        insertApprovedInboundWithSource(1L, 1L, 10L, BigDecimal.valueOf(20));
+
+        List<SourceLotApprovedQtyDTO> result =
+                inboundMapper.sumApprovedQtyBySourceGeneralAccount(1L, 1L);
+
+        assertThat(result)
+                .extracting(SourceLotApprovedQtyDTO::getGeneralAccountId)
+                .containsExactly(10L);
+    }
+
+    @Test
+    @DisplayName("승인 이력이 없으면 빈 목록을 반환한다")
+    void sumApprovedQtyBySourceGeneralAccountReturnsEmptyListWhenNoApprovalHistoryExists() {
+        List<SourceLotApprovedQtyDTO> result =
+                inboundMapper.sumApprovedQtyBySourceGeneralAccount(1L, 1L);
+
+        assertThat(result).isEmpty();
     }
 
     // ---- selectFifoLots ----
@@ -286,6 +342,27 @@ class InboundMapperTest {
     }
 
     @Test
+    @DisplayName("입고 1건에 lot이 여러 개(멀티 출처계좌)여도 목록에는 1행만 나온다")
+    void selectInboundsReturnsOneRowPerInboundEvenWithMultipleLots() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertAccount(1L, 1L, "1234567890");
+        insertForeignProduct(1L, "AAPL", "Apple Inc.");
+        insertMultiLotInbound(
+                1L,
+                1L,
+                BigDecimal.valueOf(100),
+                BigDecimal.valueOf(100),
+                LocalDateTime.of(2026, 3, 5, 9, 0),
+                BigDecimal.valueOf(40),
+                BigDecimal.valueOf(60));
+
+        List<InboundListDTO> result = inboundMapper.selectInbounds(0, 20);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTicker()).isEqualTo("AAPL");
+    }
+
+    @Test
     @DisplayName("잔여 가능 수량은 12.23 기준수량에서 동일 계좌·종목의 누적 승인수량을 뺀 값이다")
     void selectInboundsReturnsRemainingQtyBasedOnCumulativeApprovals() throws SQLException {
         insertCustomer(1L, "홍길동");
@@ -426,6 +503,69 @@ class InboundMapperTest {
         assertThat(count).isEqualTo(0);
     }
 
+    // ---- selectLotsByInboundIds ----
+
+    @Test
+    @DisplayName("여러 inboundId를 한번에 조회하면 각 입고별 lot으로 정확히 묶인다")
+    void selectLotsByInboundIdsGroupsLotsByInboundId() {
+        Long inbound1 =
+                insertMultiLotInbound(
+                        1L,
+                        1L,
+                        BigDecimal.valueOf(100),
+                        BigDecimal.valueOf(100),
+                        LocalDateTime.of(2026, 3, 5, 9, 0),
+                        BigDecimal.valueOf(40),
+                        BigDecimal.valueOf(60));
+        Long inbound2 =
+                insertMultiLotInbound(
+                        2L,
+                        1L,
+                        BigDecimal.valueOf(30),
+                        BigDecimal.valueOf(30),
+                        LocalDateTime.of(2026, 3, 6, 9, 0),
+                        BigDecimal.valueOf(30));
+
+        List<InboundLotDTO> result =
+                inboundMapper.selectLotsByInboundIds(List.of(inbound1, inbound2));
+
+        assertThat(result).hasSize(3);
+        assertThat(result.stream().filter(lot -> lot.getInboundId().equals(inbound1)).count())
+                .isEqualTo(2);
+        assertThat(result.stream().filter(lot -> lot.getInboundId().equals(inbound2)).count())
+                .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("recordedAt·매수 정보를 그대로 반환한다")
+    void selectLotsByInboundIdsReturnsRecordedAtAndPurchaseFields() {
+        Long inboundId =
+                insertMultiLotInbound(
+                        1L,
+                        1L,
+                        BigDecimal.valueOf(50),
+                        BigDecimal.valueOf(50),
+                        LocalDateTime.of(2026, 3, 5, 9, 0),
+                        BigDecimal.valueOf(50));
+
+        List<InboundLotDTO> result = inboundMapper.selectLotsByInboundIds(List.of(inboundId));
+
+        assertThat(result).hasSize(1);
+        InboundLotDTO lot = result.get(0);
+        assertThat(lot.getRecordedAt()).isEqualTo(PURCHASE_DATE);
+        assertThat(lot.getPurchaseDate()).isEqualTo(PURCHASE_DATE);
+        assertThat(lot.getPurchasePrice()).isEqualByComparingTo(PURCHASE_PRICE);
+        assertThat(lot.getPurchaseCurrency()).isEqualTo("USD");
+    }
+
+    @Test
+    @DisplayName("일치하는 inboundId가 없으면 빈 목록을 반환한다")
+    void selectLotsByInboundIdsReturnsEmptyListWhenNoMatchingInboundIds() {
+        List<InboundLotDTO> result = inboundMapper.selectLotsByInboundIds(List.of(999L));
+
+        assertThat(result).isEmpty();
+    }
+
     private void insertCustomer(Long customerId, String name) throws SQLException {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement()) {
@@ -492,6 +632,7 @@ class InboundMapperTest {
                         .foreignProductId(foreignProductId)
                         .qty(approvedQty)
                         .currentQty(approvedQty)
+                        .recordedAt(PURCHASE_DATE)
                         .purchaseDate(PURCHASE_DATE)
                         .purchasePrice(PURCHASE_PRICE)
                         .purchaseCurrency("USD")
@@ -507,6 +648,51 @@ class InboundMapperTest {
                         approvedQty,
                         snapshotQty);
         inboundMapper.insertInboundMin(inboundMinDTO);
+
+        return inboundDTO.getInboundId();
+    }
+
+    private Long insertMultiLotInbound(
+            Long accountId,
+            Long foreignProductId,
+            BigDecimal requestedQty,
+            BigDecimal approvedQty,
+            LocalDateTime processedAt,
+            BigDecimal... lotQtys) {
+        InboundDTO inboundDTO =
+                InboundDTO.builder()
+                        .accountId(accountId)
+                        .requestedQty(requestedQty)
+                        .currentHoldingAtRequest(requestedQty)
+                        .approvedQty(approvedQty)
+                        .processedAt(processedAt)
+                        .build();
+        inboundMapper.insertInbound(inboundDTO);
+
+        for (BigDecimal lotQty : lotQtys) {
+            InboundDetailDTO inboundDetailDTO =
+                    InboundDetailDTO.builder()
+                            .inboundId(inboundDTO.getInboundId())
+                            .foreignProductId(foreignProductId)
+                            .qty(lotQty)
+                            .currentQty(lotQty)
+                            .recordedAt(PURCHASE_DATE)
+                            .purchaseDate(PURCHASE_DATE)
+                            .purchasePrice(PURCHASE_PRICE)
+                            .purchaseCurrency("USD")
+                            .purchaseFxRate(PURCHASE_FX_RATE)
+                            .sourceGeneralAccountId(accountId)
+                            .build();
+            inboundMapper.insertInboundDetail(inboundDetailDTO);
+
+            InboundMinDTO inboundMinDTO =
+                    InboundMinDTO.of(
+                            inboundDetailDTO.getInboundDetailId(),
+                            requestedQty,
+                            lotQty,
+                            approvedQty);
+            inboundMapper.insertInboundMin(inboundMinDTO);
+        }
 
         return inboundDTO.getInboundId();
     }
@@ -607,11 +793,45 @@ class InboundMapperTest {
                         .foreignProductId(foreignProductId)
                         .qty(approvedQty)
                         .currentQty(approvedQty)
+                        .recordedAt(purchaseDate)
                         .purchaseDate(purchaseDate)
                         .purchasePrice(PURCHASE_PRICE)
                         .purchaseCurrency("USD")
                         .purchaseFxRate(PURCHASE_FX_RATE)
                         .sourceGeneralAccountId(accountId)
+                        .build();
+        inboundMapper.insertInboundDetail(inboundDetailDTO);
+
+        return inboundDetailDTO.getInboundDetailId();
+    }
+
+    private Long insertApprovedInboundWithSource(
+            Long accountId,
+            Long foreignProductId,
+            Long sourceGeneralAccountId,
+            BigDecimal approvedQty) {
+        InboundDTO inboundDTO =
+                InboundDTO.builder()
+                        .accountId(accountId)
+                        .requestedQty(approvedQty)
+                        .currentHoldingAtRequest(approvedQty)
+                        .approvedQty(approvedQty)
+                        .processedAt(PURCHASE_DATE)
+                        .build();
+        inboundMapper.insertInbound(inboundDTO);
+
+        InboundDetailDTO inboundDetailDTO =
+                InboundDetailDTO.builder()
+                        .inboundId(inboundDTO.getInboundId())
+                        .foreignProductId(foreignProductId)
+                        .qty(approvedQty)
+                        .currentQty(approvedQty)
+                        .recordedAt(PURCHASE_DATE)
+                        .purchaseDate(PURCHASE_DATE)
+                        .purchasePrice(PURCHASE_PRICE)
+                        .purchaseCurrency("USD")
+                        .purchaseFxRate(PURCHASE_FX_RATE)
+                        .sourceGeneralAccountId(sourceGeneralAccountId)
                         .build();
         inboundMapper.insertInboundDetail(inboundDetailDTO);
 
