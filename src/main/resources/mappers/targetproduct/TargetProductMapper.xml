@@ -25,6 +25,8 @@
         j.fund_name     AS fundName,
         j.ticker        AS ticker,
         j.is_target     AS isTarget,
+        j.foreign_stock_ratio AS foreignStockRatio,
+        j.inception_date AS inceptionDate,
         j.trade_type    AS tradeType,
         j.amount        AS amount,
         j.net_buy_amount AS netBuyAmount,

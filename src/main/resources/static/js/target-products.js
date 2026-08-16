@@ -40,6 +40,33 @@ $(function () {
         return escapeHtml(item.ticker || "-");
     }
 
+    function judgementReason(item) {
+        if (item.stockType !== "FUND") {
+            return "해외주식·ETF·ETN은 비중요건 없이 전부 대상입니다.";
+        }
+
+        var ratio = item.foreignStockRatio;
+        var ratioMet = ratio != null && Number(ratio) >= 60;
+        var ratioText = ratio != null
+            ? "해외주식비중 " + Number(ratio).toFixed(2) + "% (60% 이상 필요)"
+            : "해외주식비중 정보 없음";
+
+        var inceptionMet = false;
+        var inceptionText = "설정일 정보 없음";
+        if (item.inceptionDate) {
+            var inceptionDate = new Date(item.inceptionDate);
+            var gracePeriodEnd = new Date(item.judgedAt);
+            gracePeriodEnd.setMonth(gracePeriodEnd.getMonth() - 1);
+            inceptionMet = inceptionDate <= gracePeriodEnd;
+            inceptionText = "설정일 " + item.inceptionDate + " (설정 1개월 경과 필요)";
+        }
+
+        return (
+            (ratioMet ? "✓ " : "✗ ") + ratioText + "\n" +
+            (inceptionMet ? "✓ " : "✗ ") + inceptionText
+        );
+    }
+
     function renderTable(items) {
         var $body = $("#tpTableBody").empty();
         if (!items || items.length === 0) {
@@ -49,8 +76,8 @@ $(function () {
         items.forEach(function (item) {
             var netBuyClass = Number(item.netBuyAmount) < 0 ? ' style="color:var(--danger)"' : "";
             var targetBadge = item.isTarget
-                ? '<span class="status-badge completed">대상</span>'
-                : '<span class="status-badge failed">비대상</span>';
+                ? '<span class="status-badge completed" title="' + escapeHtml(judgementReason(item)) + '">대상</span>'
+                : '<span class="status-badge failed" title="' + escapeHtml(judgementReason(item)) + '">비대상</span>';
             var row =
                 "<tr>" +
                 "<td>" + formatDateTime(item.judgedAt) + "</td>" +
