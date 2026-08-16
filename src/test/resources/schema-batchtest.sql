@@ -4,6 +4,7 @@ DROP TABLE IF EXISTS target_product_judgement;
 DROP TABLE IF EXISTS krw_exchange;
 DROP TABLE IF EXISTS sell_order;
 DROP TABLE IF EXISTS inbound_detail;
+DROP TABLE IF EXISTS account_benefit_log;
 DROP TABLE IF EXISTS account;
 DROP TABLE IF EXISTS customer;
 
@@ -23,6 +24,15 @@ CREATE TABLE account (
     limit_amount DECIMAL(15, 0) NOT NULL DEFAULT 30000000,
     amount       DECIMAL(15, 0) NOT NULL DEFAULT 0,
     benefit      VARCHAR(12)
+);
+
+CREATE TABLE account_benefit_log (
+    benefit_id  BIGINT PRIMARY KEY AUTO_INCREMENT,
+    account_id  BIGINT       NOT NULL,
+    prev_status VARCHAR(12),
+    new_status  VARCHAR(12)  NOT NULL,
+    changed_at  DATETIME     NOT NULL,
+    reason      VARCHAR(200)
 );
 
 CREATE TABLE inbound_detail (
