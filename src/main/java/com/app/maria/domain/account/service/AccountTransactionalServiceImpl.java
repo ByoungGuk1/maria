@@ -248,6 +248,27 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
         }
     }
 
+    @Override
+    @Transactional
+    public boolean changeBenefit(
+            Long accountId, BenefitType newStatus, String reason, LocalDateTime changedAt) {
+        AccountDTO account = find(accountId);
+        BenefitType previousStatus = account.getBenefit();
+
+        if (previousStatus == newStatus || previousStatus == BenefitType.IMPOSSIBLE) {
+            return false;
+        }
+
+        // 조회와 변경 사이에 다른 요청이 상태를 바꿨으면 0행이 되어 이력도 남기지 않는다.
+        if (accountMapper.updateBenefit(accountId, newStatus, previousStatus) != 1) {
+            return false;
+        }
+
+        account.setBenefit(newStatus);
+        accountLogService.recordBenefitChange(account, previousStatus, changedAt, reason);
+        return true;
+    }
+
     private AccountDTO find(Long id) {
         return accountMapper
                 .selectByAccountId(id)

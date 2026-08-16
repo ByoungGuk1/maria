@@ -2,6 +2,7 @@ package com.app.maria.domain.tax.service;
 
 import com.app.maria.domain.tax.dto.response.TaxCalculationPreviewResponseDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationSaveResponseDTO;
+import com.app.maria.domain.tax.dto.response.TaxSnapshotBatchResultResponseDTO;
 import com.app.maria.domain.tax.dto.response.TaxSnapshotResponseDTO;
 import java.util.List;
 
@@ -11,4 +12,6 @@ public interface TaxCalculationService {
     TaxCalculationSaveResponseDTO calculateAndSave(Long accountId);
 
     List<TaxSnapshotResponseDTO> findSnapshots(List<Long> accountIds);
+
+    TaxSnapshotBatchResultResponseDTO triggerSnapshotBatch();
 }
