@@ -39,6 +39,7 @@ public class SecurityConfig {
         "/admin/account",
         "/admin/audit-log",
         "/admin/settlement",
+        "/admin/inbound",
         "/admin/admin-users",
 
         // JWT 인증 API
