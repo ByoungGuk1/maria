@@ -64,4 +64,10 @@ public class PageController {
         model.addAttribute("activePath", "/admin/admin-users");
         return "admin-users";
     }
+
+    @GetMapping("/admin/domestic-investment")
+    public String domesticInvestment(Model model) {
+        model.addAttribute("activePath", "/admin/domestic-investment");
+        return "domestic-investment";
+    }
 }
