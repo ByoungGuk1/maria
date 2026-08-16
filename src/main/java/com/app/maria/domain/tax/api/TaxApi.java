@@ -9,6 +9,7 @@ import com.app.maria.global.response.ApiResponseDTO;
 import jakarta.validation.constraints.Positive;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -56,7 +57,10 @@ public class TaxApi {
     @PostMapping("/snapshots/jobs")
     public ResponseEntity<ApiResponseDTO<TaxSnapshotBatchResultResponseDTO>>
             triggerSnapshotBatch() {
-        return ResponseEntity.ok(
-                ApiResponseDTO.of("세액 스냅샷 배치 실행 완료", taxCalculationService.triggerSnapshotBatch()));
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(
+                        ApiResponseDTO.of(
+                                "세액 스냅샷 배치 실행 요청 완료",
+                                taxCalculationService.triggerSnapshotBatch()));
     }
 }
