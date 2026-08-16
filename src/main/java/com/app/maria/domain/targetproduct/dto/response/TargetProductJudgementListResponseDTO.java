@@ -21,6 +21,8 @@ public class TargetProductJudgementListResponseDTO {
     private String fundName;
     private String ticker;
     private Boolean isTarget;
+    private BigDecimal foreignStockRatio;
+    private LocalDate inceptionDate;
     private TradeType tradeType;
     private BigDecimal amount;
     private BigDecimal netBuyAmount;
@@ -34,6 +36,8 @@ public class TargetProductJudgementListResponseDTO {
         this.fundName = dto.getFundName();
         this.ticker = dto.getTicker();
         this.isTarget = dto.getIsTarget();
+        this.foreignStockRatio = dto.getForeignStockRatio();
+        this.inceptionDate = dto.getInceptionDate();
         this.tradeType = dto.getTradeType();
         this.amount = dto.getAmount();
         this.netBuyAmount = dto.getNetBuyAmount();
