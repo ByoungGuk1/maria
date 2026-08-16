@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 @ExtendWith(MockitoExtension.class)
@@ -192,6 +193,23 @@ class DomesticInvestmentServiceImplTest {
                 ApiResponseDTO.of("조회 실패", null);
         when(responseSpec.body(any(org.springframework.core.ParameterizedTypeReference.class)))
                 .thenReturn(apiResponse);
+
+        DomesticAccountDetailDTO result = domesticInvestmentService.getAccountDetail(ACCOUNT_ID);
+
+        assertThat(result.getTradeHistory()).isEmpty();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getAccountDetailReturnsEmptyTradeHistoryWhenReturnSecuritiesCallFails() {
+        when(domesticStockBalanceMapper.selectAccountSummaryById(ACCOUNT_ID))
+                .thenReturn(
+                        Optional.of(
+                                DomesticInvestmentListDTO.builder().accountId(ACCOUNT_ID).build()));
+        when(domesticStockBalanceMapper.selectHoldingsByAccountId(ACCOUNT_ID))
+                .thenReturn(List.of());
+        when(responseSpec.body(any(org.springframework.core.ParameterizedTypeReference.class)))
+                .thenThrow(new ResourceAccessException("증권사 시스템 연결 실패"));
 
         DomesticAccountDetailDTO result = domesticInvestmentService.getAccountDetail(ACCOUNT_ID);
 

@@ -8,12 +8,15 @@ import com.app.maria.domain.domestic.exception.DomesticInvestmentNotFoundExcepti
 import com.app.maria.domain.domestic.mapper.DomesticStockBalanceMapper;
 import com.app.maria.global.response.ApiResponseDTO;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
+@Slf4j
 @Service
 @Transactional(rollbackFor = Exception.class, readOnly = true)
 public class DomesticInvestmentServiceImpl implements DomesticInvestmentService {
@@ -90,17 +93,22 @@ public class DomesticInvestmentServiceImpl implements DomesticInvestmentService 
     }
 
     private List<DomesticTradeHistoryDTO> fetchDomesticTradeHistory(String ciHash) {
-        ApiResponseDTO<List<DomesticTradeHistoryDTO>> apiResponse =
-                restClient
-                        .get()
-                        .uri("/api/domestic-trades?ciHash={ciHash}", ciHash)
-                        .retrieve()
-                        .body(
-                                new ParameterizedTypeReference<
-                                        ApiResponseDTO<List<DomesticTradeHistoryDTO>>>() {});
-        if (apiResponse == null || apiResponse.getData() == null) {
+        try {
+            ApiResponseDTO<List<DomesticTradeHistoryDTO>> apiResponse =
+                    restClient
+                            .get()
+                            .uri("/api/domestic-trades?ciHash={ciHash}", ciHash)
+                            .retrieve()
+                            .body(
+                                    new ParameterizedTypeReference<
+                                            ApiResponseDTO<List<DomesticTradeHistoryDTO>>>() {});
+            if (apiResponse == null || apiResponse.getData() == null) {
+                return List.of();
+            }
+            return apiResponse.getData();
+        } catch (RestClientException e) {
+            log.warn("증권사 매매내역 조회 실패 - 매매내역 없이 나머지 정보만 반환합니다.", e);
             return List.of();
         }
-        return apiResponse.getData();
     }
 }
