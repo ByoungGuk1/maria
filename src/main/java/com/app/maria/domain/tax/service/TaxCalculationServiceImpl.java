@@ -4,6 +4,7 @@ import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.type.BenefitType;
+import com.app.maria.domain.tax.batch.TaxSnapshotJobLauncher;
 import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationDTO;
@@ -11,15 +12,21 @@ import com.app.maria.domain.tax.dto.TaxCalculationResultDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationPreviewResponseDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationSaveResponseDTO;
+import com.app.maria.domain.tax.dto.response.TaxSnapshotBatchResultResponseDTO;
 import com.app.maria.domain.tax.dto.response.TaxSnapshotResponseDTO;
 import com.app.maria.domain.tax.exception.TaxCalculationAlreadyExistsException;
 import com.app.maria.domain.tax.mapper.TaxMapper;
 import com.app.maria.domain.tax.mapper.TaxSnapshotMapper;
+import com.app.maria.domain.tax.type.TaxAuditLogReasonCode;
 import com.app.maria.domain.tax.type.TaxBasisType;
+import com.app.maria.global.audit.dto.AuditLogDTO;
+import com.app.maria.global.audit.provider.AuditActorProvider;
+import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.config.properties.RiaTaxProperties;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -34,6 +41,9 @@ public class TaxCalculationServiceImpl implements TaxCalculationService {
     private final RiaTaxProperties riaTaxProperties;
     private final TaxCalculator taxCalculator;
     private final TaxSnapshotMapper taxSnapshotMapper;
+    private final TaxSnapshotJobLauncher taxSnapshotJobLauncher;
+    private final AuditLogService auditLogService;
+    private final AuditActorProvider auditActorProvider;
 
     @Override
     @Transactional(readOnly = true)
@@ -67,6 +77,23 @@ public class TaxCalculationServiceImpl implements TaxCalculationService {
         return taxSnapshotMapper.selectByAccountIds(accountIds).stream()
                 .map(TaxSnapshotResponseDTO::of)
                 .toList();
+    }
+
+    @Override
+    public TaxSnapshotBatchResultResponseDTO triggerSnapshotBatch() {
+        String runId = UUID.randomUUID().toString();
+        taxSnapshotJobLauncher.launchAsync(clockService.now(), runId);
+
+        auditLogService.log(
+                AuditLogDTO.builder()
+                        .adminId(auditActorProvider.getCurrentAdminId())
+                        .targetTable("TAX_SNAPSHOT_BATCH")
+                        .targetPk(runId)
+                        .afterValue("REQUESTED")
+                        .reasonCode(TaxAuditLogReasonCode.TAX_SNAPSHOT_BATCH_REQUESTED.name())
+                        .build());
+
+        return TaxSnapshotBatchResultResponseDTO.of(runId);
     }
 
     private TaxBasisType resolveBasisType(AccountDTO account) {
