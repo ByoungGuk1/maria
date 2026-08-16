@@ -8,10 +8,14 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.exception.AccountNotFoundException;
+import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.foreignproduct.dto.ForeignProductDTO;
 import com.app.maria.domain.foreignproduct.exception.ForeignProductNotFoundException;
 import com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper;
 import com.app.maria.domain.foreignproduct.type.ForeignProductType;
+import com.app.maria.domain.inbound.dto.InboundDetailDTO;
 import com.app.maria.domain.inbound.dto.InboundHoldingDTO;
 import com.app.maria.domain.inbound.dto.InboundListDTO;
 import com.app.maria.domain.inbound.dto.InboundPageDTO;
@@ -30,6 +34,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,12 +44,16 @@ import org.springframework.web.client.RestClient;
 class InboundServiceImplTest {
 
     private static final Long ACCOUNT_ID = 1L;
+    private static final Long CUSTOMER_ID = 5177L;
+    private static final String CI_HASH = "ci-hash-5177";
     private static final Long FOREIGN_PRODUCT_ID = 1L;
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 11, 10, 0);
 
     @Mock private InboundMapper inboundMapper;
 
     @Mock private ForeignProductMapper foreignProductMapper;
+
+    @Mock private AccountMapper accountMapper;
 
     @Mock private RestClient restClient;
 
@@ -61,13 +70,24 @@ class InboundServiceImplTest {
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUpRestClientChain() {
+        lenient()
+                .when(accountMapper.selectByAccountId(ACCOUNT_ID))
+                .thenReturn(
+                        Optional.of(
+                                AccountDTO.builder()
+                                        .accountId(ACCOUNT_ID)
+                                        .customerId(CUSTOMER_ID)
+                                        .build()));
+        lenient()
+                .when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID))
+                .thenReturn(Optional.of(CI_HASH));
         lenient().when(restClient.get()).thenReturn(requestHeadersUriSpec);
         lenient()
                 .when(
                         requestHeadersUriSpec.uri(
                                 eq(
-                                        "/api/registrable-stocks?generalAccountId={accountId}&foreignProductId={foreignProductId}"),
-                                eq(ACCOUNT_ID),
+                                        "/api/registrable-stocks?ciHash={ciHash}&foreignProductId={foreignProductId}"),
+                                eq(CI_HASH),
                                 eq(FOREIGN_PRODUCT_ID)))
                 .thenReturn(requestHeadersSpec);
         lenient().when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
@@ -168,6 +188,62 @@ class InboundServiceImplTest {
                                         request(BigDecimal.valueOf(80), BigDecimal.valueOf(90))))
                 .isInstanceOf(InboundNotFoundException.class)
                 .hasMessage("등록가능 보유수량 조회 실패");
+    }
+
+    @Test
+    void processInboundThrowsAccountNotFoundWhenAccountDoesNotExist() {
+        when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(
+                        () ->
+                                inboundService.processInbound(
+                                        request(BigDecimal.valueOf(80), BigDecimal.valueOf(90))))
+                .isInstanceOf(AccountNotFoundException.class)
+                .hasMessage("입고 대상 계좌가 존재하지 않습니다.");
+    }
+
+    @Test
+    void processInboundThrowsAccountNotFoundWhenCiHashMissing() {
+        when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(
+                        () ->
+                                inboundService.processInbound(
+                                        request(BigDecimal.valueOf(80), BigDecimal.valueOf(90))))
+                .isInstanceOf(AccountNotFoundException.class)
+                .hasMessage("입고 계좌의 고객 식별정보를 찾을 수 없습니다.");
+    }
+
+    @Test
+    void processInboundResolvesCiHashFromAccountBeforeCallingRegistrableStockApi() {
+        stubRegistrableStock(BigDecimal.valueOf(100));
+        when(inboundMapper.sumApprovedQtyByAccountAndProduct(ACCOUNT_ID, FOREIGN_PRODUCT_ID))
+                .thenReturn(BigDecimal.ZERO);
+
+        inboundService.processInbound(request(BigDecimal.valueOf(80), BigDecimal.valueOf(90)));
+
+        verify(accountMapper).selectByAccountId(ACCOUNT_ID);
+        verify(accountMapper).selectCiHashByCustomerId(CUSTOMER_ID);
+        verify(requestHeadersUriSpec)
+                .uri(
+                        "/api/registrable-stocks?ciHash={ciHash}&foreignProductId={foreignProductId}",
+                        CI_HASH,
+                        FOREIGN_PRODUCT_ID);
+    }
+
+    @Test
+    void processInboundSetsSourceGeneralAccountIdFromRegistrableStockResponse() {
+        stubRegistrableStock(BigDecimal.valueOf(100), 42L);
+        when(inboundMapper.sumApprovedQtyByAccountAndProduct(ACCOUNT_ID, FOREIGN_PRODUCT_ID))
+                .thenReturn(BigDecimal.ZERO);
+        ArgumentCaptor<InboundDetailDTO> captor = ArgumentCaptor.forClass(InboundDetailDTO.class);
+
+        inboundService.processInbound(request(BigDecimal.valueOf(80), BigDecimal.valueOf(90)));
+
+        verify(inboundMapper).insertInboundDetail(captor.capture());
+        // 증권사 registrable-stock 응답의 generalAccountId를 그대로 써야 함
+        // (예전엔 여기 RIA account_id가 잘못 들어갔었음 - 회귀 방지용 테스트)
+        assertThat(captor.getValue().getSourceGeneralAccountId()).isEqualTo(42L);
     }
 
     @Test
@@ -281,10 +357,15 @@ class InboundServiceImplTest {
                 .build();
     }
 
-    @SuppressWarnings("unchecked")
     private void stubRegistrableStock(BigDecimal heldQty) {
+        stubRegistrableStock(heldQty, null);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void stubRegistrableStock(BigDecimal heldQty, Long generalAccountId) {
         RegistrableStockResponseDTO registrableStock =
                 RegistrableStockResponseDTO.builder()
+                        .generalAccountId(generalAccountId)
                         .heldQty(heldQty)
                         .sourceBroker(null)
                         .purchaseDate(LocalDateTime.now())

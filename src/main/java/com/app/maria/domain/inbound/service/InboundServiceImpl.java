@@ -1,5 +1,7 @@
 package com.app.maria.domain.inbound.service;
 
+import com.app.maria.domain.account.exception.AccountNotFoundException;
+import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.foreignproduct.dto.ForeignProductDTO;
 import com.app.maria.domain.foreignproduct.exception.ForeignProductNotFoundException;
 import com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper;
@@ -30,16 +32,19 @@ public class InboundServiceImpl implements InboundService {
 
     private final InboundMapper inboundMapper;
     private final ForeignProductMapper foreignProductMapper;
+    private final AccountMapper accountMapper;
     private final RestClient restClient;
     private final BusinessClockService businessClockService;
 
     public InboundServiceImpl(
             InboundMapper inboundMapper,
             ForeignProductMapper foreignProductMapper,
+            AccountMapper accountMapper,
             @Qualifier("returnSecuritiesRestClient") RestClient restClient,
             BusinessClockService businessClockService) {
         this.inboundMapper = inboundMapper;
         this.foreignProductMapper = foreignProductMapper;
+        this.accountMapper = accountMapper;
         this.restClient = restClient;
         this.businessClockService = businessClockService;
     }
@@ -52,12 +57,24 @@ public class InboundServiceImpl implements InboundService {
         BigDecimal requestedQty = request.getRequestedQty();
         BigDecimal currentHoldingAtRequest = request.getCurrentHoldingAtRequest();
 
+        Long customerId =
+                accountMapper
+                        .selectByAccountId(accountId)
+                        .orElseThrow(() -> new AccountNotFoundException("입고 대상 계좌가 존재하지 않습니다."))
+                        .getCustomerId();
+
+        String ciHash =
+                accountMapper
+                        .selectCiHashByCustomerId(customerId)
+                        .orElseThrow(
+                                () -> new AccountNotFoundException("입고 계좌의 고객 식별정보를 찾을 수 없습니다."));
+
         ApiResponseDTO<RegistrableStockResponseDTO> apiResponse =
                 restClient
                         .get()
                         .uri(
-                                "/api/registrable-stocks?generalAccountId={accountId}&foreignProductId={foreignProductId}",
-                                accountId,
+                                "/api/registrable-stocks?ciHash={ciHash}&foreignProductId={foreignProductId}",
+                                ciHash,
                                 foreignProductId)
                         .retrieve()
                         .body(
@@ -101,8 +118,7 @@ public class InboundServiceImpl implements InboundService {
                         .purchaseCurrency(registrableStock.getPurchaseCurrency())
                         .purchaseFxRate(registrableStock.getPurchaseFxRate())
                         .sourceBroker(registrableStock.getSourceBroker())
-                        .sourceGeneralAccountId(
-                                registrableStock.getSourceBroker() == null ? accountId : null)
+                        .sourceGeneralAccountId(registrableStock.getGeneralAccountId())
                         .build();
         inboundMapper.insertInboundDetail(inboundDetailDTO);
 

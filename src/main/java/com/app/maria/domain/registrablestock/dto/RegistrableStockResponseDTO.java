@@ -11,6 +11,7 @@ import lombok.*;
 @ToString
 @Builder
 public class RegistrableStockResponseDTO {
+    private Long generalAccountId;
     private BigDecimal heldQty;
     private String sourceBroker;
     private LocalDateTime purchaseDate;
