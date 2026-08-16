@@ -4,6 +4,7 @@ import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.dto.AccountJoinDTO;
 import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.dto.AccountSearchDTO;
+import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
 import java.math.BigDecimal;
 import java.util.List;
@@ -63,6 +64,12 @@ public interface AccountMapper {
 
     // 세제혜택 불가 변경
     int updateBenefitToImpossible(Long accountId);
+
+    // 세제혜택 상태 변경(현재 상태가 expectedStatus일 때만). AccountBenefitService 전용
+    int updateBenefit(
+            @Param("accountId") Long accountId,
+            @Param("newStatus") BenefitType newStatus,
+            @Param("expectedStatus") BenefitType expectedStatus);
 
     // customerId를 통해 ci_hash 값 가져오기
     Optional<String> selectCiHashByCustomerId(Long customerId);

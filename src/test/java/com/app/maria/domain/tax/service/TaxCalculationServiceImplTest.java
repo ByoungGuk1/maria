@@ -21,6 +21,7 @@ import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.type.BenefitType;
+import com.app.maria.domain.tax.batch.TaxSnapshotJobLauncher;
 import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationDTO;
@@ -32,7 +33,11 @@ import com.app.maria.domain.tax.dto.response.TaxSnapshotResponseDTO;
 import com.app.maria.domain.tax.exception.TaxCalculationAlreadyExistsException;
 import com.app.maria.domain.tax.mapper.TaxMapper;
 import com.app.maria.domain.tax.mapper.TaxSnapshotMapper;
+import com.app.maria.domain.tax.type.TaxAuditLogReasonCode;
 import com.app.maria.domain.tax.type.TaxBasisType;
+import com.app.maria.global.audit.dto.AuditLogDTO;
+import com.app.maria.global.audit.provider.AuditActorProvider;
+import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.config.properties.RiaTaxProperties;
 import java.math.BigDecimal;
@@ -67,6 +72,12 @@ class TaxCalculationServiceImplTest {
     @Mock RiaTaxProperties riaTaxProperties;
 
     @Mock TaxSnapshotMapper taxSnapshotMapper;
+
+    @Mock TaxSnapshotJobLauncher taxSnapshotJobLauncher;
+
+    @Mock AuditLogService auditLogService;
+
+    @Mock AuditActorProvider auditActorProvider;
 
     @Spy TaxCalculator taxCalculator = new TaxCalculator();
 
@@ -504,5 +515,31 @@ class TaxCalculationServiceImplTest {
         when(taxSnapshotMapper.selectByAccountIds(List.of(999L))).thenReturn(List.of());
 
         assertThat(taxCalculationService.findSnapshots(List.of(999L))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("응답을 기다리지 않고 배치를 비동기로 실행 요청하며, 감사 로그를 남긴다")
+    void 배치_수동실행() {
+        when(clockService.now()).thenReturn(NOW);
+        when(auditActorProvider.getCurrentAdminId()).thenReturn(99L);
+
+        var response = taxCalculationService.triggerSnapshotBatch();
+
+        assertThat(response.getStatus()).isEqualTo("REQUESTED");
+        assertThat(response.getRunId()).isNotBlank();
+
+        ArgumentCaptor<String> runIdCaptor = ArgumentCaptor.forClass(String.class);
+        verify(taxSnapshotJobLauncher).launchAsync(eq(NOW), runIdCaptor.capture());
+        assertThat(runIdCaptor.getValue()).isEqualTo(response.getRunId());
+
+        ArgumentCaptor<AuditLogDTO> auditLogCaptor = ArgumentCaptor.forClass(AuditLogDTO.class);
+        verify(auditLogService).log(auditLogCaptor.capture());
+        AuditLogDTO auditLog = auditLogCaptor.getValue();
+        assertThat(auditLog.getAdminId()).isEqualTo(99L);
+        assertThat(auditLog.getTargetTable()).isEqualTo("TAX_SNAPSHOT_BATCH");
+        assertThat(auditLog.getTargetPk()).isEqualTo(response.getRunId());
+        assertThat(auditLog.getAfterValue()).isEqualTo("REQUESTED");
+        assertThat(auditLog.getReasonCode())
+                .isEqualTo(TaxAuditLogReasonCode.TAX_SNAPSHOT_BATCH_REQUESTED.name());
     }
 }

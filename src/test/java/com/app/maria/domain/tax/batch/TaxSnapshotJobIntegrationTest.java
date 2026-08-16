@@ -56,6 +56,7 @@ class TaxSnapshotJobIntegrationTest {
             statement.execute("DELETE FROM krw_exchange");
             statement.execute("DELETE FROM sell_order");
             statement.execute("DELETE FROM inbound_detail");
+            statement.execute("DELETE FROM account_benefit_log");
             statement.execute("DELETE FROM account");
             statement.execute("DELETE FROM customer");
             statement.execute("DELETE FROM tax_rule");
@@ -303,5 +304,83 @@ class TaxSnapshotJobIntegrationTest {
                 .isEqualByComparingTo("4000000.00");
         // adjustRatio = 1 - (4,000,000 / 20,000,000) = 0.8000
         assertThat(snapshotColumn(accountId, "adjust_ratio")).isEqualByComparingTo("0.8000");
+    }
+
+    @Test
+    @DisplayName("배치 실행 결과로 계좌의 benefit이 실제로 갱신된다")
+    void job_benefit이_외부순매수_여부에_따라_갱신된다() throws Exception {
+        String ciHashWithExternal = "benefitreduced".repeat(4) + "aaaa";
+        Long accountReduced = insertOpenedAccount(ciHashWithExternal);
+        insertFinalizedLot(accountReduced, LocalDateTime.of(2026, 3, 10, 10, 0), "20000000", "50");
+        insertExternalBuy(
+                ciHashWithExternal,
+                LocalDateTime.of(2026, 6, 15, 0, 0),
+                "5000000",
+                LocalDateTime.of(2026, 8, 13, 0, 0));
+
+        String ciHashNoExternal = "benefitpossible".repeat(4);
+        Long accountPossible = insertOpenedAccount(ciHashNoExternal);
+        insertFinalizedLot(accountPossible, LocalDateTime.of(2026, 3, 10, 10, 0), "20000000", "50");
+
+        JobExecution execution = jobLauncher.run(taxSnapshotJob, jobParameters());
+
+        assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(accountBenefit(accountReduced)).isEqualTo("REDUCED");
+        assertThat(accountBenefit(accountPossible)).isEqualTo("POSSIBLE");
+    }
+
+    private String accountBenefit(Long accountId) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rs =
+                        statement.executeQuery(
+                                "SELECT benefit FROM account WHERE account_id = " + accountId)) {
+            assertThat(rs.next()).isTrue();
+            return rs.getString(1);
+        }
+    }
+
+    @Test
+    @DisplayName("benefit 변경 저장이 실패하면 같은 청크의 스냅샷 저장도 함께 롤백된다")
+    void job_benefit변경_실패시_같은청크의_스냅샷도_롤백된다() throws Exception {
+        String ciHash = "rollback".repeat(8);
+        Long accountId = insertOpenedAccount(ciHash);
+        insertFinalizedLot(accountId, LocalDateTime.of(2026, 3, 10, 10, 0), "20000000", "50");
+        // POSSIBLE(초기값)과 다른 상태로 바뀌어야 changeBenefit이 실제로 UPDATE+로그 기록을 시도한다.
+        insertExternalBuy(
+                ciHash,
+                LocalDateTime.of(2026, 6, 15, 0, 0),
+                "5000000",
+                LocalDateTime.of(2026, 8, 13, 0, 0));
+
+        // account_benefit_log를 없애서 changeBenefit 내부 이력 기록이 실제로 실패하게 만든다.
+        // 다른 테스트에 영향을 주지 않도록 검증 후 반드시 테이블을 복구한다.
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE account_benefit_log");
+        }
+
+        try {
+            JobExecution execution = jobLauncher.run(taxSnapshotJob, jobParameters());
+
+            assertThat(execution.getStatus()).isEqualTo(BatchStatus.FAILED);
+            assertThat(countSnapshots()).isZero();
+            assertThat(accountBenefit(accountId)).isEqualTo("POSSIBLE");
+        } finally {
+            try (Connection connection = dataSource.getConnection();
+                    Statement statement = connection.createStatement()) {
+                statement.execute(
+                        """
+                        CREATE TABLE account_benefit_log (
+                            benefit_id  BIGINT PRIMARY KEY AUTO_INCREMENT,
+                            account_id  BIGINT       NOT NULL,
+                            prev_status VARCHAR(12),
+                            new_status  VARCHAR(12)  NOT NULL,
+                            changed_at  DATETIME     NOT NULL,
+                            reason      VARCHAR(200)
+                        )
+                        """);
+            }
+        }
     }
 }
