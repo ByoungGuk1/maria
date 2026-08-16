@@ -134,37 +134,30 @@ public class InboundServiceImpl implements InboundService {
                 lotQty = remaining.min(lotAvailable);
             }
 
-            if (lotQty.compareTo(BigDecimal.ZERO) <= 0 && anyDetailCreated) {
+            if (lotQty.compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
 
-            InboundDetailDTO inboundDetailDTO =
-                    InboundDetailDTO.builder()
-                            .inboundId(inboundDTO.getInboundId())
-                            .foreignProductId(foreignProductId)
-                            .qty(lotQty)
-                            .currentQty(lotQty)
-                            .recordedAt(businessClockService.now())
-                            .accountType(lot.getAccountType())
-                            .purchaseDate(lot.getPurchaseDate())
-                            .purchasePrice(lot.getPurchasePrice())
-                            .purchaseCurrency(lot.getPurchaseCurrency())
-                            .purchaseFxRate(lot.getPurchaseFxRate())
-                            .sourceBroker(lot.getSourceBroker())
-                            .sourceGeneralAccountId(lot.getGeneralAccountId())
-                            .build();
-            inboundMapper.insertInboundDetail(inboundDetailDTO);
-
-            InboundMinDTO inboundMinDTO =
-                    InboundMinDTO.of(
-                            inboundDetailDTO.getInboundDetailId(),
-                            requestedQty,
-                            lotQty,
-                            snapshotQty);
-            inboundMapper.insertInboundMin(inboundMinDTO);
-
+            insertInboundDetailAndMin(
+                    inboundDTO.getInboundId(),
+                    foreignProductId,
+                    lot,
+                    lotQty,
+                    requestedQty,
+                    snapshotQty);
             anyDetailCreated = true;
             remaining = remaining.subtract(lotQty);
+        }
+
+        if (!anyDetailCreated) {
+            RegistrableStockResponseDTO fallbackLot = lots.isEmpty() ? null : lots.get(0);
+            insertInboundDetailAndMin(
+                    inboundDTO.getInboundId(),
+                    foreignProductId,
+                    fallbackLot,
+                    BigDecimal.ZERO,
+                    requestedQty,
+                    snapshotQty);
         }
 
         return InboundResponseDTO.of(inboundDTO, snapshotQty);
@@ -259,5 +252,35 @@ public class InboundServiceImpl implements InboundService {
             throw new InboundNotFoundException("등록가능 보유수량 lot 조회 실패");
         }
         return apiResponse.getData();
+    }
+
+    private void insertInboundDetailAndMin(
+            Long inboundId,
+            Long foreignProductId,
+            RegistrableStockResponseDTO lot,
+            BigDecimal lotQty,
+            BigDecimal requestedQty,
+            BigDecimal snapshotQty) {
+        InboundDetailDTO inboundDetailDTO =
+                InboundDetailDTO.builder()
+                        .inboundId(inboundId)
+                        .foreignProductId(foreignProductId)
+                        .qty(lotQty)
+                        .currentQty(lotQty)
+                        .recordedAt(businessClockService.now())
+                        .accountType(lot != null ? lot.getAccountType() : null)
+                        .purchaseDate(lot != null ? lot.getPurchaseDate() : null)
+                        .purchasePrice(lot != null ? lot.getPurchasePrice() : null)
+                        .purchaseCurrency(lot != null ? lot.getPurchaseCurrency() : null)
+                        .purchaseFxRate(lot != null ? lot.getPurchaseFxRate() : null)
+                        .sourceBroker(lot != null ? lot.getSourceBroker() : null)
+                        .sourceGeneralAccountId(lot != null ? lot.getGeneralAccountId() : null)
+                        .build();
+        inboundMapper.insertInboundDetail(inboundDetailDTO);
+
+        InboundMinDTO inboundMinDTO =
+                InboundMinDTO.of(
+                        inboundDetailDTO.getInboundDetailId(), requestedQty, lotQty, snapshotQty);
+        inboundMapper.insertInboundMin(inboundMinDTO);
     }
 }
