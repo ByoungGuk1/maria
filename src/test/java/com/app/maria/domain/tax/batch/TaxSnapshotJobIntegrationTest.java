@@ -339,4 +339,48 @@ class TaxSnapshotJobIntegrationTest {
             return rs.getString(1);
         }
     }
+
+    @Test
+    @DisplayName("benefit 변경 저장이 실패하면 같은 청크의 스냅샷 저장도 함께 롤백된다")
+    void job_benefit변경_실패시_같은청크의_스냅샷도_롤백된다() throws Exception {
+        String ciHash = "rollback".repeat(8);
+        Long accountId = insertOpenedAccount(ciHash);
+        insertFinalizedLot(accountId, LocalDateTime.of(2026, 3, 10, 10, 0), "20000000", "50");
+        // POSSIBLE(초기값)과 다른 상태로 바뀌어야 changeBenefit이 실제로 UPDATE+로그 기록을 시도한다.
+        insertExternalBuy(
+                ciHash,
+                LocalDateTime.of(2026, 6, 15, 0, 0),
+                "5000000",
+                LocalDateTime.of(2026, 8, 13, 0, 0));
+
+        // account_benefit_log를 없애서 changeBenefit 내부 이력 기록이 실제로 실패하게 만든다.
+        // 다른 테스트에 영향을 주지 않도록 검증 후 반드시 테이블을 복구한다.
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE account_benefit_log");
+        }
+
+        try {
+            JobExecution execution = jobLauncher.run(taxSnapshotJob, jobParameters());
+
+            assertThat(execution.getStatus()).isEqualTo(BatchStatus.FAILED);
+            assertThat(countSnapshots()).isZero();
+            assertThat(accountBenefit(accountId)).isEqualTo("POSSIBLE");
+        } finally {
+            try (Connection connection = dataSource.getConnection();
+                    Statement statement = connection.createStatement()) {
+                statement.execute(
+                        """
+                        CREATE TABLE account_benefit_log (
+                            benefit_id  BIGINT PRIMARY KEY AUTO_INCREMENT,
+                            account_id  BIGINT       NOT NULL,
+                            prev_status VARCHAR(12),
+                            new_status  VARCHAR(12)  NOT NULL,
+                            changed_at  DATETIME     NOT NULL,
+                            reason      VARCHAR(200)
+                        )
+                        """);
+            }
+        }
+    }
 }
