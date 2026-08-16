@@ -130,6 +130,70 @@
     font: 500 10.5px 'Noto Sans KR', sans-serif;
 }
 
+.customer-search-field {
+    position: relative;
+}
+
+.customer-search-results {
+    position: absolute;
+    z-index: 20;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 240px;
+    overflow-y: auto;
+    margin-top: 4px;
+    border: 1px solid var(--inputBorder);
+    border-radius: 6px;
+    background: var(--cardBg, #fff);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, .14);
+}
+
+.customer-search-option,
+.customer-search-message {
+    display: block;
+    width: 100%;
+    padding: 9px 10px;
+    border: 0;
+    border-bottom: 1px solid var(--borderColor, #e2e8f0);
+    background: transparent;
+    color: var(--textPrimary);
+    text-align: left;
+    font: 400 11px 'Noto Sans KR', sans-serif;
+}
+
+.customer-search-option:last-child,
+.customer-search-message:last-child {
+    border-bottom: 0;
+}
+
+.customer-search-option:hover,
+.customer-search-option:focus {
+    background: var(--accentBg);
+    outline: none;
+}
+
+.customer-search-option strong {
+    display: block;
+    margin-bottom: 3px;
+    font-size: 12px;
+}
+
+.customer-search-option span,
+.customer-search-message {
+    color: var(--textMuted);
+}
+
+.selected-customer {
+    margin-top: 10px;
+    padding: 9px 10px;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    background: var(--accentBg);
+    color: var(--textPrimary);
+    font: 500 11px 'Noto Sans KR', sans-serif;
+}
+
 .account-form input,
 .account-recovery-form input,
 .account-modal-form input {

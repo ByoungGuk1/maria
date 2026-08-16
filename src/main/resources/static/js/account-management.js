@@ -17,6 +17,8 @@ $(function () {
     var PAGE_SIZE = 10;
     var availableLimitRequestIds = {};
     var accountApplicationChart = null;
+    var customerSearchTimer = null;
+    var customerSearchRequest = null;
 
     function escapeHtml(value) {
         return $("<div>").text(value == null ? "" : value).html();
@@ -131,6 +133,60 @@ $(function () {
                 }
                 handleRequestFailure(xhr, messages.error);
             });
+    }
+
+    function closeCustomerSearch() {
+        $("#customerSearchResults").prop("hidden", true).empty();
+        $("#createCustomerName").attr("aria-expanded", "false");
+    }
+
+    function clearSelectedCustomer() {
+        $("#createCustomerId").val("");
+        $("#selectedCustomer").prop("hidden", true).empty();
+        $("#availableLimit").text("고객을 선택하세요.");
+    }
+
+    function customerSummary(customer) {
+        return customer.birthDate + " · " + (customer.maskedPhone || "-") + " · " + customer.investorType + " · ID " + customer.customerId;
+    }
+
+    function renderCustomerSearchResults(customers) {
+        var $results = $("#customerSearchResults").empty().prop("hidden", false);
+        $("#createCustomerName").attr("aria-expanded", "true");
+        if (!customers.length) {
+            $results.append('<div class="customer-search-message">계좌를 개설할 수 있는 고객이 없습니다.</div>');
+            return;
+        }
+        customers.forEach(function (customer) {
+            $("<button>", {
+                type: "button",
+                class: "customer-search-option",
+                role: "option",
+                html: "<strong>" + escapeHtml(customer.name) + "</strong><span>" + escapeHtml(customerSummary(customer)) + "</span>"
+            }).data("customer", customer).appendTo($results);
+        });
+    }
+
+    function searchCustomers(name) {
+        if (customerSearchRequest) {
+            customerSearchRequest.abort();
+        }
+        $("#customerSearchResults").prop("hidden", false).html('<div class="customer-search-message">검색 중...</div>');
+        $("#createCustomerName").attr("aria-expanded", "true");
+        customerSearchRequest = MARIA.auth.ajax({
+            url: "/api/customers/search",
+            method: "GET",
+            data: { name: name }
+        }).done(function (res) {
+            renderCustomerSearchResults(res.data || []);
+        }).fail(function (xhr, status) {
+            if (status !== "abort") {
+                closeCustomerSearch();
+                handleRequestFailure(xhr, "고객 검색에 실패했습니다.");
+            }
+        }).always(function () {
+            customerSearchRequest = null;
+        });
     }
 
     function renderSummary() {
@@ -417,18 +473,15 @@ $(function () {
         MARIA.auth.ajax(options)
             .done(function () {
                 $form[0].reset();
+                if ($form.is("#accountCreateForm")) {
+                    clearSelectedCustomer();
+                    closeCustomerSearch();
+                }
                 loadAccounts();
             })
             .fail(function (xhr) {
                 handleRequestFailure(xhr, "요청 처리에 실패했습니다.");
             });
-    }
-
-    function loadAvailableLimit(customerIdSelector, displaySelector) {
-        updateAvailableLimit($(customerIdSelector).val(), displaySelector, {
-            initial: "고객 ID를 입력하세요.",
-            error: "사용 가능한 한도를 조회할 수 없습니다."
-        });
     }
 
     $(document).on("click", ".account-row", function () { selectAccount($(this).data("account-id")); });
@@ -453,8 +506,38 @@ $(function () {
             renderAccounts();
         }
     });
-    $("#createCustomerId").on("change blur", function () {
-        loadAvailableLimit("#createCustomerId", "#availableLimit");
+    $("#createCustomerName").on("input", function () {
+        var name = $(this).val().trim();
+        clearSelectedCustomer();
+        clearTimeout(customerSearchTimer);
+        if (!name) {
+            closeCustomerSearch();
+            return;
+        }
+        customerSearchTimer = setTimeout(function () { searchCustomers(name); }, 250);
+    }).on("keydown", function (event) {
+        if (event.key === "ArrowDown") {
+            event.preventDefault();
+            $("#customerSearchResults .customer-search-option").first().trigger("focus");
+        } else if (event.key === "Escape") {
+            closeCustomerSearch();
+        }
+    });
+    $(document).on("click", ".customer-search-option", function () {
+        var customer = $(this).data("customer");
+        $("#createCustomerName").val(customer.name);
+        $("#createCustomerId").val(customer.customerId);
+        $("#selectedCustomer").prop("hidden", false).text(customer.name + " · " + customerSummary(customer));
+        closeCustomerSearch();
+        updateAvailableLimit(customer.customerId, "#availableLimit", {
+            initial: "고객을 선택하세요.",
+            error: "사용 가능한 한도를 조회할 수 없습니다."
+        });
+    });
+    $(document).on("click", function (event) {
+        if (!$(event.target).closest(".customer-search-field").length) {
+            closeCustomerSearch();
+        }
     });
     $("#approveAccount").on("click", function () { submitReview("approve"); });
     $("#rejectAccount").on("click", function () { submitReview("reject"); });
@@ -504,6 +587,11 @@ $(function () {
         event.preventDefault();
         var $form = $(this);
         var limitAmount = parseLimitAmount("#createLimitAmount");
+        var customerId = Number($("#createCustomerId").val());
+        if (!customerId) {
+            showError("검색 결과에서 고객을 선택해 주세요.");
+            return;
+        }
         if (!isValidLimitAmount(limitAmount)) {
             showError("계좌의 한도는 1원 이상 5천만원 이하의 정수여야 합니다.");
             return;
@@ -513,7 +601,7 @@ $(function () {
             method: "POST",
             contentType: "application/json",
             data: JSON.stringify({
-                customerId: Number($("#createCustomerId").val()),
+                customerId: customerId,
                 limitAmount: limitAmount
             })
         });
