@@ -20,6 +20,8 @@ public class TargetProductJudgementListDTO {
     private String fundName;
     private String ticker;
     private Boolean isTarget;
+    private BigDecimal foreignStockRatio;
+    private LocalDate inceptionDate;
     private TradeType tradeType;
     private BigDecimal amount;
     private BigDecimal netBuyAmount;

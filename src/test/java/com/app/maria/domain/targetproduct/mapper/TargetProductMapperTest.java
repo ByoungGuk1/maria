@@ -231,6 +231,42 @@ class TargetProductMapperTest {
     }
 
     @Test
+    @DisplayName("판정 목록에 해외주식비중·설정일 판단기준 값을 함께 반환한다")
+    void selectJudgementsReturnsForeignStockRatioAndInceptionDate() throws SQLException {
+        insertCustomer("ci-1", "홍길동");
+        targetProductMapper.insertJudgement(
+                baseBuilder(20L)
+                        .stockType(StockType.FUND)
+                        .isTarget(false)
+                        .foreignStockRatio(new BigDecimal("45.00"))
+                        .inceptionDate(LocalDate.of(2026, 7, 20))
+                        .build());
+
+        List<TargetProductJudgementListDTO> result =
+                targetProductMapper.selectJudgements(
+                        TargetProductSearchDTO.builder().offset(0).size(10).build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getForeignStockRatio()).isEqualByComparingTo("45.00");
+        assertThat(result.get(0).getInceptionDate()).isEqualTo(LocalDate.of(2026, 7, 20));
+    }
+
+    @Test
+    @DisplayName("해외주식·ETF·ETN처럼 비중요건이 없는 종목은 판단기준 값이 null로 반환된다")
+    void selectJudgementsReturnsNullCriteriaForNonFundStockTypes() throws SQLException {
+        insertCustomer("ci-1", "홍길동");
+        targetProductMapper.insertJudgement(baseBuilder(20L).build());
+
+        List<TargetProductJudgementListDTO> result =
+                targetProductMapper.selectJudgements(
+                        TargetProductSearchDTO.builder().offset(0).size(10).build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getForeignStockRatio()).isNull();
+        assertThat(result.get(0).getInceptionDate()).isNull();
+    }
+
+    @Test
     @DisplayName("offset을 지정하면 그만큼 건너뛴 뒤부터 조회한다")
     void selectJudgementsAppliesOffsetForPagination() throws SQLException {
         insertCustomer("ci-1", "홍길동");
