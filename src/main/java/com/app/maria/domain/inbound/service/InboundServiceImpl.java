@@ -145,6 +145,7 @@ public class InboundServiceImpl implements InboundService {
                             .qty(lotQty)
                             .currentQty(lotQty)
                             .recordedAt(businessClockService.now())
+                            .accountType(lot.getAccountType())
                             .purchaseDate(lot.getPurchaseDate())
                             .purchasePrice(lot.getPurchasePrice())
                             .purchaseCurrency(lot.getPurchaseCurrency())

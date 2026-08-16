@@ -1,6 +1,7 @@
 package com.app.maria.domain.inbound.dto.response;
 
 import com.app.maria.domain.inbound.dto.InboundLotDTO;
+import com.app.maria.domain.registrablestock.type.GeneralAccountType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,6 +17,7 @@ public class InboundLotResponseDTO {
     private BigDecimal qty;
     private BigDecimal currentQty;
     private LocalDateTime recordedAt;
+    private GeneralAccountType accountType;
     private LocalDateTime purchaseDate;
     private BigDecimal purchasePrice;
     private String purchaseCurrency;
@@ -27,6 +29,7 @@ public class InboundLotResponseDTO {
         this.qty = dto.getQty();
         this.currentQty = dto.getCurrentQty();
         this.recordedAt = dto.getRecordedAt();
+        this.accountType = dto.getAccountType();
         this.purchaseDate = dto.getPurchaseDate();
         this.purchasePrice = dto.getPurchasePrice();
         this.purchaseCurrency = dto.getPurchaseCurrency();

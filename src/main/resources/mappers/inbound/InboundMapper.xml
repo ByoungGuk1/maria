@@ -12,10 +12,10 @@
             useGeneratedKeys="true" keyProperty="inboundDetailId">
         INSERT INTO inbound_detail (inbound_id, foreign_product_id, source_broker, qty, current_qty,
         recorded_at, purchase_date, purchase_price, purchase_currency, purchase_fx_rate,
-        source_general_account_id)
+        source_general_account_id, account_type)
         VALUES (#{inboundId}, #{foreignProductId}, #{sourceBroker}, #{qty}, #{currentQty},
         #{recordedAt}, #{purchaseDate}, #{purchasePrice}, #{purchaseCurrency}, #{purchaseFxRate},
-        #{sourceGeneralAccountId})
+        #{sourceGeneralAccountId}, #{accountType})
     </insert>
 
     <insert id="insertInboundMin" parameterType="InboundMinDTO"
@@ -122,6 +122,7 @@
         id.qty AS qty,
         id.current_qty AS currentQty,
         id.recorded_at AS recordedAt,
+        id.account_type AS accountType,
         id.purchase_date AS purchaseDate,
         id.purchase_price AS purchasePrice,
         id.purchase_currency AS purchaseCurrency,
