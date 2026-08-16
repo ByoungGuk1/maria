@@ -17,13 +17,17 @@ import com.app.maria.domain.tax.dto.response.TaxSnapshotResponseDTO;
 import com.app.maria.domain.tax.exception.TaxCalculationAlreadyExistsException;
 import com.app.maria.domain.tax.mapper.TaxMapper;
 import com.app.maria.domain.tax.mapper.TaxSnapshotMapper;
+import com.app.maria.domain.tax.type.TaxAuditLogReasonCode;
 import com.app.maria.domain.tax.type.TaxBasisType;
+import com.app.maria.global.audit.dto.AuditLogDTO;
+import com.app.maria.global.audit.provider.AuditActorProvider;
+import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.config.properties.RiaTaxProperties;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.batch.core.JobExecutionException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +42,8 @@ public class TaxCalculationServiceImpl implements TaxCalculationService {
     private final TaxCalculator taxCalculator;
     private final TaxSnapshotMapper taxSnapshotMapper;
     private final TaxSnapshotJobLauncher taxSnapshotJobLauncher;
+    private final AuditLogService auditLogService;
+    private final AuditActorProvider auditActorProvider;
 
     @Override
     @Transactional(readOnly = true)
@@ -75,12 +81,19 @@ public class TaxCalculationServiceImpl implements TaxCalculationService {
 
     @Override
     public TaxSnapshotBatchResultResponseDTO triggerSnapshotBatch() {
-        try {
-            return TaxSnapshotBatchResultResponseDTO.of(
-                    taxSnapshotJobLauncher.launch(clockService.now()));
-        } catch (JobExecutionException e) {
-            throw new IllegalStateException("세액 스냅샷 배치 실행에 실패했습니다.", e);
-        }
+        String runId = UUID.randomUUID().toString();
+        taxSnapshotJobLauncher.launchAsync(clockService.now(), runId);
+
+        auditLogService.log(
+                AuditLogDTO.builder()
+                        .adminId(auditActorProvider.getCurrentAdminId())
+                        .targetTable("TAX_SNAPSHOT_BATCH")
+                        .targetPk(runId)
+                        .afterValue("REQUESTED")
+                        .reasonCode(TaxAuditLogReasonCode.TAX_SNAPSHOT_BATCH_REQUESTED.name())
+                        .build());
+
+        return TaxSnapshotBatchResultResponseDTO.of(runId);
     }
 
     private TaxBasisType resolveBasisType(AccountDTO account) {

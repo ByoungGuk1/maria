@@ -33,7 +33,11 @@ import com.app.maria.domain.tax.dto.response.TaxSnapshotResponseDTO;
 import com.app.maria.domain.tax.exception.TaxCalculationAlreadyExistsException;
 import com.app.maria.domain.tax.mapper.TaxMapper;
 import com.app.maria.domain.tax.mapper.TaxSnapshotMapper;
+import com.app.maria.domain.tax.type.TaxAuditLogReasonCode;
 import com.app.maria.domain.tax.type.TaxBasisType;
+import com.app.maria.global.audit.dto.AuditLogDTO;
+import com.app.maria.global.audit.provider.AuditActorProvider;
+import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.config.properties.RiaTaxProperties;
 import java.math.BigDecimal;
@@ -49,9 +53,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.batch.core.BatchStatus;
-import org.springframework.batch.core.JobExecution;
-import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 
@@ -73,6 +74,10 @@ class TaxCalculationServiceImplTest {
     @Mock TaxSnapshotMapper taxSnapshotMapper;
 
     @Mock TaxSnapshotJobLauncher taxSnapshotJobLauncher;
+
+    @Mock AuditLogService auditLogService;
+
+    @Mock AuditActorProvider auditActorProvider;
 
     @Spy TaxCalculator taxCalculator = new TaxCalculator();
 
@@ -513,27 +518,28 @@ class TaxCalculationServiceImplTest {
     }
 
     @Test
-    @DisplayName("배치를 실행하고 실행 결과를 응답으로 감싼다")
-    void 배치_수동실행() throws Exception {
+    @DisplayName("응답을 기다리지 않고 배치를 비동기로 실행 요청하며, 감사 로그를 남긴다")
+    void 배치_수동실행() {
         when(clockService.now()).thenReturn(NOW);
-        JobExecution execution = new JobExecution(1L);
-        execution.setStatus(BatchStatus.COMPLETED);
-        when(taxSnapshotJobLauncher.launch(NOW)).thenReturn(execution);
+        when(auditActorProvider.getCurrentAdminId()).thenReturn(99L);
 
         var response = taxCalculationService.triggerSnapshotBatch();
 
-        assertThat(response.getJobExecutionId()).isEqualTo(1L);
-        assertThat(response.getStatus()).isEqualTo(BatchStatus.COMPLETED);
-    }
+        assertThat(response.getStatus()).isEqualTo("REQUESTED");
+        assertThat(response.getRunId()).isNotBlank();
 
-    @Test
-    @DisplayName("Job 실행 자체가 실패하면 IllegalStateException으로 감싸서 던진다")
-    void 배치_수동실행_실패() throws Exception {
-        when(clockService.now()).thenReturn(NOW);
-        when(taxSnapshotJobLauncher.launch(NOW))
-                .thenThrow(new JobExecutionAlreadyRunningException("이미 실행 중"));
+        ArgumentCaptor<String> runIdCaptor = ArgumentCaptor.forClass(String.class);
+        verify(taxSnapshotJobLauncher).launchAsync(eq(NOW), runIdCaptor.capture());
+        assertThat(runIdCaptor.getValue()).isEqualTo(response.getRunId());
 
-        assertThatThrownBy(() -> taxCalculationService.triggerSnapshotBatch())
-                .isInstanceOf(IllegalStateException.class);
+        ArgumentCaptor<AuditLogDTO> auditLogCaptor = ArgumentCaptor.forClass(AuditLogDTO.class);
+        verify(auditLogService).log(auditLogCaptor.capture());
+        AuditLogDTO auditLog = auditLogCaptor.getValue();
+        assertThat(auditLog.getAdminId()).isEqualTo(99L);
+        assertThat(auditLog.getTargetTable()).isEqualTo("TAX_SNAPSHOT_BATCH");
+        assertThat(auditLog.getTargetPk()).isEqualTo(response.getRunId());
+        assertThat(auditLog.getAfterValue()).isEqualTo("REQUESTED");
+        assertThat(auditLog.getReasonCode())
+                .isEqualTo(TaxAuditLogReasonCode.TAX_SNAPSHOT_BATCH_REQUESTED.name());
     }
 }

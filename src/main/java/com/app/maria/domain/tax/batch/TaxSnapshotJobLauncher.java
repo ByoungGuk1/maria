@@ -11,6 +11,7 @@ import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -24,18 +25,36 @@ public class TaxSnapshotJobLauncher {
 
     public JobExecution launch(LocalDateTime calculatedAt) throws JobExecutionException {
         String runId = UUID.randomUUID().toString();
-        JobParameters parameters =
-                new JobParametersBuilder()
-                        .addLocalDateTime("calculatedAt", calculatedAt)
-                        .addString("runId", runId)
-                        .toJobParameters();
-
-        JobExecution execution = jobLauncher.run(taxSnapshotJob, parameters);
+        JobExecution execution =
+                jobLauncher.run(taxSnapshotJob, buildParameters(calculatedAt, runId));
         log.info(
                 "세액 스냅샷 Batch 실행. calculatedAt={}, runId={}, status={}",
                 calculatedAt,
                 runId,
                 execution.getStatus());
         return execution;
+    }
+
+    /** 관리자 수동 실행용 — 응답을 기다리지 않고 백그라운드에서 실행한다. runId는 호출부가 발급해 즉시 응답에 담는다. */
+    @Async("taxSnapshotBatchTaskExecutor")
+    public void launchAsync(LocalDateTime calculatedAt, String runId) {
+        try {
+            JobExecution execution =
+                    jobLauncher.run(taxSnapshotJob, buildParameters(calculatedAt, runId));
+            log.info(
+                    "세액 스냅샷 Batch 수동 실행. calculatedAt={}, runId={}, status={}",
+                    calculatedAt,
+                    runId,
+                    execution.getStatus());
+        } catch (Exception e) {
+            log.error("세액 스냅샷 Batch 수동 실행 실패. runId={}", runId, e);
+        }
+    }
+
+    private JobParameters buildParameters(LocalDateTime calculatedAt, String runId) {
+        return new JobParametersBuilder()
+                .addLocalDateTime("calculatedAt", calculatedAt)
+                .addString("runId", runId)
+                .toJobParameters();
     }
 }

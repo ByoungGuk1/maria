@@ -29,7 +29,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.batch.core.BatchStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -239,15 +238,15 @@ class TaxApiTest {
         when(taxCalculationService.triggerSnapshotBatch())
                 .thenReturn(
                         TaxSnapshotBatchResultResponseDTO.builder()
-                                .jobExecutionId(1L)
-                                .status(BatchStatus.COMPLETED)
+                                .runId("run-1")
+                                .status("REQUESTED")
                                 .build());
 
         mockMvc.perform(post("/api/tax/snapshots/jobs").with(user("tester").roles(role)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("세액 스냅샷 배치 실행 완료"))
-                .andExpect(jsonPath("$.data.jobExecutionId").value(1))
-                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.message").value("세액 스냅샷 배치 실행 요청 완료"))
+                .andExpect(jsonPath("$.data.runId").value("run-1"))
+                .andExpect(jsonPath("$.data.status").value("REQUESTED"));
     }
 
     @ParameterizedTest(name = "{0}은 배치를 수동 실행할 수 없다")
