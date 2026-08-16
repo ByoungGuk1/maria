@@ -15,9 +15,54 @@ $(function () {
         }
         return DATETIME_FORMATTER.format(new Date(isoString)).replace(/\. /g, "-").replace(".", "");
     }
+
     function formatQty(qty) {
         return QTY_FORMATTER.format(qty || 0) + "주";
     }
+
+    function formatPrice(price, currency) {
+        if (price == null) {
+            return "-";
+        }
+        return Number(price).toLocaleString("ko-KR", { maximumFractionDigits: 4 }) + " " + (currency || "");
+    }
+
+    function lotProgressCell(lot) {
+        var qty = Number(lot.qty) || 0;
+        var currentQty = Number(lot.currentQty) || 0;
+        var ratio = qty > 0 ? (currentQty / qty) : 0;
+        var soldQty = qty - currentQty;
+        var isDepleted = currentQty <= 0 && qty > 0;
+        var note = soldQty > 0
+            ? formatQty(soldQty) + " 소진 (" + Math.round((1 - ratio) * 100) + "%)"
+            : "소진 없음";
+        return (
+            '<div class="ib-lot-progress">' +
+            '<div class="ib-lot-progress-label">' + formatQty(currentQty) + ' / ' + formatQty(qty) + '</div>' +
+            '<div class="ib-lot-progress-track"><div class="ib-lot-progress-fill' + (isDepleted ? " depleted" : "") + '" style="width:' + Math.round(ratio * 100) + '%"></div></div>' +
+            '<div class="ib-lot-progress-note">' + note + '</div>' +
+            '</div>'
+        );
+    }
+
+    var SELL_STATUS_LABEL = { RECEIVED: "접수", EXECUTED: "체결", REJECTED: "거부" };
+
+    function sellHistoryCell(sellHistory) {
+        if (!sellHistory || sellHistory.length === 0) {
+            return '<span class="ib-sell-history-empty">매도 이력 없음</span>';
+        }
+        var items = sellHistory.map(function (order) {
+            var label = SELL_STATUS_LABEL[order.status] || order.status;
+            return (
+                '<li>' + label + ' ' + formatQty(order.sellQty) +
+                ' @ ' + formatPrice(order.basePrice, null) +
+                ' · ' + formatDateTime(order.processedAt) +
+                '</li>'
+            );
+        }).join("");
+        return '<ul class="ib-sell-history">' + items + '</ul>';
+    }
+
     function escapeHtml(value) {
         return $("<div>").text(value).html();
     }
@@ -143,12 +188,40 @@ $(function () {
             '<div class="ib-min-info">' +
             '<span>계좌: ' + escapeHtml(item.accountNo || "-") + '</span>' +
             '<span>고객: ' + escapeHtml(item.customerName) + '</span>' +
-            '<span>종목: ' + escapeHtml(item.ticker || "-") + ' (' + escapeHtml(item.productName || "-") + ')</span>' +
+            '<span>종목: ' + escapeHtml(item.ticker || "-") + ' (' + escapeHtml(item.productName || "-") +
+            ')</span>' +
             (item.sourceBroker ? '<span>출처: ' + escapeHtml(item.sourceBroker) + '</span>' : "") +
             '<span>처리일시: ' + formatDateTime(item.processedAt) + '</span>' +
             '<span>잔여 가능 수량: <strong>' + formatQty(item.remainingQty) + '</strong></span>' +
             '</div>'
         );
+
+        if (item.lots && item.lots.length > 0) {
+            var lotRows = item.lots.map(function (lot) {
+                return (
+                    '<tr>' +
+                    '<td>' + escapeHtml(lot.sourceBroker || "당사") + '</td>' +
+                    '<td>' + formatDateTime(lot.purchaseDate) + '</td>' +
+                    '<td>' + formatDateTime(lot.recordedAt) + '</td>' +
+
+                    '<td>' + formatPrice(lot.purchasePrice, lot.purchaseCurrency) + '</td>' +
+                    '<td>' + lotProgressCell(lot) + '</td>' +
+                    '<td>' + sellHistoryCell(lot.sellHistory) + '</td>' +
+                    '</tr>'
+                );
+            }).join("");
+
+            $detail.append(
+                '<div class="section-header">' +
+                '<span>취득 정보</span>' +
+                '<span class="section-sub">lot ' + item.lots.length + '건</span>' +
+                '</div>' +
+                '<table class="dash-table">' +
+                '<thead><tr><th>출처</th><th>매수일</th><th>기록일</th><th>매수단가</th><th>보유 현황</th><th>매도 이력</th></tr></thead>' +
+                '<tbody>' + lotRows + '</tbody>' +
+                '</table>'
+            );
+        }
     }
 
     function loadInbounds(page) {

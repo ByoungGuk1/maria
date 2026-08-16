@@ -166,3 +166,54 @@
     color: var(--danger);
     font: 600 12px 'Noto Sans KR', sans-serif;
 }
+
+.ib-lot-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 110px;
+}
+
+.ib-lot-progress-label {
+    font: 600 11px 'Noto Sans KR', sans-serif;
+    color: var(--textPrimary);
+    font-variant-numeric: tabular-nums;
+}
+
+.ib-lot-progress-note {
+    font: 500 10px 'Noto Sans KR', sans-serif;
+    color: var(--textMuted);
+}
+
+.ib-lot-progress-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--tableHeaderBg);
+    overflow: hidden;
+}
+
+.ib-lot-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+}
+
+.ib-lot-progress-fill.depleted {
+    background: var(--danger);
+}
+
+.ib-sell-history {
+    margin: 0;
+    padding-left: 14px;
+    font: 500 10.5px 'Noto Sans KR', sans-serif;
+    color: var(--textSecondary);
+}
+
+.ib-sell-history li {
+    margin-bottom: 2px;
+}
+
+.ib-sell-history-empty {
+    color: var(--textMuted);
+    font: 500 10.5px 'Noto Sans KR', sans-serif;
+}
