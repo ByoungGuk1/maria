@@ -10,6 +10,8 @@ import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingExc
 import com.app.maria.domain.accountclosure.exception.AccountClosureStateConflictException;
 import com.app.maria.domain.admin.exception.AdminException;
 import com.app.maria.domain.admin.exception.AdminNotFoundException;
+import com.app.maria.domain.domestic.exception.DomesticInvestmentException;
+import com.app.maria.domain.domestic.exception.DomesticInvestmentNotFoundException;
 import com.app.maria.domain.domestic.exception.DomesticProductException;
 import com.app.maria.domain.domestic.exception.DomesticProductNotFoundException;
 import com.app.maria.domain.foreignproduct.exception.ForeignProductException;
@@ -390,5 +392,19 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponseDTO<Void>> handleAccountClosureStateConflictException(
             AccountClosureStateConflictException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    // 18. 국내 투자 예외
+    @ExceptionHandler(DomesticInvestmentException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleDomesticInvestmentException(
+            DomesticInvestmentException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponseDTO.of(e.getMessage()));
+    }
+
+    @ExceptionHandler(DomesticInvestmentNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleDomesticInvestmentNotFound(
+            DomesticInvestmentNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
     }
 }
