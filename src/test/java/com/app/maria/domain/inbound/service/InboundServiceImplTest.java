@@ -362,6 +362,35 @@ class InboundServiceImplTest {
     }
 
     @Test
+    void processInboundSkipsExhaustedEarlyLotWithoutCreatingZeroQtyDetail() {
+        RegistrableStockResponseDTO irpLot =
+                lot(10L, BigDecimal.valueOf(40), LocalDateTime.of(2026, 1, 5, 9, 0));
+        RegistrableStockResponseDTO brokerageLot =
+                lot(20L, BigDecimal.valueOf(60), LocalDateTime.of(2026, 3, 10, 9, 0));
+        stubRegistrableStockLots(BigDecimal.valueOf(100), List.of(irpLot, brokerageLot));
+        when(inboundMapper.sumApprovedQtyByAccountAndProduct(ACCOUNT_ID, FOREIGN_PRODUCT_ID))
+                .thenReturn(BigDecimal.ZERO);
+        // FIFO상 먼저 도는 IRP(10L) lot이 이미 40주 전부 다른 건으로 소진된 상태
+        when(inboundMapper.sumApprovedQtyBySourceGeneralAccount(ACCOUNT_ID, FOREIGN_PRODUCT_ID))
+                .thenReturn(
+                        List.of(
+                                SourceLotApprovedQtyDTO.builder()
+                                        .generalAccountId(10L)
+                                        .approvedQty(BigDecimal.valueOf(40))
+                                        .build()));
+        ArgumentCaptor<InboundDetailDTO> captor = ArgumentCaptor.forClass(InboundDetailDTO.class);
+
+        // IRP는 소진(가용 0)이라 건너뛰고 종합위탁(20L)에서만 30주 승인돼야 함
+        // (버그 있었을 때는 IRP에 qty=0 쓰레기 행이 먼저 만들어지고 종합위탁 행이 추가로 또 만들어져 총 2건이었음)
+        inboundService.processInbound(request(BigDecimal.valueOf(30), BigDecimal.valueOf(90)));
+
+        verify(inboundMapper, times(1)).insertInboundDetail(captor.capture());
+        InboundDetailDTO detail = captor.getValue();
+        assertThat(detail.getSourceGeneralAccountId()).isEqualTo(20L);
+        assertThat(detail.getQty()).isEqualByComparingTo(BigDecimal.valueOf(30));
+    }
+
+    @Test
     void getHoldingsEnrichesEachHoldingWithProductInfo() {
         when(inboundMapper.selectHoldingsByAccount(ACCOUNT_ID))
                 .thenReturn(List.of(holding(FOREIGN_PRODUCT_ID, BigDecimal.valueOf(50))));
