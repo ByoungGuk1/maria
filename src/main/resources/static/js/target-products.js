@@ -55,7 +55,7 @@ $(function () {
         var inceptionText = "설정일 정보 없음";
         if (item.inceptionDate) {
             var inceptionDate = new Date(item.inceptionDate);
-            var gracePeriodEnd = new Date(item.judgedAt);
+            var gracePeriodEnd = new Date(item.tradeDate);
             gracePeriodEnd.setMonth(gracePeriodEnd.getMonth() - 1);
             inceptionMet = inceptionDate <= gracePeriodEnd;
             inceptionText = "설정일 " + item.inceptionDate + " (설정 1개월 경과 필요)";
