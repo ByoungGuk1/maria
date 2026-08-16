@@ -9,6 +9,7 @@ import com.app.maria.domain.inbound.dto.InboundListDTO;
 import com.app.maria.domain.inbound.dto.InboundLotDTO;
 import com.app.maria.domain.inbound.dto.InboundMinDTO;
 import com.app.maria.domain.inbound.dto.SourceLotApprovedQtyDTO;
+import com.app.maria.domain.registrablestock.type.GeneralAccountType;
 import java.io.IOException;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -559,6 +560,25 @@ class InboundMapperTest {
     }
 
     @Test
+    @DisplayName("account_type을 저장한 그대로 반환한다")
+    void selectLotsByInboundIdsReturnsAccountType() throws SQLException {
+        Long inboundId =
+                insertMultiLotInbound(
+                        1L,
+                        1L,
+                        BigDecimal.valueOf(50),
+                        BigDecimal.valueOf(50),
+                        LocalDateTime.of(2026, 3, 5, 9, 0),
+                        BigDecimal.valueOf(50));
+        setAccountType(inboundId, "IRP");
+
+        List<InboundLotDTO> result = inboundMapper.selectLotsByInboundIds(List.of(inboundId));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getAccountType()).isEqualTo(GeneralAccountType.IRP);
+    }
+
+    @Test
     @DisplayName("일치하는 inboundId가 없으면 빈 목록을 반환한다")
     void selectLotsByInboundIdsReturnsEmptyListWhenNoMatchingInboundIds() {
         List<InboundLotDTO> result = inboundMapper.selectLotsByInboundIds(List.of(999L));
@@ -726,6 +746,7 @@ class InboundMapperTest {
               purchase_currency VARCHAR(10) NOT NULL,
               purchase_fx_rate DECIMAL(15, 4) NOT NULL,
               source_general_account_id BIGINT,
+              account_type VARCHAR(30),
               recorded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
               CONSTRAINT fk_inbound_detail_inbound FOREIGN KEY (inbound_id)
                   REFERENCES inbound(inbound_id)
@@ -836,6 +857,19 @@ class InboundMapperTest {
         inboundMapper.insertInboundDetail(inboundDetailDTO);
 
         return inboundDetailDTO.getInboundDetailId();
+    }
+
+    private void setAccountType(Long inboundId, String accountType) {
+        try (Connection connection = dataSource.getConnection();
+                PreparedStatement statement =
+                        connection.prepareStatement(
+                                "UPDATE inbound_detail SET account_type = ? WHERE inbound_id = ?")) {
+            statement.setString(1, accountType);
+            statement.setLong(2, inboundId);
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void reduceCurrentQty(Long inboundDetailId, BigDecimal newCurrentQty) {

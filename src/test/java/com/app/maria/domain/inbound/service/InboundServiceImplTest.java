@@ -29,6 +29,7 @@ import com.app.maria.domain.inbound.dto.response.InboundResponseDTO;
 import com.app.maria.domain.inbound.exception.InboundNotFoundException;
 import com.app.maria.domain.inbound.mapper.InboundMapper;
 import com.app.maria.domain.registrablestock.dto.RegistrableStockResponseDTO;
+import com.app.maria.domain.registrablestock.type.GeneralAccountType;
 import com.app.maria.domain.sellorder.dto.SellOrderDTO;
 import com.app.maria.domain.sellorder.mapper.SellOrderMapper;
 import com.app.maria.domain.sellorder.type.SellOrderStatus;
@@ -266,6 +267,29 @@ class InboundServiceImplTest {
         // 증권사 registrable-stock 응답의 generalAccountId를 그대로 써야 함
         // (예전엔 여기 RIA account_id가 잘못 들어갔었음 - 회귀 방지용 테스트)
         assertThat(captor.getValue().getSourceGeneralAccountId()).isEqualTo(42L);
+    }
+
+    @Test
+    void processInboundSetsAccountTypeFromRegistrableStockResponse() {
+        RegistrableStockResponseDTO registrableStock =
+                RegistrableStockResponseDTO.builder()
+                        .generalAccountId(42L)
+                        .accountType(GeneralAccountType.IRP)
+                        .heldQty(BigDecimal.valueOf(100))
+                        .purchaseDate(LocalDateTime.now())
+                        .purchasePrice(BigDecimal.valueOf(150.25))
+                        .purchaseCurrency("USD")
+                        .purchaseFxRate(BigDecimal.valueOf(1320.5))
+                        .build();
+        stubRegistrableStockLots(BigDecimal.valueOf(100), List.of(registrableStock));
+        when(inboundMapper.sumApprovedQtyByAccountAndProduct(ACCOUNT_ID, FOREIGN_PRODUCT_ID))
+                .thenReturn(BigDecimal.ZERO);
+        ArgumentCaptor<InboundDetailDTO> captor = ArgumentCaptor.forClass(InboundDetailDTO.class);
+
+        inboundService.processInbound(request(BigDecimal.valueOf(80), BigDecimal.valueOf(90)));
+
+        verify(inboundMapper).insertInboundDetail(captor.capture());
+        assertThat(captor.getValue().getAccountType()).isEqualTo(GeneralAccountType.IRP);
     }
 
     @Test

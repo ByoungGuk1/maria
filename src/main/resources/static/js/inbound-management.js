@@ -47,6 +47,24 @@ $(function () {
 
     var SELL_STATUS_LABEL = { RECEIVED: "접수", EXECUTED: "체결", REJECTED: "거부" };
 
+    var ACCOUNT_TYPE_LABEL = {
+        BROKERAGE: "종합위탁계좌",
+        CMA: "CMA",
+        IRP: "IRP",
+        PENSION_SAVINGS: "연금저축",
+        ISA: "ISA"
+    };
+
+    function sourceLabel(lot) {
+        if (lot.sourceBroker) {
+            return escapeHtml(lot.sourceBroker);
+        }
+        if (lot.accountType && ACCOUNT_TYPE_LABEL[lot.accountType]) {
+            return escapeHtml(ACCOUNT_TYPE_LABEL[lot.accountType]);
+        }
+        return "당사";
+    }
+
     function sellHistoryCell(sellHistory) {
         if (!sellHistory || sellHistory.length === 0) {
             return '<span class="ib-sell-history-empty">매도 이력 없음</span>';
@@ -200,7 +218,7 @@ $(function () {
             var lotRows = item.lots.map(function (lot) {
                 return (
                     '<tr>' +
-                    '<td>' + escapeHtml(lot.sourceBroker || "당사") + '</td>' +
+                    '<td>' + sourceLabel(lot) + '</td>' +
                     '<td>' + formatDateTime(lot.purchaseDate) + '</td>' +
                     '<td>' + formatDateTime(lot.recordedAt) + '</td>' +
 
