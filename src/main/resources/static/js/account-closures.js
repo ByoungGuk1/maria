@@ -50,7 +50,10 @@ $(function () {
         }
 
         closures.forEach(function (closure) {
-            var selectedClass = closure.closureRequestId === selectedClosureId ? " is-selected" : "";
+            var selectedClass =
+                Number(closure.closureRequestId) === Number(selectedClosureId)
+                    ? " is-selected"
+                    : "";
             $list.append(
                 '<button type="button" class="closure-list-item' + selectedClass + '"' +
                 ' data-closure-id="' + closure.closureRequestId + '">' +
@@ -74,7 +77,7 @@ $(function () {
     }
 
     function renderDetail(closure) {
-        selectedClosureId = closure.closureRequestId;
+        selectedClosureId = Number(closure.closureRequestId);
         $("#closure-detail").removeClass("is-empty");
         $("#closure-detail-empty").hide();
         $("#closure-detail-content").prop("hidden", false);
@@ -124,10 +127,13 @@ $(function () {
         })
             .done(function (response) {
                 closures = response.data || [];
-                selectedClosureId = null;
-                renderList();
                 if (closures.length) {
-                    loadDetail(closures[0].closureRequestId);
+                    selectedClosureId = Number(closures[0].closureRequestId);
+                    renderList();
+                    loadDetail(selectedClosureId);
+                } else {
+                    selectedClosureId = null;
+                    renderList();
                 }
             })
             .fail(function (xhr) {
