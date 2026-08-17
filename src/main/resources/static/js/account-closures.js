@@ -105,22 +105,49 @@ $(function () {
         $("#detail-destination-id").text(closure.destinationGeneralAccountId);
         $("#detail-requested-at").text(formatDateTime(closure.requestedAt));
         $("#detail-early-agreed").text(closure.earlyWithdrawalAgreed ? "동의함" : "동의하지 않음");
-        $("#detail-immature-principal").text(
-            closure.hasImmaturePrincipal
-                ? formatAmount(closure.immaturePrincipalAmount) + " 보유"
-                : "없음"
-        );
-        $("#detail-tax-impact").text(
-            closure.taxBenefitCancellationExpected ? "승인 시 전체 취소" : "영향 없음"
-        );
+        if (closure.status === "COMPLETED") {
+            $("#detail-immature-label").text("실제 미경과 인출액");
+            $("#detail-immature-principal").text(formatAmount(closure.immaturePrincipalAmount));
+            $("#detail-tax-label").text("세제혜택 처리 결과");
+            $("#detail-tax-impact").text(
+                closure.taxBenefitCancellationOccurred ? "전체 취소 발생" : "취소 없음"
+            );
+        } else if (closure.status === "REJECTED") {
+            $("#detail-immature-label").text("실제 미경과 인출액");
+            $("#detail-immature-principal").text("인출 없음");
+            $("#detail-tax-label").text("세제혜택 처리 결과");
+            $("#detail-tax-impact").text("취소 없음");
+        } else {
+            $("#detail-immature-label").text("현재 미경과 원금");
+            $("#detail-immature-principal").text(
+                closure.hasImmaturePrincipal
+                    ? formatAmount(closure.immaturePrincipalAmount) + " 보유"
+                    : "없음"
+            );
+            $("#detail-tax-label").text("세제혜택 예상 영향");
+            $("#detail-tax-impact").text(
+                closure.taxBenefitCancellationExpected ? "승인 시 전체 취소" : "영향 없음"
+            );
+        }
         $("#detail-status")
             .attr("class", "closure-status-badge " + statusClass(closure.status))
             .text(statusLabel(closure.status));
 
-        $("#early-withdrawal-warning")
-            .prop("hidden", !closure.taxBenefitCancellationExpected);
-        $("#early-withdrawal-not-agreed")
-            .prop("hidden", closure.taxBenefitCancellationExpected);
+        var hasTaxImpact = closure.taxBenefitCancellationExpected ||
+            closure.taxBenefitCancellationOccurred;
+        $("#early-withdrawal-warning").prop("hidden", !hasTaxImpact);
+        $("#early-withdrawal-not-agreed").prop("hidden", hasTaxImpact);
+        if (closure.taxBenefitCancellationOccurred) {
+            $("#early-withdrawal-warning strong").text("조기인출로 세제혜택이 전체 취소되었습니다.");
+            $("#early-withdrawal-warning p").text(
+                "완료된 강제인출 내역에 1년 미경과 원금이 포함되어 있습니다."
+            );
+        } else {
+            $("#early-withdrawal-warning strong").text("승인 시 세제혜택이 전체 취소됩니다.");
+            $("#early-withdrawal-warning p").text(
+                "현재 잔액에 1년 미경과 원금이 포함되어 강제인출 시 조기인출로 처리됩니다."
+            );
+        }
         $("#rejection-reason").val("");
 
         var editable = closure.status === "REQUESTED" && canProcessClosure();

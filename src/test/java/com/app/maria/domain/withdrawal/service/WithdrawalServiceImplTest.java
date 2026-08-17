@@ -164,6 +164,15 @@ class WithdrawalServiceImplTest {
     }
 
     @Test
+    void completedWithdrawalImmatureAmountComesFromAllocationHistory() {
+        when(withdrawalMapper.selectImmatureAllocatedAmountByWithdrawalId(WITHDRAWAL_ID))
+                .thenReturn(new BigDecimal("400"));
+
+        assertThat(withdrawalService.getImmatureAllocatedAmount(WITHDRAWAL_ID))
+                .isEqualByComparingTo("400");
+    }
+
+    @Test
     void closedDestinationAccount_isRejectedBeforeAccountLockAndWithdrawalPersistence() {
         prepareExternalValidation(account(Status.OPENED, "500"), GeneralAccountStatus.CLOSED);
 
