@@ -64,9 +64,10 @@ public class PageController {
         model.addAttribute("activePath", "/admin/admin-users");
         return "admin-users";
     }
+
     @GetMapping("/admin/account-closures")
-    public String accountClosures(Model model){
-        model.addAttribute("activePath","/admin/account-closures");
+    public String accountClosures(Model model) {
+        model.addAttribute("activePath", "/admin/account-closures");
         return "account-closures";
     }
 }

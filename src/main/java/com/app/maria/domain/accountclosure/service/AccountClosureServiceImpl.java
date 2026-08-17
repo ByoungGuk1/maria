@@ -6,6 +6,7 @@ import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.accountclosure.dto.AccountClosureDTO;
 import com.app.maria.domain.accountclosure.dto.request.AccountClosureApplyRequestDTO;
+import com.app.maria.domain.accountclosure.dto.response.AccountClosureDetailResponseDTO;
 import com.app.maria.domain.accountclosure.dto.response.AccountClosureResponseDTO;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotAllowedException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundException;
@@ -181,12 +182,15 @@ public class AccountClosureServiceImpl implements AccountClosureService {
     }
 
     @Override
-    public AccountClosureResponseDTO getClosure(Long closureRequestId) {
+    public AccountClosureDetailResponseDTO getClosure(Long closureRequestId) {
         AccountClosureDTO closure =
                 accountClosureMapper
                         .selectById(closureRequestId)
                         .orElseThrow(
                                 () -> new AccountClosureNotFoundException("계좌 해지 신청을 찾을 수 없습니다."));
-        return AccountClosureResponseDTO.from(closure);
+        BigDecimal immaturePrincipalAmount =
+                withdrawalService.getImmaturePrincipalAmount(closure.getAccountId());
+
+        return AccountClosureDetailResponseDTO.from(closure, immaturePrincipalAmount);
     }
 }

@@ -51,7 +51,7 @@ public class SecurityConfig {
         "/swagger-ui.html",
         "/api-docs/**",
 
-        //계좌 해지 관리 화면
+        // 계좌 해지 관리 화면
         "/admin/account-closures"
     };
 
