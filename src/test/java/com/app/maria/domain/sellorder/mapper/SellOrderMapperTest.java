@@ -261,6 +261,61 @@ class SellOrderMapperTest {
                 .containsExactlyInAnyOrder(executed.getOrderId(), rejected.getOrderId());
     }
 
+    // ---- selectSellOrdersByInboundDetailIds ----
+
+    @Test
+    @DisplayName("여러 inboundDetailId를 한번에 조회하면 각각의 매도 이력을 전부 반환한다")
+    void selectSellOrdersByInboundDetailIdsReturnsOrdersForGivenDetailIds() throws SQLException {
+        Long detail1 = insertInboundChain(600L);
+        Long detail2 = insertInboundChain(700L);
+        SellOrderDTO order1 =
+                newSellOrder(600L, 10L, detail1, "1", "10", SellOrderStatus.EXECUTED, "1000");
+        sellOrderMapper.insertSellOrder(order1);
+        SellOrderDTO order2 =
+                newSellOrder(700L, 10L, detail2, "2", "20", SellOrderStatus.RECEIVED, "1000");
+        sellOrderMapper.insertSellOrder(order2);
+
+        List<SellOrderDTO> result =
+                sellOrderMapper.selectSellOrdersByInboundDetailIds(List.of(detail1, detail2));
+
+        assertThat(result)
+                .extracting(SellOrderDTO::getOrderId)
+                .containsExactlyInAnyOrder(order1.getOrderId(), order2.getOrderId());
+    }
+
+    @Test
+    @DisplayName("조회 대상에 없는 inboundDetailId의 매도 이력은 섞이지 않는다")
+    void selectSellOrdersByInboundDetailIdsExcludesOrdersForOtherDetailIds() throws SQLException {
+        Long includedDetail = insertInboundChain(800L);
+        Long excludedDetail = insertInboundChain(900L);
+        SellOrderDTO includedOrder =
+                newSellOrder(
+                        800L, 10L, includedDetail, "1", "10", SellOrderStatus.EXECUTED, "1000");
+        sellOrderMapper.insertSellOrder(includedOrder);
+        SellOrderDTO excludedOrder =
+                newSellOrder(
+                        900L, 10L, excludedDetail, "2", "20", SellOrderStatus.EXECUTED, "1000");
+        sellOrderMapper.insertSellOrder(excludedOrder);
+
+        List<SellOrderDTO> result =
+                sellOrderMapper.selectSellOrdersByInboundDetailIds(List.of(includedDetail));
+
+        assertThat(result)
+                .extracting(SellOrderDTO::getOrderId)
+                .containsExactly(includedOrder.getOrderId());
+    }
+
+    @Test
+    @DisplayName("매도 이력이 없는 inboundDetailId면 빈 목록을 반환한다")
+    void selectSellOrdersByInboundDetailIdsReturnsEmptyListWhenNoMatch() throws SQLException {
+        Long detail = insertInboundChain(1000L);
+
+        List<SellOrderDTO> result =
+                sellOrderMapper.selectSellOrdersByInboundDetailIds(List.of(detail));
+
+        assertThat(result).isEmpty();
+    }
+
     private SellOrderDTO newSellOrder(
             Long accountId,
             Long foreignProductId,

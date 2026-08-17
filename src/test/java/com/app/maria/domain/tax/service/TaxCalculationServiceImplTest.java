@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -20,17 +21,26 @@ import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.type.BenefitType;
+import com.app.maria.domain.tax.batch.TaxSnapshotJobLauncher;
 import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
+import com.app.maria.domain.tax.dto.TaxSnapshotDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationPreviewResponseDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationSaveResponseDTO;
+import com.app.maria.domain.tax.dto.response.TaxSnapshotResponseDTO;
 import com.app.maria.domain.tax.exception.TaxCalculationAlreadyExistsException;
 import com.app.maria.domain.tax.mapper.TaxMapper;
+import com.app.maria.domain.tax.mapper.TaxSnapshotMapper;
+import com.app.maria.domain.tax.type.TaxAuditLogReasonCode;
 import com.app.maria.domain.tax.type.TaxBasisType;
+import com.app.maria.global.audit.dto.AuditLogDTO;
+import com.app.maria.global.audit.provider.AuditActorProvider;
+import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.config.properties.RiaTaxProperties;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -61,6 +71,14 @@ class TaxCalculationServiceImplTest {
 
     @Mock RiaTaxProperties riaTaxProperties;
 
+    @Mock TaxSnapshotMapper taxSnapshotMapper;
+
+    @Mock TaxSnapshotJobLauncher taxSnapshotJobLauncher;
+
+    @Mock AuditLogService auditLogService;
+
+    @Mock AuditActorProvider auditActorProvider;
+
     @Spy TaxCalculator taxCalculator = new TaxCalculator();
 
     @InjectMocks TaxCalculationServiceImpl taxCalculationService;
@@ -70,11 +88,11 @@ class TaxCalculationServiceImplTest {
     void 정상_계산() {
         stubAccount();
         stubTaxYearAndClock();
-        when(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW))
+        when(taxMapper.findFinalizedLotsByAccountIdsAndYear(List.of(ACCOUNT_ID), TAX_YEAR, NOW))
                 .thenReturn(
                         List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100")));
         when(taxMapper.findTaxRules()).thenReturn(allSeedRules());
-        when(taxMapper.findExternalBuysByAccountAndYear(ACCOUNT_ID, TAX_YEAR))
+        when(taxMapper.findExternalBuysByAccountIdsAndYear(List.of(ACCOUNT_ID), TAX_YEAR, NOW))
                 .thenReturn(List.of(externalBuy(LocalDate.of(2026, 6, 15), "10000000")));
 
         TaxCalculationPreviewResponseDTO response = taxCalculationService.taxCalculate(ACCOUNT_ID);
@@ -113,15 +131,16 @@ class TaxCalculationServiceImplTest {
     void 조회조건_전달() {
         stubAccount();
         stubTaxYearAndClock();
-        when(taxMapper.findFinalizedLotsByAccountAndYear(anyLong(), anyInt(), any()))
+        when(taxMapper.findFinalizedLotsByAccountIdsAndYear(anyList(), anyInt(), any()))
                 .thenReturn(List.of());
         when(taxMapper.findTaxRules()).thenReturn(allSeedRules());
-        when(taxMapper.findExternalBuysByAccountAndYear(anyLong(), anyInt())).thenReturn(List.of());
+        when(taxMapper.findExternalBuysByAccountIdsAndYear(anyList(), anyInt(), any()))
+                .thenReturn(List.of());
 
         taxCalculationService.taxCalculate(ACCOUNT_ID);
 
-        verify(taxMapper).findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW);
-        verify(taxMapper).findExternalBuysByAccountAndYear(ACCOUNT_ID, TAX_YEAR);
+        verify(taxMapper).findFinalizedLotsByAccountIdsAndYear(List.of(ACCOUNT_ID), TAX_YEAR, NOW);
+        verify(taxMapper).findExternalBuysByAccountIdsAndYear(List.of(ACCOUNT_ID), TAX_YEAR, NOW);
     }
 
     @Test
@@ -133,10 +152,11 @@ class TaxCalculationServiceImplTest {
                 List.of(lot(LocalDate.of(2026, 6, 15), "10000000", "100", "1000", "40"));
         List<TaxRuleDTO> rules = allSeedRules();
         List<ExternalBuyDTO> external = List.of(externalBuy(LocalDate.of(2026, 3, 10), "5000000"));
-        when(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW))
+        when(taxMapper.findFinalizedLotsByAccountIdsAndYear(List.of(ACCOUNT_ID), TAX_YEAR, NOW))
                 .thenReturn(lots);
         when(taxMapper.findTaxRules()).thenReturn(rules);
-        when(taxMapper.findExternalBuysByAccountAndYear(ACCOUNT_ID, TAX_YEAR)).thenReturn(external);
+        when(taxMapper.findExternalBuysByAccountIdsAndYear(List.of(ACCOUNT_ID), TAX_YEAR, NOW))
+                .thenReturn(external);
 
         taxCalculationService.taxCalculate(ACCOUNT_ID);
 
@@ -160,10 +180,10 @@ class TaxCalculationServiceImplTest {
     void 매도없음() {
         stubAccount();
         stubTaxYearAndClock();
-        when(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW))
+        when(taxMapper.findFinalizedLotsByAccountIdsAndYear(List.of(ACCOUNT_ID), TAX_YEAR, NOW))
                 .thenReturn(List.of());
         when(taxMapper.findTaxRules()).thenReturn(allSeedRules());
-        when(taxMapper.findExternalBuysByAccountAndYear(ACCOUNT_ID, TAX_YEAR))
+        when(taxMapper.findExternalBuysByAccountIdsAndYear(List.of(ACCOUNT_ID), TAX_YEAR, NOW))
                 .thenReturn(List.of());
 
         TaxCalculationPreviewResponseDTO response = taxCalculationService.taxCalculate(ACCOUNT_ID);
@@ -194,7 +214,7 @@ class TaxCalculationServiceImplTest {
     }
 
     private void stubTaxYearAndClock() {
-        when(riaTaxProperties.getTaxYear()).thenReturn(TAX_YEAR);
+        when(riaTaxProperties.getYear()).thenReturn(TAX_YEAR);
         when(clockService.now()).thenReturn(NOW);
     }
 
@@ -203,11 +223,11 @@ class TaxCalculationServiceImplTest {
     void 혜택배제_전달() {
         stubAccount(BenefitType.IMPOSSIBLE);
         stubTaxYearAndClock();
-        when(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW))
+        when(taxMapper.findFinalizedLotsByAccountIdsAndYear(List.of(ACCOUNT_ID), TAX_YEAR, NOW))
                 .thenReturn(
                         List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100")));
         when(taxMapper.findTaxRules()).thenReturn(allSeedRules());
-        when(taxMapper.findExternalBuysByAccountAndYear(ACCOUNT_ID, TAX_YEAR))
+        when(taxMapper.findExternalBuysByAccountIdsAndYear(List.of(ACCOUNT_ID), TAX_YEAR, NOW))
                 .thenReturn(List.of());
 
         TaxCalculationPreviewResponseDTO response = taxCalculationService.taxCalculate(ACCOUNT_ID);
@@ -224,11 +244,11 @@ class TaxCalculationServiceImplTest {
     void 정상계좌는_배제아님() {
         stubAccount(BenefitType.POSSIBLE);
         stubTaxYearAndClock();
-        when(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW))
+        when(taxMapper.findFinalizedLotsByAccountIdsAndYear(List.of(ACCOUNT_ID), TAX_YEAR, NOW))
                 .thenReturn(
                         List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100")));
         when(taxMapper.findTaxRules()).thenReturn(allSeedRules());
-        when(taxMapper.findExternalBuysByAccountAndYear(ACCOUNT_ID, TAX_YEAR))
+        when(taxMapper.findExternalBuysByAccountIdsAndYear(List.of(ACCOUNT_ID), TAX_YEAR, NOW))
                 .thenReturn(List.of());
 
         taxCalculationService.taxCalculate(ACCOUNT_ID);
@@ -241,11 +261,11 @@ class TaxCalculationServiceImplTest {
     void 혜택상태_null이면_배제아님() {
         stubAccount();
         stubTaxYearAndClock();
-        when(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW))
+        when(taxMapper.findFinalizedLotsByAccountIdsAndYear(List.of(ACCOUNT_ID), TAX_YEAR, NOW))
                 .thenReturn(
                         List.of(lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100")));
         when(taxMapper.findTaxRules()).thenReturn(allSeedRules());
-        when(taxMapper.findExternalBuysByAccountAndYear(ACCOUNT_ID, TAX_YEAR))
+        when(taxMapper.findExternalBuysByAccountIdsAndYear(List.of(ACCOUNT_ID), TAX_YEAR, NOW))
                 .thenReturn(List.of());
 
         taxCalculationService.taxCalculate(ACCOUNT_ID);
@@ -255,14 +275,14 @@ class TaxCalculationServiceImplTest {
 
     private void stubGoldenCalculation() {
         stubTaxYearAndClock();
-        when(taxMapper.findFinalizedLotsByAccountAndYear(ACCOUNT_ID, TAX_YEAR, NOW))
+        when(taxMapper.findFinalizedLotsByAccountIdsAndYear(List.of(ACCOUNT_ID), TAX_YEAR, NOW))
                 .thenReturn(
                         List.of(
                                 lot(LocalDate.of(2026, 3, 10), "30000000", "100", "1000", "100"),
                                 lot(LocalDate.of(2026, 6, 15), "10000000", "100", "1000", "40"),
                                 lot(LocalDate.of(2026, 9, 20), "10000000", "100", "1000", "40")));
         when(taxMapper.findTaxRules()).thenReturn(allSeedRules());
-        when(taxMapper.findExternalBuysByAccountAndYear(ACCOUNT_ID, TAX_YEAR))
+        when(taxMapper.findExternalBuysByAccountIdsAndYear(List.of(ACCOUNT_ID), TAX_YEAR, NOW))
                 .thenReturn(
                         List.of(
                                 externalBuy(LocalDate.of(2026, 6, 15), "20000000"),
@@ -302,13 +322,13 @@ class TaxCalculationServiceImplTest {
         TaxCalculationDTO saved = captureSaved();
         assertThat(saved.getAccountId()).isEqualTo(ACCOUNT_ID);
         assertThat(saved.getCalculatedAt()).isEqualTo(NOW);
-        assertThat(saved.getSellAmount()).isEqualByComparingTo("43000000");
-        assertThat(saved.getGainAmount()).isEqualByComparingTo("32000000");
-        assertThat(saved.getGainWeighted()).isEqualByComparingTo("27800000");
-        assertThat(saved.getExtAmount()).isEqualByComparingTo("11000000");
-        assertThat(saved.getRatio()).isEqualByComparingTo("0.7442");
-        assertThat(saved.getDeduction()).isEqualByComparingTo("20688760.00");
-        assertThat(saved.getTax()).isEqualByComparingTo("1938472.80");
+        assertThat(saved.getWeightedSell()).isEqualByComparingTo("43000000");
+        assertThat(saved.getOriginalGainAmount()).isEqualByComparingTo("32000000");
+        assertThat(saved.getWeightedGain()).isEqualByComparingTo("27800000");
+        assertThat(saved.getWeightedExternalAmount()).isEqualByComparingTo("11000000");
+        assertThat(saved.getAdjustRatio()).isEqualByComparingTo("0.7442");
+        assertThat(saved.getFinalDeduction()).isEqualByComparingTo("20688760.00");
+        assertThat(saved.getFinalTax()).isEqualByComparingTo("1938472.80");
     }
 
     @Test
@@ -324,9 +344,9 @@ class TaxCalculationServiceImplTest {
         TaxCalculationDTO saved = captureSaved();
         assertThat(response.getAccountId()).isEqualTo(saved.getAccountId());
         assertThat(response.getCalculatedAt()).isEqualTo(saved.getCalculatedAt());
-        assertThat(response.getRatio()).isEqualByComparingTo(saved.getRatio());
-        assertThat(response.getDeduction()).isEqualByComparingTo(saved.getDeduction());
-        assertThat(response.getTax()).isEqualByComparingTo(saved.getTax());
+        assertThat(response.getAdjustRatio()).isEqualByComparingTo(saved.getAdjustRatio());
+        assertThat(response.getFinalDeduction()).isEqualByComparingTo(saved.getFinalDeduction());
+        assertThat(response.getFinalTax()).isEqualByComparingTo(saved.getFinalTax());
     }
 
     @Test
@@ -344,11 +364,11 @@ class TaxCalculationServiceImplTest {
         TaxCalculationDTO saved = captureSaved();
         assertThat(saved.getBasisType()).isEqualTo(TaxBasisType.EARLY_WITHDRAWAL_CLAWBACK);
         // 혜택 배제라 공제 0, 세액은 감면 없는 값
-        assertThat(saved.getRatio()).isEqualByComparingTo("0");
-        assertThat(saved.getDeduction()).isEqualByComparingTo("0");
-        assertThat(saved.getTax()).isEqualByComparingTo("6490000.00");
+        assertThat(saved.getAdjustRatio()).isEqualByComparingTo("0");
+        assertThat(saved.getFinalDeduction()).isEqualByComparingTo("0");
+        assertThat(saved.getFinalTax()).isEqualByComparingTo("6490000.00");
         // 매도 사실은 그대로 남는다
-        assertThat(saved.getGainWeighted()).isEqualByComparingTo("27800000");
+        assertThat(saved.getWeightedGain()).isEqualByComparingTo("27800000");
     }
 
     @Test
@@ -449,5 +469,77 @@ class TaxCalculationServiceImplTest {
 
         assertThatThrownBy(() -> taxCalculationService.calculateAndSave(ACCOUNT_ID))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("스냅샷 조회 결과를 필드별로 정확히 응답 DTO로 옮긴다(필드 뒤바뀜 방지)")
+    void 스냅샷조회_필드매핑() {
+        LocalDateTime calculatedAt = LocalDateTime.of(2026, 8, 14, 2, 0);
+        when(taxSnapshotMapper.selectByAccountIds(List.of(1L, 2L)))
+                .thenReturn(
+                        List.of(
+                                TaxSnapshotDTO.builder()
+                                        .snapshotId(99L)
+                                        .accountId(1L)
+                                        .calculatedAt(calculatedAt)
+                                        .weightedSell(new BigDecimal("10"))
+                                        .originalGainAmount(new BigDecimal("20"))
+                                        .weightedGain(new BigDecimal("30"))
+                                        .weightedExternalAmount(new BigDecimal("40"))
+                                        .adjustRatio(new BigDecimal("0.5"))
+                                        .finalDeduction(new BigDecimal("60"))
+                                        .finalTax(new BigDecimal("70"))
+                                        .build()));
+
+        List<TaxSnapshotResponseDTO> result = taxCalculationService.findSnapshots(List.of(1L, 2L));
+
+        assertThat(result)
+                .singleElement()
+                .satisfies(
+                        dto -> {
+                            assertThat(dto.getAccountId()).isEqualTo(1L);
+                            assertThat(dto.getCalculatedAt()).isEqualTo(calculatedAt);
+                            assertThat(dto.getWeightedSell()).isEqualByComparingTo("10");
+                            assertThat(dto.getOriginalGainAmount()).isEqualByComparingTo("20");
+                            assertThat(dto.getWeightedGain()).isEqualByComparingTo("30");
+                            assertThat(dto.getWeightedExternalAmount()).isEqualByComparingTo("40");
+                            assertThat(dto.getAdjustRatio()).isEqualByComparingTo("0.5");
+                            assertThat(dto.getFinalDeduction()).isEqualByComparingTo("60");
+                            assertThat(dto.getFinalTax()).isEqualByComparingTo("70");
+                        });
+    }
+
+    @Test
+    @DisplayName("스냅샷이 없는 계좌는 빈 목록을 돌려준다")
+    void 스냅샷조회_결과없음() {
+        when(taxSnapshotMapper.selectByAccountIds(List.of(999L))).thenReturn(List.of());
+
+        assertThat(taxCalculationService.findSnapshots(List.of(999L))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("응답을 기다리지 않고 배치를 비동기로 실행 요청하며, 감사 로그를 남긴다")
+    void 배치_수동실행() {
+        when(clockService.now()).thenReturn(NOW);
+        when(auditActorProvider.getCurrentAdminId()).thenReturn(99L);
+
+        var response = taxCalculationService.triggerSnapshotBatch();
+
+        assertThat(response.getStatus()).isEqualTo("REQUESTED");
+        assertThat(response.getRunId()).isNotBlank();
+
+        ArgumentCaptor<String> runIdCaptor = ArgumentCaptor.forClass(String.class);
+        verify(taxSnapshotJobLauncher).launchAsync(eq(NOW), runIdCaptor.capture());
+        assertThat(runIdCaptor.getValue()).isEqualTo(response.getRunId());
+
+        ArgumentCaptor<AuditLogDTO> auditLogCaptor = ArgumentCaptor.forClass(AuditLogDTO.class);
+        verify(auditLogService).log(auditLogCaptor.capture());
+        AuditLogDTO auditLog = auditLogCaptor.getValue();
+        assertThat(auditLog.getAdminId()).isEqualTo(99L);
+        assertThat(auditLog.getTargetTable()).isEqualTo("TAX_SNAPSHOT_BATCH");
+        assertThat(auditLog.getTargetPk()).isEqualTo(response.getRunId());
+        assertThat(auditLog.getAfterValue()).isEqualTo("REQUESTED");
+        assertThat(auditLog.getReasonCode())
+                .isEqualTo(TaxAuditLogReasonCode.TAX_SNAPSHOT_BATCH_REQUESTED.name());
     }
 }

@@ -18,6 +18,7 @@ import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.provider.MydataProvider;
 import com.app.maria.domain.account.type.Status;
+import com.app.maria.global.audit.provider.AuditActorProvider;
 import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -39,6 +40,7 @@ import org.mockito.quality.Strictness;
 class AccountServiceImplTest {
     private static final Long CUSTOMER_ID = 1L;
     private static final Long ACCOUNT_ID = 10L;
+    private static final Long ADMIN_ID = 99L;
     private static final BigDecimal LIMIT = BigDecimal.valueOf(30_000_000L);
     private static final BigDecimal CHANGED_LIMIT = BigDecimal.valueOf(40_000_000L);
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 2, 10, 30);
@@ -49,6 +51,7 @@ class AccountServiceImplTest {
     @Mock private BusinessClockService businessClockService;
     @Mock private AccountTransactionalService accountTransactionalService;
     @Mock private AccountMydataSyncService accountMydataSyncService;
+    @Mock private AuditActorProvider auditActorProvider;
 
     @InjectMocks private AccountServiceImpl accountService;
 
@@ -59,11 +62,13 @@ class AccountServiceImplTest {
                 .thenReturn(Optional.of("ci-hash"));
         when(mydataProvider.getExternalConfiguredLimit("ci-hash")).thenReturn(BigDecimal.ZERO);
         when(businessClockService.now()).thenReturn(NOW);
+        when(auditActorProvider.getCurrentAdminId()).thenReturn(ADMIN_ID);
     }
 
     @Test
     void updateLimitDoesNotSyncMydataForAppliedAccount() {
-        when(accountTransactionalService.updateLimit(CUSTOMER_ID, LIMIT, CHANGED_LIMIT, NOW))
+        when(accountTransactionalService.updateLimit(
+                        ADMIN_ID, CUSTOMER_ID, LIMIT, CHANGED_LIMIT, NOW))
                 .thenReturn(account(Status.APPLIED, CHANGED_LIMIT));
 
         AccountResponseDTO result =
@@ -76,7 +81,8 @@ class AccountServiceImplTest {
     @Test
     void updateLimitSyncsOnlyLimitForOpenedAccount() {
         AccountDTO updated = account(Status.OPENED, CHANGED_LIMIT);
-        when(accountTransactionalService.updateLimit(CUSTOMER_ID, LIMIT, CHANGED_LIMIT, NOW))
+        when(accountTransactionalService.updateLimit(
+                        ADMIN_ID, CUSTOMER_ID, LIMIT, CHANGED_LIMIT, NOW))
                 .thenReturn(updated);
 
         accountService.updateAccountLimit(limitUpdateRequest(LIMIT, CHANGED_LIMIT));
@@ -97,13 +103,14 @@ class AccountServiceImplTest {
                 .isInstanceOf(InvalidAccountRequestException.class)
                 .hasMessageContaining("30000000");
 
-        verify(accountTransactionalService, never()).updateLimit(any(), any(), any(), any());
+        verify(accountTransactionalService, never()).updateLimit(any(), any(), any(), any(), any());
     }
 
     @Test
     void applyUsesSingleBusinessClockSnapshotAndCreatesMydataForOpenedAccount() {
         AccountDTO opened = account(Status.OPENED, LIMIT);
-        when(accountTransactionalService.apply(any(AccountDTO.class), eq(NOW), eq(true)))
+        when(accountTransactionalService.apply(
+                        eq(ADMIN_ID), any(AccountDTO.class), eq(NOW), eq(true)))
                 .thenReturn(opened);
 
         accountService.applyAccount(request(LIMIT));
@@ -117,13 +124,15 @@ class AccountServiceImplTest {
         AccountDTO applied = account(Status.APPLIED, LIMIT);
         when(mydataProvider.getExternalConfiguredLimit("ci-hash"))
                 .thenReturn(BigDecimal.valueOf(25_000_000L));
-        when(accountTransactionalService.apply(any(AccountDTO.class), eq(NOW), eq(false)))
+        when(accountTransactionalService.apply(
+                        eq(ADMIN_ID), any(AccountDTO.class), eq(NOW), eq(false)))
                 .thenReturn(applied);
 
         AccountResponseDTO result = accountService.applyAccount(request(LIMIT));
 
         assertThat(result.getStatus()).isEqualTo(Status.APPLIED);
-        verify(accountTransactionalService).apply(any(AccountDTO.class), eq(NOW), eq(false));
+        verify(accountTransactionalService)
+                .apply(eq(ADMIN_ID), any(AccountDTO.class), eq(NOW), eq(false));
         verify(accountMydataSyncService, never()).create(any());
     }
 
@@ -132,7 +141,8 @@ class AccountServiceImplTest {
         LocalDateTime outsidePeriod = LocalDateTime.of(2027, 1, 1, 10, 0);
         AccountDTO applied = account(Status.APPLIED, LIMIT);
         when(businessClockService.now()).thenReturn(outsidePeriod);
-        when(accountTransactionalService.apply(any(AccountDTO.class), eq(outsidePeriod), eq(false)))
+        when(accountTransactionalService.apply(
+                        eq(ADMIN_ID), any(AccountDTO.class), eq(outsidePeriod), eq(false)))
                 .thenReturn(applied);
 
         AccountResponseDTO result = accountService.applyAccount(request(LIMIT));
@@ -146,11 +156,12 @@ class AccountServiceImplTest {
         AccountDTO applied = account(Status.APPLIED, LIMIT);
         AccountDTO opened = account(Status.OPENED, LIMIT);
         when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(applied));
-        when(accountTransactionalService.approve(ACCOUNT_ID, LIMIT, NOW)).thenReturn(opened);
+        when(accountTransactionalService.approve(ADMIN_ID, ACCOUNT_ID, LIMIT, NOW))
+                .thenReturn(opened);
 
         accountService.approveAccount(ACCOUNT_ID);
 
-        verify(accountTransactionalService).approve(ACCOUNT_ID, LIMIT, NOW);
+        verify(accountTransactionalService).approve(ADMIN_ID, ACCOUNT_ID, LIMIT, NOW);
         verify(accountMydataSyncService).create(opened);
     }
 
@@ -161,12 +172,14 @@ class AccountServiceImplTest {
         AccountDTO opened = account(Status.OPENED, LIMIT);
         when(businessClockService.now()).thenReturn(afterApplicationPeriod);
         when(accountMapper.selectByAccountId(ACCOUNT_ID)).thenReturn(Optional.of(applied));
-        when(accountTransactionalService.approve(ACCOUNT_ID, LIMIT, afterApplicationPeriod))
+        when(accountTransactionalService.approve(
+                        ADMIN_ID, ACCOUNT_ID, LIMIT, afterApplicationPeriod))
                 .thenReturn(opened);
 
         accountService.approveAccount(ACCOUNT_ID);
 
-        verify(accountTransactionalService).approve(ACCOUNT_ID, LIMIT, afterApplicationPeriod);
+        verify(accountTransactionalService)
+                .approve(ADMIN_ID, ACCOUNT_ID, LIMIT, afterApplicationPeriod);
     }
 
     @Test

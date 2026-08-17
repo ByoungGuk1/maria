@@ -2,6 +2,11 @@ package com.app.maria.domain.targetproduct.service;
 
 import com.app.maria.domain.externaltradesync.dto.response.MydataTradeResponseDTO;
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductJudgementListDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductJudgementPageDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductSearchDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductSummaryDTO;
+import com.app.maria.domain.targetproduct.dto.request.TargetProductSearchRequestDTO;
 import com.app.maria.domain.targetproduct.dto.response.MydataFundResponseDTO;
 import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
 import com.app.maria.domain.targetproduct.type.StockType;
@@ -11,6 +16,7 @@ import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,7 +41,6 @@ public class TargetProductServiceImpl implements TargetProductService {
         LocalDate inceptionDate = null;
         String fundName = null;
         LocalDateTime now = businessClockService.now();
-        LocalDate today = now.toLocalDate();
 
         StockType stockType = StockType.valueOf(trade.getStockType());
         TradeType tradeType = TradeType.valueOf(trade.getTradeType());
@@ -49,7 +54,9 @@ public class TargetProductServiceImpl implements TargetProductService {
             inceptionDate = fund.getInceptionDate();
             fundName = fund.getFundName();
 
-            isTarget = isForeignStockRatioMet(fund) && isInceptionPeriodMet(fund, today);
+            isTarget =
+                    isForeignStockRatioMet(fund)
+                            && isInceptionPeriodMet(fund, trade.getTradeDate());
         } else {
             isTarget = true;
         }
@@ -78,6 +85,40 @@ public class TargetProductServiceImpl implements TargetProductService {
         return dto;
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public TargetProductJudgementPageDTO getJudgements(TargetProductSearchRequestDTO request) {
+        TargetProductSearchDTO searchDTO = request.toTargetProductSearchDTO();
+        List<TargetProductJudgementListDTO> content =
+                targetProductMapper.selectJudgements(searchDTO);
+        long totalElements = targetProductMapper.countFilteredJudgements(searchDTO);
+        int totalPages = (int) Math.ceil((double) totalElements / request.getSize());
+
+        return TargetProductJudgementPageDTO.builder()
+                .content(content)
+                .page(request.getPage())
+                .size(request.getSize())
+                .totalElements(totalElements)
+                .totalPages(totalPages)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TargetProductSummaryDTO getSummary() {
+        LocalDate today = businessClockService.now().toLocalDate();
+        LocalDate tomorrow = today.plusDays(1);
+        TargetProductSummaryDTO todayStats = targetProductMapper.selectSummary(today, tomorrow);
+        int totalCount = targetProductMapper.countJudgements();
+
+        return TargetProductSummaryDTO.builder()
+                .todayJudgementCount(todayStats.getTodayJudgementCount())
+                .todayTargetCount(todayStats.getTodayTargetCount())
+                .todayTargetNetBuyAmount(todayStats.getTodayTargetNetBuyAmount())
+                .totalJudgementCount(totalCount)
+                .build();
+    }
+
     private boolean isForeignStockRatioMet(MydataFundResponseDTO fund) {
         return fund.getForeignStockRatio() != null
                 && fund.getForeignStockRatio()
@@ -85,9 +126,9 @@ public class TargetProductServiceImpl implements TargetProductService {
                         >= 0;
     }
 
-    private boolean isInceptionPeriodMet(MydataFundResponseDTO fund, LocalDate today) {
+    private boolean isInceptionPeriodMet(MydataFundResponseDTO fund, LocalDate asOfDate) {
         return fund.getInceptionDate() != null
                 && !fund.getInceptionDate()
-                        .isAfter(today.minusMonths(INCEPTION_GRACE_PERIOD_MONTHS));
+                        .isAfter(asOfDate.minusMonths(INCEPTION_GRACE_PERIOD_MONTHS));
     }
 }

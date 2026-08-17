@@ -4,9 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.dto.AccountJoinDTO;
 import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.dto.AccountSearchDTO;
 import com.app.maria.domain.account.dto.AccountStatusLogDTO;
+import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
 import java.io.IOException;
 import java.io.Reader;
@@ -136,6 +138,7 @@ class AccountMapperTest {
         assertThat(openedAccount.getStatus()).isEqualTo(Status.OPENED);
         assertThat(openedAccount.getAccountNo()).isEqualTo(accountNo);
         assertThat(openedAccount.getOpenedAt()).isEqualTo(openedAt);
+        assertThat(openedAccount.getBenefit()).isEqualTo(BenefitType.POSSIBLE);
     }
 
     @Test
@@ -264,6 +267,25 @@ class AccountMapperTest {
     }
 
     @Test
+    @DisplayName("계좌 목록은 확정산, 가환전, 미확정 매도 금액을 사용액으로 합산한다")
+    void selectAccountListSumsUsedAmountAcrossSellOrderStates() throws SQLException {
+        Long accountId = insertApplication(1L, DEFAULT_LIMIT);
+        insertSellLimitData(accountId);
+
+        List<AccountJoinDTO> result = accountMapper.selectAccountList();
+
+        assertThat(result)
+                .filteredOn(account -> account.getAccountId().equals(accountId))
+                .singleElement()
+                .satisfies(
+                        account -> {
+                            assertThat(account.getCustomerName()).isEqualTo("홍길동");
+                            assertThat(account.getUsedAmount())
+                                    .isEqualByComparingTo(BigDecimal.valueOf(1_050L));
+                        });
+    }
+
+    @Test
     @DisplayName("관리자 오버라이드는 REJECTED 계좌만 OPENED로 변경한다")
     void overrideOpensOnlyRejectedAccount() {
         Long rejectedAccountId = insertApplication(1L, DEFAULT_LIMIT);
@@ -291,6 +313,7 @@ class AccountMapperTest {
         assertThat(openedAccount.getStatus()).isEqualTo(Status.OPENED);
         assertThat(openedAccount.getAccountNo()).isEqualTo(rejectedOverride.getAccountNo());
         assertThat(openedAccount.getOpenedAt()).isEqualTo(openedAt);
+        assertThat(openedAccount.getBenefit()).isEqualTo(BenefitType.POSSIBLE);
         assertThat(accountMapper.selectByAccountId(appliedAccountId).orElseThrow().getStatus())
                 .isEqualTo(Status.APPLIED);
     }
@@ -330,7 +353,7 @@ class AccountMapperTest {
         assertThat(result).hasSize(3);
         assertThat(result)
                 .extracting(AccountDTO::getStatus)
-                .containsExactly(Status.REJECTED, Status.OPENED, Status.APPLIED);
+                .containsExactly(Status.APPLIED, Status.REJECTED, Status.OPENED);
     }
 
     @Test
@@ -480,6 +503,77 @@ class AccountMapperTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getUsedAmount()).isEqualByComparingTo(BigDecimal.valueOf(1_050L));
+    }
+
+    @Test
+    @DisplayName("커서(id)보다 큰 개설계좌만 account_id 오름차순으로 조회한다")
+    void selectOpenedAccountsAfter_기준보다_큰_계좌만_오름차순() {
+        Long a1 = insertApplication(1L, DEFAULT_LIMIT);
+        Long a2 = insertApplication(2L, DEFAULT_LIMIT);
+        Long a3 = insertApplication(3L, DEFAULT_LIMIT);
+        openAccount(a1, "1111111111");
+        openAccount(a2, "2222222222");
+        openAccount(a3, "3333333333");
+
+        List<AccountDTO> result = accountMapper.selectOpenedAccountsAfter(a1, 10);
+
+        assertThat(result).extracting(AccountDTO::getAccountId).containsExactly(a2, a3);
+    }
+
+    @Test
+    @DisplayName("개설 이력이 없는 계좌(APPLIED/REJECTED)는 제외한다")
+    void selectOpenedAccountsAfter_미개설_계좌는_제외() {
+        Long applied = insertApplication(1L, DEFAULT_LIMIT);
+        Long opened = insertApplication(2L, DEFAULT_LIMIT);
+        Long rejected = insertApplication(3L, DEFAULT_LIMIT);
+        openAccount(opened, "2222222222");
+        assertThat(accountMapper.reject(AccountDTO.builder().accountId(rejected).build())).isOne();
+
+        List<AccountDTO> result = accountMapper.selectOpenedAccountsAfter(0L, 10);
+
+        assertThat(result).extracting(AccountDTO::getAccountId).containsExactly(opened);
+        assertThat(result).extracting(AccountDTO::getAccountId).doesNotContain(applied, rejected);
+    }
+
+    @Test
+    @DisplayName("pageSize만큼만 반환한다")
+    void selectOpenedAccountsAfter_pageSize만큼만_반환() {
+        Long a1 = insertApplication(1L, DEFAULT_LIMIT);
+        Long a2 = insertApplication(2L, DEFAULT_LIMIT);
+        Long a3 = insertApplication(3L, DEFAULT_LIMIT);
+        openAccount(a1, "1111111111");
+        openAccount(a2, "2222222222");
+        openAccount(a3, "3333333333");
+
+        List<AccountDTO> result = accountMapper.selectOpenedAccountsAfter(0L, 2);
+
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(AccountDTO::getAccountId).containsExactly(a1, a2);
+    }
+
+    @Test
+    @DisplayName("커서 이후 계좌가 없으면 빈 목록을 반환한다")
+    void selectOpenedAccountsAfter_더_없으면_빈목록() {
+        Long a1 = insertApplication(1L, DEFAULT_LIMIT);
+        openAccount(a1, "1111111111");
+
+        assertThat(accountMapper.selectOpenedAccountsAfter(a1, 10)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("배치가 grouping 키로 쓰는 benefit 컬럼도 함께 조회된다")
+    void selectOpenedAccountsAfter_benefit도_함께_조회() throws SQLException {
+        Long a1 = insertApplication(1L, DEFAULT_LIMIT);
+        openAccount(a1, "1111111111");
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("UPDATE account SET benefit = 'IMPOSSIBLE' WHERE account_id = " + a1);
+        }
+
+        AccountDTO result = accountMapper.selectOpenedAccountsAfter(0L, 10).get(0);
+
+        assertThat(result.getAccountId()).isEqualTo(a1);
+        assertThat(result.getBenefit()).isEqualTo(BenefitType.IMPOSSIBLE);
     }
 
     private void resetSchema() throws SQLException {

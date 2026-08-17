@@ -10,7 +10,9 @@
 
     <typeAliases>
         <typeAlias alias="AccountDTO" type="com.app.maria.domain.account.dto.AccountDTO"/>
+        <typeAlias alias="AccountJoinDTO" type="com.app.maria.domain.account.dto.AccountJoinDTO"/>
         <typeAlias alias="AccountLimitUsageDTO" type="com.app.maria.domain.account.dto.AccountLimitUsageDTO"/>
+        <typeAlias alias="AccountSearchDTO" type="com.app.maria.domain.account.dto.AccountSearchDTO"/>
         <typeAlias alias="AccountClosureDTO" type="com.app.maria.domain.accountclosure.dto.AccountClosureDTO"/>
     </typeAliases>
 
@@ -29,5 +31,6 @@
     <mappers>
         <mapper resource="mappers/account/accountMapper.xml"/>
         <mapper resource="mappers/accountclosure/accountClosureMapper.xml"/>
+        <mapper resource="mappers/sellorder/sellLimitMapper.xml"/>
     </mappers>
 </configuration>

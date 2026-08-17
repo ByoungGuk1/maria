@@ -12,6 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.app.maria.domain.foreignproduct.type.ForeignProductType;
+import com.app.maria.domain.inbound.dto.InboundListDTO;
+import com.app.maria.domain.inbound.dto.InboundPageDTO;
 import com.app.maria.domain.inbound.dto.response.AccountHoldingResponseDTO;
 import com.app.maria.domain.inbound.dto.response.InboundResponseDTO;
 import com.app.maria.domain.inbound.exception.InboundNotFoundException;
@@ -211,5 +213,80 @@ class InboundApiTest {
         mockMvc.perform(get("/api/inbounds/holdings")).andExpect(status().isBadRequest());
 
         verify(inboundService, never()).getHoldings(anyLong());
+    }
+
+    @Test
+    void getInboundsReturnsPagedResultAsJsonWithDefaultPageAndSize() throws Exception {
+        InboundListDTO item =
+                InboundListDTO.builder()
+                        .inboundId(1L)
+                        .accountNo("1234567890")
+                        .customerName("홍길동")
+                        .ticker("AAPL")
+                        .productName("Apple Inc.")
+                        .requestedQty(BigDecimal.valueOf(100))
+                        .currentHoldingAtRequest(BigDecimal.valueOf(90))
+                        .snapshotQty(BigDecimal.valueOf(80))
+                        .approvedQty(BigDecimal.valueOf(80))
+                        .remainingQty(BigDecimal.valueOf(0))
+                        .processedAt(LocalDateTime.of(2026, 3, 5, 9, 0))
+                        .build();
+        InboundPageDTO page =
+                InboundPageDTO.builder()
+                        .content(List.of(item))
+                        .page(0)
+                        .size(20)
+                        .totalElements(1)
+                        .totalPages(1)
+                        .build();
+        when(inboundService.getInbounds(0, 20)).thenReturn(page);
+
+        mockMvc.perform(get("/api/inbounds"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("입고 이력 목록 조회 성공"))
+                .andExpect(jsonPath("$.data.content[0].accountNo").value("1234567890"))
+                .andExpect(jsonPath("$.data.content[0].customerName").value("홍길동"))
+                .andExpect(jsonPath("$.data.content[0].ticker").value("AAPL"))
+                .andExpect(jsonPath("$.data.content[0].approvedQty").value(80))
+                .andExpect(jsonPath("$.data.content[0].remainingQty").value(0))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(20))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.totalPages").value(1));
+    }
+
+    @Test
+    void getInboundsPassesPageAndSizeQueryParamsToService() throws Exception {
+        InboundPageDTO page =
+                InboundPageDTO.builder()
+                        .content(List.of())
+                        .page(2)
+                        .size(5)
+                        .totalElements(11)
+                        .totalPages(3)
+                        .build();
+        when(inboundService.getInbounds(2, 5)).thenReturn(page);
+
+        mockMvc.perform(get("/api/inbounds").param("page", "2").param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.page").value(2))
+                .andExpect(jsonPath("$.data.totalPages").value(3));
+    }
+
+    @Test
+    void getInboundsReturnsEmptyListWhenNoInboundsExist() throws Exception {
+        InboundPageDTO page =
+                InboundPageDTO.builder()
+                        .content(List.of())
+                        .page(0)
+                        .size(20)
+                        .totalElements(0)
+                        .totalPages(0)
+                        .build();
+        when(inboundService.getInbounds(0, 20)).thenReturn(page);
+
+        mockMvc.perform(get("/api/inbounds"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content").isEmpty());
     }
 }

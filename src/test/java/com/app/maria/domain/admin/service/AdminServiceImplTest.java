@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 import com.app.maria.domain.admin.dto.AdminUserDTO;
 import com.app.maria.domain.admin.dto.request.AdminLoginRequestDTO;
 import com.app.maria.domain.admin.dto.response.AdminLoginResponseDTO;
+import com.app.maria.domain.admin.dto.response.AdminSummaryResponseDTO;
 import com.app.maria.domain.admin.exception.AdminException;
 import com.app.maria.domain.admin.exception.AdminNotFoundException;
 import com.app.maria.domain.admin.mapper.AdminMapper;
@@ -16,6 +17,7 @@ import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.jwt.JwtTokenProvider;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -156,6 +158,41 @@ class AdminServiceImplTest {
 
         verify(adminMapper, never()).updateRole(anyLong(), any());
         verifyNoInteractions(auditLogService);
+    }
+
+    @Test
+    @DisplayName("관리자 목록을 요약 DTO 리스트로 변환해 반환한다")
+    void getAllAdminsReturnsMappedSummaryList() {
+        AdminUserDTO reviewer = admin();
+        AdminUserDTO admin =
+                AdminUserDTO.builder()
+                        .adminId(2L)
+                        .loginId("admin1")
+                        .name("천유진")
+                        .passwordHash("encoded-password-2")
+                        .role(AdminRole.ADMIN)
+                        .build();
+        when(adminMapper.selectAllAdmins()).thenReturn(List.of(reviewer, admin));
+
+        List<AdminSummaryResponseDTO> result = adminService.getAllAdmins();
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).getAdminId()).isEqualTo(1L);
+        assertThat(result.get(0).getLoginId()).isEqualTo("reviewer1");
+        assertThat(result.get(0).getRole()).isEqualTo(AdminRole.REVIEWER);
+        assertThat(result.get(0).getName()).isEqualTo("이은정");
+        assertThat(result.get(1).getAdminId()).isEqualTo(2L);
+        assertThat(result.get(1).getRole()).isEqualTo(AdminRole.ADMIN);
+    }
+
+    @Test
+    @DisplayName("등록된 관리자가 없으면 빈 리스트를 반환한다")
+    void getAllAdminsReturnsEmptyListWhenNoAdminsExist() {
+        when(adminMapper.selectAllAdmins()).thenReturn(List.of());
+
+        List<AdminSummaryResponseDTO> result = adminService.getAllAdmins();
+
+        assertThat(result).isEmpty();
     }
 
     @Test

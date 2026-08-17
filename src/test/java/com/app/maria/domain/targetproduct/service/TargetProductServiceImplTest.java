@@ -1,12 +1,19 @@
 package com.app.maria.domain.targetproduct.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.app.maria.domain.externaltradesync.dto.response.MydataTradeResponseDTO;
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductJudgementListDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductJudgementPageDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductSearchDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductSummaryDTO;
+import com.app.maria.domain.targetproduct.dto.request.TargetProductSearchRequestDTO;
 import com.app.maria.domain.targetproduct.dto.response.MydataFundResponseDTO;
 import com.app.maria.domain.targetproduct.mapper.TargetProductMapper;
 import com.app.maria.domain.targetproduct.type.StockType;
@@ -16,6 +23,7 @@ import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,7 +48,131 @@ class TargetProductServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        when(businessClockService.now()).thenReturn(FIXED_NOW);
+        lenient().when(businessClockService.now()).thenReturn(FIXED_NOW);
+    }
+
+    @Test
+    @DisplayName(
+            "getJudgements()는 page*size를 offset으로 계산한 TargetProductSearchDTO를 매퍼에 넘기고 결과를 그대로 담는다")
+    void getJudgementsCalculatesOffsetAndDelegatesToMapper() {
+        List<TargetProductJudgementListDTO> expected =
+                List.of(TargetProductJudgementListDTO.builder().judgementId(1L).build());
+        ArgumentCaptor<TargetProductSearchDTO> captor =
+                ArgumentCaptor.forClass(TargetProductSearchDTO.class);
+        when(targetProductMapper.selectJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(expected);
+        when(targetProductMapper.countFilteredJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(25);
+
+        TargetProductSearchRequestDTO request =
+                TargetProductSearchRequestDTO.builder().page(2).size(10).build();
+        TargetProductJudgementPageDTO result = targetProductService.getJudgements(request);
+
+        verify(targetProductMapper).selectJudgements(captor.capture());
+        assertThat(captor.getValue().getOffset()).isEqualTo(20);
+        assertThat(captor.getValue().getSize()).isEqualTo(10);
+        assertThat(result.getContent()).isEqualTo(expected);
+        assertThat(result.getPage()).isEqualTo(2);
+        assertThat(result.getSize()).isEqualTo(10);
+    }
+
+    @Test
+    @DisplayName("getJudgements()는 totalElements를 size로 나눈 뒤 올림해 totalPages를 계산한다")
+    void getJudgementsCalculatesTotalPagesFromTotalElements() {
+        when(targetProductMapper.selectJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(List.of());
+        when(targetProductMapper.countFilteredJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(45);
+
+        TargetProductSearchRequestDTO request =
+                TargetProductSearchRequestDTO.builder().page(0).size(20).build();
+        TargetProductJudgementPageDTO result = targetProductService.getJudgements(request);
+
+        assertThat(result.getTotalElements()).isEqualTo(45);
+        assertThat(result.getTotalPages()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("getJudgements()는 조회 결과가 없으면 totalPages를 0으로 계산한다")
+    void getJudgementsReturnsZeroTotalPagesWhenNoRows() {
+        when(targetProductMapper.selectJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(List.of());
+        when(targetProductMapper.countFilteredJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(0);
+
+        TargetProductSearchRequestDTO request =
+                TargetProductSearchRequestDTO.builder().page(0).size(20).build();
+        TargetProductJudgementPageDTO result = targetProductService.getJudgements(request);
+
+        assertThat(result.getTotalElements()).isEqualTo(0);
+        assertThat(result.getTotalPages()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName(
+            "getJudgements()는 필터 조건(customerName/stockType/isTarget)을 TargetProductSearchDTO에 그대로 전달한다")
+    void getJudgementsPassesFilterConditionsToSearchDTO() {
+        ArgumentCaptor<TargetProductSearchDTO> captor =
+                ArgumentCaptor.forClass(TargetProductSearchDTO.class);
+        when(targetProductMapper.selectJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(List.of());
+        when(targetProductMapper.countFilteredJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(0);
+
+        TargetProductSearchRequestDTO request =
+                TargetProductSearchRequestDTO.builder()
+                        .customerName("홍길동")
+                        .stockType(StockType.ETF)
+                        .isTarget(true)
+                        .page(0)
+                        .size(20)
+                        .build();
+        targetProductService.getJudgements(request);
+
+        verify(targetProductMapper).selectJudgements(captor.capture());
+        assertThat(captor.getValue().getCustomerName()).isEqualTo("홍길동");
+        assertThat(captor.getValue().getStockType()).isEqualTo(StockType.ETF);
+        assertThat(captor.getValue().getIsTarget()).isTrue();
+    }
+
+    @Test
+    @DisplayName("getSummary()는 BusinessClockService의 오늘~내일 범위로 매퍼를 조회하고 결과를 그대로 담는다")
+    void getSummaryDelegatesToMapperUsingClockToday() {
+        LocalDate today = FIXED_NOW.toLocalDate();
+        LocalDate tomorrow = today.plusDays(1);
+        TargetProductSummaryDTO todayStats =
+                TargetProductSummaryDTO.builder()
+                        .todayJudgementCount(3)
+                        .todayTargetCount(2)
+                        .todayTargetNetBuyAmount(new BigDecimal("1500000.00"))
+                        .build();
+        when(targetProductMapper.selectSummary(today, tomorrow)).thenReturn(todayStats);
+        when(targetProductMapper.countJudgements()).thenReturn(50);
+
+        TargetProductSummaryDTO result = targetProductService.getSummary();
+
+        verify(targetProductMapper).selectSummary(today, tomorrow);
+        assertThat(result.getTodayJudgementCount()).isEqualTo(3);
+        assertThat(result.getTodayTargetCount()).isEqualTo(2);
+        assertThat(result.getTodayTargetNetBuyAmount()).isEqualByComparingTo("1500000.00");
+    }
+
+    @Test
+    @DisplayName("getSummary()의 totalJudgementCount는 selectSummary가 아니라 countJudgements() 결과로 채워진다")
+    void getSummarySetsTotalJudgementCountFromCountJudgements() {
+        LocalDate today = FIXED_NOW.toLocalDate();
+        TargetProductSummaryDTO todayStats =
+                TargetProductSummaryDTO.builder()
+                        .todayJudgementCount(0)
+                        .todayTargetCount(0)
+                        .todayTargetNetBuyAmount(BigDecimal.ZERO)
+                        .build();
+        when(targetProductMapper.selectSummary(today, today.plusDays(1))).thenReturn(todayStats);
+        when(targetProductMapper.countJudgements()).thenReturn(50);
+
+        TargetProductSummaryDTO result = targetProductService.getSummary();
+
+        assertThat(result.getTotalJudgementCount()).isEqualTo(50);
     }
 
     private static MydataTradeResponseDTO trade(
@@ -105,22 +237,17 @@ class TargetProductServiceImplTest {
     @Test
     @DisplayName("FUND는 해외비중 60% 이상 + 설정 1개월 경과를 모두 만족해야 대상상품으로 판정한다")
     void judgeMarksFundAsTargetWhenBothConditionsMet() {
+        LocalDate tradeDate = LocalDate.of(2026, 3, 10);
         MydataFundResponseDTO fund =
                 MydataFundResponseDTO.builder()
                         .fundCode("448630")
                         .fundName("TIGER 미국배당다우존스")
                         .foreignStockRatio(BigDecimal.valueOf(72.50))
-                        .inceptionDate(FIXED_NOW.toLocalDate().minusMonths(2))
+                        .inceptionDate(tradeDate.minusMonths(2))
                         .build();
         when(mydataFundClient.getFund("448630")).thenReturn(fund);
         MydataTradeResponseDTO t =
-                trade(
-                        3L,
-                        "BUY",
-                        "FUND",
-                        "448630",
-                        BigDecimal.valueOf(1_000_000),
-                        LocalDate.of(2026, 3, 10));
+                trade(3L, "BUY", "FUND", "448630", BigDecimal.valueOf(1_000_000), tradeDate);
 
         TargetProductJudgementDTO result = targetProductService.judge(t);
 
@@ -133,21 +260,16 @@ class TargetProductServiceImplTest {
     @Test
     @DisplayName("FUND의 해외비중이 60% 미만이면 대상상품이 아니다")
     void judgeMarksFundAsNonTargetWhenRatioBelowThreshold() {
+        LocalDate tradeDate = LocalDate.of(2026, 3, 10);
         MydataFundResponseDTO fund =
                 MydataFundResponseDTO.builder()
                         .fundCode("069500")
                         .foreignStockRatio(BigDecimal.valueOf(59.99))
-                        .inceptionDate(FIXED_NOW.toLocalDate().minusMonths(2))
+                        .inceptionDate(tradeDate.minusMonths(2))
                         .build();
         when(mydataFundClient.getFund("069500")).thenReturn(fund);
         MydataTradeResponseDTO t =
-                trade(
-                        4L,
-                        "BUY",
-                        "FUND",
-                        "069500",
-                        BigDecimal.valueOf(1_000_000),
-                        LocalDate.of(2026, 3, 10));
+                trade(4L, "BUY", "FUND", "069500", BigDecimal.valueOf(1_000_000), tradeDate);
 
         TargetProductJudgementDTO result = targetProductService.judge(t);
 
@@ -157,21 +279,16 @@ class TargetProductServiceImplTest {
     @Test
     @DisplayName("FUND의 설정일이 1개월 미경과이면 비중이 충분해도 대상상품이 아니다")
     void judgeMarksFundAsNonTargetWhenInceptionPeriodNotMet() {
+        LocalDate tradeDate = LocalDate.of(2026, 3, 10);
         MydataFundResponseDTO fund =
                 MydataFundResponseDTO.builder()
                         .fundCode("381170")
                         .foreignStockRatio(BigDecimal.valueOf(88.00))
-                        .inceptionDate(FIXED_NOW.toLocalDate().minusDays(10))
+                        .inceptionDate(tradeDate.minusDays(10))
                         .build();
         when(mydataFundClient.getFund("381170")).thenReturn(fund);
         MydataTradeResponseDTO t =
-                trade(
-                        5L,
-                        "BUY",
-                        "FUND",
-                        "381170",
-                        BigDecimal.valueOf(1_000_000),
-                        LocalDate.of(2026, 3, 10));
+                trade(5L, "BUY", "FUND", "381170", BigDecimal.valueOf(1_000_000), tradeDate);
 
         TargetProductJudgementDTO result = targetProductService.judge(t);
 
@@ -181,25 +298,43 @@ class TargetProductServiceImplTest {
     @Test
     @DisplayName("설정일이 정확히 1개월 경과한 경계값은 요건을 충족한다")
     void judgeTreatsExactlyOneMonthAsMet() {
+        LocalDate tradeDate = LocalDate.of(2026, 3, 10);
         MydataFundResponseDTO fund =
                 MydataFundResponseDTO.builder()
                         .fundCode("448630")
                         .foreignStockRatio(BigDecimal.valueOf(60.00))
-                        .inceptionDate(FIXED_NOW.toLocalDate().minusMonths(1))
+                        .inceptionDate(tradeDate.minusMonths(1))
                         .build();
         when(mydataFundClient.getFund("448630")).thenReturn(fund);
         MydataTradeResponseDTO t =
-                trade(
-                        6L,
-                        "BUY",
-                        "FUND",
-                        "448630",
-                        BigDecimal.valueOf(1_000_000),
-                        LocalDate.of(2026, 3, 10));
+                trade(6L, "BUY", "FUND", "448630", BigDecimal.valueOf(1_000_000), tradeDate);
 
         TargetProductJudgementDTO result = targetProductService.judge(t);
 
         assertThat(result.getIsTarget()).isTrue();
+    }
+
+    @Test
+    @DisplayName("설정 1개월 경과 판정은 판정 실행 시각이 아니라 거래일(tradeDate) 기준이다")
+    void judgeUsesTradeDateNotJudgementTimeForInceptionPeriodCheck() {
+        // 설정일 2026-03-05, 거래일 2026-03-10 -> 거래일 기준으론 5일만 지나 미충족.
+        // FIXED_NOW(2026-08-07) 기준으로는 5개월 넘게 지나 있어서, 판정 시각을 기준으로
+        // 삼았다면 충족으로 오판정됐을 시나리오 (캐치업 동기화로 오래된 거래를 뒤늦게
+        // 판정하는 상황 재현)
+        LocalDate tradeDate = LocalDate.of(2026, 3, 10);
+        MydataFundResponseDTO fund =
+                MydataFundResponseDTO.builder()
+                        .fundCode("448630")
+                        .foreignStockRatio(BigDecimal.valueOf(80.00))
+                        .inceptionDate(LocalDate.of(2026, 3, 5))
+                        .build();
+        when(mydataFundClient.getFund("448630")).thenReturn(fund);
+        MydataTradeResponseDTO t =
+                trade(12L, "BUY", "FUND", "448630", BigDecimal.valueOf(1_000_000), tradeDate);
+
+        TargetProductJudgementDTO result = targetProductService.judge(t);
+
+        assertThat(result.getIsTarget()).isFalse();
     }
 
     @Test

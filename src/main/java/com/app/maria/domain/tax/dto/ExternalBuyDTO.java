@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ExternalBuyDTO {
+    private Long accountId;
     private LocalDate tradeDate;
     private BigDecimal netBuyAmount;
 }

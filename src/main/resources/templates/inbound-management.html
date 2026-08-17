@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}">
+<head>
+    <title>입고 관리 - MARIA</title>
+    <th:block layout:fragment="pageStyles">
+        <link rel="stylesheet" th:href="@{/css/dashboard.css}">
+        <link rel="stylesheet" th:href="@{/css/inbound-management.css}">
+    </th:block>
+</head>
+<body>
+<div layout:fragment="breadcrumb">입고 관리</div>
+<div layout:fragment="content">
+    <div id="ibLoading" class="dash-loading">불러오는 중...</div>
+    <div id="ibError" class="dash-error" style="display:none"></div>
+    <div id="ibBody" style="display:none">
+        <div class="ib-layout">
+            <div class="card ib-list-card">
+                <div class="section-header">
+                    <span>입고 요청 목록</span>
+                    <span class="section-sub" id="ibListCount">0건 수신</span>
+                </div>
+                <div id="ibListItems" class="ib-list-items"></div>
+                <div id="ibPagination" class="pagination"></div>
+            </div>
+            <div class="card ib-detail-card" id="ibDetail">
+                <div class="dash-empty">왼쪽에서 입고 건을 선택하세요.</div>
+            </div>
+        </div>
+    </div>
+</div>
+<th:block layout:fragment="pageScripts">
+    <script th:src="@{/js/inbound-management.js}"></script>
+</th:block>
+</body>
+</html>

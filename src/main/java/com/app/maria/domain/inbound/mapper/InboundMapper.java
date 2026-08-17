@@ -1,9 +1,6 @@
 package com.app.maria.domain.inbound.mapper;
 
-import com.app.maria.domain.inbound.dto.InboundDTO;
-import com.app.maria.domain.inbound.dto.InboundDetailDTO;
-import com.app.maria.domain.inbound.dto.InboundHoldingDTO;
-import com.app.maria.domain.inbound.dto.InboundMinDTO;
+import com.app.maria.domain.inbound.dto.*;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -29,5 +26,14 @@ public interface InboundMapper {
     List<InboundDetailDTO> selectFifoLots(
             @Param("accountId") Long accountId, @Param("foreignProductId") Long foreignProductId);
 
+    List<SourceLotApprovedQtyDTO> sumApprovedQtyBySourceGeneralAccount(
+            @Param("accountId") Long accountId, @Param("foreignProductId") Long foreignProductId);
+
     List<InboundHoldingDTO> selectHoldingsByAccount(@Param("accountId") Long accountId);
+
+    List<InboundListDTO> selectInbounds(@Param("offset") int offset, @Param("size") int size);
+
+    List<InboundLotDTO> selectLotsByInboundIds(@Param("inboundIds") List<Long> inboundIds);
+
+    int countInbounds();
 }

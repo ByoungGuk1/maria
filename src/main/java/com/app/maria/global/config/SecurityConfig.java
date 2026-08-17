@@ -34,8 +34,13 @@ public class SecurityConfig {
         // 여기에는 PageController의 뷰(HTML) 라우트만 추가할 것 - API는 절대 여기 넣지 말 것
         "/login",
         "/admin/dashboard",
+        "/admin/target-products",
         "/admin/sell-orders",
         "/admin/account",
+        "/admin/audit-log",
+        "/admin/settlement",
+        "/admin/inbound",
+        "/admin/admin-users",
 
         // JWT 인증 API
         "/api/auth/admin/login",
@@ -44,7 +49,12 @@ public class SecurityConfig {
         // Swagger
         "/swagger-ui/**",
         "/swagger-ui.html",
-        "/api-docs/**"
+        "/api-docs/**",
+
+        //계좌 해지 관리 화면
+        "/admin/account-closures"
+
+
     };
 
     @Bean

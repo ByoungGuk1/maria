@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.app.maria.domain.targetproduct.dto.TargetProductJudgementDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductJudgementListDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductSearchDTO;
+import com.app.maria.domain.targetproduct.dto.TargetProductSummaryDTO;
 import com.app.maria.domain.targetproduct.type.StockType;
 import com.app.maria.domain.targetproduct.type.TradeType;
 import java.io.IOException;
@@ -15,6 +18,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
@@ -203,10 +207,295 @@ class TargetProductMapperTest {
         assertThat(exists).isFalse();
     }
 
+    @Test
+    @DisplayName("판정 결과 목록을 고객명과 함께 최신순으로, size 만큼만 조회한다")
+    void selectJudgementsReturnsPageOrderedByJudgedAtDesc() throws SQLException {
+        insertCustomer("ci-1", "홍길동");
+        targetProductMapper.insertJudgement(
+                baseBuilder(20L).judgedAt(LocalDateTime.of(2026, 8, 7, 3, 0)).build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(21L).judgedAt(LocalDateTime.of(2026, 8, 8, 3, 0)).build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(22L).judgedAt(LocalDateTime.of(2026, 8, 9, 3, 0)).build());
+
+        List<TargetProductJudgementListDTO> result =
+                targetProductMapper.selectJudgements(
+                        TargetProductSearchDTO.builder().offset(0).size(2).build());
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).getJudgedAt()).isEqualTo(LocalDateTime.of(2026, 8, 9, 3, 0));
+        assertThat(result.get(1).getJudgedAt()).isEqualTo(LocalDateTime.of(2026, 8, 8, 3, 0));
+        assertThat(result.get(0).getCustomerName()).isEqualTo("홍길동");
+        assertThat(result.get(0).getStockType()).isEqualTo(StockType.FOREIGN_STOCK);
+        assertThat(result.get(0).getTradeType()).isEqualTo(TradeType.BUY);
+    }
+
+    @Test
+    @DisplayName("판정 목록에 해외주식비중·설정일 판단기준 값을 함께 반환한다")
+    void selectJudgementsReturnsForeignStockRatioAndInceptionDate() throws SQLException {
+        insertCustomer("ci-1", "홍길동");
+        targetProductMapper.insertJudgement(
+                baseBuilder(20L)
+                        .stockType(StockType.FUND)
+                        .isTarget(false)
+                        .foreignStockRatio(new BigDecimal("45.00"))
+                        .inceptionDate(LocalDate.of(2026, 7, 20))
+                        .build());
+
+        List<TargetProductJudgementListDTO> result =
+                targetProductMapper.selectJudgements(
+                        TargetProductSearchDTO.builder().offset(0).size(10).build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getForeignStockRatio()).isEqualByComparingTo("45.00");
+        assertThat(result.get(0).getInceptionDate()).isEqualTo(LocalDate.of(2026, 7, 20));
+    }
+
+    @Test
+    @DisplayName("해외주식·ETF·ETN처럼 비중요건이 없는 종목은 판단기준 값이 null로 반환된다")
+    void selectJudgementsReturnsNullCriteriaForNonFundStockTypes() throws SQLException {
+        insertCustomer("ci-1", "홍길동");
+        targetProductMapper.insertJudgement(baseBuilder(20L).build());
+
+        List<TargetProductJudgementListDTO> result =
+                targetProductMapper.selectJudgements(
+                        TargetProductSearchDTO.builder().offset(0).size(10).build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getForeignStockRatio()).isNull();
+        assertThat(result.get(0).getInceptionDate()).isNull();
+    }
+
+    @Test
+    @DisplayName("offset을 지정하면 그만큼 건너뛴 뒤부터 조회한다")
+    void selectJudgementsAppliesOffsetForPagination() throws SQLException {
+        insertCustomer("ci-1", "홍길동");
+        targetProductMapper.insertJudgement(
+                baseBuilder(20L).judgedAt(LocalDateTime.of(2026, 8, 7, 3, 0)).build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(21L).judgedAt(LocalDateTime.of(2026, 8, 8, 3, 0)).build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(22L).judgedAt(LocalDateTime.of(2026, 8, 9, 3, 0)).build());
+
+        List<TargetProductJudgementListDTO> result =
+                targetProductMapper.selectJudgements(
+                        TargetProductSearchDTO.builder().offset(2).size(2).build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getJudgedAt()).isEqualTo(LocalDateTime.of(2026, 8, 7, 3, 0));
+    }
+
+    @Test
+    @DisplayName("customerName 필터는 고객명에 부분일치하는 행만 조회한다")
+    void selectJudgementsFiltersByCustomerNameContains() throws SQLException {
+        insertCustomer("ci-1", "홍길동");
+        insertCustomer("ci-2", "김철수");
+        targetProductMapper.insertJudgement(baseBuilder(23L).ciHash("ci-1").build());
+        targetProductMapper.insertJudgement(baseBuilder(24L).ciHash("ci-2").build());
+
+        List<TargetProductJudgementListDTO> result =
+                targetProductMapper.selectJudgements(
+                        TargetProductSearchDTO.builder()
+                                .customerName("길동")
+                                .offset(0)
+                                .size(10)
+                                .build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCustomerName()).isEqualTo("홍길동");
+    }
+
+    @Test
+    @DisplayName("stockType 필터는 해당 종목구분인 행만 조회한다")
+    void selectJudgementsFiltersByStockType() throws SQLException {
+        insertCustomer("ci-1", "홍길동");
+        targetProductMapper.insertJudgement(
+                baseBuilder(25L).stockType(StockType.FOREIGN_STOCK).build());
+        targetProductMapper.insertJudgement(baseBuilder(26L).stockType(StockType.ETF).build());
+
+        List<TargetProductJudgementListDTO> result =
+                targetProductMapper.selectJudgements(
+                        TargetProductSearchDTO.builder()
+                                .stockType(StockType.ETF)
+                                .offset(0)
+                                .size(10)
+                                .build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getStockType()).isEqualTo(StockType.ETF);
+    }
+
+    @Test
+    @DisplayName("isTarget 필터는 대상상품 여부가 일치하는 행만 조회한다")
+    void selectJudgementsFiltersByIsTarget() throws SQLException {
+        insertCustomer("ci-1", "홍길동");
+        targetProductMapper.insertJudgement(baseBuilder(27L).isTarget(true).build());
+        targetProductMapper.insertJudgement(baseBuilder(28L).isTarget(false).build());
+
+        List<TargetProductJudgementListDTO> result =
+                targetProductMapper.selectJudgements(
+                        TargetProductSearchDTO.builder()
+                                .isTarget(false)
+                                .offset(0)
+                                .size(10)
+                                .build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getIsTarget()).isFalse();
+    }
+
+    @Test
+    @DisplayName("저장된 판정 결과의 전체 건수를 반환한다")
+    void countJudgementsReturnsTotalRowCount() {
+        targetProductMapper.insertJudgement(baseBuilder(30L).build());
+        targetProductMapper.insertJudgement(baseBuilder(31L).build());
+        targetProductMapper.insertJudgement(baseBuilder(32L).build());
+
+        int count = targetProductMapper.countJudgements();
+
+        assertThat(count).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("저장된 판정 결과가 없으면 전체 건수는 0이다")
+    void countJudgementsReturnsZeroWhenNoRows() {
+        int count = targetProductMapper.countJudgements();
+
+        assertThat(count).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("countFilteredJudgements는 필터 조건에 맞는 행만 센다")
+    void countFilteredJudgementsCountsOnlyMatchingRows() throws SQLException {
+        insertCustomer("ci-1", "홍길동");
+        targetProductMapper.insertJudgement(baseBuilder(33L).isTarget(true).build());
+        targetProductMapper.insertJudgement(baseBuilder(34L).isTarget(true).build());
+        targetProductMapper.insertJudgement(baseBuilder(35L).isTarget(false).build());
+
+        int count =
+                targetProductMapper.countFilteredJudgements(
+                        TargetProductSearchDTO.builder().isTarget(true).build());
+
+        assertThat(count).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("countFilteredJudgements는 필터 조건이 없으면 전체 건수를 반환한다")
+    void countFilteredJudgementsReturnsTotalWhenNoFilterGiven() throws SQLException {
+        insertCustomer("ci-1", "홍길동");
+        targetProductMapper.insertJudgement(baseBuilder(36L).build());
+        targetProductMapper.insertJudgement(baseBuilder(37L).build());
+
+        int count =
+                targetProductMapper.countFilteredJudgements(
+                        TargetProductSearchDTO.builder().build());
+
+        assertThat(count).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("오늘 판정 건수는 judged_at이 오늘 날짜인 행만 센다")
+    void selectSummaryCountsOnlyTodaysJudgements() {
+        LocalDate today = LocalDate.of(2026, 8, 7);
+        LocalDate tomorrow = today.plusDays(1);
+        targetProductMapper.insertJudgement(
+                baseBuilder(40L).judgedAt(LocalDateTime.of(2026, 8, 7, 9, 0)).build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(41L).judgedAt(LocalDateTime.of(2026, 8, 7, 15, 30)).build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(42L).judgedAt(LocalDateTime.of(2026, 8, 6, 23, 59)).build());
+
+        TargetProductSummaryDTO summary = targetProductMapper.selectSummary(today, tomorrow);
+
+        assertThat(summary.getTodayJudgementCount()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("judged_at이 오늘 자정 정각이면 포함되고, 다음날 자정 정각이면 제외된다")
+    void selectSummaryIncludesTodayMidnightAndExcludesTomorrowMidnight() {
+        LocalDate today = LocalDate.of(2026, 8, 7);
+        LocalDate tomorrow = today.plusDays(1);
+        targetProductMapper.insertJudgement(
+                baseBuilder(46L).judgedAt(LocalDateTime.of(2026, 8, 7, 0, 0)).build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(47L).judgedAt(LocalDateTime.of(2026, 8, 8, 0, 0)).build());
+
+        TargetProductSummaryDTO summary = targetProductMapper.selectSummary(today, tomorrow);
+
+        assertThat(summary.getTodayJudgementCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("오늘 대상상품 건수와 순매수 합계는 isTarget이 true인 행만 집계한다")
+    void selectSummaryCountsAndSumsTargetJudgementsOnly() {
+        LocalDate today = LocalDate.of(2026, 8, 7);
+        LocalDate tomorrow = today.plusDays(1);
+        targetProductMapper.insertJudgement(
+                baseBuilder(43L)
+                        .judgedAt(LocalDateTime.of(2026, 8, 7, 9, 0))
+                        .isTarget(true)
+                        .netBuyAmount(new BigDecimal("1000000.00"))
+                        .build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(44L)
+                        .judgedAt(LocalDateTime.of(2026, 8, 7, 10, 0))
+                        .isTarget(true)
+                        .netBuyAmount(new BigDecimal("500000.00"))
+                        .build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(45L)
+                        .judgedAt(LocalDateTime.of(2026, 8, 7, 11, 0))
+                        .isTarget(false)
+                        .netBuyAmount(new BigDecimal("2000000.00"))
+                        .build());
+
+        TargetProductSummaryDTO summary = targetProductMapper.selectSummary(today, tomorrow);
+
+        assertThat(summary.getTodayTargetCount()).isEqualTo(2);
+        assertThat(summary.getTodayTargetNetBuyAmount()).isEqualByComparingTo("1500000.00");
+    }
+
+    @Test
+    @DisplayName("오늘 판정이 없으면 건수와 합계 모두 0을 반환한다(NULL이 아니라)")
+    void selectSummaryReturnsZeroWhenNoJudgementsToday() {
+        LocalDate today = LocalDate.of(2026, 8, 7);
+        LocalDate tomorrow = today.plusDays(1);
+
+        TargetProductSummaryDTO summary = targetProductMapper.selectSummary(today, tomorrow);
+
+        assertThat(summary.getTodayJudgementCount()).isEqualTo(0);
+        assertThat(summary.getTodayTargetCount()).isEqualTo(0);
+        assertThat(summary.getTodayTargetNetBuyAmount()).isEqualByComparingTo("0");
+    }
+
+    private void insertCustomer(String ciHash, String name) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "INSERT INTO customer (name, birth_date, investor_type, ci_hash) VALUES ('"
+                            + name
+                            + "', '1990-01-01', 'NEUTRAL', '"
+                            + ciHash
+                            + "')");
+        }
+    }
+
     private void resetSchema() throws SQLException {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement()) {
             statement.execute("DROP ALL OBJECTS");
+            statement.execute(
+                    """
+                    CREATE TABLE customer (
+                        customer_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                        name VARCHAR(50) NOT NULL,
+                        birth_date DATE NOT NULL,
+                        phone VARCHAR(20),
+                        investor_type VARCHAR(20) NOT NULL,
+                        ci_hash VARCHAR(64) NOT NULL,
+                        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """);
             statement.execute(
                     """
                     CREATE TABLE target_product_judgement (

@@ -24,12 +24,12 @@ public class TaxCalculator {
             List<SellLotDTO> sellLots,
             List<TaxRuleDTO> taxRules,
             List<ExternalBuyDTO> externalTrades,
-            boolean benefitExcluded) {
+            boolean reliefExcluded) {
         RiaSellAggregateDTO riaSell = aggregateRiaSell(sellLots, taxRules);
 
         BigDecimal weightedExternalAmount = aggregateExternal(externalTrades, taxRules);
         BigDecimal adjustRatio =
-                benefitExcluded
+                reliefExcluded
                         ? BigDecimal.ZERO.setScale(RATIO_SCALE, RoundingMode.HALF_UP)
                         : adjustRatio(weightedExternalAmount, riaSell.getWeightedSell());
         BigDecimal finalDeduction = findDeduction(riaSell.getWeightedGain(), adjustRatio);

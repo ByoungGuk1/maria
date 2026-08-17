@@ -17,4 +17,66 @@
         )
     </select>
 
+    <select id="selectJudgements" parameterType="TargetProductSearchDTO" resultType="TargetProductJudgementListDTO">
+        SELECT
+        j.judgement_id  AS judgementId,
+        c.name          AS customerName,
+        j.stock_type    AS stockType,
+        j.fund_name     AS fundName,
+        j.ticker        AS ticker,
+        j.is_target     AS isTarget,
+        j.foreign_stock_ratio AS foreignStockRatio,
+        j.inception_date AS inceptionDate,
+        j.trade_type    AS tradeType,
+        j.amount        AS amount,
+        j.net_buy_amount AS netBuyAmount,
+        j.trade_date    AS tradeDate,
+        j.judged_at     AS judgedAt
+        FROM target_product_judgement j
+        JOIN customer c ON c.ci_hash = j.ci_hash
+        <where>
+            <if test="customerName != null and customerName != ''">
+                AND c.name LIKE CONCAT('%', #{customerName}, '%')
+            </if>
+            <if test="stockType != null">
+                AND j.stock_type = #{stockType}
+            </if>
+            <if test="isTarget != null">
+                AND j.is_target = #{isTarget}
+            </if>
+        </where>
+        ORDER BY j.judged_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countJudgements" resultType="int">
+        SELECT COUNT(*) FROM target_product_judgement
+    </select>
+
+    <select id="countFilteredJudgements" parameterType="TargetProductSearchDTO" resultType="int">
+        SELECT COUNT(*)
+        FROM target_product_judgement j
+        JOIN customer c ON c.ci_hash = j.ci_hash
+        <where>
+            <if test="customerName != null and customerName != ''">
+                AND c.name LIKE CONCAT('%', #{customerName}, '%')
+            </if>
+            <if test="stockType != null">
+                AND j.stock_type = #{stockType}
+            </if>
+            <if test="isTarget != null">
+                AND j.is_target = #{isTarget}
+            </if>
+        </where>
+    </select>
+
+    <select id="selectSummary" resultType="TargetProductSummaryDTO">
+        SELECT
+        COUNT(*) AS todayJudgementCount,
+        COALESCE(SUM(CASE WHEN is_target = TRUE THEN 1 ELSE 0 END), 0) AS todayTargetCount,
+        COALESCE(SUM(CASE WHEN is_target = TRUE THEN net_buy_amount ELSE 0 END), 0) AS todayTargetNetBuyAmount
+        FROM target_product_judgement
+        WHERE judged_at &gt;= #{today} AND judged_at &lt; #{tomorrow}
+    </select>
+
 </mapper>
