@@ -1,5 +1,6 @@
 package com.app.maria.domain.inbound.dto;
 
+import com.app.maria.domain.registrablestock.type.GeneralAccountType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -12,6 +13,7 @@ import lombok.*;
 @Builder
 public class InboundDetailDTO {
     private Long inboundDetailId;
+    private GeneralAccountType accountType;
     private Long inboundId;
     private Long foreignProductId;
     private String sourceBroker;

@@ -2,8 +2,9 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
 <mapper namespace="com.app.maria.domain.tax.mapper.TaxMapper">
 
-    <select id="findFinalizedLotsByAccountAndYear" resultType="SellLotDTO">
+    <select id="findFinalizedLotsByAccountIdsAndYear" resultType="SellLotDTO">
         select
+            ke.account_id,
             so.order_id,
             so.inbound_detail_id,
             ke.final_amount,
@@ -14,11 +15,14 @@
         from krw_exchange ke
         join sell_order so on so.order_id = ke.order_id
         join inbound_detail id on id.inbound_detail_id = so.inbound_detail_id
-        where ke.account_id = #{accountId}
+        where ke.account_id in
+        <foreach collection="accountIds" item="accountId" open="(" close=")" separator=",">
+            #{accountId}
+        </foreach>
             and ke.settlement_status = 'FINALIZED'
             and so.status = 'EXECUTED'
             and YEAR(so.processed_at) = #{year}
-            and #{calcBaseDateTime} >= so.processed_at
+            and #{calcBaseTime} >= so.processed_at
     </select>
 
     <select id="findTaxRules" resultType="TaxRuleDTO">
@@ -31,26 +35,31 @@
         from tax_rule
     </select>
 
-    <select id="findExternalBuysByAccountAndYear" resultType="ExternalBuyDTO">
+    <select id="findExternalBuysByAccountIdsAndYear" resultType="ExternalBuyDTO">
         select
+            a.account_id,
             tpj.trade_date,
             tpj.net_buy_amount
         from target_product_judgement tpj
         join customer c on c.ci_hash = tpj.ci_hash
         join account a on a.customer_id = c.customer_id
-        where a.account_id = #{accountId}
+        where a.account_id in
+        <foreach collection="accountIds" item="accountId" open="(" close=")" separator=",">
+            #{accountId}
+        </foreach>
             and tpj.is_target = true
             and YEAR(tpj.trade_date) = #{year}
+            and #{calcBaseTime} >= tpj.judged_at
     </select>
 
     <insert id="insertCalculation" parameterType="TaxCalculationDTO"
             useGeneratedKeys="true" keyProperty="calcId">
     insert into tax_calculation
-    (account_id, calculated_at, basis_type, sell_amount, gain_amount,
-    gain_weighted, ext_amount, ratio, deduction, tax)
+    (account_id, calculated_at, basis_type, weighted_sell, original_gain_amount,
+    weighted_gain, weighted_external_amount, adjust_ratio, final_deduction, final_tax)
     values
-    (#{accountId}, #{calculatedAt}, #{basisType}, #{sellAmount}, #{gainAmount},
-    #{gainWeighted},#{extAmount},#{ratio},#{deduction},#{tax})
+    (#{accountId}, #{calculatedAt}, #{basisType}, #{weightedSell}, #{originalGainAmount},
+    #{weightedGain}, #{weightedExternalAmount}, #{adjustRatio}, #{finalDeduction}, #{finalTax})
     </insert>
 
     <select id="existsByAccountAndBasis" resultType="boolean">

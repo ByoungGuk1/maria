@@ -89,7 +89,8 @@
         UPDATE account
         SET status = 'OPENED',
         account_no = #{accountNo},
-        opened_at = #{openedAt}
+        opened_at = #{openedAt},
+        benefit = 'POSSIBLE'
         WHERE account_id = #{accountId}
         AND status = 'APPLIED'
         AND limit_amount = #{limitAmount}
@@ -137,7 +138,8 @@
         UPDATE account
         SET status = 'OPENED',
         account_no = #{accountNo},
-        opened_at = #{openedAt}
+        opened_at = #{openedAt},
+        benefit = 'POSSIBLE'
         WHERE account_id = #{accountId}
         AND status = 'REJECTED'
         AND account_no IS NULL
@@ -148,6 +150,22 @@
         SET benefit = 'IMPOSSIBLE'
         WHERE account_id = #{accountId}
         AND benefit IN('POSSIBLE','REDUCED')
+    </update>
+
+    <!-- 현재 상태가 expectedStatus일 때만 바꾼다. 조회-판정 사이에 다른 요청이
+         상태를 바꿨으면 0행이 되어 호출부가 알아챌 수 있다. -->
+    <update id="updateBenefit">
+        UPDATE account
+        SET benefit = #{newStatus}
+        WHERE account_id = #{accountId}
+        <choose>
+            <when test="expectedStatus == null">
+                AND benefit IS NULL
+            </when>
+            <otherwise>
+                AND benefit = #{expectedStatus}
+            </otherwise>
+        </choose>
     </update>
 
     <select id="selectCiHashByCustomerId" parameterType="Long" resultType="String">
@@ -256,5 +274,17 @@
         AND status = 'CLOSURE_REQUESTED'
         AND amount = 0
     </update>
+
+    <!-- APPLIED/REJECTED는 매도건이 존재할 수 없어 제외된다. -->
+    <select id="selectOpenedAccountsAfter" resultType="AccountDTO">
+        select
+            account_id,
+            benefit
+        from account
+        where opened_at is not null
+            and account_id > #{lastAccountId}
+        order by account_id
+        limit #{pageSize}
+    </select>
 
 </mapper>

@@ -237,22 +237,17 @@ class TargetProductServiceImplTest {
     @Test
     @DisplayName("FUND는 해외비중 60% 이상 + 설정 1개월 경과를 모두 만족해야 대상상품으로 판정한다")
     void judgeMarksFundAsTargetWhenBothConditionsMet() {
+        LocalDate tradeDate = LocalDate.of(2026, 3, 10);
         MydataFundResponseDTO fund =
                 MydataFundResponseDTO.builder()
                         .fundCode("448630")
                         .fundName("TIGER 미국배당다우존스")
                         .foreignStockRatio(BigDecimal.valueOf(72.50))
-                        .inceptionDate(FIXED_NOW.toLocalDate().minusMonths(2))
+                        .inceptionDate(tradeDate.minusMonths(2))
                         .build();
         when(mydataFundClient.getFund("448630")).thenReturn(fund);
         MydataTradeResponseDTO t =
-                trade(
-                        3L,
-                        "BUY",
-                        "FUND",
-                        "448630",
-                        BigDecimal.valueOf(1_000_000),
-                        LocalDate.of(2026, 3, 10));
+                trade(3L, "BUY", "FUND", "448630", BigDecimal.valueOf(1_000_000), tradeDate);
 
         TargetProductJudgementDTO result = targetProductService.judge(t);
 
@@ -265,21 +260,16 @@ class TargetProductServiceImplTest {
     @Test
     @DisplayName("FUND의 해외비중이 60% 미만이면 대상상품이 아니다")
     void judgeMarksFundAsNonTargetWhenRatioBelowThreshold() {
+        LocalDate tradeDate = LocalDate.of(2026, 3, 10);
         MydataFundResponseDTO fund =
                 MydataFundResponseDTO.builder()
                         .fundCode("069500")
                         .foreignStockRatio(BigDecimal.valueOf(59.99))
-                        .inceptionDate(FIXED_NOW.toLocalDate().minusMonths(2))
+                        .inceptionDate(tradeDate.minusMonths(2))
                         .build();
         when(mydataFundClient.getFund("069500")).thenReturn(fund);
         MydataTradeResponseDTO t =
-                trade(
-                        4L,
-                        "BUY",
-                        "FUND",
-                        "069500",
-                        BigDecimal.valueOf(1_000_000),
-                        LocalDate.of(2026, 3, 10));
+                trade(4L, "BUY", "FUND", "069500", BigDecimal.valueOf(1_000_000), tradeDate);
 
         TargetProductJudgementDTO result = targetProductService.judge(t);
 
@@ -289,21 +279,16 @@ class TargetProductServiceImplTest {
     @Test
     @DisplayName("FUND의 설정일이 1개월 미경과이면 비중이 충분해도 대상상품이 아니다")
     void judgeMarksFundAsNonTargetWhenInceptionPeriodNotMet() {
+        LocalDate tradeDate = LocalDate.of(2026, 3, 10);
         MydataFundResponseDTO fund =
                 MydataFundResponseDTO.builder()
                         .fundCode("381170")
                         .foreignStockRatio(BigDecimal.valueOf(88.00))
-                        .inceptionDate(FIXED_NOW.toLocalDate().minusDays(10))
+                        .inceptionDate(tradeDate.minusDays(10))
                         .build();
         when(mydataFundClient.getFund("381170")).thenReturn(fund);
         MydataTradeResponseDTO t =
-                trade(
-                        5L,
-                        "BUY",
-                        "FUND",
-                        "381170",
-                        BigDecimal.valueOf(1_000_000),
-                        LocalDate.of(2026, 3, 10));
+                trade(5L, "BUY", "FUND", "381170", BigDecimal.valueOf(1_000_000), tradeDate);
 
         TargetProductJudgementDTO result = targetProductService.judge(t);
 
@@ -313,25 +298,43 @@ class TargetProductServiceImplTest {
     @Test
     @DisplayName("설정일이 정확히 1개월 경과한 경계값은 요건을 충족한다")
     void judgeTreatsExactlyOneMonthAsMet() {
+        LocalDate tradeDate = LocalDate.of(2026, 3, 10);
         MydataFundResponseDTO fund =
                 MydataFundResponseDTO.builder()
                         .fundCode("448630")
                         .foreignStockRatio(BigDecimal.valueOf(60.00))
-                        .inceptionDate(FIXED_NOW.toLocalDate().minusMonths(1))
+                        .inceptionDate(tradeDate.minusMonths(1))
                         .build();
         when(mydataFundClient.getFund("448630")).thenReturn(fund);
         MydataTradeResponseDTO t =
-                trade(
-                        6L,
-                        "BUY",
-                        "FUND",
-                        "448630",
-                        BigDecimal.valueOf(1_000_000),
-                        LocalDate.of(2026, 3, 10));
+                trade(6L, "BUY", "FUND", "448630", BigDecimal.valueOf(1_000_000), tradeDate);
 
         TargetProductJudgementDTO result = targetProductService.judge(t);
 
         assertThat(result.getIsTarget()).isTrue();
+    }
+
+    @Test
+    @DisplayName("설정 1개월 경과 판정은 판정 실행 시각이 아니라 거래일(tradeDate) 기준이다")
+    void judgeUsesTradeDateNotJudgementTimeForInceptionPeriodCheck() {
+        // 설정일 2026-03-05, 거래일 2026-03-10 -> 거래일 기준으론 5일만 지나 미충족.
+        // FIXED_NOW(2026-08-07) 기준으로는 5개월 넘게 지나 있어서, 판정 시각을 기준으로
+        // 삼았다면 충족으로 오판정됐을 시나리오 (캐치업 동기화로 오래된 거래를 뒤늦게
+        // 판정하는 상황 재현)
+        LocalDate tradeDate = LocalDate.of(2026, 3, 10);
+        MydataFundResponseDTO fund =
+                MydataFundResponseDTO.builder()
+                        .fundCode("448630")
+                        .foreignStockRatio(BigDecimal.valueOf(80.00))
+                        .inceptionDate(LocalDate.of(2026, 3, 5))
+                        .build();
+        when(mydataFundClient.getFund("448630")).thenReturn(fund);
+        MydataTradeResponseDTO t =
+                trade(12L, "BUY", "FUND", "448630", BigDecimal.valueOf(1_000_000), tradeDate);
+
+        TargetProductJudgementDTO result = targetProductService.judge(t);
+
+        assertThat(result.getIsTarget()).isFalse();
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.app.maria.domain.registrablestock.dto;
 
+import com.app.maria.domain.registrablestock.type.GeneralAccountType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -11,6 +12,8 @@ import lombok.*;
 @ToString
 @Builder
 public class RegistrableStockResponseDTO {
+    private Long generalAccountId;
+    private GeneralAccountType accountType;
     private BigDecimal heldQty;
     private String sourceBroker;
     private LocalDateTime purchaseDate;
