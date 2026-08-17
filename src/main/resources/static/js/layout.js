@@ -123,8 +123,6 @@ $(function () {
                 $applyButton.prop("disabled", false);
             });
     });
-
-
     function applyTheme(theme) {
         document.documentElement.setAttribute("data-theme", theme);
         $("#themeToggle").text(theme === "dark" ? "🌙" : "☀");
