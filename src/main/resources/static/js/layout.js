@@ -30,7 +30,7 @@ $(function () {
         $("#adminBadge").text(admin.name + " · " + admin.role);
     }
 
-    var isAdmin = admin && (admin.role === "ADMIN" || admin.role === "ROLE_ADMIN");
+    var isAdmin = admin && admin.role === "ADMIN";
     $("#clockButton")
         .prop("disabled", !isAdmin)
         .toggleClass("is-editable", isAdmin)
@@ -123,8 +123,6 @@ $(function () {
                 $applyButton.prop("disabled", false);
             });
     });
-
-
     function applyTheme(theme) {
         document.documentElement.setAttribute("data-theme", theme);
         $("#themeToggle").text(theme === "dark" ? "🌙" : "☀");
@@ -144,12 +142,18 @@ $(function () {
         MARIA.auth.ajax({
             url: "/api/admin/system-clock",
             method: "GET"
-        }).done(function (res) {
-            if (res.data) {
-                currentBusinessTime = new Date(res.data);
-                renderBusinessTime();
-            }
-        });
+        })
+            .done(function (res) {
+                if (res.data) {
+                    currentBusinessTime = new Date(res.data);
+                    renderBusinessTime();
+                }
+            })
+            .fail(function (xhr) {
+                if (xhr.status !== 401) {
+                    MARIA.ui.showError("시스템 업무시각을 불러오지 못했습니다.");
+                }
+            });
     }
 
     function renderBusinessTime() {
