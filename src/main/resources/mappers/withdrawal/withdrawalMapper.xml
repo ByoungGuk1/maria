@@ -72,4 +72,13 @@
         ORDER BY ke.final_at ASC, ke.exchange_id ASC
     </select>
 
+    <select id="selectImmatureAllocatedAmountByWithdrawalId"
+            parameterType="Long"
+            resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(allocated_amount), 0)
+        FROM withdrawal_allocation
+        WHERE withdrawal_id = #{withdrawalId}
+        AND type = 'IMMATURE_PRINCIPAL_INCLUDED'
+    </select>
+
 </mapper>

@@ -549,6 +549,38 @@ class AccountClosureServiceImplTest {
     }
 
     @Test
+    void completedClosureUsesActualImmatureWithdrawalHistory() {
+        AccountClosureDTO closure = closureForApproval(true);
+        closure.setStatus(AccountClosureStatus.COMPLETED);
+        closure.setWithdrawalId(55L);
+        when(accountClosureMapper.selectById(CLOSURE_REQUEST_ID)).thenReturn(Optional.of(closure));
+        when(withdrawalService.getImmatureAllocatedAmount(55L)).thenReturn(new BigDecimal("400"));
+
+        AccountClosureDetailResponseDTO result =
+                accountClosureService.getClosure(CLOSURE_REQUEST_ID);
+
+        assertThat(result.getImmaturePrincipalAmount()).isEqualByComparingTo("400");
+        assertThat(result.isTaxBenefitCancellationExpected()).isFalse();
+        assertThat(result.isTaxBenefitCancellationOccurred()).isTrue();
+        verify(withdrawalService, never()).getImmaturePrincipalAmount(ACCOUNT_ID);
+    }
+
+    @Test
+    void rejectedClosureReportsNoActualTaxBenefitCancellation() {
+        AccountClosureDTO closure = closureForApproval(true);
+        closure.setStatus(AccountClosureStatus.REJECTED);
+        when(accountClosureMapper.selectById(CLOSURE_REQUEST_ID)).thenReturn(Optional.of(closure));
+
+        AccountClosureDetailResponseDTO result =
+                accountClosureService.getClosure(CLOSURE_REQUEST_ID);
+
+        assertThat(result.getImmaturePrincipalAmount()).isZero();
+        assertThat(result.isTaxBenefitCancellationExpected()).isFalse();
+        assertThat(result.isTaxBenefitCancellationOccurred()).isFalse();
+        verifyNoInteractions(withdrawalService);
+    }
+
+    @Test
     void getClosureThrowsNotFoundForUnknownId() {
         when(accountClosureMapper.selectById(999L)).thenReturn(Optional.empty());
 

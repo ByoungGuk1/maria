@@ -189,7 +189,16 @@ public class AccountClosureServiceImpl implements AccountClosureService {
                         .orElseThrow(
                                 () -> new AccountClosureNotFoundException("계좌 해지 신청을 찾을 수 없습니다."));
         BigDecimal immaturePrincipalAmount =
-                withdrawalService.getImmaturePrincipalAmount(closure.getAccountId());
+                switch (closure.getStatus()) {
+                    case REQUESTED ->
+                            withdrawalService.getImmaturePrincipalAmount(closure.getAccountId());
+                    case COMPLETED ->
+                            closure.getWithdrawalId() == null
+                                    ? BigDecimal.ZERO
+                                    : withdrawalService.getImmatureAllocatedAmount(
+                                            closure.getWithdrawalId());
+                    case REJECTED -> BigDecimal.ZERO;
+                };
 
         return AccountClosureDetailResponseDTO.from(closure, immaturePrincipalAmount);
     }

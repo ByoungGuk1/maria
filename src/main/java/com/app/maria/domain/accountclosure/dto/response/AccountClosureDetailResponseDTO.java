@@ -21,12 +21,15 @@ public class AccountClosureDetailResponseDTO {
     private boolean hasImmaturePrincipal;
     private BigDecimal immaturePrincipalAmount;
     private boolean taxBenefitCancellationExpected;
+    private boolean taxBenefitCancellationOccurred;
     private AccountClosureStatus status;
     private LocalDateTime requestedAt;
 
     public static AccountClosureDetailResponseDTO from(
             AccountClosureDTO closure, BigDecimal immaturePrincipalAmount) {
         boolean hasImmaturePrincipal = immaturePrincipalAmount.compareTo(BigDecimal.ZERO) > 0;
+        boolean requested = closure.getStatus() == AccountClosureStatus.REQUESTED;
+        boolean completed = closure.getStatus() == AccountClosureStatus.COMPLETED;
 
         return AccountClosureDetailResponseDTO.builder()
                 .closureRequestId(closure.getClosureRequestId())
@@ -37,7 +40,8 @@ public class AccountClosureDetailResponseDTO {
                 .earlyWithdrawalAgreed(closure.isEarlyWithdrawalAgreed())
                 .hasImmaturePrincipal(hasImmaturePrincipal)
                 .immaturePrincipalAmount(immaturePrincipalAmount)
-                .taxBenefitCancellationExpected(hasImmaturePrincipal)
+                .taxBenefitCancellationExpected(requested && hasImmaturePrincipal)
+                .taxBenefitCancellationOccurred(completed && hasImmaturePrincipal)
                 .status(closure.getStatus())
                 .requestedAt(closure.getRequestedAt())
                 .build();

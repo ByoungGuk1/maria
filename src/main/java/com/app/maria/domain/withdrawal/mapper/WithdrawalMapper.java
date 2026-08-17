@@ -35,4 +35,7 @@ public interface WithdrawalMapper {
 
     // 계좌 상태 검증
     public List<LeftAmountDTO> selectAvailableLeftAmountsByAccountId(Long accountId);
+
+    // 완료된 인출에서 실제 배분된 미경과 원금 합계 조회
+    BigDecimal selectImmatureAllocatedAmountByWithdrawalId(Long withdrawalId);
 }

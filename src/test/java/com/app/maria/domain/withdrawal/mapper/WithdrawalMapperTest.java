@@ -83,6 +83,13 @@ class WithdrawalMapperTest {
         assertThat(result).allSatisfy(value -> assertThat(value.getFinalAt()).isNotNull());
     }
 
+    @Test
+    void sumsOnlyImmatureAllocationsForRequestedWithdrawal() {
+        assertThat(mapper.selectImmatureAllocatedAmountByWithdrawalId(10L))
+                .isEqualByComparingTo("400");
+        assertThat(mapper.selectImmatureAllocatedAmountByWithdrawalId(99L)).isZero();
+    }
+
     private static void resetSchemaAndData() throws Exception {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement()) {
@@ -106,6 +113,17 @@ class WithdrawalMapperTest {
                     """);
             statement.execute(
                     """
+                    CREATE TABLE withdrawal_allocation (
+                        allocation_id BIGINT PRIMARY KEY,
+                        withdrawal_id BIGINT NOT NULL,
+                        left_amount_id BIGINT NULL,
+                        allocated_amount DECIMAL(15, 0) NOT NULL,
+                        withdrawal_at DATETIME NOT NULL,
+                        type VARCHAR(40) NOT NULL
+                    )
+                    """);
+            statement.execute(
+                    """
                     INSERT INTO krw_exchange VALUES
                         (1, 1, 'FINALIZED', TIMESTAMP '2025-01-02 09:00:00'),
                         (2, 1, 'FINALIZED', TIMESTAMP '2025-01-01 09:00:00'),
@@ -121,6 +139,15 @@ class WithdrawalMapperTest {
                         (101, 1, 100), (102, 2, 200), (103, 3, 300),
                         (104, 4, 400), (105, 5, 500), (106, 6, 50),
                         (107, 7, 0)
+                    """);
+            statement.execute(
+                    """
+                    INSERT INTO withdrawal_allocation VALUES
+                        (1, 10, NULL, 100, TIMESTAMP '2026-08-01 09:00:00', 'EARNINGS_ONLY'),
+                        (2, 10, 101, 300, TIMESTAMP '2026-08-01 09:00:00', 'MATURED_PRINCIPAL_INCLUDED'),
+                        (3, 10, 102, 250, TIMESTAMP '2026-08-01 09:00:00', 'IMMATURE_PRINCIPAL_INCLUDED'),
+                        (4, 10, 106, 150, TIMESTAMP '2026-08-01 09:00:00', 'IMMATURE_PRINCIPAL_INCLUDED'),
+                        (5, 11, 103, 999, TIMESTAMP '2026-08-01 09:00:00', 'IMMATURE_PRINCIPAL_INCLUDED')
                     """);
         }
     }
