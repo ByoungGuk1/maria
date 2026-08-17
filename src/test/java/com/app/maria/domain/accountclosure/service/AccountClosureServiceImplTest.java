@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -28,6 +29,10 @@ import com.app.maria.domain.withdrawal.dto.WithdrawalResultDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
 import com.app.maria.domain.withdrawal.exception.EarlyWithdrawalConsentRequiredException;
 import com.app.maria.domain.withdrawal.service.WithdrawalService;
+import com.app.maria.global.audit.dto.AuditLogDTO;
+import com.app.maria.global.audit.exception.AuditLogInsertException;
+import com.app.maria.global.audit.provider.AuditActorProvider;
+import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.client.generalaccount.GeneralAccountClient;
 import com.app.maria.global.client.generalaccount.dto.request.GeneralAccountRequestDTO;
 import com.app.maria.global.client.generalaccount.dto.response.GeneralAccountResponseDTO;
@@ -59,6 +64,8 @@ class AccountClosureServiceImplTest {
     @Mock private BusinessClockService businessClockService;
     @Mock private GeneralAccountClient generalAccountClient;
     @Mock private WithdrawalService withdrawalService;
+    @Mock private AuditLogService auditLogService;
+    @Mock private AuditActorProvider auditActorProvider;
     @InjectMocks private AccountClosureServiceImpl accountClosureService;
 
     @Test
@@ -141,6 +148,7 @@ class AccountClosureServiceImplTest {
         prepareExternalValidationSuccess();
         when(accountMapper.requestClosure(ACCOUNT_ID)).thenReturn(1);
         when(businessClockService.now()).thenReturn(NOW);
+        when(auditActorProvider.getCurrentAdminId()).thenReturn(7L);
         doAnswer(
                         invocation -> {
                             AccountClosureDTO closure = invocation.getArgument(0);
@@ -174,6 +182,7 @@ class AccountClosureServiceImplTest {
                             assertThat(closure.getRequestedAt()).isEqualTo(NOW);
                         });
         assertThat(result).isEqualTo(CLOSURE_REQUEST_ID);
+        assertAuditLog(7L, "OPENED", "CLOSURE_REQUESTED", "ACCOUNT_CLOSURE_REQUESTED");
 
         InOrder order =
                 inOrder(
@@ -304,12 +313,36 @@ class AccountClosureServiceImplTest {
         assertThat(closure.getProcessedAt()).isEqualTo(NOW);
         assertThat(closure.getProcessedBy()).isEqualTo(7L);
         assertThat(closure.getRejectionReason()).isEqualTo("관리자 반려 사유");
+        assertAuditLog(7L, "CLOSURE_REQUESTED", "OPENED", "ACCOUNT_CLOSURE_REJECTED");
 
         InOrder order = inOrder(accountClosureMapper, businessClockService, accountMapper);
         order.verify(accountClosureMapper).selectByIdForUpdate(CLOSURE_REQUEST_ID);
         order.verify(businessClockService).now();
         order.verify(accountClosureMapper).rejectClosureRequest(closure);
         order.verify(accountMapper).reopenAfterClosureRejection(ACCOUNT_ID);
+    }
+
+    @Test
+    void auditLogFailurePropagatesSoClosureRejectionTransactionCanRollBack() {
+        AccountClosureDTO closure = closure(AccountClosureStatus.REQUESTED);
+        when(accountClosureMapper.selectByIdForUpdate(CLOSURE_REQUEST_ID))
+                .thenReturn(Optional.of(closure));
+        when(businessClockService.now()).thenReturn(NOW);
+        when(accountClosureMapper.rejectClosureRequest(closure)).thenReturn(1);
+        when(accountMapper.reopenAfterClosureRejection(ACCOUNT_ID)).thenReturn(1);
+        doThrow(new AuditLogInsertException("AUDIT_LOG 저장에 실패했습니다."))
+                .when(auditLogService)
+                .log(any(AuditLogDTO.class));
+
+        assertThatThrownBy(
+                        () ->
+                                accountClosureService.rejectClosure(
+                                        7L, CLOSURE_REQUEST_ID, "관리자 반려 사유"))
+                .isInstanceOf(AuditLogInsertException.class)
+                .hasMessage("AUDIT_LOG 저장에 실패했습니다.");
+
+        verify(accountClosureMapper).rejectClosureRequest(closure);
+        verify(accountMapper).reopenAfterClosureRejection(ACCOUNT_ID);
     }
 
     @Test
@@ -331,6 +364,7 @@ class AccountClosureServiceImplTest {
         assertThat(closure.getProcessedAt()).isEqualTo(NOW);
         verify(accountMapper).completeClosure(ACCOUNT_ID);
         verify(accountClosureMapper).completeClosureRequest(closure);
+        assertAuditLog(7L, "CLOSURE_REQUESTED", "CLOSED", "ACCOUNT_CLOSURE_APPROVED");
     }
 
     @Test
@@ -587,6 +621,25 @@ class AccountClosureServiceImplTest {
         assertThatThrownBy(() -> accountClosureService.getClosure(999L))
                 .isInstanceOf(AccountClosureNotFoundException.class)
                 .hasMessage("계좌 해지 신청을 찾을 수 없습니다.");
+    }
+
+    private void assertAuditLog(
+            Long adminId, String beforeValue, String afterValue, String reasonCode) {
+        ArgumentCaptor<AuditLogDTO> auditCaptor = ArgumentCaptor.forClass(AuditLogDTO.class);
+        verify(auditLogService).log(auditCaptor.capture());
+
+        assertThat(auditCaptor.getValue())
+                .satisfies(
+                        auditLog -> {
+                            assertThat(auditLog.getAdminId()).isEqualTo(adminId);
+                            assertThat(auditLog.getTargetTable()).isEqualTo("ACCOUNT");
+                            assertThat(auditLog.getTargetPk())
+                                    .isEqualTo(String.valueOf(ACCOUNT_ID));
+                            assertThat(auditLog.getBeforeValue()).isEqualTo(beforeValue);
+                            assertThat(auditLog.getAfterValue()).isEqualTo(afterValue);
+                            assertThat(auditLog.getReasonCode()).isEqualTo(reasonCode);
+                            assertThat(auditLog.getProcessedAt()).isEqualTo(NOW);
+                        });
     }
 
     private void prepareAccountAndCi() {

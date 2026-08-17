@@ -13,17 +13,22 @@ import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundExcep
 import com.app.maria.domain.accountclosure.exception.AccountClosureProcessingException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureStateConflictException;
 import com.app.maria.domain.accountclosure.mapper.AccountClosureMapper;
+import com.app.maria.domain.accountclosure.type.AccountClosureAuditLogReasonCode;
 import com.app.maria.domain.accountclosure.type.AccountClosureStatus;
 import com.app.maria.domain.withdrawal.dto.WithdrawalResultDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
 import com.app.maria.domain.withdrawal.exception.EarlyWithdrawalConsentRequiredException;
 import com.app.maria.domain.withdrawal.service.WithdrawalService;
+import com.app.maria.global.audit.dto.AuditLogDTO;
+import com.app.maria.global.audit.provider.AuditActorProvider;
+import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.client.generalaccount.GeneralAccountClient;
 import com.app.maria.global.client.generalaccount.dto.request.GeneralAccountRequestDTO;
 import com.app.maria.global.client.generalaccount.dto.response.GeneralAccountResponseDTO;
 import com.app.maria.global.client.generalaccount.type.GeneralAccountStatus;
 import com.app.maria.global.clock.service.BusinessClockService;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -38,6 +43,8 @@ public class AccountClosureServiceImpl implements AccountClosureService {
     private final BusinessClockService businessClockService;
     private final GeneralAccountClient generalAccountClient;
     private final WithdrawalService withdrawalService;
+    private final AuditLogService auditLogService;
+    private final AuditActorProvider auditActorProvider;
 
     @Override
     public Long applyClosure(Long customerId, AccountClosureApplyRequestDTO requestDTO) {
@@ -85,6 +92,13 @@ public class AccountClosureServiceImpl implements AccountClosureService {
         if (insertedClosureRows != 1) {
             throw new AccountClosureProcessingException("계좌 해지 신청 저장에 실패했습니다.");
         }
+        logAccountStatusChange(
+                auditActorProvider.getCurrentAdminId(),
+                account.getAccountId(),
+                Status.OPENED,
+                Status.CLOSURE_REQUESTED,
+                AccountClosureAuditLogReasonCode.ACCOUNT_CLOSURE_REQUESTED,
+                closure.getRequestedAt());
         return closure.getClosureRequestId();
     }
 
@@ -112,6 +126,13 @@ public class AccountClosureServiceImpl implements AccountClosureService {
         if (reopenedRows != 1) {
             throw new AccountClosureProcessingException("해지 반려 후 계좌 상태 복구에 실패했습니다.");
         }
+        logAccountStatusChange(
+                adminId,
+                closure.getAccountId(),
+                Status.CLOSURE_REQUESTED,
+                Status.OPENED,
+                AccountClosureAuditLogReasonCode.ACCOUNT_CLOSURE_REJECTED,
+                closure.getProcessedAt());
     }
 
     @Override
@@ -172,6 +193,13 @@ public class AccountClosureServiceImpl implements AccountClosureService {
         if (completedClosureRows != 1) {
             throw new AccountClosureProcessingException("계좌 해지 신청 완료 처리에 실패했습니다.");
         }
+        logAccountStatusChange(
+                adminId,
+                closure.getAccountId(),
+                Status.CLOSURE_REQUESTED,
+                Status.CLOSED,
+                AccountClosureAuditLogReasonCode.ACCOUNT_CLOSURE_APPROVED,
+                closure.getProcessedAt());
     }
 
     @Override
@@ -201,5 +229,24 @@ public class AccountClosureServiceImpl implements AccountClosureService {
                 };
 
         return AccountClosureDetailResponseDTO.from(closure, immaturePrincipalAmount);
+    }
+
+    private void logAccountStatusChange(
+            Long adminId,
+            Long accountId,
+            Status beforeStatus,
+            Status afterStatus,
+            AccountClosureAuditLogReasonCode reasonCode,
+            LocalDateTime processedAt) {
+        auditLogService.log(
+                AuditLogDTO.builder()
+                        .adminId(adminId)
+                        .targetTable("ACCOUNT")
+                        .targetPk(String.valueOf(accountId))
+                        .beforeValue(beforeStatus.name())
+                        .afterValue(afterStatus.name())
+                        .reasonCode(reasonCode.name())
+                        .processedAt(processedAt)
+                        .build());
     }
 }
