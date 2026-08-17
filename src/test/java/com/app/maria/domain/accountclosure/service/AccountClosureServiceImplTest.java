@@ -16,6 +16,7 @@ import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.accountclosure.dto.AccountClosureDTO;
 import com.app.maria.domain.accountclosure.dto.request.AccountClosureApplyRequestDTO;
+import com.app.maria.domain.accountclosure.dto.response.AccountClosureDetailResponseDTO;
 import com.app.maria.domain.accountclosure.dto.response.AccountClosureResponseDTO;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotAllowedException;
 import com.app.maria.domain.accountclosure.exception.AccountClosureNotFoundException;
@@ -475,6 +476,8 @@ class AccountClosureServiceImplTest {
     @Test
     void getClosuresConvertsEveryMapperResultWithoutChangingOrder() {
         AccountClosureDTO first = closureForApproval(true);
+        first.setCustomerName("첫 번째 고객");
+        first.setAccountNo("1234567890");
         AccountClosureDTO second =
                 AccountClosureDTO.builder()
                         .closureRequestId(31L)
@@ -482,6 +485,8 @@ class AccountClosureServiceImplTest {
                         .destinationGeneralAccountId(21L)
                         .status(AccountClosureStatus.REQUESTED)
                         .requestedAt(NOW.plusMinutes(1))
+                        .customerName("두 번째 고객")
+                        .accountNo("0987654321")
                         .build();
         when(accountClosureMapper.selectByStatus(AccountClosureStatus.REQUESTED))
                 .thenReturn(List.of(first, second));
@@ -492,7 +497,12 @@ class AccountClosureServiceImplTest {
         assertThat(result)
                 .extracting(AccountClosureResponseDTO::getClosureRequestId)
                 .containsExactly(CLOSURE_REQUEST_ID, 31L);
-        assertThat(result.get(0).isEarlyWithdrawalAgreed()).isTrue();
+        assertThat(result)
+                .extracting(AccountClosureResponseDTO::getCustomerName)
+                .containsExactly("첫 번째 고객", "두 번째 고객");
+        assertThat(result)
+                .extracting(AccountClosureResponseDTO::getAccountNo)
+                .containsExactly("1234567890", "0987654321");
         verify(accountClosureMapper).selectByStatus(AccountClosureStatus.REQUESTED);
     }
 
@@ -500,16 +510,42 @@ class AccountClosureServiceImplTest {
     void getClosureConvertsFoundClosure() {
         AccountClosureDTO closure = closureForApproval(true);
         closure.setRequestedAt(NOW);
+        closure.setCustomerName("조회 고객");
+        closure.setAccountNo("1234567890");
+        closure.setAccountAmount(new BigDecimal("1000"));
         when(accountClosureMapper.selectById(CLOSURE_REQUEST_ID)).thenReturn(Optional.of(closure));
+        when(withdrawalService.getImmaturePrincipalAmount(ACCOUNT_ID))
+                .thenReturn(new BigDecimal("400"));
 
-        AccountClosureResponseDTO result = accountClosureService.getClosure(CLOSURE_REQUEST_ID);
+        AccountClosureDetailResponseDTO result =
+                accountClosureService.getClosure(CLOSURE_REQUEST_ID);
 
         assertThat(result.getClosureRequestId()).isEqualTo(CLOSURE_REQUEST_ID);
-        assertThat(result.getAccountId()).isEqualTo(ACCOUNT_ID);
+        assertThat(result.getCustomerName()).isEqualTo("조회 고객");
+        assertThat(result.getAccountNo()).isEqualTo("1234567890");
+        assertThat(result.getAccountAmount()).isEqualByComparingTo("1000");
         assertThat(result.getDestinationGeneralAccountId()).isEqualTo(GENERAL_ACCOUNT_ID);
         assertThat(result.isEarlyWithdrawalAgreed()).isTrue();
+        assertThat(result.isHasImmaturePrincipal()).isTrue();
+        assertThat(result.getImmaturePrincipalAmount()).isEqualByComparingTo("400");
+        assertThat(result.isTaxBenefitCancellationExpected()).isTrue();
         assertThat(result.getStatus()).isEqualTo(AccountClosureStatus.REQUESTED);
         assertThat(result.getRequestedAt()).isEqualTo(NOW);
+    }
+
+    @Test
+    void getClosureSeparatesConsentFromActualImmaturePrincipal() {
+        AccountClosureDTO closure = closureForApproval(true);
+        when(accountClosureMapper.selectById(CLOSURE_REQUEST_ID)).thenReturn(Optional.of(closure));
+        when(withdrawalService.getImmaturePrincipalAmount(ACCOUNT_ID)).thenReturn(BigDecimal.ZERO);
+
+        AccountClosureDetailResponseDTO result =
+                accountClosureService.getClosure(CLOSURE_REQUEST_ID);
+
+        assertThat(result.isEarlyWithdrawalAgreed()).isTrue();
+        assertThat(result.isHasImmaturePrincipal()).isFalse();
+        assertThat(result.getImmaturePrincipalAmount()).isZero();
+        assertThat(result.isTaxBenefitCancellationExpected()).isFalse();
     }
 
     @Test

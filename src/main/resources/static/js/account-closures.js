@@ -24,6 +24,10 @@ $(function () {
         return value ? DATE_TIME_FORMATTER.format(new Date(value)) : "-";
     }
 
+    function formatAmount(value) {
+        return new Intl.NumberFormat("ko-KR").format(Number(value || 0)) + "원";
+    }
+
     function statusLabel(status) {
         return STATUS_LABEL[status] || status || "-";
     }
@@ -66,11 +70,11 @@ $(function () {
                 '<button type="button" class="closure-list-item' + selectedClass + '"' +
                 ' data-closure-id="' + closure.closureRequestId + '">' +
                 '<span class="closure-list-primary">' +
-                '<span>신청 #' + escapeHtml(closure.closureRequestId) + '</span>' +
+                '<span>' + escapeHtml(closure.customerName || "-") + '</span>' +
                 '<span class="closure-status-badge ' + statusClass(closure.status) + '">' +
                 escapeHtml(statusLabel(closure.status)) + '</span></span>' +
                 '<span class="closure-list-secondary">' +
-                '<span>RIA 계좌 #' + escapeHtml(closure.accountId) + '</span>' +
+                '<span>RIA ' + escapeHtml(closure.accountNo || "-") + '</span>' +
                 '<span>' + escapeHtml(formatDateTime(closure.requestedAt)) + '</span>' +
                 '</span></button>'
             );
@@ -94,17 +98,29 @@ $(function () {
         $("#closure-detail").removeClass("is-empty");
         $("#closure-detail-empty").hide();
         $("#closure-detail-content").prop("hidden", false);
-        $("#detail-request-title").text("해지 신청 #" + closure.closureRequestId);
-        $("#detail-request-id").text(closure.closureRequestId);
-        $("#detail-account-id").text(closure.accountId);
+        $("#detail-request-title").text((closure.customerName || "-") + " 고객 해지 신청");
+        $("#detail-customer-name").text(closure.customerName || "-");
+        $("#detail-account-no").text(closure.accountNo || "-");
+        $("#detail-account-amount").text(formatAmount(closure.accountAmount));
         $("#detail-destination-id").text(closure.destinationGeneralAccountId);
         $("#detail-requested-at").text(formatDateTime(closure.requestedAt));
+        $("#detail-early-agreed").text(closure.earlyWithdrawalAgreed ? "동의함" : "동의하지 않음");
+        $("#detail-immature-principal").text(
+            closure.hasImmaturePrincipal
+                ? formatAmount(closure.immaturePrincipalAmount) + " 보유"
+                : "없음"
+        );
+        $("#detail-tax-impact").text(
+            closure.taxBenefitCancellationExpected ? "승인 시 전체 취소" : "영향 없음"
+        );
         $("#detail-status")
             .attr("class", "closure-status-badge " + statusClass(closure.status))
             .text(statusLabel(closure.status));
 
-        $("#early-withdrawal-warning").prop("hidden", !closure.earlyWithdrawalAgreed);
-        $("#early-withdrawal-not-agreed").prop("hidden", closure.earlyWithdrawalAgreed);
+        $("#early-withdrawal-warning")
+            .prop("hidden", !closure.taxBenefitCancellationExpected);
+        $("#early-withdrawal-not-agreed")
+            .prop("hidden", closure.taxBenefitCancellationExpected);
         $("#rejection-reason").val("");
 
         var editable = closure.status === "REQUESTED" && canProcessClosure();
@@ -199,7 +215,6 @@ $(function () {
     }
 
     $("#search-button").on("click", loadClosures);
-    $("#closure-status").on("change", loadClosures);
     $(document).on("click", ".closure-list-item", function () {
         loadDetail(Number($(this).data("closure-id")));
     });
