@@ -70,4 +70,10 @@ public class PageController {
         model.addAttribute("activePath", "/admin/account-closures");
         return "account-closures";
     }
+
+    @GetMapping("/admin/withdrawals")
+    public String withdrawals(Model model) {
+        model.addAttribute("activePath", "/admin/withdrawals");
+        return "withdrawals";
+    }
 }
