@@ -319,6 +319,7 @@ class AccountClosureApiTest {
                 .andExpect(jsonPath("$.data.hasImmaturePrincipal").value(true))
                 .andExpect(jsonPath("$.data.immaturePrincipalAmount").value(400))
                 .andExpect(jsonPath("$.data.taxBenefitCancellationExpected").value(true))
+                .andExpect(jsonPath("$.data.taxBenefitCancellationOccurred").value(false))
                 .andExpect(jsonPath("$.data.status").value("REQUESTED"))
                 .andExpect(jsonPath("$.data.requestedAt").value("2026-08-12T09:00:00"));
 
@@ -363,6 +364,7 @@ class AccountClosureApiTest {
                 .hasImmaturePrincipal(true)
                 .immaturePrincipalAmount(new BigDecimal("400"))
                 .taxBenefitCancellationExpected(true)
+                .taxBenefitCancellationOccurred(false)
                 .status(status)
                 .requestedAt(LocalDateTime.of(2026, 8, 12, 9, 0))
                 .build();

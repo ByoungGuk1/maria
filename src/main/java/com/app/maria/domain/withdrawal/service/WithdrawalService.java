@@ -15,4 +15,6 @@ public interface WithdrawalService {
     boolean hasImmaturePrincipal(Long accountId);
 
     BigDecimal getImmaturePrincipalAmount(Long accountId);
+
+    BigDecimal getImmatureAllocatedAmount(Long withdrawalId);
 }

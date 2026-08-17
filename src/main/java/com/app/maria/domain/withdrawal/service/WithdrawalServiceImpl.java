@@ -322,4 +322,9 @@ public class WithdrawalServiceImpl implements WithdrawalService {
                 .map(LeftAmountDTO::getCurAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
+
+    @Override
+    public BigDecimal getImmatureAllocatedAmount(Long withdrawalId) {
+        return withdrawalMapper.selectImmatureAllocatedAmountByWithdrawalId(withdrawalId);
+    }
 }
