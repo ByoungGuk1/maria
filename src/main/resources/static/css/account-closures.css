@@ -127,6 +127,41 @@
     padding: 10px;
 }
 
+.closure-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 10px 14px 14px;
+    border-top: 1px solid var(--divider);
+    color: var(--textMuted);
+    font: 500 12px 'Noto Sans KR', sans-serif;
+}
+
+.closure-pagination[hidden] {
+    display: none;
+}
+
+.closure-pagination button {
+    border: 1px solid var(--inputBorder);
+    border-radius: 4px;
+    padding: 6px 10px;
+    background: var(--inputBg);
+    color: var(--textSecondary);
+    cursor: pointer;
+    font: 500 11px 'Noto Sans KR', sans-serif;
+}
+
+.closure-pagination button:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.closure-pagination button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
 .closure-list-item {
     width: 100%;
     margin-bottom: 7px;

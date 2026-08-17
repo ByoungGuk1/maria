@@ -13,6 +13,8 @@ $(function () {
     });
     var closures = [];
     var selectedClosureId = null;
+    var currentPage = 1;
+    var PAGE_SIZE = 6;
 
     function escapeHtml(value) {
         return $("<div>").text(value == null ? "" : value).html();
@@ -45,11 +47,17 @@ $(function () {
 
         if (!closures.length) {
             $list.append('<div class="closure-empty">해당 상태의 해지 신청이 없습니다.</div>');
+            $("#closure-pagination").prop("hidden", true);
             clearDetail();
             return;
         }
 
-        closures.forEach(function (closure) {
+        var totalPages = Math.max(1, Math.ceil(closures.length / PAGE_SIZE));
+        currentPage = Math.min(currentPage, totalPages);
+        var startIndex = (currentPage - 1) * PAGE_SIZE;
+        var pageClosures = closures.slice(startIndex, startIndex + PAGE_SIZE);
+
+        pageClosures.forEach(function (closure) {
             var selectedClass =
                 Number(closure.closureRequestId) === Number(selectedClosureId)
                     ? " is-selected"
@@ -67,6 +75,11 @@ $(function () {
                 '</span></button>'
             );
         });
+
+        $("#closure-page-info").text(currentPage + " / " + totalPages);
+        $("#previous-closure-page").prop("disabled", currentPage === 1);
+        $("#next-closure-page").prop("disabled", currentPage === totalPages);
+        $("#closure-pagination").prop("hidden", false);
     }
 
     function clearDetail() {
@@ -127,6 +140,7 @@ $(function () {
         })
             .done(function (response) {
                 closures = response.data || [];
+                currentPage = 1;
                 if (closures.length) {
                     selectedClosureId = Number(closures[0].closureRequestId);
                     renderList();
@@ -189,6 +203,19 @@ $(function () {
     $(document).on("click", ".closure-list-item", function () {
         loadDetail(Number($(this).data("closure-id")));
     });
+    $("#previous-closure-page").on("click", function () {
+        if (currentPage > 1) {
+            currentPage -= 1;
+            selectFirstClosureOnCurrentPage();
+        }
+    });
+    $("#next-closure-page").on("click", function () {
+        var totalPages = Math.max(1, Math.ceil(closures.length / PAGE_SIZE));
+        if (currentPage < totalPages) {
+            currentPage += 1;
+            selectFirstClosureOnCurrentPage();
+        }
+    });
     $("#approve-button").on("click", function () {
         processClosure("approve");
     });
@@ -197,4 +224,19 @@ $(function () {
     });
 
     loadClosures();
+
+    function selectFirstClosureOnCurrentPage() {
+        var firstIndex = (currentPage - 1) * PAGE_SIZE;
+        var firstClosure = closures[firstIndex];
+
+        if (!firstClosure) {
+            renderList();
+            clearDetail();
+            return;
+        }
+
+        selectedClosureId = Number(firstClosure.closureRequestId);
+        renderList();
+        loadDetail(selectedClosureId);
+    }
 });
