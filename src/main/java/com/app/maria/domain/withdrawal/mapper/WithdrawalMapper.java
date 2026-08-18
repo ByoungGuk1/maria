@@ -44,6 +44,8 @@ public interface WithdrawalMapper {
 
     List<WithdrawalHistoryDTO> selectWithdrawalHistories(@Param("status") WithdrawalStatus status);
 
+    List<WithdrawalHistoryDTO> selectWithdrawalHistoriesByAccountId(Long accountId);
+
     Optional<WithdrawalHistoryDTO> selectWithdrawalHistoryById(Long withdrawalId);
 
     List<WithdrawalAllocationHistoryDTO> selectAllocationHistoriesByWithdrawalId(Long withdrawalId);
