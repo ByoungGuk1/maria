@@ -100,14 +100,22 @@
 
     <select id="selectReliefRateStats" parameterType="StatisticsFilterDTO" resultType="ReliefRateStatDTO">
         SELECT
+        p.periodLabel AS periodLabel,
+        COALESCE(SUM(fso.sellAmount), 0) AS sellAmount
+        FROM (
+        SELECT 1 AS ord, '1~5월 (100%)' AS periodLabel
+        UNION ALL SELECT 2, '6~7월 (80%)'
+        UNION ALL SELECT 3, '8~12월 (50%)'
+        ) p
+        LEFT JOIN (
+        SELECT
         CASE
-        WHEN MONTH(so.processed_at) BETWEEN 1 AND 5 THEN '1~5월 (100%)'
-        WHEN MONTH(so.processed_at) BETWEEN 6 AND 7 THEN '6~7월 (80%)'
-        ELSE '8~12월 (50%)'
-        END AS periodLabel,
-        SUM(
+        WHEN MONTH(so.processed_at) BETWEEN 1 AND 5 THEN 1
+        WHEN MONTH(so.processed_at) BETWEEN 6 AND 7 THEN 2
+        ELSE 3
+        END AS bucketOrd,
         <include refid="com.app.maria.domain.sellorder.mapper.SellLimitMapper.usedAmountCase"/>
-        ) AS sellAmount
+        AS sellAmount
         FROM sell_order so
         LEFT JOIN krw_exchange ke ON ke.order_id = so.order_id
         JOIN account a ON a.account_id = so.account_id
@@ -120,8 +128,9 @@
             <if test="startDateTime != null">AND so.processed_at &gt;= #{startDateTime}</if>
             <if test="endDateTime != null">AND so.processed_at &lt;= #{endDateTime}</if>
         </where>
-        GROUP BY periodLabel
-        ORDER BY MIN(MONTH(so.processed_at))
+        ) fso ON fso.bucketOrd = p.ord
+        GROUP BY p.ord, p.periodLabel
+        ORDER BY p.ord
     </select>
 
 </mapper>

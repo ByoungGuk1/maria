@@ -252,8 +252,9 @@ class StatisticsMapperTest {
     // ---- selectReliefRateStats ----
 
     @Test
-    @DisplayName("매도월 기준으로 감면율 구간을 나누고, 확정산 완료 건은 final_amount를 매도금액으로 사용한다")
-    void selectReliefRateStatsBucketsByMonthAndPrefersFinalAmountWhenFinalized()
+    @DisplayName(
+            "매도월 기준으로 감면율 구간을 나누고, 확정산 완료 건은 final_amount를 매도금액으로 사용하며, 데이터 없는 구간도 0으로 항상 3개 다 반환한다")
+    void selectReliefRateStatsAlwaysReturnsThreeFixedBucketsWithZeroForEmptyOnes()
             throws SQLException {
         insertCustomer(1L, "홍길동", LocalDate.of(1990, 1, 1));
         insertAccount(1L, 1L, "1000000001", null);
@@ -264,27 +265,23 @@ class StatisticsMapperTest {
 
         List<ReliefRateStatDTO> result = statisticsMapper.selectReliefRateStats(baseFilter().build());
 
-        assertThat(result).hasSize(2);
-        ReliefRateStatDTO marchBucket =
-                result.stream()
-                        .filter(r -> r.getPeriodLabel().equals("1~5월 (100%)"))
-                        .findFirst()
-                        .orElseThrow();
-        assertThat(marchBucket.getSellAmount()).isEqualByComparingTo("990000");
-        ReliefRateStatDTO juneBucket =
-                result.stream()
-                        .filter(r -> r.getPeriodLabel().equals("6~7월 (80%)"))
-                        .findFirst()
-                        .orElseThrow();
-        assertThat(juneBucket.getSellAmount()).isEqualByComparingTo("500000");
+        assertThat(result).hasSize(3);
+        assertThat(result)
+                .extracting(ReliefRateStatDTO::getPeriodLabel)
+                .containsExactly("1~5월 (100%)", "6~7월 (80%)", "8~12월 (50%)");
+        assertThat(result.get(0).getSellAmount()).isEqualByComparingTo("990000");
+        assertThat(result.get(1).getSellAmount()).isEqualByComparingTo("500000");
+        assertThat(result.get(2).getSellAmount()).isEqualByComparingTo("0");
     }
 
     @Test
-    @DisplayName("매도 이력이 없으면 빈 목록을 반환한다")
-    void selectReliefRateStatsReturnsEmptyListWhenNoSellOrdersExist() {
+    @DisplayName("매도 이력이 없어도 3개 구간을 전부 0원으로 반환한다")
+    void selectReliefRateStatsReturnsThreeZeroBucketsWhenNoSellOrdersExist() {
         List<ReliefRateStatDTO> result = statisticsMapper.selectReliefRateStats(baseFilter().build());
 
-        assertThat(result).isEmpty();
+        assertThat(result).hasSize(3);
+        assertThat(result)
+                .allSatisfy(r -> assertThat(r.getSellAmount()).isEqualByComparingTo("0"));
     }
 
     // ---- schema / fixtures ----
