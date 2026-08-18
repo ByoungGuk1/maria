@@ -2,7 +2,6 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    min-height: calc(100dvh - 84px);
 }
 
 .withdrawal-breadcrumb-link {
@@ -131,8 +130,6 @@
     grid-template-columns: minmax(300px, 5fr) minmax(480px, 7fr);
     gap: 16px;
     align-items: stretch;
-    flex: 1;
-    min-height: 0;
 }
 
 .withdrawal-list-card,
@@ -143,6 +140,7 @@
     border: 1px solid var(--cardBorder);
     border-radius: 3px;
     background: var(--cardBg);
+    overflow: hidden;
 }
 
 .withdrawal-card-header,
@@ -230,6 +228,11 @@
 .withdrawal-request-amount {
     color: var(--textPrimary);
     font-size: 11.5px;
+}
+
+.withdrawal-history-count {
+    color: var(--textSecondary);
+    font-size: 11px;
 }
 
 .withdrawal-account-cell small {
@@ -342,6 +345,67 @@
     min-height: 260px;
 }
 
+.withdrawal-detail-drawer {
+    position: fixed;
+    z-index: 1100;
+    top: 0;
+    right: 0;
+    width: min(560px, 96vw);
+    height: 100dvh;
+    overflow-y: auto;
+    border-left: 1px solid var(--cardBorder);
+    background: var(--cardBg);
+    box-shadow: -18px 0 42px rgba(15, 23, 42, .2);
+    transform: translateX(102%);
+    transition: transform .2s ease;
+}
+
+.withdrawal-detail-drawer.is-open {
+    transform: translateX(0);
+}
+
+.withdrawal-drawer-backdrop {
+    position: fixed;
+    z-index: 1090;
+    inset: 0;
+    background: rgba(15, 23, 42, .38);
+}
+
+.withdrawal-drawer-backdrop[hidden] {
+    display: none;
+}
+
+.withdrawal-drawer-header {
+    position: sticky;
+    z-index: 2;
+    top: 0;
+    background: var(--cardBg);
+}
+
+.withdrawal-drawer-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.withdrawal-drawer-actions button {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--inputBorder);
+    border-radius: 50%;
+    background: var(--inputBg);
+    color: var(--textSecondary);
+    cursor: pointer;
+    font-size: 19px;
+    line-height: 1;
+}
+
+.withdrawal-drawer-actions button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
 #withdrawal-detail-content {
     display: flex;
     flex: 1;
@@ -415,7 +479,12 @@
     font-size: 14px;
 }
 
-.allocation-summary.immature {
+.allocation-summary.is-selected {
+    border-color: var(--accent);
+    background: var(--accentBg);
+}
+
+.allocation-summary.is-danger-selected {
     border-color: var(--danger);
     background: var(--dangerBg);
 }
@@ -430,11 +499,59 @@
     font-weight: 600;
 }
 
+.withdrawal-drawer-warning {
+    margin-top: 12px;
+}
+
+.withdrawal-account-warning {
+    margin-top: 12px;
+}
+
+.withdrawal-selected-allocation {
+    margin-top: 2px;
+    border-top: 1px solid var(--cardBorder);
+    border-bottom: 1px solid var(--cardBorder);
+}
+
+.withdrawal-selected-allocation h3 {
+    margin: 0;
+    color: var(--textPrimary);
+    font-size: 13px;
+}
+
+.allocation-type-badge {
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: var(--accentBg);
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.withdrawal-drawer-section-title {
+    margin-top: 14px;
+    padding: 13px 14px 8px;
+    border-top: 1px solid var(--cardBorder);
+    color: var(--textMuted);
+    font-size: 10.5px;
+    font-weight: 600;
+}
+
+.selected-allocation-grid {
+    border-bottom: 0;
+}
+
 .withdrawal-allocation-section {
     display: flex;
     flex: 1;
     flex-direction: column;
     border-top: 1px solid var(--cardBorder);
+}
+
+.account-allocation-section {
+    flex: none;
+    border-top: 0;
+    border-bottom: 1px solid var(--cardBorder);
 }
 
 .withdrawal-allocations {
@@ -445,49 +562,83 @@
     padding: 10px 14px;
 }
 
-.allocation-navigation {
-    display: flex;
+.allocation-pagination {
+    margin-top: auto;
+}
+
+.withdrawal-allocation-group {
+    overflow: hidden;
+    border: 1px solid var(--cardBorder);
+    border-radius: 5px;
+    background: var(--cardBg);
+}
+
+.withdrawal-allocation-group-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) auto;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
+    padding: 9px 11px;
+    border-bottom: 1px solid var(--cardBorder);
+    background: var(--tableHeaderBg);
 }
 
-.allocation-navigation span {
-    min-width: 34px;
+.withdrawal-allocation-group-header > div span,
+.withdrawal-allocation-group-header > div strong {
+    display: block;
+}
+
+.withdrawal-allocation-group-header > div span {
+    margin-bottom: 2px;
     color: var(--textMuted);
-    font-size: 10.5px;
-    text-align: center;
+    font-size: 9.5px;
 }
 
-.allocation-navigation button {
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    border: 1px solid var(--inputBorder);
-    border-radius: 3px;
+.withdrawal-allocation-group-header > div strong {
+    color: var(--textPrimary);
+    font-size: 11px;
+}
+
+.withdrawal-allocation-group-items {
+    display: grid;
+    gap: 6px;
+    padding: 7px;
+}
+
+.withdrawal-cancelled-allocation {
+    padding: 22px 14px;
+    border: 1px dashed var(--cardBorder);
+    border-radius: 4px;
     background: var(--inputBg);
-    color: var(--textSecondary);
-    cursor: pointer;
-    font-size: 13px;
-}
-
-.allocation-navigation button:hover:not(:disabled) {
-    border-color: var(--accent);
-    color: var(--accent);
-}
-
-.allocation-navigation button:disabled {
-    cursor: default;
-    opacity: .35;
+    color: var(--textMuted);
+    font-size: 11px;
+    text-align: center;
 }
 
 .withdrawal-allocation-item {
     display: flex;
+    width: 100%;
     min-height: 122px;
     box-sizing: border-box;
     flex-direction: column;
     padding: 10px 12px;
     border: 1px solid var(--cardBorder);
     border-radius: 4px;
+    background: var(--cardBg);
+    color: var(--textSecondary);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.withdrawal-allocation-item:hover,
+.withdrawal-allocation-item.is-selected {
+    border-color: var(--accent);
+    background: var(--accentBg);
+}
+
+.withdrawal-allocation-item.is-selected {
+    box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .allocation-item-header > div span {
