@@ -25,6 +25,7 @@ import com.app.maria.domain.tax.exception.TaxCalculationAlreadyExistsException;
 import com.app.maria.domain.tax.exception.TaxCalculationException;
 import com.app.maria.domain.tax.exception.TaxRuleNotFoundException;
 import com.app.maria.domain.withdrawal.exception.WithdrawalException;
+import com.app.maria.domain.withdrawal.exception.WithdrawalNotFoundException;
 import com.app.maria.domain.withdrawal.exception.WithdrawalProcessingException;
 import com.app.maria.global.audit.exception.AuditLogException;
 import com.app.maria.global.audit.exception.AuditLogInsertException;
@@ -270,6 +271,12 @@ public class GlobalExceptionHandler {
     }
 
     // 10. Withdrawal 예외
+    @ExceptionHandler(WithdrawalNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleWithdrawalNotFoundException(
+            WithdrawalNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDTO.of(e.getMessage()));
+    }
+
     @ExceptionHandler(WithdrawalException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleWithdrawalException(WithdrawalException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
