@@ -4,6 +4,7 @@ import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.domestic.dto.*;
 import com.app.maria.domain.domestic.dto.request.DomesticInvestmentSearchRequestDTO;
+import com.app.maria.domain.domestic.dto.request.DomesticTradeRequestDTO;
 import com.app.maria.domain.domestic.exception.DomesticInvestmentNotFoundException;
 import com.app.maria.domain.domestic.mapper.DomesticStockBalanceMapper;
 import com.app.maria.global.response.ApiResponseDTO;
@@ -68,7 +69,9 @@ public class DomesticInvestmentServiceImpl implements DomesticInvestmentService 
                 h ->
                         h.setCurrentlyPurchasable(
                                 domesticPurchaseEligibilityService.isPurchasable(
-                                        h.getDomesticProductId())));
+                                        h.getType(),
+                                        h.getDomesticStockRatio(),
+                                        h.getInceptionDate())));
 
         Long customerId =
                 accountMapper
@@ -96,8 +99,9 @@ public class DomesticInvestmentServiceImpl implements DomesticInvestmentService 
         try {
             ApiResponseDTO<List<DomesticTradeHistoryDTO>> apiResponse =
                     restClient
-                            .get()
-                            .uri("/api/domestic-trades?ciHash={ciHash}", ciHash)
+                            .post()
+                            .uri("/api/domestic-trades")
+                            .body(new DomesticTradeRequestDTO(ciHash))
                             .retrieve()
                             .body(
                                     new ParameterizedTypeReference<

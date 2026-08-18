@@ -21,6 +21,7 @@ import com.app.maria.global.config.SecurityConfig;
 import com.app.maria.global.jwt.JwtTokenProvider;
 import java.math.BigDecimal;
 import java.util.List;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -44,6 +45,7 @@ class DomesticInvestmentApiTest {
     @MockitoBean private JwtTokenProvider jwtTokenProvider;
 
     @Test
+    @DisplayName("목록 조회 성공 시 페이지 결과를 JSON으로 반환한다")
     void getInvestmentsReturnsPagedResultAsJson() throws Exception {
         DomesticInvestmentListDTO item =
                 DomesticInvestmentListDTO.builder()
@@ -93,6 +95,7 @@ class DomesticInvestmentApiTest {
     }
 
     @Test
+    @DisplayName("인증되지 않은 요청은 목록 조회를 거부한다")
     @WithAnonymousUser
     void getInvestmentsRejectsUnauthenticated() throws Exception {
         mockMvc.perform(get("/api/domestic-investments")).andExpect(status().isUnauthorized());
@@ -102,6 +105,7 @@ class DomesticInvestmentApiTest {
     }
 
     @Test
+    @DisplayName("계좌 상세 조회 성공 시 예탁금·보유종목·매매내역을 JSON으로 반환한다")
     void getAccountDetailReturnsAccountDetailAsJson() throws Exception {
         DomesticHoldingDTO holding =
                 DomesticHoldingDTO.builder()
@@ -130,6 +134,7 @@ class DomesticInvestmentApiTest {
     }
 
     @Test
+    @DisplayName("존재하지 않는 계좌면 404를 반환한다")
     void getAccountDetailReturnsNotFoundWhenAccountMissing() throws Exception {
         when(domesticInvestmentService.getAccountDetail(999L))
                 .thenThrow(new DomesticInvestmentNotFoundException("계좌를 찾을 수 없습니다."));
@@ -140,6 +145,7 @@ class DomesticInvestmentApiTest {
     }
 
     @Test
+    @DisplayName("accountId가 0 이하면 400을 반환하고 서비스는 호출하지 않는다")
     void getAccountDetailRejectsNonPositiveAccountId() throws Exception {
         mockMvc.perform(get("/api/domestic-investments/0")).andExpect(status().isBadRequest());
 
