@@ -40,7 +40,8 @@
     </select>
 
     <select id="selectSellOrderHistory" resultType="SellOrderHistoryDTO">
-        SELECT krw.provisional_amount, krw.final_amount, acc.account_no, c.name AS customerName, fp.ticker, fp.name AS name
+        SELECT s.sell_qty, s.base_price, s.processed_at, s.status,
+            krw.provisional_amount, krw.final_amount, acc.account_no, c.name AS customerName, fp.ticker, fp.name AS name
         FROM sell_order s LEFT JOIN krw_exchange krw ON krw.order_id = s.order_id
             LEFT JOIN account acc ON acc.account_id = s.account_id
             LEFT JOIN customer c ON c.customer_id = acc.customer_id
@@ -55,10 +56,9 @@
 
     <select id="countSellOrderHistory" resultType="int">
         SELECT COUNT(*)
-        FROM sell_order s LEFT JOIN krw_exchange krw ON krw.order_id = s.order_id
+        FROM sell_order s
         LEFT JOIN account acc ON acc.account_id = s.account_id
         LEFT JOIN customer c ON c.customer_id = acc.customer_id
-        LEFT JOIN foreign_product fp ON fp.foreign_product_id = s.foreign_product_id
         <where>
             <if test="accountNo != null and accountNo != ''">AND acc.account_no LIKE CONCAT('%',#{accountNo},'%')</if>
             <if test="customerName != null and customerName != ''">AND c.name LIKE CONCAT('%',#{customerName},'%')</if>
