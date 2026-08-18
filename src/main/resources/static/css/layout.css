@@ -364,13 +364,6 @@ a.sidebar-item:hover {
     color: var(--textSecondary);
 }
 
-.admin-avatar {
-    width: 26px;
-    height: 26px;
-    border-radius: 4px;
-    background: var(--inputBorder);
-}
-
 .theme-toggle {
     width: 28px;
     height: 28px;
