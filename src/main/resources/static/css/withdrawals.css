@@ -295,8 +295,7 @@
     color: var(--success);
 }
 
-.withdrawal-status-badge.failed,
-.withdrawal-status-badge.cancelled {
+.withdrawal-status-badge.failed {
     background: var(--dangerBg);
     color: var(--danger);
 }

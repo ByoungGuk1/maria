@@ -4,7 +4,6 @@ $(function () {
     var STATUS_LABEL = {
         REQUESTED: "처리 요청",
         COMPLETED: "처리 완료",
-        CANCELLED: "취소",
         FAILED: "실패"
     };
     var TYPE_LABEL = {
@@ -309,15 +308,13 @@ $(function () {
                 if (groupEntry.entry.allocation) {
                     $items.append(allocationMarkup(groupEntry.entry, groupEntry.index));
                 } else {
-                    var isFailed = withdrawal.status === "FAILED";
                     $items.append(
                         '<button type="button" class="withdrawal-unallocated-item ' +
                         statusClass(withdrawal.status) + '" data-allocation-index="' +
                         groupEntry.index + '"><strong>' +
-                        escapeHtml(isFailed ? "인출 실패" : "인출 취소") +
-                        '</strong><span>' + escapeHtml(isFailed
-                            ? (withdrawal.failureReason || "실패 사유가 저장되지 않았습니다.")
-                            : "배분 없이 취소된 인출입니다.") +
+                        '인출 실패</strong><span>' + escapeHtml(
+                            withdrawal.failureReason || "실패 사유가 저장되지 않았습니다."
+                        ) +
                         '</span></button>'
                     );
                 }
@@ -492,8 +489,7 @@ $(function () {
                         withdrawal: withdrawal
                     });
                 });
-                if (!allocations.length &&
-                    (withdrawal.status === "CANCELLED" || withdrawal.status === "FAILED")) {
+                if (!allocations.length && withdrawal.status === "FAILED") {
                     accountAllocationEntries.push({
                         allocation: null,
                         withdrawal: withdrawal
@@ -533,7 +529,9 @@ $(function () {
             loadApiData("/api/withdrawals"),
             loadApiData("/api/account/list")
         ]).then(function (responses) {
-            withdrawalHistories = responses[0] || [];
+            withdrawalHistories = (responses[0] || []).filter(function (withdrawal) {
+                return withdrawal.status !== "CANCELLED";
+            });
             accountMetadataByNo = {};
             (responses[1] || []).forEach(function (account) {
                 accountMetadataByNo[String(account.accountNo || "-")] = account;
