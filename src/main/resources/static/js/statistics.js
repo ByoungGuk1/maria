@@ -1,6 +1,9 @@
 $(function () {
     var KRW_FORMATTER = new Intl.NumberFormat("ko-KR");
-    var CHART_COLORS = ["#4C6FFF", "#2BB673", "#F5A524", "#8B5CF6", "#22B8CF", "#F0608A", "#94A3B8"];
+    // 상태/유형 뱃지에 쓰는 것과 같은 계열(accent/success/warning/danger/info/teal)
+    var LIGHT_PALETTE = ["#2a78d6", "#1f8a4c", "#c2650c", "#c53030", "#6d3fc9", "#0f8b8d"];
+    var DARK_PALETTE = ["#5b9bf0", "#4cc785", "#e0972f", "#e2685f", "#a78bfa", "#4fd1c5"];
+    var FILL_ALPHA = "cc"; // 채우기는 반투명하게, 뱃지 느낌
     var BENEFIT_LABEL = {
         POSSIBLE: "가능",
         REDUCED: "축소",
@@ -12,14 +15,17 @@ $(function () {
     var CHART_FONT = "'Noto Sans KR', sans-serif";
     Chart.defaults.font.family = CHART_FONT;
 
-    var gridColor, tickColor, legendColor, cardBg;
+    var gridColor, tickColor, legendColor, titleColor, cardBg, CHART_COLORS, CHART_FILL_COLORS;
 
     function refreshThemeColors() {
         var isDark = document.documentElement.getAttribute("data-theme") === "dark";
         gridColor = isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.08)";
         tickColor = isDark ? "#e8eaed" : "#64748b";
         legendColor = isDark ? "#e8eaed" : "#45484d";
+        titleColor = isDark ? "#e8eaed" : "#1a1a1a";
         cardBg = isDark ? "#1f2430" : "#ffffff";
+        CHART_COLORS = isDark ? DARK_PALETTE : LIGHT_PALETTE;
+        CHART_FILL_COLORS = CHART_COLORS.map(function (c) { return c + FILL_ALPHA; });
         Chart.defaults.color = legendColor;
     }
 
@@ -64,7 +70,7 @@ $(function () {
             backgroundColor: cardBg,
             borderColor: gridColor,
             borderWidth: 1,
-            titleColor: cssVar("--textPrimary") || "#1a1a1a",
+            titleColor: titleColor,
             bodyColor: legendColor,
             padding: 10,
             boxPadding: 4,
@@ -86,7 +92,8 @@ $(function () {
                 labels: labels,
                 datasets: [{
                     data: data,
-                    backgroundColor: labels.map(function (_, i) { return CHART_COLORS[i % CHART_COLORS.length]; }),
+                    backgroundColor: labels.map(function (_, i) { return CHART_FILL_COLORS[i % CHART_FILL_COLORS.length]; }),
+                    hoverBackgroundColor: labels.map(function (_, i) { return CHART_COLORS[i % CHART_COLORS.length]; }),
                     borderWidth: 0,
                     hoverOffset: 6
                 }]
@@ -118,8 +125,8 @@ $(function () {
                 datasets: [{
                     label: label,
                     data: data,
-                    backgroundColor: CHART_COLORS[0],
-                    hoverBackgroundColor: CHART_COLORS[4],
+                    backgroundColor: CHART_FILL_COLORS[0],
+                    hoverBackgroundColor: CHART_COLORS[0],
                     borderRadius: 6,
                     borderSkipped: false,
                     maxBarThickness: 56
