@@ -8,5 +8,7 @@ import java.util.List;
 public interface WithdrawalQueryService {
     List<WithdrawalListResponseDTO> getWithdrawals(WithdrawalStatus status);
 
+    List<WithdrawalListResponseDTO> getWithdrawalsByAccountId(Long accountId);
+
     WithdrawalDetailResponseDTO getWithdrawal(Long withdrawalId);
 }

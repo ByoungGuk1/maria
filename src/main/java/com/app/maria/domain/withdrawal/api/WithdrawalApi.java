@@ -33,4 +33,14 @@ public class WithdrawalApi {
                 ApiResponseDTO.of(
                         "인출 내역 상세 조회 완료", withdrawalQueryService.getWithdrawal(withdrawalId)));
     }
+
+    @GetMapping("/accounts/{accountId}")
+    public ResponseEntity<ApiResponseDTO<List<WithdrawalListResponseDTO>>>
+            getWithdrawalsByAccountId(
+                    @PathVariable @Positive(message = "계좌 ID는 0보다 커야 합니다.") Long accountId) {
+        return ResponseEntity.ok(
+                ApiResponseDTO.of(
+                        "계좌별 인출 내역 조회 완료",
+                        withdrawalQueryService.getWithdrawalsByAccountId(accountId)));
+    }
 }

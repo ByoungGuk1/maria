@@ -109,6 +109,21 @@ class WithdrawalMapperTest {
     }
 
     @Test
+    void accountWithdrawalHistoriesContainEveryStatusAndRemainNewestFirst() {
+        List<WithdrawalHistoryDTO> result = mapper.selectWithdrawalHistoriesByAccountId(1L);
+
+        assertThat(result)
+                .extracting(WithdrawalHistoryDTO::getWithdrawalId)
+                .containsExactly(11L, 10L, 12L);
+        assertThat(result)
+                .extracting(WithdrawalHistoryDTO::getStatus)
+                .containsExactly(
+                        WithdrawalStatus.COMPLETED,
+                        WithdrawalStatus.COMPLETED,
+                        WithdrawalStatus.FAILED);
+    }
+
+    @Test
     void withdrawalDetailAllocationsKeepAccountingOrderAndFinalAt() {
         WithdrawalHistoryDTO history = mapper.selectWithdrawalHistoryById(10L).orElseThrow();
         List<WithdrawalAllocationHistoryDTO> allocations =
