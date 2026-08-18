@@ -6,6 +6,7 @@ $(function () {
     };
 
     var KRW_FORMATTER = new Intl.NumberFormat("ko-KR");
+    var QTY_FORMATTER = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 4 });
     var DATETIME_FORMATTER = new Intl.DateTimeFormat("ko-KR", {
         year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"
     });
@@ -20,6 +21,10 @@ $(function () {
 
     function formatAmount(amount) {
         return amount == null ? "-" : "₩" + KRW_FORMATTER.format(amount);
+    }
+
+    function formatQty(qty) {
+        return qty == null ? "-" : QTY_FORMATTER.format(qty) + "주";
     }
 
     function formatDateTime(value) {
@@ -69,10 +74,10 @@ $(function () {
                 : "-";
             var row =
                 "<tr>" +
-                '<td><div class="sellorder-account-no">' + escapeHtml(order.accountNo || "-") + "</div>" +
+                '<td class="sellorder-ellipsis"><div class="sellorder-account-no">' + escapeHtml(order.accountNo || "-") + "</div>" +
                 '<div class="sellorder-account-name">' + escapeHtml(order.customerName || "") + "</div></td>" +
-                "<td>" + productLabel + "</td>" +
-                '<td class="sellorder-amount">' + escapeHtml(order.sellQty) + "</td>" +
+                '<td class="sellorder-ellipsis">' + productLabel + "</td>" +
+                '<td class="sellorder-amount">' + formatQty(order.sellQty) + "</td>" +
                 '<td class="sellorder-amount">' + formatAmount(order.basePrice) + "</td>" +
                 "<td>" + formatDateTime(order.processedAt) + "</td>" +
                 '<td class="sellorder-amount">' + formatAmount(order.provisionalAmount) + "</td>" +
