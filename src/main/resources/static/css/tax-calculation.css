@@ -74,24 +74,50 @@
     flex: 1;
 }
 
+.tax-batch-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.batch-bar {
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.batch-bar-label {
+    font: 500 11px 'Noto Sans KR', sans-serif;
+    color: var(--textMuted);
+    margin-bottom: 3px;
+}
+
+.batch-bar-value {
+    font: 600 13px 'Noto Sans KR', sans-serif;
+    color: var(--textPrimary);
+}
+
 .tax-batch-btn {
-    border: 1px solid var(--inputBorder);
+    border: 1px solid var(--accent);
     border-radius: 6px;
     background: var(--cardBg);
-    color: var(--textSecondary);
+    color: var(--accent);
     font: 600 11.5px 'Noto Sans KR', sans-serif;
     padding: 6px 12px;
     cursor: pointer;
+    white-space: nowrap;
 }
 
 .tax-batch-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
+    background: var(--accent);
+    color: #fff;
 }
 
 .tax-batch-result {
     font: 400 11px 'Noto Sans KR', sans-serif;
     color: var(--textMuted);
+    white-space: nowrap;
 }
 
 .tax-table {
@@ -102,36 +128,70 @@
 .tax-table th {
     text-align: left;
     background: var(--tableHeaderBg);
-    font: 600 10.5px 'Noto Sans KR', sans-serif;
+    font: 600 11.5px 'Noto Sans KR', sans-serif;
     color: var(--textMuted);
-    padding: 8px 14px;
+    padding: 9px 20px;
 }
 
 .tax-table td {
-    padding: 10px 14px;
+    padding: 12px 20px;
     border-top: 1px solid var(--cardBorder);
-    font: 400 12px 'Noto Sans KR', sans-serif;
+    font: 400 13.5px 'Noto Sans KR', sans-serif;
     color: var(--textSecondary);
     cursor: pointer;
+}
+
+.tax-table th:first-child,
+.tax-table td:first-child {
+    padding-left: 36px;
 }
 
 .tax-table tbody tr:hover td {
     background: var(--tableHeaderBg);
 }
 
-.tax-pagination {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-    padding: 12px 14px;
-    color: var(--textMuted);
-    font: 500 12px 'Noto Sans KR', sans-serif;
+.tax-table th:not(:first-child),
+.tax-table td:not(:first-child) {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
 }
 
-.tax-pagination .btn:disabled {
-    cursor: not-allowed;
-    opacity: 0.45;
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 14px 0;
+}
+
+.page-btn {
+    min-width: 30px;
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid var(--inputBorder);
+    border-radius: 6px;
+    background: var(--cardBg);
+    color: var(--textSecondary);
+    font: 500 12px 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+}
+
+.page-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.page-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    cursor: default;
+}
+
+.page-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
 }
 
 .tax-empty {
@@ -142,12 +202,12 @@
 }
 
 .account-no {
-    font: 600 12.5px 'Noto Sans KR', sans-serif;
+    font: 600 13.5px 'Noto Sans KR', sans-serif;
     color: var(--textPrimary);
 }
 
 .account-name {
-    font: 400 11px 'Noto Sans KR', sans-serif;
+    font: 400 12px 'Noto Sans KR', sans-serif;
     color: var(--textMuted);
 }
 
@@ -172,15 +232,137 @@
     background: var(--dangerBg);
 }
 
-.tax-detail {
-    margin-top: 16px;
-    padding: 14px;
+.tax-filter-select {
+    border: 1px solid var(--inputBorder);
+    border-radius: 6px;
+    background: var(--cardBg);
+    color: var(--textPrimary);
+    font: 400 12px 'Noto Sans KR', sans-serif;
+    padding: 6px 8px;
+}
+
+.tax-row-flag {
+    font: 600 10px 'Noto Sans KR', sans-serif;
+    color: var(--danger);
+    white-space: nowrap;
+}
+
+.tax-detail-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 40;
+}
+
+.tax-detail-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 640px;
+    max-width: 92vw;
+    background: var(--cardBg);
+    border-left: 1px solid var(--cardBorder);
+    box-shadow: -8px 0 24px rgba(15, 23, 42, 0.18);
+    z-index: 41;
+    padding: 16px;
+    overflow-y: auto;
+    transform: translateX(100%);
+    transition: transform 0.18s ease-out;
+}
+
+.tax-detail-panel.is-open {
+    transform: translateX(0);
 }
 
 .tax-detail-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
+    gap: 10px;
+}
+
+.tax-detail-close {
+    border: none;
+    background: none;
+    color: var(--textMuted);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+}
+
+.tax-detail-close:hover {
+    color: var(--textPrimary);
+}
+
+.tax-saved-badge {
+    display: inline-block;
+    margin-top: 8px;
+    font: 600 11px 'Noto Sans KR', sans-serif;
+    color: var(--textSecondary);
+    background: var(--tableHeaderBg);
+    border-radius: 4px;
+    padding: 4px 10px;
+}
+
+.tax-benefit-reason {
+    margin-top: 8px;
+    font: 400 12px 'Noto Sans KR', sans-serif;
+    color: var(--danger);
+    background: var(--dangerBg);
+    border-radius: 6px;
+    padding: 8px 10px;
+}
+
+.tax-breakdown {
+    margin-top: 20px;
+}
+
+.tax-breakdown-title {
+    font: 600 12px 'Noto Sans KR', sans-serif;
+    color: var(--textPrimary);
+    margin-bottom: 8px;
+}
+
+.tax-breakdown-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tax-breakdown-table th {
+    text-align: left;
+    font: 600 10px 'Noto Sans KR', sans-serif;
+    color: var(--textMuted);
+    padding: 8px 14px;
+    background: var(--tableHeaderBg);
+    white-space: nowrap;
+}
+
+.tax-breakdown-table td {
+    padding: 9px 14px;
+    border-top: 1px solid var(--cardBorder);
+    font: 400 11.5px 'Noto Sans KR', sans-serif;
+    color: var(--textSecondary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.tax-breakdown-table th:first-child,
+.tax-breakdown-table td:first-child {
+    padding-left: 18px;
+    white-space: normal;
+}
+
+.tax-breakdown-table th:not(:first-child),
+.tax-breakdown-table td:not(:first-child) {
+    text-align: center;
+}
+
+.tax-breakdown + .tax-breakdown {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--cardBorder);
 }
 
 .tax-detail-description {
@@ -219,6 +401,15 @@
 
 .tax-detail-item-value-highlight {
     font-size: 18px;
+    color: var(--accent);
+}
+
+/* 손익처럼 부호가 의미 있는 값에만 사용 - 증권사 관례상 양수=빨강(이익), 음수=파랑(손실) */
+.tax-amount-positive {
+    color: var(--danger);
+}
+
+.tax-amount-negative {
     color: var(--accent);
 }
 
