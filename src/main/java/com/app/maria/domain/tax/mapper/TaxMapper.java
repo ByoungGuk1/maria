@@ -7,6 +7,7 @@ import com.app.maria.domain.tax.dto.TaxRuleDTO;
 import com.app.maria.domain.tax.type.TaxBasisType;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -28,4 +29,6 @@ public interface TaxMapper {
 
     boolean existsByAccountAndBasis(
             @Param("accountId") Long accountId, @Param("basisType") TaxBasisType basisType);
+
+    Optional<TaxCalculationDTO> findLatestCalculation(@Param("accountId") Long accountId);
 }

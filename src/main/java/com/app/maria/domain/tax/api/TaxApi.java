@@ -1,5 +1,6 @@
 package com.app.maria.domain.tax.api;
 
+import com.app.maria.domain.tax.dto.TaxBatchHistoryDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationPreviewResponseDTO;
 import com.app.maria.domain.tax.dto.response.TaxCalculationSaveResponseDTO;
 import com.app.maria.domain.tax.dto.response.TaxSnapshotBatchResultResponseDTO;
@@ -62,5 +63,13 @@ public class TaxApi {
                         ApiResponseDTO.of(
                                 "세액 스냅샷 배치 실행 요청 완료",
                                 taxCalculationService.triggerSnapshotBatch()));
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'SETTLEMENT', 'REVIEWER', 'VIEWER')")
+    @GetMapping("/snapshots/jobs")
+    public ResponseEntity<ApiResponseDTO<List<TaxBatchHistoryDTO>>> snapshotBatchHistory() {
+        return ResponseEntity.ok(
+                ApiResponseDTO.of(
+                        "세액 스냅샷 배치 이력 조회 성공", taxCalculationService.getRecentBatchHistory()));
     }
 }

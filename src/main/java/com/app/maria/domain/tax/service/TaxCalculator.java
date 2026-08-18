@@ -4,12 +4,16 @@ import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.RiaSellAggregateDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationResultDTO;
+import com.app.maria.domain.tax.dto.TaxExternalTradeDetailDTO;
+import com.app.maria.domain.tax.dto.TaxLotDetailDTO;
+import com.app.maria.domain.tax.dto.TaxPeriodBreakdownDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
 import com.app.maria.domain.tax.exception.TaxRuleNotFoundException;
 import com.app.maria.domain.tax.type.TaxRuleType;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
@@ -34,9 +38,99 @@ public class TaxCalculator {
                         : adjustRatio(weightedExternalAmount, riaSell.getWeightedSell());
         BigDecimal finalDeduction = findDeduction(riaSell.getWeightedGain(), adjustRatio);
         BigDecimal finalTax = finalTax(riaSell.getOriginalGainAmount(), finalDeduction, taxRules);
+        List<TaxPeriodBreakdownDTO> periodBreakdown =
+                buildPeriodBreakdown(sellLots, externalTrades, taxRules);
 
         return TaxCalculationResultDTO.of(
-                riaSell, weightedExternalAmount, adjustRatio, finalDeduction, finalTax);
+                riaSell,
+                weightedExternalAmount,
+                adjustRatio,
+                finalDeduction,
+                finalTax,
+                periodBreakdown,
+                buildLotDetails(sellLots),
+                buildExternalTradeDetails(externalTrades));
+    }
+
+    // 관리자가 "어느 종목" 때문에 이 값이 나왔는지 볼 수 있도록 원본 건별 내역을 표시용으로 넘긴다.
+    private List<TaxLotDetailDTO> buildLotDetails(List<SellLotDTO> sellLots) {
+        List<TaxLotDetailDTO> details = new ArrayList<>();
+        for (SellLotDTO lot : sellLots) {
+            BigDecimal purchaseCost =
+                    lot.getPurchasePrice().multiply(lot.getPurchaseFxRate()).multiply(lot.getSellQty());
+            details.add(
+                    TaxLotDetailDTO.builder()
+                            .productLabel(lot.getProductLabel())
+                            .sellAt(lot.getSellAt())
+                            .sellAmount(lot.getFinalAmount().setScale(AMOUNT_SCALE, RoundingMode.HALF_UP))
+                            .gainAmount(
+                                    lot.getFinalAmount()
+                                            .subtract(purchaseCost)
+                                            .setScale(AMOUNT_SCALE, RoundingMode.HALF_UP))
+                            .build());
+        }
+        details.sort((a, b) -> b.getSellAt().compareTo(a.getSellAt()));
+        return details;
+    }
+
+    private List<TaxExternalTradeDetailDTO> buildExternalTradeDetails(
+            List<ExternalBuyDTO> externalTrades) {
+        List<TaxExternalTradeDetailDTO> details = new ArrayList<>();
+        for (ExternalBuyDTO trade : externalTrades) {
+            details.add(
+                    TaxExternalTradeDetailDTO.builder()
+                            .productLabel(trade.getProductLabel())
+                            .tradeDate(trade.getTradeDate())
+                            .netBuyAmount(trade.getNetBuyAmount().setScale(AMOUNT_SCALE, RoundingMode.HALF_UP))
+                            .build());
+        }
+        details.sort((a, b) -> b.getTradeDate().compareTo(a.getTradeDate()));
+        return details;
+    }
+
+    // 최종 합산 전, 관리자가 "왜 이렇게 나왔는지" 볼 수 있도록 구간별 원금액을 별도로 남긴다.
+    private List<TaxPeriodBreakdownDTO> buildPeriodBreakdown(
+            List<SellLotDTO> sellLots, List<ExternalBuyDTO> externalTrades, List<TaxRuleDTO> taxRules) {
+        List<TaxPeriodBreakdownDTO> breakdown = new ArrayList<>();
+        for (TaxRuleDTO rule : taxRules) {
+            if (rule.getRuleType() != TaxRuleType.RELIEF_RATE) {
+                continue;
+            }
+            BigDecimal weight = rule.getRuleValue().divide(BigDecimal.valueOf(100), RATIO_SCALE, RoundingMode.HALF_UP);
+            BigDecimal sellAmount = BigDecimal.ZERO;
+            BigDecimal gainAmount = BigDecimal.ZERO;
+            for (SellLotDTO lot : sellLots) {
+                if (!inRange(lot.getSellAt(), rule)) {
+                    continue;
+                }
+                BigDecimal purchaseCost =
+                        lot.getPurchasePrice().multiply(lot.getPurchaseFxRate()).multiply(lot.getSellQty());
+                sellAmount = sellAmount.add(lot.getFinalAmount());
+                gainAmount = gainAmount.add(lot.getFinalAmount().subtract(purchaseCost));
+            }
+            BigDecimal externalNetBuyAmount = BigDecimal.ZERO;
+            for (ExternalBuyDTO externalTrade : externalTrades) {
+                if (!inRange(externalTrade.getTradeDate(), rule)) {
+                    continue;
+                }
+                externalNetBuyAmount = externalNetBuyAmount.add(externalTrade.getNetBuyAmount());
+            }
+            breakdown.add(
+                    TaxPeriodBreakdownDTO.builder()
+                            .validFrom(rule.getValidFrom())
+                            .validTo(rule.getValidTo())
+                            .weight(weight)
+                            .sellAmount(sellAmount.setScale(AMOUNT_SCALE, RoundingMode.HALF_UP))
+                            .gainAmount(gainAmount.setScale(AMOUNT_SCALE, RoundingMode.HALF_UP))
+                            .externalNetBuyAmount(externalNetBuyAmount.setScale(AMOUNT_SCALE, RoundingMode.HALF_UP))
+                            .build());
+        }
+        breakdown.sort((a, b) -> a.getValidFrom().compareTo(b.getValidFrom()));
+        return breakdown;
+    }
+
+    private boolean inRange(LocalDate date, TaxRuleDTO rule) {
+        return !date.isBefore(rule.getValidFrom()) && !date.isAfter(rule.getValidTo());
     }
 
     private RiaSellAggregateDTO aggregateRiaSell(List<SellLotDTO> lots, List<TaxRuleDTO> taxRules) {
