@@ -18,12 +18,12 @@ import com.app.maria.domain.settlement.provider.ExchangeRateProvider;
 import com.app.maria.domain.settlement.service.SettlementService;
 import com.app.maria.domain.settlement.type.BatchStatus;
 import com.app.maria.domain.tax.batch.TaxSnapshotJobLauncher;
-import com.app.maria.global.clock.dto.request.SystemClockChangeRequestDTO;
-import com.app.maria.global.clock.service.BusinessClockService;
-import com.app.maria.global.clock.service.SystemClockManagementService;
 import com.app.maria.global.client.exchange.ExchangeRateClient;
 import com.app.maria.global.client.kis.KisPriceClient;
 import com.app.maria.global.client.mydata.MydataClient;
+import com.app.maria.global.clock.dto.request.SystemClockChangeRequestDTO;
+import com.app.maria.global.clock.service.BusinessClockService;
+import com.app.maria.global.clock.service.SystemClockManagementService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Connection;
@@ -35,6 +35,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -49,8 +50,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  * 축소 규모(500명) 골든 시나리오 생성기.
  *
  * <p>CLAUDE.md §12 원칙에 따라 계산 데이터(account/inbound/sell_order/tax_snapshot 등)를 랜덤 INSERT가 아니라 실제 서비스
- * 계층 호출로 만든다. 계좌 신청(APPLIED)만 예외적으로 raw insert — 관리자 화면 관점에서 검증할 로직이 없는 구간(고객 채널이 아직 없어 신청 자체는
- * 관리자 서비스가 대리 처리할 뿐, 이 프로젝트엔 신청 vs 처리 2단계가 없음)이라 팀 논의로 SQL 시드로 남김.
+ * 계층 호출로 만든다. 계좌 신청(APPLIED)만 예외적으로 raw insert — 관리자 화면 관점에서 검증할 로직이 없는 구간(고객 채널이 아직 없어 신청 자체는 관리자
+ * 서비스가 대리 처리할 뿐, 이 프로젝트엔 신청 vs 처리 2단계가 없음)이라 팀 논의로 SQL 시드로 남김.
  *
  * <p>사전 조건:
  *
@@ -59,10 +60,15 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  *   <li>return-securities(포트 10001)가 같은 population/PEPPER로 만든 securities DB로 떠 있어야 함
  * </ul>
  *
- * <p>실행: {@code ./gradlew test --tests "com.app.maria.scenario.GoldenScenarioTest"}. 재실행하려면 먼저
- * account/inbound/sell_order/krw_exchange/withdrawal*·settlement_*·tax_snapshot·tax_calculation을 TRUNCATE할 것
- * (customer_id UNIQUE 제약 때문에 재실행 시 계좌 중복 신청으로 실패함).
+ * <p>실행: {@code ./gradlew test --tests "com.app.maria.scenario.GoldenScenarioTest"
+ * -PrunIntegration}. 재실행하려면 먼저
+ * account/inbound/sell_order/krw_exchange/withdrawal*·settlement_*·tax_snapshot·tax_calculation을
+ * TRUNCATE할 것 (customer_id UNIQUE 제약 때문에 재실행 시 계좌 중복 신청으로 실패함).
+ *
+ * <p>{@code -PrunIntegration} 없이 일반 {@code ./gradlew test}(CI 포함)를 돌리면 이 클래스는 제외된다 — 실제 DB/외부
+ * 서비스(securities:10001)가 떠 있어야만 통과하는 데이터 생성기라 일반 빌드에 끼면 안 되기 때문.
  */
+@Tag("integration")
 @SpringBootTest
 class GoldenScenarioTest {
 
@@ -140,13 +146,16 @@ class GoldenScenarioTest {
 
         System.out.printf(
                 "골든 시나리오 완료 — 신청 %d / 승인 %d / 반려 %d / 입고 %d / 매도 %d%n",
-                counters.applied, counters.approved, counters.rejected, counters.inbounded, counters.sold);
+                counters.applied,
+                counters.approved,
+                counters.rejected,
+                counters.inbounded,
+                counters.sold);
     }
 
     /**
-     * 검증용: 기존 500명은 건드리지 않고 새 계좌 10개(501~510)만 추가로 매도·정산까지 처리한다.
-     * 세액 스냅샷 배치는 일부러 안 돌린다 — 관리자 화면에서 "배치 수동 실행"을 직접 눌러서, 실행 전/후로
-     * 이 계좌들이 새로 나타나는지(=배치가 실제로 최신 데이터를 반영하는지) 눈으로 확인하기 위함.
+     * 검증용: 기존 500명은 건드리지 않고 새 계좌 10개(501~510)만 추가로 매도·정산까지 처리한다. 세액 스냅샷 배치는 일부러 안 돌린다 — 관리자 화면에서
+     * "배치 수동 실행"을 직접 눌러서, 실행 전/후로 이 계좌들이 새로 나타나는지(=배치가 실제로 최신 데이터를 반영하는지) 눈으로 확인하기 위함.
      */
     @Test
     void addFreshAccountsAfterBatch() throws Exception {
@@ -167,10 +176,15 @@ class GoldenScenarioTest {
         System.out.printf(
                 "추가 계좌 완료 — 신청 %d / 승인 %d / 반려 %d / 입고 %d / 매도 %d "
                         + "(세액 배치는 안 돌림 — 관리자 화면에서 수동 실행 버튼으로 확인할 것)%n",
-                counters.applied, counters.approved, counters.rejected, counters.inbounded, counters.sold);
+                counters.applied,
+                counters.approved,
+                counters.rejected,
+                counters.inbounded,
+                counters.sold);
     }
 
-    private void processCustomer(CustomerRow customer, LocalDateTime at, Counters counters) throws SQLException {
+    private void processCustomer(CustomerRow customer, LocalDateTime at, Counters counters)
+            throws SQLException {
         setClockRaw(at);
 
         Long accountId = applyAccount(customer.customerId());
@@ -261,7 +275,8 @@ class GoldenScenarioTest {
                     return null;
                 }
                 return new HoldingRow(
-                        resultSet.getLong("foreign_product_id"), resultSet.getBigDecimal("held_qty"));
+                        resultSet.getLong("foreign_product_id"),
+                        resultSet.getBigDecimal("held_qty"));
             }
         }
     }
@@ -275,7 +290,9 @@ class GoldenScenarioTest {
 
     private LocalDateTime randomBusinessDateTime() {
         LocalDateTime start = LocalDateTime.of(2026, 1, 1, 9, 0);
-        long maxDayOffset = java.time.temporal.ChronoUnit.DAYS.between(start.toLocalDate(), LocalDateTime.of(2026, 8, 16, 9, 0).toLocalDate());
+        long maxDayOffset =
+                java.time.temporal.ChronoUnit.DAYS.between(
+                        start.toLocalDate(), LocalDateTime.of(2026, 8, 16, 9, 0).toLocalDate());
         return start.plusDays(random.nextInt((int) maxDayOffset + 1)).plusHours(random.nextInt(8));
     }
 
