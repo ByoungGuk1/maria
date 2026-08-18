@@ -61,10 +61,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  *   <li>return-securities(포트 10001)가 같은 population/PEPPER로 만든 securities DB로 떠 있어야 함
  * </ul>
  *
- * <p>securities DB 접속 정보(URL/계정/비밀번호)는 팀원마다 로컬 컨테이너 설정이 달라 하드코딩하지 않는다. 기본값은
- * {@code jdbc:mariadb://localhost:3306/securities} / {@code root} / {@code secret}이고, 다르면
- * {@code -Dsecurities.jdbc.url=...}, {@code -Dsecurities.jdbc.username=...},
- * {@code -Dsecurities.jdbc.password=...}로 덮어쓸 것.
+ * <p>securities DB 접속 정보(URL/계정/비밀번호)는 팀원마다 로컬 컨테이너 설정이 달라 하드코딩하지 않는다. 기본값은 {@code
+ * jdbc:mariadb://localhost:3306/securities} / {@code root} / {@code secret}이고, 다르면 {@code
+ * -Dsecurities.jdbc.url=...}, {@code -Dsecurities.jdbc.username=...}, {@code
+ * -Dsecurities.jdbc.password=...}로 덮어쓸 것.
  *
  * <p>실행: {@code ./gradlew test --tests "com.app.maria.scenario.GoldenScenarioTest"
  * -PrunIntegration}. 재실행하려면 먼저
@@ -180,7 +180,10 @@ class GoldenScenarioTest {
         try (Connection securitiesConnection = openSecuritiesConnection()) {
             for (CustomerRow customer : customers) {
                 processCustomer(
-                        customer, LocalDateTime.of(2026, 8, 17, 10, 0), counters, securitiesConnection);
+                        customer,
+                        LocalDateTime.of(2026, 8, 17, 10, 0),
+                        counters,
+                        securitiesConnection);
             }
         }
 
@@ -203,7 +206,10 @@ class GoldenScenarioTest {
     }
 
     private void processCustomer(
-            CustomerRow customer, LocalDateTime at, Counters counters, Connection securitiesConnection)
+            CustomerRow customer,
+            LocalDateTime at,
+            Counters counters,
+            Connection securitiesConnection)
             throws SQLException {
         setClockRaw(at);
 
