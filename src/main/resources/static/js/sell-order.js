@@ -124,9 +124,10 @@ $(function () {
             data: buildFilterParams()
         })
             .done(function (res) {
-                var page = res.data || { content: [], totalElements: 0, totalPages: 1 };
-                totalPages = page.totalPages || 1;
-                $("#sellOrderCount").text((page.totalElements || 0) + "건");
+                var page = res.data || { content: [], totalCount: 0 };
+                var totalCount = page.totalCount || 0;
+                totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+                $("#sellOrderCount").text(totalCount + "건");
                 renderRows(page.content || []);
                 renderPagination();
             })
