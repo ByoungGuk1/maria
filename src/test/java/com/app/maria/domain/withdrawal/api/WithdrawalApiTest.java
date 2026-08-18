@@ -127,6 +127,7 @@ class WithdrawalApiTest {
                         .withdrawalId(11L)
                         .status(WithdrawalStatus.FAILED)
                         .requestedAmount(new BigDecimal("900"))
+                        .failureReason("계좌 잔액보다 많은 금액을 인출할 수 없습니다.")
                         .build();
         when(withdrawalQueryService.getWithdrawalsByAccountId(1L))
                 .thenReturn(List.of(completed, failed));
@@ -134,7 +135,8 @@ class WithdrawalApiTest {
         mockMvc.perform(get("/api/withdrawals/accounts/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].status").value("COMPLETED"))
-                .andExpect(jsonPath("$.data[1].status").value("FAILED"));
+                .andExpect(jsonPath("$.data[1].status").value("FAILED"))
+                .andExpect(jsonPath("$.data[1].failureReason").value("계좌 잔액보다 많은 금액을 인출할 수 없습니다."));
 
         verify(withdrawalQueryService).getWithdrawalsByAccountId(1L);
     }
