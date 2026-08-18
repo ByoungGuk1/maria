@@ -2,6 +2,9 @@ package com.app.maria.domain.customer.dto.response;
 
 import com.app.maria.domain.customer.dto.CustomerSearchDTO;
 import java.time.LocalDate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import lombok.Getter;
 
 @Getter
@@ -21,10 +24,19 @@ public class CustomerSearchResponseDTO {
         this.investorType = customer.getInvestorType();
     }
 
-    private static String maskPhone(String phone) {
-        if (phone == null || phone.isBlank()) {
-            return "-";
-        }
-        return phone.replaceFirst("^(\\d{3})-?\\d{3,4}-?(\\d{4})$", "$1-****-$2");
+  private static String maskPhone(String phone) {
+    if (phone == null || phone.isBlank()) {
+      return "-";
     }
+
+    Matcher matcher =
+        Pattern.compile("^(\\d{2,3})-?(\\d{3,4})-?(\\d{4})$")
+            .matcher(phone.trim());
+
+    if (!matcher.matches()) {
+      return "****";
+    }
+
+    return matcher.group(1) + "-****-" + matcher.group(3);
+  }
 }
