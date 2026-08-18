@@ -4,12 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.app.maria.domain.withdrawal.dto.LeftAmountDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationHistoryDTO;
+import com.app.maria.domain.withdrawal.dto.WithdrawalDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalHistoryDTO;
 import com.app.maria.domain.withdrawal.type.WithdrawalStatus;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Statement;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.apache.ibatis.builder.xml.XMLMapperBuilder;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
@@ -142,6 +144,28 @@ class WithdrawalMapperTest {
         assertThat(allocations.get(2).getTicker()).isEqualTo("MSFT");
     }
 
+    @Test
+    void failedWithdrawalReasonIsPersistedAndQueried() {
+        WithdrawalDTO failedWithdrawal =
+                WithdrawalDTO.builder()
+                        .accountId(1L)
+                        .requestedAmount(new BigDecimal("1000"))
+                        .processedAt(LocalDateTime.of(2026, 8, 3, 9, 0))
+                        .destinationAccountNo("111122223333")
+                        .destinationGeneralAccountId(20L)
+                        .status(WithdrawalStatus.FAILED)
+                        .failureReason("계좌 잔액보다 많은 금액을 인출할 수 없습니다.")
+                        .build();
+
+        assertThat(mapper.insertWithdrawal(failedWithdrawal)).isEqualTo(1);
+
+        WithdrawalHistoryDTO saved =
+                mapper.selectWithdrawalHistoryById(failedWithdrawal.getWithdrawalId())
+                        .orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(WithdrawalStatus.FAILED);
+        assertThat(saved.getFailureReason()).isEqualTo("계좌 잔액보다 많은 금액을 인출할 수 없습니다.");
+    }
+
     private static void resetSchemaAndData() throws Exception {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement()) {
@@ -164,13 +188,14 @@ class WithdrawalMapperTest {
             statement.execute(
                     """
                     CREATE TABLE withdrawal (
-                        withdrawal_id BIGINT PRIMARY KEY,
+                        withdrawal_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                         account_id BIGINT NOT NULL,
                         requested_amount DECIMAL(15, 2) NOT NULL,
                         processed_at DATETIME NOT NULL,
                         destination_account_no VARCHAR(30) NOT NULL,
                         destination_general_account_id BIGINT NOT NULL,
-                        status VARCHAR(12) NOT NULL
+                        status VARCHAR(12) NOT NULL,
+                        failure_reason VARCHAR(255)
                     )
                     """);
             statement.execute(
@@ -228,9 +253,9 @@ class WithdrawalMapperTest {
             statement.execute(
                     """
                     INSERT INTO withdrawal VALUES
-                        (10, 1, 800, TIMESTAMP '2026-08-01 09:00:00', '111122223333', 20, 'COMPLETED'),
-                        (11, 1, 999, TIMESTAMP '2026-08-02 09:00:00', '111122223333', 20, 'COMPLETED'),
-                        (12, 1, 50, TIMESTAMP '2026-07-01 09:00:00', '111122223333', 20, 'FAILED')
+                        (10, 1, 800, TIMESTAMP '2026-08-01 09:00:00', '111122223333', 20, 'COMPLETED', NULL),
+                        (11, 1, 999, TIMESTAMP '2026-08-02 09:00:00', '111122223333', 20, 'COMPLETED', NULL),
+                        (12, 1, 50, TIMESTAMP '2026-07-01 09:00:00', '111122223333', 20, 'FAILED', '기존 실패')
                     """);
             statement.execute(
                     """

@@ -315,8 +315,8 @@ class WithdrawalServiceImplTest {
         order.verify(accountMapper).selectCiHashByCustomerId(CUSTOMER_ID);
         order.verify(generalAccountClient).verifyGeneralAccount(any());
         order.verify(accountMapper).selectByAccountIdForUpdate(ACCOUNT_ID);
-        order.verify(withdrawalMapper).selectAvailableLeftAmountsByAccountId(ACCOUNT_ID);
         order.verify(businessClockService).now();
+        order.verify(withdrawalMapper).selectAvailableLeftAmountsByAccountId(ACCOUNT_ID);
     }
 
     @Test
@@ -386,10 +386,24 @@ class WithdrawalServiceImplTest {
         prepareExternalValidation(account(Status.OPENED, "500"), GeneralAccountStatus.ACTIVE);
         when(accountMapper.selectByAccountIdForUpdate(ACCOUNT_ID))
                 .thenReturn(Optional.of(account(Status.OPENED, "500")));
+        when(businessClockService.now()).thenReturn(NOW);
 
         assertThatThrownBy(() -> withdrawalService.withdraw(request("501")))
-                .isInstanceOf(InsufficientWithdrawalAmountException.class);
-        verifyNoInteractions(withdrawalMapper, businessClockService);
+                .isInstanceOf(InsufficientWithdrawalAmountException.class)
+                .satisfies(
+                        throwable -> {
+                            InsufficientWithdrawalAmountException exception =
+                                    (InsufficientWithdrawalAmountException) throwable;
+                            assertThat(exception.getAccountId()).isEqualTo(ACCOUNT_ID);
+                            assertThat(exception.getRequestedAmount()).isEqualByComparingTo("501");
+                            assertThat(exception.getFailedAt()).isEqualTo(NOW);
+                            assertThat(exception.getDestinationAccountNo())
+                                    .isEqualTo("110-123-456789");
+                            assertThat(exception.getDestinationGeneralAccountId())
+                                    .isEqualTo(GENERAL_ACCOUNT_ID);
+                        });
+        verifyNoInteractions(withdrawalMapper);
+        verify(businessClockService).now();
     }
 
     @Test

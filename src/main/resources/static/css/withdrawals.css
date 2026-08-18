@@ -605,14 +605,42 @@
     padding: 7px;
 }
 
-.withdrawal-cancelled-allocation {
-    padding: 22px 14px;
+.withdrawal-unallocated-item {
+    display: flex;
+    width: 100%;
+    min-height: 76px;
+    box-sizing: border-box;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    padding: 14px;
     border: 1px dashed var(--cardBorder);
     border-radius: 4px;
     background: var(--inputBg);
     color: var(--textMuted);
+    font-family: inherit;
     font-size: 11px;
     text-align: center;
+    cursor: pointer;
+}
+
+.withdrawal-unallocated-item strong {
+    color: var(--textPrimary);
+    font-size: 12px;
+}
+
+.withdrawal-unallocated-item.failed {
+    border-color: var(--danger);
+    background: var(--dangerBg);
+}
+
+.withdrawal-unallocated-item.failed strong,
+.withdrawal-unallocated-item.failed span {
+    color: var(--danger);
+}
+
+.withdrawal-unallocated-item:hover {
+    border-style: solid;
 }
 
 .withdrawal-allocation-item {

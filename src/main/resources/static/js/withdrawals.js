@@ -168,25 +168,40 @@ $(function () {
     function applyFilters() {
         var keyword = ($("#withdrawal-keyword").val() || "").trim().toLowerCase();
         var allAccounts = groupWithdrawalsByAccount(withdrawalHistories);
-        var normalAccounts = allAccounts.filter(function (account) {
-            return account.benefit !== "IMPOSSIBLE";
-        });
-        var earlyAccounts = allAccounts.filter(function (account) {
-            return account.benefit === "IMPOSSIBLE";
-        });
+        var normalAccounts = groupWithdrawalsByAccount(withdrawalHistories.filter(
+            function (withdrawal) {
+                return withdrawal.status === "COMPLETED" &&
+                    Number(withdrawal.immaturePrincipalAmount || 0) <= 0;
+            }
+        ));
+        var earlyAccounts = groupWithdrawalsByAccount(withdrawalHistories.filter(
+            function (withdrawal) {
+                return withdrawal.status === "COMPLETED" &&
+                    Number(withdrawal.immaturePrincipalAmount || 0) > 0;
+            }
+        ));
+        var failedAccounts = groupWithdrawalsByAccount(withdrawalHistories.filter(function (withdrawal) {
+            return withdrawal.status === "FAILED";
+        }));
 
         $("#withdrawal-all-count").text(allAccounts.length);
         $("#withdrawal-normal-count").text(normalAccounts.length);
         $("#withdrawal-early-count").text(earlyAccounts.length);
+        $("#withdrawal-failed-count").text(failedAccounts.length);
 
-        accounts = allAccounts.filter(function (account) {
-            var matchesType = selectedWithdrawalType === "ALL" ||
-                (selectedWithdrawalType === "EARLY" && account.benefit === "IMPOSSIBLE") ||
-                (selectedWithdrawalType === "NORMAL" && account.benefit !== "IMPOSSIBLE");
+        var accountsForSelectedType = allAccounts;
+        if (selectedWithdrawalType === "NORMAL") {
+            accountsForSelectedType = normalAccounts;
+        } else if (selectedWithdrawalType === "EARLY") {
+            accountsForSelectedType = earlyAccounts;
+        } else if (selectedWithdrawalType === "FAILED") {
+            accountsForSelectedType = failedAccounts;
+        }
+        accounts = accountsForSelectedType.filter(function (account) {
             var matchesKeyword = !keyword ||
                 account.customerName.toLowerCase().indexOf(keyword) >= 0 ||
                 account.accountNo.toLowerCase().indexOf(keyword) >= 0;
-            return matchesType && matchesKeyword;
+            return matchesKeyword;
         });
 
         currentPage = 1;
@@ -294,9 +309,16 @@ $(function () {
                 if (groupEntry.entry.allocation) {
                     $items.append(allocationMarkup(groupEntry.entry, groupEntry.index));
                 } else {
+                    var isFailed = withdrawal.status === "FAILED";
                     $items.append(
-                        '<div class="withdrawal-cancelled-allocation">' +
-                        '배분 없이 취소된 인출입니다.</div>'
+                        '<button type="button" class="withdrawal-unallocated-item ' +
+                        statusClass(withdrawal.status) + '" data-allocation-index="' +
+                        groupEntry.index + '"><strong>' +
+                        escapeHtml(isFailed ? "인출 실패" : "인출 취소") +
+                        '</strong><span>' + escapeHtml(isFailed
+                            ? (withdrawal.failureReason || "실패 사유가 저장되지 않았습니다.")
+                            : "배분 없이 취소된 인출입니다.") +
+                        '</span></button>'
                     );
                 }
             });
@@ -371,6 +393,22 @@ $(function () {
         } else if (allocation.type === "IMMATURE_PRINCIPAL_INCLUDED") {
             $(".allocation-summary.immature").addClass("is-danger-selected");
         }
+        $("#withdrawal-selected-allocation").prop("hidden", false);
+        $("#withdrawal-failure-warning").prop("hidden", true);
+        renderWithdrawalOverview(withdrawal);
+    }
+
+    function renderUnallocatedWithdrawalDetail(withdrawal) {
+        $("#withdrawal-selected-allocation").prop("hidden", true);
+        $(".allocation-summary").removeClass("is-selected is-danger-selected");
+        $("#withdrawal-failure-warning").prop("hidden", withdrawal.status !== "FAILED");
+        $("#withdrawal-failure-reason").text(
+            withdrawal.failureReason || "실패 사유가 저장되지 않았습니다."
+        );
+        renderWithdrawalOverview(withdrawal);
+    }
+
+    function renderWithdrawalOverview(withdrawal) {
         $("#withdrawal-detail-title").text((withdrawal.customerName || "-") + " 고객 인출");
         $("#withdrawal-customer-name").text(withdrawal.customerName || "-");
         $("#withdrawal-account-no").text(withdrawal.riaAccountNo || "-");
@@ -454,7 +492,8 @@ $(function () {
                         withdrawal: withdrawal
                     });
                 });
-                if (!allocations.length && withdrawal.status === "CANCELLED") {
+                if (!allocations.length &&
+                    (withdrawal.status === "CANCELLED" || withdrawal.status === "FAILED")) {
                     accountAllocationEntries.push({
                         allocation: null,
                         withdrawal: withdrawal
@@ -549,6 +588,15 @@ $(function () {
         }
         renderAccountAllocations();
         renderWithdrawalDetail(entry.withdrawal, entry.allocation);
+    });
+    $(document).on("click", ".withdrawal-unallocated-item", function () {
+        selectedAllocationIndex = Number($(this).data("allocation-index"));
+        var entry = accountAllocationEntries[selectedAllocationIndex];
+        if (!entry) {
+            return;
+        }
+        renderAccountAllocations();
+        renderUnallocatedWithdrawalDetail(entry.withdrawal);
     });
     $("#withdrawal-drawer-close, #withdrawal-drawer-backdrop").on("click", closeDrawer);
     $(document).on("keydown", function (event) {

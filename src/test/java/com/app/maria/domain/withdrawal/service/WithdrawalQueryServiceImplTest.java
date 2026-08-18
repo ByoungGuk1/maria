@@ -51,6 +51,7 @@ class WithdrawalQueryServiceImplTest {
         WithdrawalHistoryDTO completed = history(2L, "900");
         WithdrawalHistoryDTO failed = history(1L, "800");
         failed.setStatus(WithdrawalStatus.FAILED);
+        failed.setFailureReason("계좌 잔액보다 많은 금액을 인출할 수 없습니다.");
         when(withdrawalMapper.selectWithdrawalHistoriesByAccountId(1L))
                 .thenReturn(List.of(completed, failed));
 
@@ -60,6 +61,7 @@ class WithdrawalQueryServiceImplTest {
         assertThat(result)
                 .extracting(WithdrawalListResponseDTO::getStatus)
                 .containsExactly(WithdrawalStatus.COMPLETED, WithdrawalStatus.FAILED);
+        assertThat(result.get(1).getFailureReason()).isEqualTo("계좌 잔액보다 많은 금액을 인출할 수 없습니다.");
         verify(withdrawalMapper).selectWithdrawalHistoriesByAccountId(1L);
     }
 
