@@ -119,6 +119,15 @@
         ORDER BY w.processed_at DESC, w.withdrawal_id DESC
     </select>
 
+    <select id="selectWithdrawalHistoriesByAccountId"
+            parameterType="Long"
+            resultType="com.app.maria.domain.withdrawal.dto.WithdrawalHistoryDTO">
+        <include refid="withdrawalHistoryColumns"/>
+        WHERE w.account_id = #{accountId}
+        <include refid="withdrawalHistoryGroupBy"/>
+        ORDER BY w.processed_at DESC, w.withdrawal_id DESC
+    </select>
+
     <select id="selectWithdrawalHistoryById"
             parameterType="Long"
             resultType="com.app.maria.domain.withdrawal.dto.WithdrawalHistoryDTO">
