@@ -45,6 +45,18 @@ $(function () {
         return value ? DATE_TIME_FORMATTER.format(new Date(value)) : "-";
     }
 
+    function formatAuditValue(log, value) {
+        if (!value) {
+            return "-";
+        }
+        if (log.targetTable !== "SYSTEM_CLOCK") {
+            return value;
+        }
+
+        var datetime = new Date(value);
+        return Number.isNaN(datetime.getTime()) ? value : DATE_TIME_FORMATTER.format(datetime);
+    }
+
     var TARGET_TABLE_BADGE_CLASS = {
         ADMIN_USER: "type-admin-user",
         SELL_ORDER: "type-sell-order",
@@ -126,8 +138,8 @@ $(function () {
                 escapeHtml(targetTableLabel(log.targetTable)) + "</span></td>" +
                 "<td class=\"audit-log-target-name\">" + escapeHtml(targetLabel) + "</td>" +
                 "<td>" + escapeHtml(reasonCodeLabel(log.reasonCode)) + "</td>" +
-                "<td class=\"audit-log-before\">" + escapeHtml(log.beforeValue || "-") + "</td>" +
-                "<td class=\"audit-log-after\">" + escapeHtml(log.afterValue || "-") + "</td>" +
+                "<td class=\"audit-log-before\">" + escapeHtml(formatAuditValue(log, log.beforeValue)) + "</td>" +
+                "<td class=\"audit-log-after\">" + escapeHtml(formatAuditValue(log, log.afterValue)) + "</td>" +
                 "</tr>"
             );
         });
@@ -206,6 +218,11 @@ $(function () {
             currentPage += 1;
             loadAuditLogs();
         }
+    });
+
+    $(document).on("maria:system-clock-changed", function () {
+        currentPage = 0;
+        loadAuditLogs();
     });
 
     loadAuditLogs();
