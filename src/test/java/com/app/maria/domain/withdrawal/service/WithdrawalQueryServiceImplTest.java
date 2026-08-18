@@ -59,6 +59,8 @@ class WithdrawalQueryServiceImplTest {
                         .withdrawalAt(PROCESSED_AT)
                         .type(WithdrawalType.IMMATURE_PRINCIPAL_INCLUDED)
                         .finalAt(finalAt)
+                        .productName("Apple")
+                        .ticker("AAPL")
                         .build();
         when(withdrawalMapper.selectWithdrawalHistoryById(1L)).thenReturn(Optional.of(history));
         when(withdrawalMapper.selectAllocationHistoriesByWithdrawalId(1L))
@@ -74,6 +76,8 @@ class WithdrawalQueryServiceImplTest {
                             assertThat(item.getAllocatedAmount()).isEqualByComparingTo("400");
                             assertThat(item.getFinalAt()).isEqualTo(finalAt);
                             assertThat(item.getMaturityAt()).isEqualTo(finalAt.plusYears(1));
+                            assertThat(item.getProductName()).isEqualTo("Apple");
+                            assertThat(item.getTicker()).isEqualTo("AAPL");
                         });
     }
 
