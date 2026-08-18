@@ -1,5 +1,9 @@
 $(function () {
-    var PAGE_SIZE = 6;
+    function calculatePageSize() {
+        return window.innerHeight >= 850 ? 10 : 9;
+    }
+
+    var accountPageSize = calculatePageSize();
     var STATUS_LABEL = {
         REQUESTED: "처리 요청",
         COMPLETED: "처리 완료",
@@ -18,10 +22,12 @@ $(function () {
         hour: "2-digit",
         minute: "2-digit"
     });
-    var withdrawals = [];
-    var completedWithdrawals = [];
+    var allAccounts = [];
+    var accounts = [];
+    var selectedAccountId = null;
     var selectedWithdrawalId = null;
-    var currentPage = 1;
+    var currentAccountPage = 1;
+    var accountWithdrawals = [];
     var detailAllocations = [];
     var currentAllocationIndex = 0;
 
@@ -30,7 +36,7 @@ $(function () {
     }
 
     function formatAmount(value) {
-        return new Intl.NumberFormat("ko-KR").format(Number(value || 0)) + "원";
+        return "₩" + new Intl.NumberFormat("ko-KR").format(Number(value || 0));
     }
 
     function formatDateTime(value) {
@@ -45,79 +51,170 @@ $(function () {
         return (status || "").toLowerCase();
     }
 
-    function renderList() {
-        var $list = $("#withdrawal-list").empty();
-        $("#withdrawal-count").text("총 " + withdrawals.length + "건");
+    function withdrawalTypeLabel(withdrawal) {
+        if (withdrawal.status !== "COMPLETED") {
+            return "-";
+        }
+        return Number(withdrawal.immaturePrincipalAmount || 0) > 0 ? "조기 인출" : "정상 인출";
+    }
 
-        if (!withdrawals.length) {
-            $list.append('<div class="withdrawal-empty">해당 조건의 인출 내역이 없습니다.</div>');
-            $("#withdrawal-pagination").prop("hidden", true);
-            clearDetail();
+    function renderAccountPagination(totalPages) {
+        var $pagination = $("#withdrawal-account-pagination").empty();
+        if (totalPages <= 1) {
+            $pagination.prop("hidden", true);
             return;
         }
 
-        var totalPages = Math.max(1, Math.ceil(withdrawals.length / PAGE_SIZE));
-        currentPage = Math.min(currentPage, totalPages);
-        var startIndex = (currentPage - 1) * PAGE_SIZE;
+        var blockSize = 10;
+        var blockStart = Math.floor((currentAccountPage - 1) / blockSize) * blockSize + 1;
+        var blockEnd = Math.min(totalPages, blockStart + blockSize - 1);
 
-        withdrawals.slice(startIndex, startIndex + PAGE_SIZE).forEach(function (withdrawal) {
-            var selectedClass = Number(withdrawal.withdrawalId) === Number(selectedWithdrawalId)
+        function addButton(label, targetPage, isDisabled, isActive) {
+            var $button = $("<button>", {
+                type: "button",
+                class: "page-btn" + (isActive ? " active" : ""),
+                text: label
+            });
+            $button.prop("disabled", isDisabled || isActive);
+            if (!isDisabled && !isActive) {
+                $button.on("click", function () {
+                    currentAccountPage = targetPage;
+                    selectFirstAccountOnCurrentPage();
+                });
+            }
+            $pagination.append($button);
+        }
+
+        addButton("이전", blockStart - 1, blockStart === 1, false);
+        for (var page = blockStart; page <= blockEnd; page += 1) {
+            addButton(String(page), page, false, page === currentAccountPage);
+        }
+        addButton("다음", blockEnd + 1, blockEnd === totalPages, false);
+        $pagination.prop("hidden", false);
+    }
+
+    function renderAccounts() {
+        var $list = $("#withdrawal-account-list").empty();
+        $("#withdrawal-account-count").text(accounts.length + "건");
+
+        if (!accounts.length) {
+            $list.append('<div class="withdrawal-empty">조회된 계좌가 없습니다.</div>');
+            $("#withdrawal-account-pagination").prop("hidden", true);
+            clearHistory();
+            return;
+        }
+
+        var totalPages = Math.max(1, Math.ceil(accounts.length / accountPageSize));
+        currentAccountPage = Math.min(currentAccountPage, totalPages);
+        var startIndex = (currentAccountPage - 1) * accountPageSize;
+
+        accounts.slice(startIndex, startIndex + accountPageSize).forEach(function (account) {
+            var selectedClass = Number(account.accountId) === Number(selectedAccountId)
                 ? " is-selected"
                 : "";
             $list.append(
-                '<button type="button" class="withdrawal-list-item' + selectedClass + '"' +
-                ' data-withdrawal-id="' + withdrawal.withdrawalId + '">' +
-                '<span class="withdrawal-list-primary"><span>' +
-                escapeHtml(withdrawal.customerName || "-") +
-                '</span><span class="withdrawal-status-badge ' + statusClass(withdrawal.status) + '">' +
-                escapeHtml(statusLabel(withdrawal.status)) + '</span></span>' +
-                '<span class="withdrawal-list-secondary"><span>RIA ' +
-                escapeHtml(withdrawal.riaAccountNo || "-") + '</span><strong>' +
-                escapeHtml(formatAmount(withdrawal.requestedAmount)) + '</strong></span>' +
-                '<span class="withdrawal-list-time">' +
-                escapeHtml(formatDateTime(withdrawal.processedAt)) + '</span></button>'
+                '<button type="button" class="withdrawal-account-item' + selectedClass + '"' +
+                ' data-account-id="' + account.accountId + '">' +
+                '<strong>' + escapeHtml(account.accountNo || "-") + '</strong>' +
+                '<span>' + escapeHtml(account.customerName || "-") + '</span></button>'
             );
         });
 
-        $("#withdrawal-page-info").text(currentPage + " / " + totalPages);
-        $("#previous-withdrawal-page").prop("disabled", currentPage === 1);
-        $("#next-withdrawal-page").prop("disabled", currentPage === totalPages);
-        $("#withdrawal-pagination").prop("hidden", false);
+        renderAccountPagination(totalPages);
     }
 
-    function clearDetail() {
-        selectedWithdrawalId = null;
-        $("#withdrawal-detail").addClass("is-empty");
-        $("#withdrawal-detail-empty").show();
-        $("#withdrawal-detail-content").prop("hidden", true);
+    function clearHistory() {
+        selectedAccountId = null;
+        accountWithdrawals = [];
+        $("#withdrawal-history-title").text("계좌를 선택해 주세요");
+        $("#withdrawal-history-count").text("0건");
+        $("#withdrawal-history-list").html(
+            '<div class="withdrawal-detail-empty">왼쪽 목록에서 계좌를 선택해 주세요.</div>'
+        );
+        closeDrawer();
     }
 
-    function applyFilters() {
-        var withdrawalType = $("#withdrawal-type-filter").val();
-        var keyword = ($("#withdrawal-keyword").val() || "").trim().toLowerCase();
+    function renderHistory() {
+        var $list = $("#withdrawal-history-list").empty();
+        $("#withdrawal-history-count").text(accountWithdrawals.length + "건");
 
-        withdrawals = completedWithdrawals.filter(function (withdrawal) {
-            var isEarlyWithdrawal = Number(withdrawal.immaturePrincipalAmount || 0) > 0;
-            var matchesType = withdrawalType === "ALL" ||
-                (withdrawalType === "EARLY" && isEarlyWithdrawal) ||
-                (withdrawalType === "NORMAL" && !isEarlyWithdrawal);
-            var customerName = String(withdrawal.customerName || "").toLowerCase();
-            var accountNo = String(withdrawal.riaAccountNo || "").toLowerCase();
-            var matchesKeyword = !keyword ||
-                customerName.indexOf(keyword) >= 0 ||
-                accountNo.indexOf(keyword) >= 0;
-
-            return matchesType && matchesKeyword;
-        });
-
-        currentPage = 1;
-        if (withdrawals.length) {
-            selectedWithdrawalId = Number(withdrawals[0].withdrawalId);
-            renderList();
-            loadDetail(selectedWithdrawalId);
-        } else {
-            renderList();
+        if (!accountWithdrawals.length) {
+            $list.append('<div class="withdrawal-empty">이 계좌에는 인출 이력이 없습니다.</div>');
+            return;
         }
+
+        accountWithdrawals.forEach(function (withdrawal) {
+            $list.append(
+                '<button type="button" class="withdrawal-history-item" data-withdrawal-id="' +
+                withdrawal.withdrawalId + '">' +
+                '<span><span class="withdrawal-status-badge ' + statusClass(withdrawal.status) + '">' +
+                escapeHtml(statusLabel(withdrawal.status)) + '</span></span>' +
+                '<span class="withdrawal-type-label">' + escapeHtml(withdrawalTypeLabel(withdrawal)) + '</span>' +
+                '<strong>' + escapeHtml(formatAmount(withdrawal.requestedAmount)) + '</strong>' +
+                '<span>' + escapeHtml(formatDateTime(withdrawal.processedAt)) + '</span></button>'
+            );
+        });
+    }
+
+    function applyAccountFilter() {
+        var keyword = ($("#withdrawal-keyword").val() || "").trim().toLowerCase();
+        accounts = allAccounts.filter(function (account) {
+            var customerName = String(account.customerName || "").toLowerCase();
+            var accountNo = String(account.accountNo || "").toLowerCase();
+            return !keyword || customerName.indexOf(keyword) >= 0 || accountNo.indexOf(keyword) >= 0;
+        });
+        currentAccountPage = 1;
+        selectFirstAccountOnCurrentPage();
+    }
+
+    function selectAccount(accountId) {
+        selectedAccountId = Number(accountId);
+        selectedWithdrawalId = null;
+        closeDrawer();
+        renderAccounts();
+
+        var account = allAccounts.find(function (item) {
+            return Number(item.accountId) === selectedAccountId;
+        });
+        $("#withdrawal-history-title").text(
+            account ? (account.accountNo || "-") + " · " + (account.customerName || "-") : "인출 이력"
+        );
+        $("#withdrawal-history-list").html('<div class="withdrawal-loading">인출 이력을 불러오는 중...</div>');
+
+        var requestedAccountId = selectedAccountId;
+        MARIA.auth.ajax({
+            url: "/api/withdrawals/accounts/" + requestedAccountId,
+            method: "GET"
+        })
+            .done(function (response) {
+                if (selectedAccountId !== requestedAccountId) {
+                    return;
+                }
+                accountWithdrawals = response.data || [];
+                renderHistory();
+            })
+            .fail(function (xhr) {
+                if (selectedAccountId !== requestedAccountId) {
+                    return;
+                }
+                accountWithdrawals = [];
+                renderHistory();
+                if (xhr.status !== 401) {
+                    MARIA.ui.showError(
+                        (xhr.responseJSON && xhr.responseJSON.message) || "계좌 인출 이력을 불러오지 못했습니다."
+                    );
+                }
+            });
+    }
+
+    function selectFirstAccountOnCurrentPage() {
+        var account = accounts[(currentAccountPage - 1) * accountPageSize];
+        if (!account) {
+            renderAccounts();
+            clearHistory();
+            return;
+        }
+        selectAccount(account.accountId);
     }
 
     function calculateProgress(allocation) {
@@ -159,6 +256,9 @@ $(function () {
             : (allocation.productName
                 ? allocation.productName + (allocation.ticker ? " (" + allocation.ticker + ")" : "")
                 : "종목 정보 없음");
+        var allocationType = TYPE_LABEL[allocation.type] || allocation.type;
+        var allocationSecondary = isEarnings ? allocationTitle : allocationType;
+        var allocationPrimary = isEarnings ? allocationType : allocationTitle;
         var progressMarkup = isEarnings || progress == null
             ? '<div class="retention-not-applicable">' +
                 (isEarnings ? "수익금은 의무유지기간 비대상" : "의무유지기간 정보 없음") +
@@ -170,8 +270,8 @@ $(function () {
 
         $container.append(
             '<article class="withdrawal-allocation-item ' + statusClass(allocation.type) + '">' +
-            '<div class="allocation-item-header"><div><span>' + escapeHtml(allocationTitle) + '</span>' +
-            '<strong>' + escapeHtml(TYPE_LABEL[allocation.type] || allocation.type) + '</strong></div>' +
+            '<div class="allocation-item-header"><div><span>' + escapeHtml(allocationSecondary) + '</span>' +
+            '<strong>' + escapeHtml(allocationPrimary) + '</strong></div>' +
             '<strong>' + escapeHtml(formatAmount(allocation.allocatedAmount)) + '</strong></div>' +
             '<div class="allocation-meta"><span>환전건 ' +
             escapeHtml(allocation.exchangeId == null ? "해당 없음" : "#" + allocation.exchangeId) +
@@ -180,9 +280,10 @@ $(function () {
         );
     }
 
-    function renderDetail(withdrawal) {
+    function openDrawer(withdrawal) {
         selectedWithdrawalId = Number(withdrawal.withdrawalId);
-        $("#withdrawal-detail").removeClass("is-empty");
+        $("#withdrawal-detail").removeClass("is-empty").addClass("is-open").attr("aria-hidden", "false");
+        $("#withdrawal-drawer-backdrop").prop("hidden", false);
         $("#withdrawal-detail-empty").hide();
         $("#withdrawal-detail-content").prop("hidden", false);
         $("#withdrawal-detail-title").text((withdrawal.customerName || "-") + " 고객 인출");
@@ -202,7 +303,12 @@ $(function () {
         detailAllocations = withdrawal.allocations || [];
         currentAllocationIndex = 0;
         renderAllocations();
-        renderList();
+    }
+
+    function closeDrawer() {
+        selectedWithdrawalId = null;
+        $("#withdrawal-detail").removeClass("is-open").attr("aria-hidden", "true");
+        $("#withdrawal-drawer-backdrop").prop("hidden", true);
     }
 
     function loadDetail(withdrawalId) {
@@ -211,39 +317,32 @@ $(function () {
             method: "GET"
         })
             .done(function (response) {
-                renderDetail(response.data);
+                openDrawer(response.data);
             })
             .fail(function (xhr) {
                 if (xhr.status !== 401) {
                     MARIA.ui.showError(
-                        (xhr.responseJSON && xhr.responseJSON.message) ||
-                        "인출 상세 내역을 불러오지 못했습니다."
+                        (xhr.responseJSON && xhr.responseJSON.message) || "인출 상세 내역을 불러오지 못했습니다."
                     );
                 }
             });
     }
 
-    function loadWithdrawals() {
-        $("#withdrawal-list").html('<div class="withdrawal-loading">불러오는 중...</div>');
+    function loadAccounts() {
+        $("#withdrawal-account-list").html('<div class="withdrawal-loading">계좌 목록을 불러오는 중...</div>');
         $("#withdrawal-search-button").prop("disabled", true);
-
-        MARIA.auth.ajax({
-            url: "/api/withdrawals",
-            method: "GET",
-            data: { status: "COMPLETED" }
-        })
+        MARIA.auth.ajax({ url: "/api/account/list", method: "GET" })
             .done(function (response) {
-                completedWithdrawals = response.data || [];
-                applyFilters();
+                allAccounts = response.data || [];
+                applyAccountFilter();
             })
             .fail(function (xhr) {
-                completedWithdrawals = [];
-                withdrawals = [];
-                renderList();
+                allAccounts = [];
+                accounts = [];
+                renderAccounts();
                 if (xhr.status !== 401) {
                     MARIA.ui.showError(
-                        (xhr.responseJSON && xhr.responseJSON.message) ||
-                        "인출 내역을 불러오지 못했습니다."
+                        (xhr.responseJSON && xhr.responseJSON.message) || "계좌 목록을 불러오지 못했습니다."
                     );
                 }
             })
@@ -252,38 +351,30 @@ $(function () {
             });
     }
 
-    function selectFirstWithdrawalOnCurrentPage() {
-        var withdrawal = withdrawals[(currentPage - 1) * PAGE_SIZE];
-        if (!withdrawal) {
-            renderList();
-            clearDetail();
-            return;
-        }
-        selectedWithdrawalId = Number(withdrawal.withdrawalId);
-        renderList();
-        loadDetail(selectedWithdrawalId);
-    }
-
-    $("#withdrawal-search-button").on("click", applyFilters);
+    $("#withdrawal-search-button").on("click", applyAccountFilter);
     $("#withdrawal-keyword").on("keydown", function (event) {
         if (event.key === "Enter") {
-            applyFilters();
+            applyAccountFilter();
         }
     });
-    $("#withdrawal-type-filter").on("change", applyFilters);
-    $(document).on("click", ".withdrawal-list-item", function () {
+    $(document).on("click", ".withdrawal-account-item", function () {
+        selectAccount(Number($(this).data("account-id")));
+    });
+    $(document).on("click", ".withdrawal-history-item", function () {
         loadDetail(Number($(this).data("withdrawal-id")));
     });
-    $("#previous-withdrawal-page").on("click", function () {
-        if (currentPage > 1) {
-            currentPage -= 1;
-            selectFirstWithdrawalOnCurrentPage();
+    $("#withdrawal-drawer-close, #withdrawal-drawer-backdrop").on("click", closeDrawer);
+    $(document).on("keydown", function (event) {
+        if (event.key === "Escape") {
+            closeDrawer();
         }
     });
-    $("#next-withdrawal-page").on("click", function () {
-        if (currentPage < Math.ceil(withdrawals.length / PAGE_SIZE)) {
-            currentPage += 1;
-            selectFirstWithdrawalOnCurrentPage();
+    $(window).on("resize", function () {
+        var nextPageSize = calculatePageSize();
+        if (nextPageSize !== accountPageSize) {
+            accountPageSize = nextPageSize;
+            currentAccountPage = 1;
+            selectFirstAccountOnCurrentPage();
         }
     });
     $("#previous-allocation").on("click", function () {
@@ -299,5 +390,5 @@ $(function () {
         }
     });
 
-    loadWithdrawals();
+    loadAccounts();
 });

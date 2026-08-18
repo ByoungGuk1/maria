@@ -18,9 +18,7 @@
     <div class="withdrawal-page-header">
         <div>
             <h1>인출 관리</h1>
-            <p>인출 결과와 수익금·경과 원금·미경과 원금의 배분 내역을 확인합니다.</p>
         </div>
-        <span class="withdrawal-policy-badge">수익금 → 경과 원금 → 미경과 원금 FIFO</span>
     </div>
 
     <div class="withdrawal-filter">
@@ -31,87 +29,107 @@
     </div>
 
     <div class="withdrawal-workspace">
-        <section class="withdrawal-list-card">
+        <section class="withdrawal-account-card">
             <div class="withdrawal-card-header">
-                <h2>인출 목록</h2>
-                <div class="withdrawal-list-tools">
-                    <select id="withdrawal-type-filter" aria-label="인출 구분">
-                        <option value="ALL">전체 완료 인출</option>
-                        <option value="NORMAL">정상 인출</option>
-                        <option value="EARLY">조기인출</option>
-                    </select>
-                    <span id="withdrawal-count">총 0건</span>
+                <div>
+                    <span class="withdrawal-section-label">전체 RIA 계좌</span>
+                    <h2>계좌 목록</h2>
                 </div>
+                <span id="withdrawal-account-count">0건</span>
             </div>
-            <div id="withdrawal-list" class="withdrawal-list">
-                <div class="withdrawal-empty">인출 내역을 조회하고 있습니다.</div>
+            <div class="withdrawal-account-table-header" aria-hidden="true">
+                <span>계좌번호</span>
+                <span>고객명</span>
             </div>
-            <div id="withdrawal-pagination" class="withdrawal-pagination" hidden>
-                <button type="button" id="previous-withdrawal-page">이전</button>
-                <span id="withdrawal-page-info"></span>
-                <button type="button" id="next-withdrawal-page">다음</button>
+            <div id="withdrawal-account-list" class="withdrawal-account-list">
+                <div class="withdrawal-loading">계좌 목록을 불러오고 있습니다.</div>
             </div>
+            <div id="withdrawal-account-pagination" class="withdrawal-pagination" hidden></div>
         </section>
 
-        <section id="withdrawal-detail" class="withdrawal-detail-card is-empty">
-            <div id="withdrawal-detail-empty" class="withdrawal-detail-empty">
-                왼쪽 목록에서 인출 내역을 선택해 주세요.
+        <section class="withdrawal-history-card">
+            <div class="withdrawal-card-header">
+                <div>
+                    <span class="withdrawal-section-label">선택 계좌 인출 이력</span>
+                    <h2 id="withdrawal-history-title">계좌를 선택해 주세요</h2>
+                </div>
+                <span id="withdrawal-history-count">0건</span>
             </div>
-
-            <div id="withdrawal-detail-content" hidden>
-                <div class="withdrawal-card-header">
-                    <div>
-                        <span class="withdrawal-section-label">인출 상세</span>
-                        <h2 id="withdrawal-detail-title">인출 내역</h2>
-                    </div>
-                    <span id="withdrawal-detail-status" class="withdrawal-status-badge"></span>
-                </div>
-
-                <dl class="withdrawal-detail-grid">
-                    <div><dt>고객명</dt><dd id="withdrawal-customer-name">-</dd></div>
-                    <div><dt>RIA 계좌번호</dt><dd id="withdrawal-account-no">-</dd></div>
-                    <div><dt>요청 금액</dt><dd id="withdrawal-requested-amount">-</dd></div>
-                    <div><dt>목적지 일반계좌</dt><dd id="withdrawal-destination-account">-</dd></div>
-                    <div><dt>처리 시각</dt><dd id="withdrawal-processed-at">-</dd></div>
-                    <div><dt>조기인출 발생</dt><dd id="withdrawal-early-result">-</dd></div>
-                </dl>
-
-                <div class="withdrawal-allocation-summary">
-                    <article class="allocation-summary earnings">
-                        <span>수익금</span>
-                        <strong id="withdrawal-earnings-amount">0원</strong>
-                    </article>
-                    <article class="allocation-summary matured">
-                        <span>1년 경과 원금</span>
-                        <strong id="withdrawal-matured-amount">0원</strong>
-                    </article>
-                    <article class="allocation-summary immature">
-                        <span>1년 미경과 원금</span>
-                        <strong id="withdrawal-immature-amount">0원</strong>
-                    </article>
-                </div>
-
-                <div id="withdrawal-early-warning" class="withdrawal-warning" hidden>
-                    1년 미경과 원금이 포함되어 세제혜택 전체 취소 대상인 인출입니다.
-                </div>
-
-                <section class="withdrawal-allocation-section">
-                    <div class="withdrawal-section-header">
-                        <div>
-                            <h3>납입건별 인출 배분</h3>
-                            <p>원금 배분 건은 확정 시각부터 인출 시각까지의 의무유지기간 진행률을 표시합니다.</p>
-                        </div>
-                        <div class="allocation-navigation">
-                            <button type="button" id="previous-allocation" aria-label="이전 배분">&lt;</button>
-                            <span id="withdrawal-allocation-count">0 / 0</span>
-                            <button type="button" id="next-allocation" aria-label="다음 배분">&gt;</button>
-                        </div>
-                    </div>
-                    <div id="withdrawal-allocations" class="withdrawal-allocations"></div>
-                </section>
+            <div class="withdrawal-history-table-header" aria-hidden="true">
+                <span>상태</span>
+                <span>인출 구분</span>
+                <span>인출 요청금액</span>
+                <span>인출 시각</span>
+            </div>
+            <div id="withdrawal-history-list" class="withdrawal-history-list">
+                <div class="withdrawal-detail-empty">왼쪽 목록에서 계좌를 선택해 주세요.</div>
             </div>
         </section>
     </div>
+
+    <div id="withdrawal-drawer-backdrop" class="withdrawal-drawer-backdrop" hidden></div>
+    <aside id="withdrawal-detail" class="withdrawal-detail-drawer is-empty"
+           aria-labelledby="withdrawal-detail-title" aria-hidden="true">
+        <div id="withdrawal-detail-empty" class="withdrawal-detail-empty">
+            인출 내역을 선택해 주세요.
+        </div>
+
+        <div id="withdrawal-detail-content" hidden>
+            <div class="withdrawal-card-header withdrawal-drawer-header">
+                <div>
+                    <span class="withdrawal-section-label">인출 상세</span>
+                    <h2 id="withdrawal-detail-title">인출 내역</h2>
+                </div>
+                <div class="withdrawal-drawer-actions">
+                    <span id="withdrawal-detail-status" class="withdrawal-status-badge"></span>
+                    <button type="button" id="withdrawal-drawer-close" aria-label="인출 상세 닫기">×</button>
+                </div>
+            </div>
+
+            <dl class="withdrawal-detail-grid">
+                <div><dt>고객명</dt><dd id="withdrawal-customer-name">-</dd></div>
+                <div><dt>RIA 계좌번호</dt><dd id="withdrawal-account-no">-</dd></div>
+                <div><dt>요청 금액</dt><dd id="withdrawal-requested-amount">-</dd></div>
+                <div><dt>목적지 일반계좌</dt><dd id="withdrawal-destination-account">-</dd></div>
+                <div><dt>처리 시각</dt><dd id="withdrawal-processed-at">-</dd></div>
+                <div><dt>조기인출 발생</dt><dd id="withdrawal-early-result">-</dd></div>
+            </dl>
+
+            <div class="withdrawal-allocation-summary">
+                <article class="allocation-summary earnings">
+                    <span>수익금</span>
+                    <strong id="withdrawal-earnings-amount">0원</strong>
+                </article>
+                <article class="allocation-summary matured">
+                    <span>1년 경과 원금</span>
+                    <strong id="withdrawal-matured-amount">0원</strong>
+                </article>
+                <article class="allocation-summary immature">
+                    <span>1년 미경과 원금</span>
+                    <strong id="withdrawal-immature-amount">0원</strong>
+                </article>
+            </div>
+
+            <div id="withdrawal-early-warning" class="withdrawal-warning" hidden>
+                1년 미경과 원금이 포함되어 세제혜택 전체 취소 대상인 인출입니다.
+            </div>
+
+            <section class="withdrawal-allocation-section">
+                <div class="withdrawal-section-header">
+                    <div>
+                        <h3>납입건별 인출 배분</h3>
+                        <p>원금 배분 건은 확정 시각부터 인출 시각까지의 의무유지기간 진행률을 표시합니다.</p>
+                    </div>
+                    <div class="allocation-navigation">
+                        <button type="button" id="previous-allocation" aria-label="이전 배분">&lt;</button>
+                        <span id="withdrawal-allocation-count">0 / 0</span>
+                        <button type="button" id="next-allocation" aria-label="다음 배분">&gt;</button>
+                    </div>
+                </div>
+                <div id="withdrawal-allocations" class="withdrawal-allocations"></div>
+            </section>
+        </div>
+    </aside>
 </div>
 
 <th:block layout:fragment="pageScripts">
