@@ -77,6 +77,12 @@ public class PageController {
         return "account-closures";
     }
 
+    @GetMapping("/admin/withdrawals")
+    public String withdrawals(Model model) {
+        model.addAttribute("activePath", "/admin/withdrawals");
+        return "withdrawals";
+    }
+
     @GetMapping("/admin/tax")
     public String tax(Model model) {
         model.addAttribute("activePath", "/admin/tax");

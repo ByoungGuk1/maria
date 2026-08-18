@@ -20,6 +20,8 @@ public class WithdrawalAllocationResponseDTO {
     private WithdrawalType type;
     private LocalDateTime finalAt;
     private LocalDateTime maturityAt;
+    private String productName;
+    private String ticker;
 
     public static WithdrawalAllocationResponseDTO from(WithdrawalAllocationHistoryDTO allocation) {
         return WithdrawalAllocationResponseDTO.builder()
@@ -34,6 +36,8 @@ public class WithdrawalAllocationResponseDTO {
                         allocation.getFinalAt() == null
                                 ? null
                                 : allocation.getFinalAt().plusYears(1))
+                .productName(allocation.getProductName())
+                .ticker(allocation.getTicker())
                 .build();
     }
 }
