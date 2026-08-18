@@ -41,6 +41,8 @@ public class SecurityConfig {
         "/admin/settlement",
         "/admin/inbound",
         "/admin/admin-users",
+        "/admin/tax",
+        "/admin/domestic-investment",
 
         // JWT 인증 API
         "/api/auth/admin/login",

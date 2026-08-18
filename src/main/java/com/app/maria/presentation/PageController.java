@@ -65,6 +65,12 @@ public class PageController {
         return "admin-users";
     }
 
+    @GetMapping("/admin/domestic-investment")
+    public String domesticInvestment(Model model) {
+        model.addAttribute("activePath", "/admin/domestic-investment");
+        return "domestic-investment";
+    }
+  
     @GetMapping("/admin/account-closures")
     public String accountClosures(Model model) {
         model.addAttribute("activePath", "/admin/account-closures");
@@ -75,5 +81,11 @@ public class PageController {
     public String withdrawals(Model model) {
         model.addAttribute("activePath", "/admin/withdrawals");
         return "withdrawals";
+    }
+
+    @GetMapping("/admin/tax")
+    public String tax(Model model) {
+        model.addAttribute("activePath", "/admin/tax");
+        return "tax-calculation";
     }
 }
