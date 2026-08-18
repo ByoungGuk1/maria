@@ -322,6 +322,11 @@
     width: 160px;
 }
 
+.dash-stat-filter-keyword {
+    flex: none;
+    width: 220px;
+}
+
 .dash-stat-filter-date {
     flex: none;
     width: 150px;
@@ -329,6 +334,10 @@
 
 .dash-stat-filter-date-separator {
     color: var(--textMuted);
+}
+
+.dash-stat-filter-bar #statFilterSearch {
+    margin-left: auto;
 }
 
 .dash-stat-error {
@@ -355,8 +364,8 @@
 
 .dash-stat-chart-wrap {
     position: relative;
-    height: 260px;
-    padding: 14px;
+    height: 280px;
+    padding: 16px;
 }
 
 .dash-stat-empty {

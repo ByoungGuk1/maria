@@ -5,19 +5,17 @@
 <head>
     <title>MARIA</title>
     <th:block layout:fragment="pageStyles">
-        <link rel="stylesheet" th:href="@{/css/dashboard.css}">
+        <link rel="stylesheet" th:href="@{/css/statistics.css}">
     </th:block>
 </head>
 <body>
-<div layout:fragment="breadcrumb">대시보드</div>
+<div layout:fragment="breadcrumb">통계보드</div>
 
 <div layout:fragment="content">
     <div class="dash-stat">
         <div class="filter-bar dash-stat-filter-bar">
-            <input id="statFilterAccountNo" class="filter-input dash-stat-filter-input" type="text"
-                   placeholder="계좌번호" autocomplete="off">
-            <input id="statFilterCustomerName" class="filter-input dash-stat-filter-input" type="text"
-                   placeholder="고객명" autocomplete="off">
+            <input id="statFilterKeyword" class="filter-input dash-stat-filter-keyword" type="text"
+                   placeholder="계좌번호 또는 고객명" autocomplete="off">
             <input id="statFilterProductName" class="filter-input dash-stat-filter-input" type="text"
                    placeholder="종목명" autocomplete="off">
             <input id="statFilterStartDate" class="filter-input dash-stat-filter-date" type="date">
@@ -76,7 +74,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"
             integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ"
             crossorigin="anonymous"></script>
-    <script th:src="@{/js/dashboard.js}"></script>
+    <script th:src="@{/js/statistics.js}"></script>
 </th:block>
 </body>
 </html>

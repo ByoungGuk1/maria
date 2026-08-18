@@ -1,6 +1,6 @@
 $(function () {
     var KRW_FORMATTER = new Intl.NumberFormat("ko-KR");
-    var CHART_COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2", "#94a3b8"];
+    var CHART_COLORS = ["#4C6FFF", "#2BB673", "#F5A524", "#8B5CF6", "#22B8CF", "#F0608A", "#94A3B8"];
     var BENEFIT_LABEL = {
         POSSIBLE: "가능",
         REDUCED: "축소",
@@ -8,6 +8,19 @@ $(function () {
         UNCLASSIFIED: "미분류"
     };
     var PRODUCT_PIE_TOP_N = 5;
+
+    function cssVar(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+
+    var CHART_FONT = "'Noto Sans KR', sans-serif";
+    var gridColor = cssVar("--cardBorder") || "rgba(0,0,0,0.08)";
+    var tickColor = cssVar("--textMuted") || "#94a3b8";
+    var legendColor = cssVar("--textSecondary") || "#45484d";
+    var cardBg = cssVar("--cardBg") || "#ffffff";
+
+    Chart.defaults.font.family = CHART_FONT;
+    Chart.defaults.color = legendColor;
 
     var charts = {};
 
@@ -25,13 +38,11 @@ $(function () {
 
     function buildFilterParams(extra) {
         var params = {};
-        var accountNo = $("#statFilterAccountNo").val().trim();
-        var customerName = $("#statFilterCustomerName").val().trim();
+        var keyword = $("#statFilterKeyword").val().trim();
         var productName = $("#statFilterProductName").val().trim();
         var startDate = $("#statFilterStartDate").val();
         var endDate = $("#statFilterEndDate").val();
-        if (accountNo) params.accountNo = accountNo;
-        if (customerName) params.customerName = customerName;
+        if (keyword) params.keyword = keyword;
         if (productName) params.productName = productName;
         if (startDate) params.startDate = startDate;
         if (endDate) params.endDate = endDate;
@@ -45,6 +56,21 @@ $(function () {
         }
     }
 
+    function tooltipStyle() {
+        return {
+            backgroundColor: cardBg,
+            borderColor: gridColor,
+            borderWidth: 1,
+            titleColor: cssVar("--textPrimary") || "#1a1a1a",
+            bodyColor: legendColor,
+            padding: 10,
+            boxPadding: 4,
+            displayColors: true,
+            titleFont: { size: 12, weight: "600" },
+            bodyFont: { size: 12 }
+        };
+    }
+
     function renderPieChart(key, canvasId, emptyId, labels, data, tooltipFormatter) {
         destroyChart(key);
         $("#" + emptyId).toggle(!labels.length);
@@ -52,19 +78,26 @@ $(function () {
             return;
         }
         charts[key] = new Chart($("#" + canvasId)[0], {
-            type: "pie",
+            type: "doughnut",
             data: {
                 labels: labels,
                 datasets: [{
                     data: data,
-                    backgroundColor: labels.map(function (_, i) { return CHART_COLORS[i % CHART_COLORS.length]; })
+                    backgroundColor: labels.map(function (_, i) { return CHART_COLORS[i % CHART_COLORS.length]; }),
+                    borderColor: cardBg,
+                    borderWidth: 2,
+                    hoverOffset: 6
                 }]
             },
             options: {
                 maintainAspectRatio: false,
+                cutout: "62%",
                 plugins: {
-                    legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } },
-                    tooltip: { callbacks: { label: tooltipFormatter } }
+                    legend: {
+                        position: "bottom",
+                        labels: { boxWidth: 8, boxHeight: 8, padding: 12, font: { size: 11 }, usePointStyle: true, pointStyle: "circle" }
+                    },
+                    tooltip: $.extend({ callbacks: { label: tooltipFormatter } }, tooltipStyle())
                 }
             }
         });
@@ -83,18 +116,27 @@ $(function () {
                 datasets: [{
                     label: label,
                     data: data,
-                    backgroundColor: CHART_COLORS[0]
+                    backgroundColor: CHART_COLORS[0],
+                    hoverBackgroundColor: CHART_COLORS[4],
+                    borderRadius: 6,
+                    borderSkipped: false,
+                    maxBarThickness: 56
                 }]
             },
             options: {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { display: false },
-                    tooltip: { callbacks: { label: tooltipFormatter } }
+                    tooltip: $.extend({ callbacks: { label: tooltipFormatter } }, tooltipStyle())
                 },
                 scales: {
-                    x: { grid: { display: false } },
-                    y: { beginAtZero: true, ticks: { callback: function (v) { return formatAmount(v); } } }
+                    x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 11 } } },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        border: { display: false },
+                        ticks: { color: tickColor, font: { size: 10 }, callback: function (v) { return formatAmount(v); } }
+                    }
                 }
             }
         });
@@ -111,25 +153,45 @@ $(function () {
             data: {
                 labels: labels,
                 datasets: series.map(function (s, i) {
+                    var color = CHART_COLORS[i % CHART_COLORS.length];
                     return {
                         label: s.label,
                         data: s.data,
-                        borderColor: CHART_COLORS[i % CHART_COLORS.length],
-                        backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
-                        tension: 0.3,
+                        borderColor: color,
+                        backgroundColor: color + "26",
+                        pointBackgroundColor: color,
+                        pointBorderColor: cardBg,
+                        fill: true,
+                        tension: 0.35,
                         borderWidth: 2,
-                        pointRadius: 3
+                        pointRadius: 3,
+                        pointBorderWidth: 1.5,
+                        pointHoverRadius: 5
                     };
                 })
             },
             options: {
                 maintainAspectRatio: false,
+                interaction: { mode: "index", intersect: false },
                 plugins: {
-                    tooltip: { callbacks: { label: function (ctx) { return ctx.dataset.label + ": " + formatAmount(ctx.parsed.y); } } }
+                    legend: {
+                        position: "top",
+                        align: "end",
+                        labels: { boxWidth: 8, boxHeight: 8, padding: 12, font: { size: 11 }, usePointStyle: true, pointStyle: "circle" }
+                    },
+                    tooltip: $.extend(
+                        { callbacks: { label: function (ctx) { return ctx.dataset.label + ": " + formatAmount(ctx.parsed.y); } } },
+                        tooltipStyle()
+                    )
                 },
                 scales: {
-                    x: { grid: { display: false } },
-                    y: { beginAtZero: true, ticks: { callback: function (v) { return formatAmount(v); } } }
+                    x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 11 } } },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        border: { display: false },
+                        ticks: { color: tickColor, font: { size: 10 }, callback: function (v) { return formatAmount(v); } }
+                    }
                 }
             }
         });
@@ -245,8 +307,7 @@ $(function () {
     $("#statFilterSearch").on("click", loadAll);
 
     $("#statFilterReset").on("click", function () {
-        $("#statFilterAccountNo").val("");
-        $("#statFilterCustomerName").val("");
+        $("#statFilterKeyword").val("");
         $("#statFilterProductName").val("");
         $("#statFilterStartDate").val("");
         $("#statFilterEndDate").val("");
