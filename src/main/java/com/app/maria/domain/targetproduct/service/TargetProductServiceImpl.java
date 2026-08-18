@@ -41,7 +41,6 @@ public class TargetProductServiceImpl implements TargetProductService {
         LocalDate inceptionDate = null;
         String fundName = null;
         LocalDateTime now = businessClockService.now();
-        LocalDate today = now.toLocalDate();
 
         StockType stockType = StockType.valueOf(trade.getStockType());
         TradeType tradeType = TradeType.valueOf(trade.getTradeType());
@@ -55,7 +54,9 @@ public class TargetProductServiceImpl implements TargetProductService {
             inceptionDate = fund.getInceptionDate();
             fundName = fund.getFundName();
 
-            isTarget = isForeignStockRatioMet(fund) && isInceptionPeriodMet(fund, today);
+            isTarget =
+                    isForeignStockRatioMet(fund)
+                            && isInceptionPeriodMet(fund, trade.getTradeDate());
         } else {
             isTarget = true;
         }
@@ -125,9 +126,9 @@ public class TargetProductServiceImpl implements TargetProductService {
                         >= 0;
     }
 
-    private boolean isInceptionPeriodMet(MydataFundResponseDTO fund, LocalDate today) {
+    private boolean isInceptionPeriodMet(MydataFundResponseDTO fund, LocalDate asOfDate) {
         return fund.getInceptionDate() != null
                 && !fund.getInceptionDate()
-                        .isAfter(today.minusMonths(INCEPTION_GRACE_PERIOD_MONTHS));
+                        .isAfter(asOfDate.minusMonths(INCEPTION_GRACE_PERIOD_MONTHS));
     }
 }

@@ -82,6 +82,41 @@ class TargetProductApiTest {
     }
 
     @Test
+    void getJudgementsReturnsForeignStockRatioAndInceptionDateForFund() throws Exception {
+        TargetProductJudgementListDTO fundJudgement =
+                TargetProductJudgementListDTO.builder()
+                        .judgementId(2L)
+                        .customerName("김철수")
+                        .stockType(StockType.FUND)
+                        .fundName("미래에셋글로벌펀드")
+                        .isTarget(false)
+                        .foreignStockRatio(new BigDecimal("45.00"))
+                        .inceptionDate(LocalDate.of(2026, 7, 20))
+                        .tradeType(TradeType.BUY)
+                        .amount(new BigDecimal("500000"))
+                        .netBuyAmount(new BigDecimal("500000"))
+                        .tradeDate(LocalDate.of(2026, 8, 1))
+                        .judgedAt(LocalDateTime.of(2026, 8, 7, 3, 0))
+                        .build();
+        TargetProductJudgementPageDTO page =
+                TargetProductJudgementPageDTO.builder()
+                        .content(List.of(fundJudgement))
+                        .page(0)
+                        .size(20)
+                        .totalElements(1)
+                        .totalPages(1)
+                        .build();
+        when(targetProductService.getJudgements(any(TargetProductSearchRequestDTO.class)))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/api/target-products"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].foreignStockRatio").value(45.00))
+                .andExpect(jsonPath("$.data.content[0].inceptionDate").value("2026-07-20"))
+                .andExpect(jsonPath("$.data.content[0].isTarget").value(false));
+    }
+
+    @Test
     void getJudgementsPassesPageAndSizeQueryParamsToService() throws Exception {
         TargetProductJudgementPageDTO page =
                 TargetProductJudgementPageDTO.builder()

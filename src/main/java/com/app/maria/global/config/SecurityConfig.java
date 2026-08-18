@@ -39,7 +39,9 @@ public class SecurityConfig {
         "/admin/account",
         "/admin/audit-log",
         "/admin/settlement",
+        "/admin/inbound",
         "/admin/admin-users",
+        "/admin/tax",
 
         // JWT 인증 API
         "/api/auth/admin/login",
@@ -48,7 +50,10 @@ public class SecurityConfig {
         // Swagger
         "/swagger-ui/**",
         "/swagger-ui.html",
-        "/api-docs/**"
+        "/api-docs/**",
+
+        // 계좌 해지 관리 화면
+        "/admin/account-closures"
     };
 
     @Bean

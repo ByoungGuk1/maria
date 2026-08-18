@@ -214,6 +214,7 @@ CREATE TABLE inbound_detail (
     foreign_product_id        BIGINT        NOT NULL,
     source_broker             VARCHAR(20)   NULL     COMMENT '타사 대체입고 시 출처 증권사명(source_general_account_id와 상호배타)',
     source_general_account_id BIGINT        NULL     COMMENT '당사 일반계좌 출처 시 general_account_id(FK없음). 타사면 NULL. 배당 비율배분 기준',
+    account_type              VARCHAR(30)   NULL     COMMENT '출처 일반계좌 종류(BROKERAGE/CMA/IRP/PENSION_SAVINGS/ISA). source_general_account_id가 NULL이면 같이 NULL',
     recorded_at               DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '기록일',
     purchase_date             DATETIME      NOT NULL COMMENT '매수일자',
     purchase_price            DECIMAL(15,4) NOT NULL COMMENT '매수단가',
