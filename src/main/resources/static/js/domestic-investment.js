@@ -122,7 +122,7 @@ $(function () {
             return (
                 '<tr>' +
                 '<td>' + escapeHtml(h.name) + ' (' + escapeHtml(h.ticker) + ')</td>' +
-                '<td>' + (TYPE_LABEL[h.type] || h.type) + '</td>' +
+                '<td>' + (TYPE_LABEL[h.type] || escapeHtml(h.type)) + '</td>' +
                 '<td>' + formatQty(h.qty) + '</td>' +
                 '<td>' + formatAmount(h.avgPurchasePrice) + '</td>' +
                 '<td>' + formatDateTime(h.lastPurchaseDate) + '</td>' +
@@ -148,7 +148,7 @@ $(function () {
         var tradeHistory = data.tradeHistory || [];
         var tradeItems = tradeHistory.map(function (t) {
             return (
-                '<li>' + (TRADE_TYPE_LABEL[t.tradeType] || t.tradeType) + ' ' +
+                '<li>' + (TRADE_TYPE_LABEL[t.tradeType] || escapeHtml(t.tradeType)) + ' ' +
                 escapeHtml(t.stockCode) + ' ' + formatQty(t.qty) +
                 ' @ ' + formatAmount(t.price) + ' · ' + formatDateTime(t.executedAt) +
                 '</li>'

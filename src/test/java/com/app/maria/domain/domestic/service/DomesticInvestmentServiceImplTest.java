@@ -18,6 +18,7 @@ import com.app.maria.domain.domestic.dto.DomesticInvestmentPageDTO;
 import com.app.maria.domain.domestic.dto.DomesticInvestmentSearchDTO;
 import com.app.maria.domain.domestic.dto.DomesticTradeHistoryDTO;
 import com.app.maria.domain.domestic.dto.request.DomesticInvestmentSearchRequestDTO;
+import com.app.maria.domain.domestic.dto.request.DomesticTradeRequestDTO;
 import com.app.maria.domain.domestic.exception.DomesticInvestmentNotFoundException;
 import com.app.maria.domain.domestic.mapper.DomesticStockBalanceMapper;
 import com.app.maria.global.response.ApiResponseDTO;
@@ -25,6 +26,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -47,9 +49,9 @@ class DomesticInvestmentServiceImplTest {
 
     @Mock private RestClient restClient;
 
-    @Mock private RestClient.RequestHeadersUriSpec requestHeadersUriSpec;
+    @Mock private RestClient.RequestBodyUriSpec requestBodyUriSpec;
 
-    @Mock private RestClient.RequestHeadersSpec requestHeadersSpec;
+    @Mock private RestClient.RequestBodySpec requestBodySpec;
 
     @Mock private RestClient.ResponseSpec responseSpec;
 
@@ -76,16 +78,18 @@ class DomesticInvestmentServiceImplTest {
         lenient()
                 .when(accountMapper.selectCiHashByCustomerId(CUSTOMER_ID))
                 .thenReturn(Optional.of(CI_HASH));
-        lenient().when(restClient.get()).thenReturn(requestHeadersUriSpec);
+        lenient().when(restClient.post()).thenReturn(requestBodyUriSpec);
         lenient()
-                .when(
-                        requestHeadersUriSpec.uri(
-                                eq("/api/domestic-trades?ciHash={ciHash}"), eq(CI_HASH)))
-                .thenReturn(requestHeadersSpec);
-        lenient().when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+                .when(requestBodyUriSpec.uri(eq("/api/domestic-trades")))
+                .thenReturn(requestBodySpec);
+        lenient()
+                .when(requestBodySpec.body(any(DomesticTradeRequestDTO.class)))
+                .thenReturn(requestBodySpec);
+        lenient().when(requestBodySpec.retrieve()).thenReturn(responseSpec);
     }
 
     @Test
+    @DisplayName("getInvestments()는 totalElements를 size로 나눈 뒤 올림해 totalPages를 계산한다")
     void getInvestmentsCalculatesTotalPagesFromTotalElements() {
         when(domesticStockBalanceMapper.selectAccountSummaries(any())).thenReturn(List.of());
         when(domesticStockBalanceMapper.countAccountSummaries(any())).thenReturn(45);
@@ -100,6 +104,7 @@ class DomesticInvestmentServiceImplTest {
     }
 
     @Test
+    @DisplayName("getInvestments()는 검색 조건(고객명/페이지/사이즈)을 mapper에 그대로 전달한다")
     void getInvestmentsPassesSearchConditionToMapper() {
         when(domesticStockBalanceMapper.selectAccountSummaries(any())).thenReturn(List.of());
         when(domesticStockBalanceMapper.countAccountSummaries(any())).thenReturn(0);
@@ -121,6 +126,7 @@ class DomesticInvestmentServiceImplTest {
     }
 
     @Test
+    @DisplayName("getAccountDetail()은 예탁금·보유종목·매매내역을 조합해서 반환한다")
     @SuppressWarnings("unchecked")
     void getAccountDetailReturnsSummaryHoldingsAndTradeHistory() {
         when(domesticStockBalanceMapper.selectAccountSummaryById(ACCOUNT_ID))
@@ -136,7 +142,8 @@ class DomesticInvestmentServiceImplTest {
                 DomesticHoldingDTO.builder().domesticProductId(1L).ticker("005930").build();
         when(domesticStockBalanceMapper.selectHoldingsByAccountId(ACCOUNT_ID))
                 .thenReturn(List.of(holding));
-        when(domesticPurchaseEligibilityService.isPurchasable(1L)).thenReturn(true);
+        when(domesticPurchaseEligibilityService.isPurchasable(any(), any(), any()))
+                .thenReturn(true);
 
         DomesticTradeHistoryDTO trade =
                 DomesticTradeHistoryDTO.builder().stockCode("005930").tradeType("BUY").build();
@@ -156,6 +163,7 @@ class DomesticInvestmentServiceImplTest {
     }
 
     @Test
+    @DisplayName("계좌 요약이 없으면 DomesticInvestmentNotFoundException을 던진다")
     void getAccountDetailThrowsWhenAccountSummaryNotFound() {
         when(domesticStockBalanceMapper.selectAccountSummaryById(ACCOUNT_ID))
                 .thenReturn(Optional.empty());
@@ -166,6 +174,7 @@ class DomesticInvestmentServiceImplTest {
     }
 
     @Test
+    @DisplayName("고객의 ciHash를 찾을 수 없으면 AccountNotFoundException을 던진다")
     void getAccountDetailThrowsWhenCiHashMissing() {
         when(domesticStockBalanceMapper.selectAccountSummaryById(ACCOUNT_ID))
                 .thenReturn(
@@ -181,6 +190,7 @@ class DomesticInvestmentServiceImplTest {
     }
 
     @Test
+    @DisplayName("증권사 응답 data가 null이면 매매내역을 빈 리스트로 반환한다")
     @SuppressWarnings("unchecked")
     void getAccountDetailReturnsEmptyTradeHistoryWhenApiResponseDataIsNull() {
         when(domesticStockBalanceMapper.selectAccountSummaryById(ACCOUNT_ID))
@@ -200,6 +210,7 @@ class DomesticInvestmentServiceImplTest {
     }
 
     @Test
+    @DisplayName("증권사 시스템 연결 실패 시 매매내역을 빈 리스트로 반환한다")
     @SuppressWarnings("unchecked")
     void getAccountDetailReturnsEmptyTradeHistoryWhenReturnSecuritiesCallFails() {
         when(domesticStockBalanceMapper.selectAccountSummaryById(ACCOUNT_ID))
