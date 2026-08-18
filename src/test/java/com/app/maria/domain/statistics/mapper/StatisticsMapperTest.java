@@ -151,8 +151,8 @@ class StatisticsMapperTest {
     }
 
     @Test
-    @DisplayName("accountNo 필터를 적용하면 해당 계좌의 매수 현황만 집계된다")
-    void selectProductPurchaseStatsFiltersByAccountNo() throws SQLException {
+    @DisplayName("keyword가 계좌번호에 부분일치하면 해당 계좌의 매수 현황만 집계된다")
+    void selectProductPurchaseStatsFiltersByKeywordMatchingAccountNo() throws SQLException {
         insertCustomer(1L, "홍길동", LocalDate.of(1990, 1, 1));
         insertCustomer(2L, "김철수", LocalDate.of(1990, 1, 1));
         insertAccount(1L, 1L, "1111111111", null);
@@ -162,7 +162,25 @@ class StatisticsMapperTest {
         insertDomesticStockBalance(2L, 100L, "5", "70000", "HOLDING");
 
         List<ProductPurchaseStatDTO> result =
-                statisticsMapper.selectProductPurchaseStats(baseFilter().accountNo("1111").build());
+                statisticsMapper.selectProductPurchaseStats(baseFilter().keyword("1111").build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getPurchaseAmount()).isEqualByComparingTo("700000");
+    }
+
+    @Test
+    @DisplayName("keyword가 고객명에 부분일치해도 매칭된다 (계좌번호/고객명 통합검색, OR 조건)")
+    void selectProductPurchaseStatsFiltersByKeywordMatchingCustomerName() throws SQLException {
+        insertCustomer(1L, "홍길동", LocalDate.of(1990, 1, 1));
+        insertCustomer(2L, "김철수", LocalDate.of(1990, 1, 1));
+        insertAccount(1L, 1L, "1111111111", null);
+        insertAccount(2L, 2L, "2222222222", null);
+        insertDomesticProduct(100L, "005930", "삼성전자");
+        insertDomesticStockBalance(1L, 100L, "10", "70000", "HOLDING");
+        insertDomesticStockBalance(2L, 100L, "5", "70000", "HOLDING");
+
+        List<ProductPurchaseStatDTO> result =
+                statisticsMapper.selectProductPurchaseStats(baseFilter().keyword("홍길동").build());
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getPurchaseAmount()).isEqualByComparingTo("700000");

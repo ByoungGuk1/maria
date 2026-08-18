@@ -18,16 +18,14 @@ import lombok.ToString;
 @Builder
 public class StatisticsFilterRequestDTO {
 
-    private String accountNo;
-    private String customerName;
+    private String keyword;
     private String productName;
     private LocalDate startDate;
     private LocalDate endDate;
 
     public StatisticsFilterDTO toFilterDTO() {
         return StatisticsFilterDTO.builder()
-                .accountNo(accountNo)
-                .customerName(customerName)
+                .keyword(keyword)
                 .productName(productName)
                 .startDateTime(startDate == null ? null : startDate.atStartOfDay())
                 .endDateTime(endDate == null ? null : endDate.atTime(LocalTime.of(23, 59, 59)))

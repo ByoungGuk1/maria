@@ -22,11 +22,8 @@
         JOIN domestic_product dp ON dp.domestic_product_id = dsb.domestic_product_id
         <where>
             dsb.status NOT IN ('SOLD_OUT', 'TERMINATED')
-            <if test="accountNo != null and accountNo != ''">
-                AND a.account_no LIKE CONCAT('%', #{accountNo}, '%')
-            </if>
-            <if test="customerName != null and customerName != ''">
-                AND c.name LIKE CONCAT('%', #{customerName}, '%')
+            <if test="keyword != null and keyword != ''">
+                AND (a.account_no LIKE CONCAT('%', #{keyword}, '%') OR c.name LIKE CONCAT('%', #{keyword}, '%'))
             </if>
             <if test="productName != null and productName != ''">
                 AND (dp.name LIKE CONCAT('%', #{productName}, '%') OR dp.ticker LIKE CONCAT('%', #{productName}, '%'))
@@ -51,11 +48,8 @@
         JOIN customer c ON c.customer_id = a.customer_id
         <where>
             dsb.status NOT IN ('SOLD_OUT', 'TERMINATED')
-            <if test="accountNo != null and accountNo != ''">
-                AND a.account_no LIKE CONCAT('%', #{accountNo}, '%')
-            </if>
-            <if test="customerName != null and customerName != ''">
-                AND c.name LIKE CONCAT('%', #{customerName}, '%')
+            <if test="keyword != null and keyword != ''">
+                AND (a.account_no LIKE CONCAT('%', #{keyword}, '%') OR c.name LIKE CONCAT('%', #{keyword}, '%'))
             </if>
             <if test="productName != null and productName != ''">
                 AND (dp.name LIKE CONCAT('%', #{productName}, '%') OR dp.ticker LIKE CONCAT('%', #{productName}, '%'))
@@ -76,11 +70,8 @@
         JOIN account a ON a.account_id = ke.account_id
         JOIN customer c ON c.customer_id = a.customer_id
         <where>
-            <if test="accountNo != null and accountNo != ''">
-                AND a.account_no LIKE CONCAT('%', #{accountNo}, '%')
-            </if>
-            <if test="customerName != null and customerName != ''">
-                AND c.name LIKE CONCAT('%', #{customerName}, '%')
+            <if test="keyword != null and keyword != ''">
+                AND (a.account_no LIKE CONCAT('%', #{keyword}, '%') OR c.name LIKE CONCAT('%', #{keyword}, '%'))
             </if>
             <if test="startDateTime != null">
                 AND COALESCE(ke.final_at, ke.provisional_at) &gt;= #{startDateTime}
@@ -100,11 +91,8 @@
         FROM account a
         JOIN customer c ON c.customer_id = a.customer_id
         <where>
-            <if test="accountNo != null and accountNo != ''">
-                AND a.account_no LIKE CONCAT('%', #{accountNo}, '%')
-            </if>
-            <if test="customerName != null and customerName != ''">
-                AND c.name LIKE CONCAT('%', #{customerName}, '%')
+            <if test="keyword != null and keyword != ''">
+                AND (a.account_no LIKE CONCAT('%', #{keyword}, '%') OR c.name LIKE CONCAT('%', #{keyword}, '%'))
             </if>
         </where>
         GROUP BY benefit
@@ -126,11 +114,8 @@
         JOIN customer c ON c.customer_id = a.customer_id
         <where>
             so.status != 'REJECTED'
-            <if test="accountNo != null and accountNo != ''">
-                AND a.account_no LIKE CONCAT('%', #{accountNo}, '%')
-            </if>
-            <if test="customerName != null and customerName != ''">
-                AND c.name LIKE CONCAT('%', #{customerName}, '%')
+            <if test="keyword != null and keyword != ''">
+                AND (a.account_no LIKE CONCAT('%', #{keyword}, '%') OR c.name LIKE CONCAT('%', #{keyword}, '%'))
             </if>
             <if test="startDateTime != null">AND so.processed_at &gt;= #{startDateTime}</if>
             <if test="endDateTime != null">AND so.processed_at &lt;= #{endDateTime}</if>

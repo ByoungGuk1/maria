@@ -17,8 +17,7 @@ import lombok.ToString;
 @Builder(toBuilder = true)
 public class StatisticsFilterDTO {
 
-    private String accountNo;
-    private String customerName;
+    private String keyword;
     private String productName;
     private LocalDateTime startDateTime;
     private LocalDateTime endDateTime;

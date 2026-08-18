@@ -32,8 +32,7 @@ public class StatisticsApi {
     @GetMapping("/age-investment")
     public ResponseEntity<ApiResponseDTO<List<AgeInvestmentStatResponseDTO>>>
             getAgeInvestmentStats(
-                    @RequestParam(required = false) String accountNo,
-                    @RequestParam(required = false) String customerName,
+                    @RequestParam(required = false) String keyword,
                     @RequestParam(required = false) String productName,
                     @RequestParam(required = false)
                             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
@@ -43,8 +42,7 @@ public class StatisticsApi {
                             LocalDate endDate) {
         List<AgeInvestmentStatResponseDTO> result =
                 statisticsService
-                        .getAgeInvestmentStats(
-                                buildRequest(accountNo, customerName, productName, startDate, endDate))
+                        .getAgeInvestmentStats(buildRequest(keyword, productName, startDate, endDate))
                         .stream()
                         .map(AgeInvestmentStatResponseDTO::new)
                         .toList();
@@ -54,8 +52,7 @@ public class StatisticsApi {
     @GetMapping("/product-purchase")
     public ResponseEntity<ApiResponseDTO<List<ProductPurchaseStatResponseDTO>>>
             getProductPurchaseStats(
-                    @RequestParam(required = false) String accountNo,
-                    @RequestParam(required = false) String customerName,
+                    @RequestParam(required = false) String keyword,
                     @RequestParam(required = false) String productName,
                     @RequestParam(required = false)
                             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
@@ -65,8 +62,7 @@ public class StatisticsApi {
                             LocalDate endDate) {
         List<ProductPurchaseStatResponseDTO> result =
                 statisticsService
-                        .getProductPurchaseStats(
-                                buildRequest(accountNo, customerName, productName, startDate, endDate))
+                        .getProductPurchaseStats(buildRequest(keyword, productName, startDate, endDate))
                         .stream()
                         .map(ProductPurchaseStatResponseDTO::new)
                         .toList();
@@ -75,8 +71,7 @@ public class StatisticsApi {
 
     @GetMapping("/fx-exchange")
     public ResponseEntity<ApiResponseDTO<List<FxExchangeStatResponseDTO>>> getFxExchangeStats(
-            @RequestParam(required = false) String accountNo,
-            @RequestParam(required = false) String customerName,
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false)
                     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                     LocalDate startDate,
@@ -85,7 +80,7 @@ public class StatisticsApi {
                     LocalDate endDate) {
         List<FxExchangeStatResponseDTO> result =
                 statisticsService
-                        .getFxExchangeStats(buildRequest(accountNo, customerName, null, startDate, endDate))
+                        .getFxExchangeStats(buildRequest(keyword, null, startDate, endDate))
                         .stream()
                         .map(FxExchangeStatResponseDTO::new)
                         .toList();
@@ -94,14 +89,9 @@ public class StatisticsApi {
 
     @GetMapping("/account-benefit")
     public ResponseEntity<ApiResponseDTO<List<AccountBenefitStatResponseDTO>>>
-            getAccountBenefitStats(
-                    @RequestParam(required = false) String accountNo,
-                    @RequestParam(required = false) String customerName) {
+            getAccountBenefitStats(@RequestParam(required = false) String keyword) {
         List<AccountBenefitStatResponseDTO> result =
-                statisticsService
-                        .getAccountBenefitStats(
-                                buildRequest(accountNo, customerName, null, null, null))
-                        .stream()
+                statisticsService.getAccountBenefitStats(buildRequest(keyword, null, null, null)).stream()
                         .map(AccountBenefitStatResponseDTO::new)
                         .toList();
         return ResponseEntity.ok(ApiResponseDTO.of("세제혜택 상태 분포 조회 성공", result));
@@ -109,8 +99,7 @@ public class StatisticsApi {
 
     @GetMapping("/relief-rate")
     public ResponseEntity<ApiResponseDTO<List<ReliefRateStatResponseDTO>>> getReliefRateStats(
-            @RequestParam(required = false) String accountNo,
-            @RequestParam(required = false) String customerName,
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false)
                     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                     LocalDate startDate,
@@ -118,23 +107,16 @@ public class StatisticsApi {
                     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                     LocalDate endDate) {
         List<ReliefRateStatResponseDTO> result =
-                statisticsService
-                        .getReliefRateStats(buildRequest(accountNo, customerName, null, startDate, endDate))
-                        .stream()
+                statisticsService.getReliefRateStats(buildRequest(keyword, null, startDate, endDate)).stream()
                         .map(ReliefRateStatResponseDTO::new)
                         .toList();
         return ResponseEntity.ok(ApiResponseDTO.of("감면율 구간별 매도금액 분포 조회 성공", result));
     }
 
     private StatisticsFilterRequestDTO buildRequest(
-            String accountNo,
-            String customerName,
-            String productName,
-            LocalDate startDate,
-            LocalDate endDate) {
+            String keyword, String productName, LocalDate startDate, LocalDate endDate) {
         return StatisticsFilterRequestDTO.builder()
-                .accountNo(accountNo)
-                .customerName(customerName)
+                .keyword(keyword)
                 .productName(productName)
                 .startDate(startDate)
                 .endDate(endDate)

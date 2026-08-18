@@ -33,14 +33,13 @@ class StatisticsServiceImplTest {
     @InjectMocks StatisticsServiceImpl statisticsService;
 
     @Test
-    @DisplayName("accountNo/customerName/productName은 그대로, referenceDate는 BusinessClockService의 오늘로 매퍼에 전달한다")
+    @DisplayName("keyword/productName은 그대로, referenceDate는 BusinessClockService의 오늘로 매퍼에 전달한다")
     void getAgeInvestmentStatsBuildsFilterWithPassthroughFieldsAndReferenceDateFromClock() {
         when(businessClockService.now()).thenReturn(NOW);
         when(statisticsMapper.selectAgeInvestmentStats(any())).thenReturn(List.of());
         StatisticsFilterRequestDTO request =
                 StatisticsFilterRequestDTO.builder()
-                        .accountNo("1000000001")
-                        .customerName("홍길동")
+                        .keyword("홍길동")
                         .productName("삼성전자")
                         .build();
 
@@ -49,8 +48,7 @@ class StatisticsServiceImplTest {
         ArgumentCaptor<StatisticsFilterDTO> captor = ArgumentCaptor.forClass(StatisticsFilterDTO.class);
         verify(statisticsMapper).selectAgeInvestmentStats(captor.capture());
         StatisticsFilterDTO filter = captor.getValue();
-        assertThat(filter.getAccountNo()).isEqualTo("1000000001");
-        assertThat(filter.getCustomerName()).isEqualTo("홍길동");
+        assertThat(filter.getKeyword()).isEqualTo("홍길동");
         assertThat(filter.getProductName()).isEqualTo("삼성전자");
         assertThat(filter.getReferenceDate()).isEqualTo(LocalDate.of(2026, 8, 18));
     }

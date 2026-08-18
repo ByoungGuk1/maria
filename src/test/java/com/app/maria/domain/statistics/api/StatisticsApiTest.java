@@ -58,15 +58,14 @@ class StatisticsApiTest {
     }
 
     @Test
-    @DisplayName("종목별 매수 현황 조회 시 계좌/고객/종목/기간 파라미터를 서비스에 그대로 전달한다")
+    @DisplayName("종목별 매수 현황 조회 시 검색어(keyword)/종목/기간 파라미터를 서비스에 그대로 전달한다")
     @WithMockUser(roles = "VIEWER")
     void getProductPurchaseStatsPassesQueryParamsToService() throws Exception {
         when(statisticsService.getProductPurchaseStats(any())).thenReturn(List.of());
 
         mockMvc.perform(
                         get("/api/statistics/product-purchase")
-                                .param("accountNo", "1000000001")
-                                .param("customerName", "홍길동")
+                                .param("keyword", "홍길동")
                                 .param("productName", "삼성전자")
                                 .param("startDate", "2026-08-01")
                                 .param("endDate", "2026-08-10"))
@@ -76,8 +75,7 @@ class StatisticsApiTest {
                 .getProductPurchaseStats(
                         argThat(
                                 r ->
-                                        "1000000001".equals(r.getAccountNo())
-                                                && "홍길동".equals(r.getCustomerName())
+                                        "홍길동".equals(r.getKeyword())
                                                 && "삼성전자".equals(r.getProductName())
                                                 && LocalDate.of(2026, 8, 1).equals(r.getStartDate())
                                                 && LocalDate.of(2026, 8, 10).equals(r.getEndDate())));
