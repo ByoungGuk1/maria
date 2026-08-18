@@ -5,8 +5,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import com.app.maria.domain.account.dto.AccountDTO;
+import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
-import com.app.maria.domain.account.provider.MydataProvider;
 import com.app.maria.domain.account.service.AccountService;
 import com.app.maria.domain.externaltradesync.service.ExternalTradeSyncService;
 import com.app.maria.domain.inbound.dto.request.InboundRequestDTO;
@@ -32,6 +32,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,7 +41,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -112,9 +112,9 @@ class GoldenScenarioTest {
     @MockitoBean private KisPriceClient kisPriceClient;
     @MockitoBean private ExchangeRateProvider exchangeRateProvider;
 
-    // myData 외부 순매수 한도차감 API — 5천만원 판정 로직 자체는 §8-3 미결이라 별도 검증 대상.
-    // 이 시나리오는 전부 순매수 0(한도 전액 사용 가능)으로 고정.
-    @MockitoBean private MydataProvider mydataProvider;
+    // 매도한도(누적 매도금액) 체크용 — 아직 검증 대상 아님(§8-3), 항상 0(전액 여유)으로 고정.
+    // 계좌 승인 시 5천만원 합산한도 판정(MydataProvider)은 mock 안 함 — 실제 mydata_ria_account
+    // 데이터로 판정돼서, 타사 RIA 한도가 이미 많이 찬 계좌는 정말로 개설이 막힌다.
     @MockitoBean private MydataClient mydataClient;
 
     private final Random random = new Random(RANDOM_SEED);
@@ -132,8 +132,6 @@ class GoldenScenarioTest {
                 .thenAnswer(invocation -> BigDecimal.valueOf(1300 + random.nextInt(100)));
         when(exchangeRateProvider.getFinalRate(anyString(), any()))
                 .thenAnswer(invocation -> BigDecimal.valueOf(1300 + random.nextInt(100)));
-        when(mydataProvider.getExternalConfiguredLimit(anyString())).thenReturn(BigDecimal.ZERO);
-        when(mydataProvider.syncRiaAccount(anyString(), any())).thenReturn(HttpStatus.OK);
         when(mydataClient.getExternalSellTotal(anyString())).thenReturn(BigDecimal.ZERO);
     }
 
@@ -142,10 +140,12 @@ class GoldenScenarioTest {
         List<CustomerRow> customers = loadCustomers(0, SCENARIO_SIZE);
         Counters counters = new Counters();
 
-        for (CustomerRow customer : customers) {
-            // 계좌마다 신청~매도 시점을 2026년 안에서 흩뿌린다 — §3 구간가중치(1~5월/6~7월/8~12월)도
-            // 자연히 다양해지고, 산출된 일자가 전부 똑같아 보이는 문제도 없어진다.
-            processCustomer(customer, randomBusinessDateTime(), counters);
+        try (Connection securitiesConnection = openSecuritiesConnection()) {
+            for (CustomerRow customer : customers) {
+                // 계좌마다 신청~매도 시점을 2026년 안에서 흩뿌린다 — §3 구간가중치(1~5월/6~7월/8~12월)도
+                // 자연히 다양해지고, 산출된 일자가 전부 똑같아 보이는 문제도 없어진다.
+                processCustomer(customer, randomBusinessDateTime(), counters, securitiesConnection);
+            }
         }
 
         setClock(LocalDateTime.of(2026, 8, 17, 9, 0)); // 정산일로 이동 — 전날 가환전분만 확정산 대상
@@ -159,10 +159,11 @@ class GoldenScenarioTest {
         taxSnapshotJobLauncher.launch(businessClockService.now());
 
         System.out.printf(
-                "골든 시나리오 완료 — 신청 %d / 승인 %d / 반려 %d / 입고 %d / 매도 %d%n",
+                "골든 시나리오 완료 — 신청 %d / 승인 %d / 반려 %d / 한도초과 %d / 입고 %d / 매도 %d%n",
                 counters.applied,
                 counters.approved,
                 counters.rejected,
+                counters.limitExceeded,
                 counters.inbounded,
                 counters.sold);
     }
@@ -176,8 +177,11 @@ class GoldenScenarioTest {
         List<CustomerRow> customers = loadCustomers(SCENARIO_SIZE, 10);
         Counters counters = new Counters();
 
-        for (CustomerRow customer : customers) {
-            processCustomer(customer, LocalDateTime.of(2026, 8, 17, 10, 0), counters);
+        try (Connection securitiesConnection = openSecuritiesConnection()) {
+            for (CustomerRow customer : customers) {
+                processCustomer(
+                        customer, LocalDateTime.of(2026, 8, 17, 10, 0), counters, securitiesConnection);
+            }
         }
 
         // 8/17 정산배치는 앞선 generateGoldenScenario()에서 이미 한 번 돌았다(업무일당 1회, §8-4 멱등).
@@ -188,16 +192,18 @@ class GoldenScenarioTest {
         externalTradeSyncService.syncAll();
 
         System.out.printf(
-                "추가 계좌 완료 — 신청 %d / 승인 %d / 반려 %d / 입고 %d / 매도 %d "
+                "추가 계좌 완료 — 신청 %d / 승인 %d / 반려 %d / 한도초과 %d / 입고 %d / 매도 %d "
                         + "(세액 배치는 안 돌림 — 관리자 화면에서 수동 실행 버튼으로 확인할 것)%n",
                 counters.applied,
                 counters.approved,
                 counters.rejected,
+                counters.limitExceeded,
                 counters.inbounded,
                 counters.sold);
     }
 
-    private void processCustomer(CustomerRow customer, LocalDateTime at, Counters counters)
+    private void processCustomer(
+            CustomerRow customer, LocalDateTime at, Counters counters, Connection securitiesConnection)
             throws SQLException {
         setClockRaw(at);
 
@@ -209,14 +215,21 @@ class GoldenScenarioTest {
             counters.rejected++;
             return;
         }
-        accountService.approveAccount(accountId);
+        try {
+            accountService.approveAccount(accountId);
+        } catch (InvalidAccountRequestException e) {
+            // 타 증권사 RIA 한도 합산 5천만원 초과(§2 규칙1) — 실제 mydata_ria_account 데이터 기반으로
+            // 판정되므로, 이 계좌는 실제로 개설 불가능한 계좌다.
+            counters.limitExceeded++;
+            return;
+        }
         counters.approved++;
 
         if (random.nextInt(100) >= 70) {
             return; // 개설만 하고 입고는 안 하는 계좌 30%
         }
 
-        HoldingRow holding = pickHolding(customer.ciHash());
+        HoldingRow holding = pickHolding(customer.ciHash(), securitiesConnection);
         if (holding == null) {
             return;
         }
@@ -258,7 +271,7 @@ class GoldenScenarioTest {
     }
 
     private static final class Counters {
-        int applied, approved, rejected, inbounded, sold;
+        int applied, approved, rejected, limitExceeded, inbounded, sold;
     }
 
     private Long applyAccount(Long customerId) {
@@ -272,27 +285,35 @@ class GoldenScenarioTest {
         return accountMapper.selectByCustomerId(customerId).orElseThrow().getAccountId();
     }
 
-    private HoldingRow pickHolding(String ciHash) throws SQLException {
+    private Connection openSecuritiesConnection() throws SQLException {
+        return DriverManager.getConnection(securitiesJdbcUrl, securitiesUser, securitiesPassword);
+    }
+
+    // MariaDB의 ORDER BY RAND()는 Java 쪽 RANDOM_SEED로 통제가 안 돼 재현성이 깨진다 — 후보를 전부
+    // 가져온 뒤 시드된 random으로 직접 골라야 "같은 시드 = 같은 결과"가 보장된다.
+    private HoldingRow pickHolding(String ciHash, Connection connection) throws SQLException {
         String sql =
                 "SELECT rs.foreign_product_id, rs.held_qty "
                         + "FROM registrable_stock rs "
                         + "JOIN general_account ga ON ga.general_account_id = rs.general_account_id "
                         + "JOIN general_customer gc ON gc.general_customer_id = ga.general_customer_id "
-                        + "WHERE gc.ci_hash = ? ORDER BY RAND() LIMIT 1";
-        try (Connection connection =
-                        DriverManager.getConnection(
-                                securitiesJdbcUrl, securitiesUser, securitiesPassword);
-                PreparedStatement statement = connection.prepareStatement(sql)) {
+                        + "WHERE gc.ci_hash = ?";
+        List<HoldingRow> candidates = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, ciHash);
             try (ResultSet resultSet = statement.executeQuery()) {
-                if (!resultSet.next()) {
-                    return null;
+                while (resultSet.next()) {
+                    candidates.add(
+                            new HoldingRow(
+                                    resultSet.getLong("foreign_product_id"),
+                                    resultSet.getBigDecimal("held_qty")));
                 }
-                return new HoldingRow(
-                        resultSet.getLong("foreign_product_id"),
-                        resultSet.getBigDecimal("held_qty"));
             }
         }
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        return candidates.get(random.nextInt(candidates.size()));
     }
 
     // 계좌마다 신청/매도 시점을 다르게 흩뿌리는 용도. 관리자가 조작한 게 아니라 시나리오 진행용
