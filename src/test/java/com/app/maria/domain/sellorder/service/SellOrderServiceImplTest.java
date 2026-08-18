@@ -495,8 +495,7 @@ class SellOrderServiceImplTest {
         when(sellOrderMapper.countSellOrderHistory(
                         null, "EXECUTED", yesterday.atStartOfDay(), yesterday.atTime(23, 59, 59)))
                 .thenReturn(10);
-        when(settlementService.getPendingProvisionalAmount())
-                .thenReturn(new BigDecimal("2900000"));
+        when(settlementService.getPendingProvisionalAmount()).thenReturn(new BigDecimal("2900000"));
         when(settlementService.getFinalizedAmountBetween(
                         today.atStartOfDay(), today.plusDays(1).atStartOfDay()))
                 .thenReturn(new BigDecimal("110000"));

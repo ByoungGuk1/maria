@@ -38,14 +38,12 @@ class StatisticsServiceImplTest {
         when(businessClockService.now()).thenReturn(NOW);
         when(statisticsMapper.selectAgeInvestmentStats(any())).thenReturn(List.of());
         StatisticsFilterRequestDTO request =
-                StatisticsFilterRequestDTO.builder()
-                        .keyword("홍길동")
-                        .productName("삼성전자")
-                        .build();
+                StatisticsFilterRequestDTO.builder().keyword("홍길동").productName("삼성전자").build();
 
         statisticsService.getAgeInvestmentStats(request);
 
-        ArgumentCaptor<StatisticsFilterDTO> captor = ArgumentCaptor.forClass(StatisticsFilterDTO.class);
+        ArgumentCaptor<StatisticsFilterDTO> captor =
+                ArgumentCaptor.forClass(StatisticsFilterDTO.class);
         verify(statisticsMapper).selectAgeInvestmentStats(captor.capture());
         StatisticsFilterDTO filter = captor.getValue();
         assertThat(filter.getKeyword()).isEqualTo("홍길동");
@@ -66,7 +64,8 @@ class StatisticsServiceImplTest {
 
         statisticsService.getProductPurchaseStats(request);
 
-        ArgumentCaptor<StatisticsFilterDTO> captor = ArgumentCaptor.forClass(StatisticsFilterDTO.class);
+        ArgumentCaptor<StatisticsFilterDTO> captor =
+                ArgumentCaptor.forClass(StatisticsFilterDTO.class);
         verify(statisticsMapper).selectProductPurchaseStats(captor.capture());
         StatisticsFilterDTO filter = captor.getValue();
         assertThat(filter.getStartDateTime()).isEqualTo(LocalDateTime.of(2026, 8, 1, 0, 0, 0));
@@ -81,7 +80,8 @@ class StatisticsServiceImplTest {
 
         statisticsService.getFxExchangeStats(StatisticsFilterRequestDTO.builder().build());
 
-        ArgumentCaptor<StatisticsFilterDTO> captor = ArgumentCaptor.forClass(StatisticsFilterDTO.class);
+        ArgumentCaptor<StatisticsFilterDTO> captor =
+                ArgumentCaptor.forClass(StatisticsFilterDTO.class);
         verify(statisticsMapper).selectFxExchangeStats(captor.capture());
         assertThat(captor.getValue().getStartDateTime()).isNull();
         assertThat(captor.getValue().getEndDateTime()).isNull();
@@ -96,7 +96,8 @@ class StatisticsServiceImplTest {
         when(statisticsMapper.selectAgeInvestmentStats(any())).thenReturn(mapperResult);
 
         List<AgeInvestmentStatDTO> result =
-                statisticsService.getAgeInvestmentStats(StatisticsFilterRequestDTO.builder().build());
+                statisticsService.getAgeInvestmentStats(
+                        StatisticsFilterRequestDTO.builder().build());
 
         assertThat(result).isEqualTo(mapperResult);
     }
@@ -108,7 +109,8 @@ class StatisticsServiceImplTest {
         when(statisticsMapper.selectAccountBenefitStats(any())).thenReturn(List.of());
 
         List<?> result =
-                statisticsService.getAccountBenefitStats(StatisticsFilterRequestDTO.builder().build());
+                statisticsService.getAccountBenefitStats(
+                        StatisticsFilterRequestDTO.builder().build());
 
         assertThat(result).isEmpty();
     }

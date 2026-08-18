@@ -30,19 +30,17 @@ public class StatisticsApi {
     private final StatisticsService statisticsService;
 
     @GetMapping("/age-investment")
-    public ResponseEntity<ApiResponseDTO<List<AgeInvestmentStatResponseDTO>>>
-            getAgeInvestmentStats(
-                    @RequestParam(required = false) String keyword,
-                    @RequestParam(required = false) String productName,
-                    @RequestParam(required = false)
-                            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-                            LocalDate startDate,
-                    @RequestParam(required = false)
-                            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-                            LocalDate endDate) {
+    public ResponseEntity<ApiResponseDTO<List<AgeInvestmentStatResponseDTO>>> getAgeInvestmentStats(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String productName,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate endDate) {
         List<AgeInvestmentStatResponseDTO> result =
                 statisticsService
-                        .getAgeInvestmentStats(buildRequest(keyword, productName, startDate, endDate))
+                        .getAgeInvestmentStats(
+                                buildRequest(keyword, productName, startDate, endDate))
                         .stream()
                         .map(AgeInvestmentStatResponseDTO::new)
                         .toList();
@@ -54,15 +52,14 @@ public class StatisticsApi {
             getProductPurchaseStats(
                     @RequestParam(required = false) String keyword,
                     @RequestParam(required = false) String productName,
-                    @RequestParam(required = false)
-                            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                             LocalDate startDate,
-                    @RequestParam(required = false)
-                            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                             LocalDate endDate) {
         List<ProductPurchaseStatResponseDTO> result =
                 statisticsService
-                        .getProductPurchaseStats(buildRequest(keyword, productName, startDate, endDate))
+                        .getProductPurchaseStats(
+                                buildRequest(keyword, productName, startDate, endDate))
                         .stream()
                         .map(ProductPurchaseStatResponseDTO::new)
                         .toList();
@@ -72,11 +69,9 @@ public class StatisticsApi {
     @GetMapping("/fx-exchange")
     public ResponseEntity<ApiResponseDTO<List<FxExchangeStatResponseDTO>>> getFxExchangeStats(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false)
-                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                     LocalDate startDate,
-            @RequestParam(required = false)
-                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                     LocalDate endDate) {
         List<FxExchangeStatResponseDTO> result =
                 statisticsService
@@ -91,7 +86,9 @@ public class StatisticsApi {
     public ResponseEntity<ApiResponseDTO<List<AccountBenefitStatResponseDTO>>>
             getAccountBenefitStats(@RequestParam(required = false) String keyword) {
         List<AccountBenefitStatResponseDTO> result =
-                statisticsService.getAccountBenefitStats(buildRequest(keyword, null, null, null)).stream()
+                statisticsService
+                        .getAccountBenefitStats(buildRequest(keyword, null, null, null))
+                        .stream()
                         .map(AccountBenefitStatResponseDTO::new)
                         .toList();
         return ResponseEntity.ok(ApiResponseDTO.of("세제혜택 상태 분포 조회 성공", result));
@@ -100,14 +97,14 @@ public class StatisticsApi {
     @GetMapping("/relief-rate")
     public ResponseEntity<ApiResponseDTO<List<ReliefRateStatResponseDTO>>> getReliefRateStats(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false)
-                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                     LocalDate startDate,
-            @RequestParam(required = false)
-                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                     LocalDate endDate) {
         List<ReliefRateStatResponseDTO> result =
-                statisticsService.getReliefRateStats(buildRequest(keyword, null, startDate, endDate)).stream()
+                statisticsService
+                        .getReliefRateStats(buildRequest(keyword, null, startDate, endDate))
+                        .stream()
                         .map(ReliefRateStatResponseDTO::new)
                         .toList();
         return ResponseEntity.ok(ApiResponseDTO.of("감면율 구간별 매도금액 분포 조회 성공", result));

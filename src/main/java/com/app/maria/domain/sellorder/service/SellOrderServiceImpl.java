@@ -196,7 +196,8 @@ public class SellOrderServiceImpl implements SellOrderService {
 
         BigDecimal todaySellAmount = getTodaySellAmount();
         BigDecimal yesterdaySellAmount =
-                sellOrderMapper.sumSellAmountBetween(yesterday.atStartOfDay(), today.atStartOfDay());
+                sellOrderMapper.sumSellAmountBetween(
+                        yesterday.atStartOfDay(), today.atStartOfDay());
 
         int todayExecutedCount =
                 sellOrderMapper.countSellOrderHistory(

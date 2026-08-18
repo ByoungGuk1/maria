@@ -413,7 +413,8 @@ class SettlementMapperTest {
     @Test
     @DisplayName("가환전 대기금액은 PROVISIONAL 상태 건만 합산한다")
     void sumsProvisionalAmountByStatus() {
-        BigDecimal pending = krwExchangeMapper.sumProvisionalAmountByStatus(SettlementStatus.PROVISIONAL);
+        BigDecimal pending =
+                krwExchangeMapper.sumProvisionalAmountByStatus(SettlementStatus.PROVISIONAL);
 
         assertThat(pending).isEqualByComparingTo("2900000.00");
     }
