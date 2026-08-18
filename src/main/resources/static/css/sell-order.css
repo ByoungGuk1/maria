@@ -25,15 +25,18 @@
     margin-top: 10px;
 }
 
-.sellorder-filter-date-label {
-    color: var(--textMuted);
-    font: 500 12px 'Noto Sans KR', sans-serif;
-    white-space: nowrap;
-}
-
 .sellorder-filter-date {
     flex: none;
     width: 150px;
+}
+
+.sellorder-filter-keyword {
+    flex: none;
+    width: 220px;
+}
+
+.sellorder-filter-bar #sellOrderFilterSearch {
+    margin-left: auto;
 }
 
 .sellorder-filter-date-separator {
@@ -53,13 +56,19 @@
 
 .sellorder-table {
     width: 100%;
-    min-width: 820px;
+    min-width: 860px;
     table-layout: fixed;
     border-collapse: collapse;
 }
 
+.sellorder-table th,
+.sellorder-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .sellorder-table th {
-    padding: 9px 12px;
+    padding: 9px 14px;
     background: var(--tableHeaderBg);
     text-align: center;
     white-space: nowrap;
@@ -68,19 +77,18 @@
 }
 
 .sellorder-table td {
-    padding: 11px 12px;
+    padding: 11px 14px;
     border-top: 1px solid var(--cardBorder);
+    text-align: center;
     color: var(--textSecondary);
     font: 400 12px 'Noto Sans KR', sans-serif;
-    text-align: left;
     vertical-align: middle;
 }
 
-.sellorder-table td.sellorder-ellipsis {
-    max-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.sellorder-table th:first-child,
+.sellorder-table td:first-child {
+    padding-left: 20px;
+    text-align: left;
 }
 
 .sellorder-amount {
