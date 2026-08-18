@@ -26,7 +26,6 @@ public class WithdrawalFailureService {
                         .destinationAccountNo(exception.getDestinationAccountNo())
                         .status(WithdrawalStatus.FAILED)
                         .destinationGeneralAccountId(exception.getDestinationGeneralAccountId())
-                        .failureReason(exception.getMessage())
                         .build();
 
         int insertedRows = withdrawalMapper.insertWithdrawal(failedWithdrawal);

@@ -1,6 +1,7 @@
 package com.app.maria.global.config;
 
 import com.app.maria.global.jwt.JwtAuthenticationFilter;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
@@ -73,7 +74,9 @@ public class SecurityConfig {
                 .requestCache(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(
                         auth ->
-                                auth.requestMatchers(PUBLIC_URLS)
+                                auth.dispatcherTypeMatchers(DispatcherType.ERROR)
+                                        .permitAll()
+                                        .requestMatchers(PUBLIC_URLS)
                                         .permitAll()
 
                                         // 화면 전환은 SPA가 담당하고 실제 데이터 접근은 API에서 검증한다.

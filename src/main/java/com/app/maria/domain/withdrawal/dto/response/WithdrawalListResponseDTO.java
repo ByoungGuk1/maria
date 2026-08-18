@@ -18,11 +18,13 @@ public class WithdrawalListResponseDTO {
     private BigDecimal requestedAmount;
     private String destinationAccountNo;
     private WithdrawalStatus status;
-    private String failureReason;
     private LocalDateTime processedAt;
     private BigDecimal earningsAmount;
     private BigDecimal maturedPrincipalAmount;
     private BigDecimal immaturePrincipalAmount;
+    private int allocationCount;
+    private int normalAllocationCount;
+    private int earlyAllocationCount;
 
     public static WithdrawalListResponseDTO from(WithdrawalHistoryDTO withdrawal) {
         return WithdrawalListResponseDTO.builder()
@@ -32,11 +34,13 @@ public class WithdrawalListResponseDTO {
                 .requestedAmount(withdrawal.getRequestedAmount())
                 .destinationAccountNo(withdrawal.getDestinationAccountNo())
                 .status(withdrawal.getStatus())
-                .failureReason(withdrawal.getFailureReason())
                 .processedAt(withdrawal.getProcessedAt())
                 .earningsAmount(withdrawal.getEarningsAmount())
                 .maturedPrincipalAmount(withdrawal.getMaturedPrincipalAmount())
                 .immaturePrincipalAmount(withdrawal.getImmaturePrincipalAmount())
+                .allocationCount(withdrawal.getAllocationCount())
+                .normalAllocationCount(withdrawal.getNormalAllocationCount())
+                .earlyAllocationCount(withdrawal.getEarlyAllocationCount())
                 .build();
     }
 }

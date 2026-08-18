@@ -49,7 +49,33 @@ $(function () {
         return (status || "").toLowerCase();
     }
 
-    function groupWithdrawalsByAccount(withdrawals) {
+    function allocationCountForView(withdrawal, viewType) {
+        if (viewType === "NORMAL") {
+            return Number(withdrawal.normalAllocationCount || 0);
+        }
+        if (viewType === "EARLY") {
+            return Number(withdrawal.earlyAllocationCount || 0);
+        }
+        return Number(withdrawal.allocationCount || 0);
+    }
+
+    function allocatedAmountForView(withdrawal, viewType) {
+        if (viewType === "NORMAL") {
+            return Number(withdrawal.earningsAmount || 0) +
+                Number(withdrawal.maturedPrincipalAmount || 0);
+        }
+        if (viewType === "EARLY") {
+            return Number(withdrawal.immaturePrincipalAmount || 0);
+        }
+        if (viewType === "FAILED") {
+            return Number(withdrawal.requestedAmount || 0);
+        }
+        return Number(withdrawal.earningsAmount || 0) +
+            Number(withdrawal.maturedPrincipalAmount || 0) +
+            Number(withdrawal.immaturePrincipalAmount || 0);
+    }
+
+    function groupWithdrawalsByAccount(withdrawals, viewType) {
         var accountMap = {};
 
         withdrawals.forEach(function (withdrawal) {
@@ -63,6 +89,7 @@ $(function () {
                     openedAt: accountMetadata.openedAt || null,
                     currentAmount: accountMetadata.amount || 0,
                     withdrawals: [],
+                    allocationCount: 0,
                     totalAmount: 0,
                     latestProcessedAt: null
                 };
@@ -70,7 +97,8 @@ $(function () {
 
             var account = accountMap[accountNo];
             account.withdrawals.push(withdrawal);
-            account.totalAmount += Number(withdrawal.requestedAmount || 0);
+            account.allocationCount += allocationCountForView(withdrawal, viewType);
+            account.totalAmount += allocatedAmountForView(withdrawal, viewType);
             if (!account.latestProcessedAt ||
                 new Date(withdrawal.processedAt) > new Date(account.latestProcessedAt)) {
                 account.latestProcessedAt = withdrawal.processedAt;
@@ -141,7 +169,7 @@ $(function () {
                 '<span class="withdrawal-account-cell"><strong>' +
                 escapeHtml(account.accountNo) + '</strong><small>' +
                 escapeHtml(account.customerName) + '</small></span>' +
-                '<strong class="withdrawal-history-count">' + account.withdrawals.length + '건</strong>' +
+                '<strong class="withdrawal-history-count">' + account.allocationCount + '건</strong>' +
                 '<strong class="withdrawal-request-amount">' +
                 escapeHtml(formatAmount(account.totalAmount)) + '</strong>' +
                 '<span class="withdrawal-list-time">' +
@@ -166,22 +194,22 @@ $(function () {
 
     function applyFilters() {
         var keyword = ($("#withdrawal-keyword").val() || "").trim().toLowerCase();
-        var allAccounts = groupWithdrawalsByAccount(withdrawalHistories);
+        var allAccounts = groupWithdrawalsByAccount(withdrawalHistories, "ALL");
         var normalAccounts = groupWithdrawalsByAccount(withdrawalHistories.filter(
             function (withdrawal) {
                 return withdrawal.status === "COMPLETED" &&
-                    Number(withdrawal.immaturePrincipalAmount || 0) <= 0;
+                    Number(withdrawal.normalAllocationCount || 0) > 0;
             }
-        ));
+        ), "NORMAL");
         var earlyAccounts = groupWithdrawalsByAccount(withdrawalHistories.filter(
             function (withdrawal) {
                 return withdrawal.status === "COMPLETED" &&
-                    Number(withdrawal.immaturePrincipalAmount || 0) > 0;
+                    Number(withdrawal.earlyAllocationCount || 0) > 0;
             }
-        ));
+        ), "EARLY");
         var failedAccounts = groupWithdrawalsByAccount(withdrawalHistories.filter(function (withdrawal) {
             return withdrawal.status === "FAILED";
-        }));
+        }), "FAILED");
 
         $("#withdrawal-all-count").text(allAccounts.length);
         $("#withdrawal-normal-count").text(normalAccounts.length);
@@ -299,7 +327,11 @@ $(function () {
                 '<div><span>인출 일시</span><strong>' +
                 escapeHtml(formatDateTime(withdrawal.processedAt)) + '</strong></div>' +
                 '<div><span>요청금액</span><strong>' +
-                escapeHtml(formatAmount(withdrawal.requestedAmount)) + '</strong></div>' +
+                escapeHtml(formatAmount(
+                    withdrawal.displayedAmount == null
+                        ? withdrawal.requestedAmount
+                        : withdrawal.displayedAmount
+                )) + '</strong></div>' +
                 '<span class="withdrawal-status-badge ' + statusClass(withdrawal.status) + '">' +
                 escapeHtml(statusLabel(withdrawal.status)) + '</span></div>'
             );
@@ -312,10 +344,7 @@ $(function () {
                         '<button type="button" class="withdrawal-unallocated-item ' +
                         statusClass(withdrawal.status) + '" data-allocation-index="' +
                         groupEntry.index + '"><strong>' +
-                        '인출 실패</strong><span>' + escapeHtml(
-                            withdrawal.failureReason || "실패 사유가 저장되지 않았습니다."
-                        ) +
-                        '</span></button>'
+                        '인출 실패</strong></button>'
                     );
                 }
             });
@@ -391,17 +420,12 @@ $(function () {
             $(".allocation-summary.immature").addClass("is-danger-selected");
         }
         $("#withdrawal-selected-allocation").prop("hidden", false);
-        $("#withdrawal-failure-warning").prop("hidden", true);
         renderWithdrawalOverview(withdrawal);
     }
 
     function renderUnallocatedWithdrawalDetail(withdrawal) {
         $("#withdrawal-selected-allocation").prop("hidden", true);
         $(".allocation-summary").removeClass("is-selected is-danger-selected");
-        $("#withdrawal-failure-warning").prop("hidden", withdrawal.status !== "FAILED");
-        $("#withdrawal-failure-reason").text(
-            withdrawal.failureReason || "실패 사유가 저장되지 않았습니다."
-        );
         renderWithdrawalOverview(withdrawal);
     }
 
@@ -482,17 +506,32 @@ $(function () {
                 return;
             }
             details.forEach(function (withdrawal) {
-                var allocations = withdrawal.allocations || [];
+                var allocations = (withdrawal.allocations || []).filter(function (allocation) {
+                    if (selectedWithdrawalType === "NORMAL") {
+                        return allocation.type === "EARNINGS_ONLY" ||
+                            allocation.type === "MATURED_PRINCIPAL_INCLUDED";
+                    }
+                    if (selectedWithdrawalType === "EARLY") {
+                        return allocation.type === "IMMATURE_PRINCIPAL_INCLUDED";
+                    }
+                    return true;
+                });
+                var displayedAmount = allocations.reduce(function (sum, allocation) {
+                    return sum + Number(allocation.allocatedAmount || 0);
+                }, 0);
+                var displayedWithdrawal = $.extend({}, withdrawal, {
+                    displayedAmount: displayedAmount
+                });
                 allocations.forEach(function (allocation) {
                     accountAllocationEntries.push({
                         allocation: allocation,
-                        withdrawal: withdrawal
+                        withdrawal: displayedWithdrawal
                     });
                 });
                 if (!allocations.length && withdrawal.status === "FAILED") {
                     accountAllocationEntries.push({
                         allocation: null,
-                        withdrawal: withdrawal
+                        withdrawal: displayedWithdrawal
                     });
                 }
             });

@@ -44,7 +44,6 @@ class WithdrawalFailureServiceTest {
         assertThat(failedWithdrawal.getDestinationAccountNo()).isEqualTo("1234567890");
         assertThat(failedWithdrawal.getDestinationGeneralAccountId()).isEqualTo(20L);
         assertThat(failedWithdrawal.getStatus()).isEqualTo(WithdrawalStatus.FAILED);
-        assertThat(failedWithdrawal.getFailureReason()).isEqualTo("계좌 잔액보다 많은 금액을 인출할 수 없습니다.");
     }
 
     @Test
