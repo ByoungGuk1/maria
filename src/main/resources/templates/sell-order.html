@@ -4,7 +4,8 @@
       layout:decorate="~{layout/main}">
 <head>
     <th:block layout:fragment="pageStyles">
-        <link rel="stylesheet" th:href="@{/css/sellOrder.css}">
+        <link rel="stylesheet" th:href="@{/css/dashboard.css}">
+        <link rel="stylesheet" th:href="@{/css/sell-order.css}">
     </th:block>
 </head>
 <body>
@@ -17,101 +18,63 @@
         </div>
     </div>
 
-    <section class="card sellorder-search-card">
-        <div class="section-header">계좌 검색</div>
-        <form id="accountSearchForm" class="sellorder-search-form" novalidate>
-            <input id="searchAccountNo" type="text" placeholder="계좌번호" autocomplete="off">
-            <input id="searchCustomerName" type="text" placeholder="고객명" autocomplete="off">
-            <button class="btn btn-primary" type="submit">검색</button>
-        </form>
-        <p id="searchError" class="sellorder-form-error" style="display:none"></p>
+    <section class="card sellorder-history">
+        <div class="section-header">
+            <span>매도 · 환전 내역</span>
+            <span class="section-sub" id="sellOrderCount">0건</span>
+        </div>
+        <div class="filter-bar sellorder-filter-bar">
+            <select id="sellOrderFilterStatus" class="filter-select">
+                <option value="">전체 상태</option>
+                <option value="EXECUTED">체결</option>
+                <option value="REJECTED">거부</option>
+            </select>
+            <input id="sellOrderFilterStartDate" class="filter-input sellorder-filter-date" type="date">
+            <span class="sellorder-filter-date-separator">~</span>
+            <input id="sellOrderFilterEndDate" class="filter-input sellorder-filter-date" type="date">
+            <input id="sellOrderFilterKeyword" class="filter-input sellorder-filter-keyword" type="text" placeholder="계좌번호 또는 고객명" autocomplete="off">
+            <button type="button" id="sellOrderFilterSearch" class="btn btn-primary">검색</button>
+            <button type="button" id="sellOrderFilterReset" class="btn">초기화</button>
+        </div>
+        <p id="sellOrderError" class="sellorder-form-error" style="display:none"></p>
 
         <div class="sellorder-table-wrap">
             <table class="sellorder-table">
+                <colgroup>
+                    <col style="width: 11%">
+                    <col style="width: 18%">
+                    <col style="width: 9%">
+                    <col style="width: 12%">
+                    <col style="width: 15%">
+                    <col style="width: 12%">
+                    <col style="width: 12%">
+                    <col style="width: 11%">
+                </colgroup>
                 <thead>
                 <tr>
                     <th>계좌번호 / 고객명</th>
-                    <th>상태</th>
-                    <th class="sellorder-amount">한도 사용률</th>
-                </tr>
-                </thead>
-                <tbody id="searchResultsBody">
-                <tr>
-                    <td colspan="3" class="sellorder-empty">계좌번호 또는 고객명으로 검색하세요.</td>
-                </tr>
-                </tbody>
-            </table>
-        </div>
-    </section>
-
-    <section id="selectedAccountCard" class="card sellorder-detail" style="display:none">
-        <div class="sellorder-detail-header">
-            <div>
-                <strong id="selectedAccountNo">-</strong>
-                <p class="sellorder-detail-description">선택된 계좌</p>
-            </div>
-            <span id="selectedAccountStatus" class="sellorder-status-badge">-</span>
-        </div>
-        <div class="sellorder-detail-grid">
-            <div>
-                <div class="sellorder-detail-label">고객명</div>
-                <div id="selectedCustomerName" class="sellorder-detail-value">-</div>
-            </div>
-            <div>
-                <div class="sellorder-detail-label">설정 한도</div>
-                <div id="selectedLimitAmount" class="sellorder-detail-value">-</div>
-            </div>
-            <div>
-                <div class="sellorder-detail-label">사용 금액</div>
-                <div id="selectedUsedAmount" class="sellorder-detail-value">-</div>
-            </div>
-        </div>
-    </section>
-
-    <section id="sellOrderCard" class="card sellorder-form-card" style="display:none">
-        <div class="section-header">매도 주문 접수</div>
-        <div id="holdingsEmpty" class="sellorder-empty" style="display:none">보유 중인 종목이 없습니다.</div>
-        <p id="sellOrderReadonlyNotice" class="sellorder-readonly-notice" style="display:none">
-            매도 주문 접수는 정산 권한이 필요합니다.
-        </p>
-        <form id="sellOrderForm" class="sellorder-order-form" novalidate>
-            <label>종목
-                <select id="sellForeignProductId" required></select>
-            </label>
-            <label>매도 수량
-                <input id="sellQty" type="number" min="0" step="any" required>
-            </label>
-            <button class="btn btn-primary" type="submit">매도</button>
-        </form>
-        <p id="sellOrderError" class="sellorder-form-error" style="display:none"></p>
-        <p id="sellOrderResult" class="sellorder-form-result" style="display:none"></p>
-    </section>
-
-    <section id="sellHistoryCard" class="card sellorder-history" style="display:none">
-        <div class="section-header">매도 이력</div>
-        <div class="sellorder-table-wrap">
-            <table class="sellorder-table">
-                <thead>
-                <tr>
                     <th>종목</th>
-                    <th class="sellorder-amount">매도수량</th>
-                    <th class="sellorder-amount">기준가</th>
+                    <th>매도수량</th>
+                    <th>매도기준가</th>
+                    <th>매도시각</th>
+                    <th>가환전액</th>
+                    <th>확정액</th>
                     <th>상태</th>
-                    <th>처리일시</th>
                 </tr>
                 </thead>
-                <tbody id="sellHistoryBody">
+                <tbody id="sellOrderListBody">
                 <tr>
-                    <td colspan="5" class="sellorder-empty">매도 이력이 없습니다.</td>
+                    <td colspan="8" class="sellorder-loading">불러오는 중...</td>
                 </tr>
                 </tbody>
             </table>
         </div>
+        <div class="pagination" id="sellOrderPagination"></div>
     </section>
 </div>
 
 <th:block layout:fragment="pageScripts">
-    <script th:src="@{/js/sellOrder.js}"></script>
+    <script th:src="@{/js/sell-order.js}"></script>
 </th:block>
 </body>
 </html>
