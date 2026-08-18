@@ -57,12 +57,16 @@ public class TaxCalculator {
         List<TaxLotDetailDTO> details = new ArrayList<>();
         for (SellLotDTO lot : sellLots) {
             BigDecimal purchaseCost =
-                    lot.getPurchasePrice().multiply(lot.getPurchaseFxRate()).multiply(lot.getSellQty());
+                    lot.getPurchasePrice()
+                            .multiply(lot.getPurchaseFxRate())
+                            .multiply(lot.getSellQty());
             details.add(
                     TaxLotDetailDTO.builder()
                             .productLabel(lot.getProductLabel())
                             .sellAt(lot.getSellAt())
-                            .sellAmount(lot.getFinalAmount().setScale(AMOUNT_SCALE, RoundingMode.HALF_UP))
+                            .sellAmount(
+                                    lot.getFinalAmount()
+                                            .setScale(AMOUNT_SCALE, RoundingMode.HALF_UP))
                             .gainAmount(
                                     lot.getFinalAmount()
                                             .subtract(purchaseCost)
@@ -81,7 +85,9 @@ public class TaxCalculator {
                     TaxExternalTradeDetailDTO.builder()
                             .productLabel(trade.getProductLabel())
                             .tradeDate(trade.getTradeDate())
-                            .netBuyAmount(trade.getNetBuyAmount().setScale(AMOUNT_SCALE, RoundingMode.HALF_UP))
+                            .netBuyAmount(
+                                    trade.getNetBuyAmount()
+                                            .setScale(AMOUNT_SCALE, RoundingMode.HALF_UP))
                             .build());
         }
         details.sort((a, b) -> b.getTradeDate().compareTo(a.getTradeDate()));
@@ -90,13 +96,17 @@ public class TaxCalculator {
 
     // 최종 합산 전, 관리자가 "왜 이렇게 나왔는지" 볼 수 있도록 구간별 원금액을 별도로 남긴다.
     private List<TaxPeriodBreakdownDTO> buildPeriodBreakdown(
-            List<SellLotDTO> sellLots, List<ExternalBuyDTO> externalTrades, List<TaxRuleDTO> taxRules) {
+            List<SellLotDTO> sellLots,
+            List<ExternalBuyDTO> externalTrades,
+            List<TaxRuleDTO> taxRules) {
         List<TaxPeriodBreakdownDTO> breakdown = new ArrayList<>();
         for (TaxRuleDTO rule : taxRules) {
             if (rule.getRuleType() != TaxRuleType.RELIEF_RATE) {
                 continue;
             }
-            BigDecimal weight = rule.getRuleValue().divide(BigDecimal.valueOf(100), RATIO_SCALE, RoundingMode.HALF_UP);
+            BigDecimal weight =
+                    rule.getRuleValue()
+                            .divide(BigDecimal.valueOf(100), RATIO_SCALE, RoundingMode.HALF_UP);
             BigDecimal sellAmount = BigDecimal.ZERO;
             BigDecimal gainAmount = BigDecimal.ZERO;
             for (SellLotDTO lot : sellLots) {
@@ -104,7 +114,9 @@ public class TaxCalculator {
                     continue;
                 }
                 BigDecimal purchaseCost =
-                        lot.getPurchasePrice().multiply(lot.getPurchaseFxRate()).multiply(lot.getSellQty());
+                        lot.getPurchasePrice()
+                                .multiply(lot.getPurchaseFxRate())
+                                .multiply(lot.getSellQty());
                 sellAmount = sellAmount.add(lot.getFinalAmount());
                 gainAmount = gainAmount.add(lot.getFinalAmount().subtract(purchaseCost));
             }
@@ -122,7 +134,9 @@ public class TaxCalculator {
                             .weight(weight)
                             .sellAmount(sellAmount.setScale(AMOUNT_SCALE, RoundingMode.HALF_UP))
                             .gainAmount(gainAmount.setScale(AMOUNT_SCALE, RoundingMode.HALF_UP))
-                            .externalNetBuyAmount(externalNetBuyAmount.setScale(AMOUNT_SCALE, RoundingMode.HALF_UP))
+                            .externalNetBuyAmount(
+                                    externalNetBuyAmount.setScale(
+                                            AMOUNT_SCALE, RoundingMode.HALF_UP))
                             .build());
         }
         breakdown.sort((a, b) -> a.getValidFrom().compareTo(b.getValidFrom()));

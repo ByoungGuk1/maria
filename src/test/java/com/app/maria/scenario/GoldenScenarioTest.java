@@ -278,8 +278,7 @@ class GoldenScenarioTest {
         boolean forcePartial = random.nextInt(100) < 20;
         BigDecimal requestedQty =
                 forcePartial
-                        ? holding.heldQty()
-                                .add(BigDecimal.valueOf(1 + random.nextInt(20)))
+                        ? holding.heldQty().add(BigDecimal.valueOf(1 + random.nextInt(20)))
                         : holding.heldQty();
         inboundService.processInbound(
                 InboundRequestDTO.builder()
