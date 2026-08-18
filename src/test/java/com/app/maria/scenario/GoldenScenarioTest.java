@@ -38,6 +38,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -60,6 +61,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  *   <li>return-securities(포트 10001)가 같은 population/PEPPER로 만든 securities DB로 떠 있어야 함
  * </ul>
  *
+ * <p>securities DB 접속 정보(URL/계정/비밀번호)는 팀원마다 로컬 컨테이너 설정이 달라 하드코딩하지 않는다. 기본값은
+ * {@code jdbc:mariadb://localhost:3306/securities} / {@code root} / {@code secret}이고, 다르면
+ * {@code -Dsecurities.jdbc.url=...}, {@code -Dsecurities.jdbc.username=...},
+ * {@code -Dsecurities.jdbc.password=...}로 덮어쓸 것.
+ *
  * <p>실행: {@code ./gradlew test --tests "com.app.maria.scenario.GoldenScenarioTest"
  * -PrunIntegration}. 재실행하려면 먼저
  * account/inbound/sell_order/krw_exchange/withdrawal*·settlement_*·tax_snapshot·tax_calculation을
@@ -75,9 +81,17 @@ class GoldenScenarioTest {
     private static final long RANDOM_SEED = 20260817L;
     private static final int SCENARIO_SIZE = 500;
     private static final Long ADMIN_ID = 5L;
-    private static final String SECURITIES_JDBC_URL = "jdbc:mariadb://localhost:3306/securities";
-    private static final String SECURITIES_USER = "root";
-    private static final String SECURITIES_PASSWORD = "secret";
+
+    // 팀원마다 로컬 컨테이너명/비밀번호가 다를 수 있어 하드코딩하지 않는다.
+    // 필요하면 환경변수(SECURITIES_JDBC_URL 등)나 -D시스템프로퍼티로 덮어쓸 것.
+    @Value("${securities.jdbc.url:jdbc:mariadb://localhost:3306/securities}")
+    private String securitiesJdbcUrl;
+
+    @Value("${securities.jdbc.username:root}")
+    private String securitiesUser;
+
+    @Value("${securities.jdbc.password:secret}")
+    private String securitiesPassword;
 
     @Autowired private AccountMapper accountMapper;
     @Autowired private AccountService accountService;
@@ -267,7 +281,7 @@ class GoldenScenarioTest {
                         + "WHERE gc.ci_hash = ? ORDER BY RAND() LIMIT 1";
         try (Connection connection =
                         DriverManager.getConnection(
-                                SECURITIES_JDBC_URL, SECURITIES_USER, SECURITIES_PASSWORD);
+                                securitiesJdbcUrl, securitiesUser, securitiesPassword);
                 PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, ciHash);
             try (ResultSet resultSet = statement.executeQuery()) {
