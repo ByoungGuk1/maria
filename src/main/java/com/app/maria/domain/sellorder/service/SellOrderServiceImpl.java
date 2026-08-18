@@ -6,6 +6,7 @@ import com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper;
 import com.app.maria.domain.inbound.dto.InboundDetailDTO;
 import com.app.maria.domain.inbound.mapper.InboundMapper;
 import com.app.maria.domain.sellorder.dto.SellOrderDTO;
+import com.app.maria.domain.sellorder.dto.SellOrderHistoryDTO;
 import com.app.maria.domain.sellorder.dto.request.SellOrderRequestDTO;
 import com.app.maria.domain.sellorder.dto.response.SellOrderResponseDTO;
 import com.app.maria.domain.sellorder.exception.SellOrderException;
@@ -19,14 +20,16 @@ import com.app.maria.global.client.exchange.ExchangeRateClient;
 import com.app.maria.global.client.kis.KisExchangeCode;
 import com.app.maria.global.client.kis.KisPriceClient;
 import com.app.maria.global.clock.service.BusinessClockService;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import com.app.maria.global.response.PageResponseDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -179,5 +182,16 @@ public class SellOrderServiceImpl implements SellOrderService {
         LocalDateTime start = businessClockService.now().toLocalDate().atStartOfDay();
         LocalDateTime end = start.plusDays(1);
         return sellOrderMapper.sumSellAmountBetween(start, end);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<SellOrderHistoryDTO> getSellOrderHistory(
+            String accountNo, String customerName, int page, int size) {
+        int offset = page * size;
+        List<SellOrderHistoryDTO> content =
+                sellOrderMapper.selectSellOrderHistory(accountNo, customerName, offset, size);
+        int totalCount = sellOrderMapper.countSellOrderHistory(accountNo, customerName);
+        return PageResponseDTO.of(content, totalCount, page, size);
     }
 }

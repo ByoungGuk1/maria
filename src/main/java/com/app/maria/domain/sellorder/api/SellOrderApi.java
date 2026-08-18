@@ -1,20 +1,28 @@
 package com.app.maria.domain.sellorder.api;
 
+import com.app.maria.domain.sellorder.dto.SellOrderHistoryDTO;
 import com.app.maria.domain.sellorder.dto.request.SellOrderRequestDTO;
+import com.app.maria.domain.sellorder.dto.response.SellOrderHistoryResponseDTO;
 import com.app.maria.domain.sellorder.dto.response.SellOrderResponseDTO;
 import com.app.maria.domain.sellorder.service.SellOrderService;
 import com.app.maria.global.response.ApiResponseDTO;
+import com.app.maria.global.response.PageResponseDTO;
 import jakarta.validation.Valid;
-import java.util.List;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
+@Validated
 @RequestMapping("/api/sell-orders")
 public class SellOrderApi {
 
@@ -53,4 +61,20 @@ public class SellOrderApi {
         List<SellOrderResponseDTO> list = sellOrderService.getSellOrderByAccount(accountId);
         return ResponseEntity.ok(ApiResponseDTO.of("계좌 매도 주문 조회에 성공하였습니다.", list));
     }
+
+    @GetMapping("/history")
+    public ResponseEntity<ApiResponseDTO<PageResponseDTO<SellOrderHistoryResponseDTO>>> getSellOrderHistory(
+            @RequestParam(required = false) String accountNo,
+            @RequestParam(required = false) String customerName,
+            @RequestParam(defaultValue = "0") @PositiveOrZero int page,
+            @RequestParam(defaultValue = "20") @Positive int size) {
+        PageResponseDTO<SellOrderHistoryDTO> result =
+                sellOrderService.getSellOrderHistory(accountNo, customerName, page, size);
+        List<SellOrderHistoryResponseDTO> content =
+                result.getContent().stream().map(SellOrderHistoryResponseDTO::new).toList();
+        PageResponseDTO<SellOrderHistoryResponseDTO> response =
+                PageResponseDTO.of(content, result.getTotalCount(), result.getPage(), result.getSize());
+        return ResponseEntity.ok(ApiResponseDTO.of("매도 · 환전 내역 조회 성공", response));
+    }
+
 }
