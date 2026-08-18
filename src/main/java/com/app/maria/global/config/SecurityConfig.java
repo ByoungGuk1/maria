@@ -41,6 +41,8 @@ public class SecurityConfig {
         "/admin/settlement",
         "/admin/inbound",
         "/admin/admin-users",
+        "/admin/tax",
+        "/admin/domestic-investment",
 
         // JWT 인증 API
         "/api/auth/admin/login",
@@ -51,7 +53,8 @@ public class SecurityConfig {
         "/swagger-ui.html",
         "/api-docs/**",
 
-        // 계좌 해지 관리 화면
+        // 인출·계좌 해지 관리 화면
+        "/admin/withdrawals",
         "/admin/account-closures"
     };
 
