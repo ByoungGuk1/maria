@@ -17,6 +17,9 @@ $(function () {
         ACCOUNT_OPENED: "계좌 개설",
         ACCOUNT_REJECTED: "계좌 반려",
         ACCOUNT_OVERRIDE_OPENED: "계좌 오버라이드 개설",
+        ACCOUNT_CLOSURE_REQUESTED: "계좌 해지 신청",
+        ACCOUNT_CLOSURE_APPROVED: "계좌 해지 승인",
+        ACCOUNT_CLOSURE_REJECTED: "계좌 해지 반려",
         SETTLEMENT_BATCH_REQUESTED: "정산 배치 실행 요청",
         SETTLEMENT_BATCH_RETRIED: "정산 배치 재처리",
         SETTLEMENT_ITEM_RETRIED: "정산 항목 재처리"
