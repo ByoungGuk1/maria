@@ -32,7 +32,7 @@ public class PageController {
     @GetMapping("/admin/sell-orders")
     public String sellOrders(Model model) {
         model.addAttribute("activePath", "/admin/sell-orders");
-        return "sellOrder";
+        return "sell-order";
     }
 
     @GetMapping("/admin/account")
