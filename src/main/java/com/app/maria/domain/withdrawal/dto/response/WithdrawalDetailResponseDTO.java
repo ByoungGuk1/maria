@@ -23,6 +23,7 @@ public class WithdrawalDetailResponseDTO {
     private String destinationAccountNo;
     private Long destinationGeneralAccountId;
     private WithdrawalStatus status;
+    private String failureReason;
     private BigDecimal earningsAmount;
     private BigDecimal maturedPrincipalAmount;
     private BigDecimal immaturePrincipalAmount;
@@ -41,6 +42,7 @@ public class WithdrawalDetailResponseDTO {
                 .destinationAccountNo(withdrawal.getDestinationAccountNo())
                 .destinationGeneralAccountId(withdrawal.getDestinationGeneralAccountId())
                 .status(withdrawal.getStatus())
+                .failureReason(withdrawal.getFailureReason())
                 .earningsAmount(withdrawal.getEarningsAmount())
                 .maturedPrincipalAmount(withdrawal.getMaturedPrincipalAmount())
                 .immaturePrincipalAmount(withdrawal.getImmaturePrincipalAmount())

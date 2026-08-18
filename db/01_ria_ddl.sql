@@ -336,6 +336,7 @@ CREATE TABLE withdrawal (
     destination_account_no         VARCHAR(30)   NOT NULL COMMENT '이체 목적지 계좌번호(스냅샷)',
     destination_general_account_id BIGINT        NOT NULL COMMENT '인출 목적지 general_account 참조값(FK없음). 비율배분 없이 단일 선택',
     status                         VARCHAR(12)   NOT NULL DEFAULT 'REQUESTED' COMMENT 'REQUESTED/COMPLETED/CANCELLED/FAILED',
+    failure_reason                 VARCHAR(255)  NULL COMMENT 'FAILED 상태의 인출 실패 사유',
     PRIMARY KEY (withdrawal_id),
     CONSTRAINT chk_withdrawal_status CHECK (status IN ('REQUESTED','COMPLETED','CANCELLED','FAILED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='인출 요청';

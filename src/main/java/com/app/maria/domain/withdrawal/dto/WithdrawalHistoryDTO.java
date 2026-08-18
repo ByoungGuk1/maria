@@ -20,6 +20,7 @@ public class WithdrawalHistoryDTO {
     private String destinationAccountNo;
     private Long destinationGeneralAccountId;
     private WithdrawalStatus status;
+    private String failureReason;
     private BigDecimal earningsAmount;
     private BigDecimal maturedPrincipalAmount;
     private BigDecimal immaturePrincipalAmount;

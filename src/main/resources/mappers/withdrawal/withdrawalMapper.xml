@@ -11,14 +11,16 @@
         destination_account_no,
         destination_general_account_id,
         processed_at,
-        status
+        status,
+        failure_reason
         ) VALUES(
         #{accountId},
         #{requestedAmount},
         #{destinationAccountNo},
         #{destinationGeneralAccountId},
         #{processedAt},
-        #{status}
+        #{status},
+        #{failureReason}
         )
     </insert>
 
@@ -91,6 +93,7 @@
                w.destination_account_no,
                w.destination_general_account_id,
                w.status,
+               w.failure_reason,
                COALESCE(SUM(CASE WHEN wa.type = 'EARNINGS_ONLY'
                                  THEN wa.allocated_amount ELSE 0 END), 0) AS earnings_amount,
                COALESCE(SUM(CASE WHEN wa.type = 'MATURED_PRINCIPAL_INCLUDED'
@@ -106,7 +109,7 @@
     <sql id="withdrawalHistoryGroupBy">
         GROUP BY w.withdrawal_id, w.account_id, c.name, a.account_no,
                  w.requested_amount, w.processed_at, w.destination_account_no,
-                 w.destination_general_account_id, w.status
+                 w.destination_general_account_id, w.status, w.failure_reason
     </sql>
 
     <select id="selectWithdrawalHistories"
