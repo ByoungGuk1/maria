@@ -25,6 +25,13 @@ public class WithdrawalQueryServiceImpl implements WithdrawalQueryService {
     }
 
     @Override
+    public List<WithdrawalListResponseDTO> getWithdrawalsByAccountId(Long accountId) {
+        return withdrawalMapper.selectWithdrawalHistoriesByAccountId(accountId).stream()
+                .map(WithdrawalListResponseDTO::from)
+                .toList();
+    }
+
+    @Override
     public WithdrawalDetailResponseDTO getWithdrawal(Long withdrawalId) {
         WithdrawalHistoryDTO withdrawal =
                 withdrawalMapper

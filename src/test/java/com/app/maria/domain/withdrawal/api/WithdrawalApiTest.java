@@ -115,6 +115,36 @@ class WithdrawalApiTest {
     }
 
     @Test
+    void accountHistoryReturnsCompletedAndFailedWithdrawals() throws Exception {
+        WithdrawalListResponseDTO completed =
+                WithdrawalListResponseDTO.builder()
+                        .withdrawalId(10L)
+                        .status(WithdrawalStatus.COMPLETED)
+                        .requestedAmount(new BigDecimal("800"))
+                        .build();
+        WithdrawalListResponseDTO failed =
+                WithdrawalListResponseDTO.builder()
+                        .withdrawalId(11L)
+                        .status(WithdrawalStatus.FAILED)
+                        .requestedAmount(new BigDecimal("900"))
+                        .build();
+        when(withdrawalQueryService.getWithdrawalsByAccountId(1L))
+                .thenReturn(List.of(completed, failed));
+
+        mockMvc.perform(get("/api/withdrawals/accounts/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data[1].status").value("FAILED"));
+
+        verify(withdrawalQueryService).getWithdrawalsByAccountId(1L);
+    }
+
+    @Test
+    void nonPositiveAccountIdReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/withdrawals/accounts/0")).andExpect(status().isBadRequest());
+    }
+
+    @Test
     void missingWithdrawalReturnsNotFound() throws Exception {
         when(withdrawalQueryService.getWithdrawal(99L))
                 .thenThrow(new WithdrawalNotFoundException("인출 내역을 찾을 수 없습니다."));
