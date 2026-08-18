@@ -11,16 +11,14 @@
         destination_account_no,
         destination_general_account_id,
         processed_at,
-        status,
-        failure_reason
+        status
         ) VALUES(
         #{accountId},
         #{requestedAmount},
         #{destinationAccountNo},
         #{destinationGeneralAccountId},
         #{processedAt},
-        #{status},
-        #{failureReason}
+        #{status}
         )
     </insert>
 
@@ -93,13 +91,17 @@
                w.destination_account_no,
                w.destination_general_account_id,
                w.status,
-               w.failure_reason,
                COALESCE(SUM(CASE WHEN wa.type = 'EARNINGS_ONLY'
                                  THEN wa.allocated_amount ELSE 0 END), 0) AS earnings_amount,
                COALESCE(SUM(CASE WHEN wa.type = 'MATURED_PRINCIPAL_INCLUDED'
                                  THEN wa.allocated_amount ELSE 0 END), 0) AS matured_principal_amount,
                COALESCE(SUM(CASE WHEN wa.type = 'IMMATURE_PRINCIPAL_INCLUDED'
-                                 THEN wa.allocated_amount ELSE 0 END), 0) AS immature_principal_amount
+                                 THEN wa.allocated_amount ELSE 0 END), 0) AS immature_principal_amount,
+               COUNT(wa.allocation_id) AS allocation_count,
+               COALESCE(SUM(CASE WHEN wa.type IN ('EARNINGS_ONLY', 'MATURED_PRINCIPAL_INCLUDED')
+                                 THEN 1 ELSE 0 END), 0) AS normal_allocation_count,
+               COALESCE(SUM(CASE WHEN wa.type = 'IMMATURE_PRINCIPAL_INCLUDED'
+                                 THEN 1 ELSE 0 END), 0) AS early_allocation_count
         FROM withdrawal w
         JOIN account a ON a.account_id = w.account_id
         JOIN customer c ON c.customer_id = a.customer_id
@@ -109,7 +111,7 @@
     <sql id="withdrawalHistoryGroupBy">
         GROUP BY w.withdrawal_id, w.account_id, c.name, a.account_no,
                  w.requested_amount, w.processed_at, w.destination_account_no,
-                 w.destination_general_account_id, w.status, w.failure_reason
+                 w.destination_general_account_id, w.status
     </sql>
 
     <select id="selectWithdrawalHistories"

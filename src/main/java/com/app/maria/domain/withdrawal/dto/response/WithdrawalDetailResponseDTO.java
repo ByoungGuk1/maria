@@ -23,10 +23,12 @@ public class WithdrawalDetailResponseDTO {
     private String destinationAccountNo;
     private Long destinationGeneralAccountId;
     private WithdrawalStatus status;
-    private String failureReason;
     private BigDecimal earningsAmount;
     private BigDecimal maturedPrincipalAmount;
     private BigDecimal immaturePrincipalAmount;
+    private int allocationCount;
+    private int normalAllocationCount;
+    private int earlyAllocationCount;
     private boolean earlyWithdrawal;
     private List<WithdrawalAllocationResponseDTO> allocations;
 
@@ -42,10 +44,12 @@ public class WithdrawalDetailResponseDTO {
                 .destinationAccountNo(withdrawal.getDestinationAccountNo())
                 .destinationGeneralAccountId(withdrawal.getDestinationGeneralAccountId())
                 .status(withdrawal.getStatus())
-                .failureReason(withdrawal.getFailureReason())
                 .earningsAmount(withdrawal.getEarningsAmount())
                 .maturedPrincipalAmount(withdrawal.getMaturedPrincipalAmount())
                 .immaturePrincipalAmount(withdrawal.getImmaturePrincipalAmount())
+                .allocationCount(withdrawal.getAllocationCount())
+                .normalAllocationCount(withdrawal.getNormalAllocationCount())
+                .earlyAllocationCount(withdrawal.getEarlyAllocationCount())
                 .earlyWithdrawal(withdrawal.getImmaturePrincipalAmount().signum() > 0)
                 .allocations(
                         allocations.stream().map(WithdrawalAllocationResponseDTO::from).toList())

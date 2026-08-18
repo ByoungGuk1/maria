@@ -19,5 +19,4 @@ public class WithdrawalDTO {
     private String destinationAccountNo;
     private WithdrawalStatus status;
     private Long destinationGeneralAccountId;
-    private String failureReason;
 }

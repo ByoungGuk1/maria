@@ -108,6 +108,9 @@ class WithdrawalMapperTest {
         assertThat(result.get(1).getEarningsAmount()).isEqualByComparingTo("100");
         assertThat(result.get(1).getMaturedPrincipalAmount()).isEqualByComparingTo("300");
         assertThat(result.get(1).getImmaturePrincipalAmount()).isEqualByComparingTo("400");
+        assertThat(result.get(1).getAllocationCount()).isEqualTo(4);
+        assertThat(result.get(1).getNormalAllocationCount()).isEqualTo(2);
+        assertThat(result.get(1).getEarlyAllocationCount()).isEqualTo(2);
     }
 
     @Test
@@ -145,7 +148,7 @@ class WithdrawalMapperTest {
     }
 
     @Test
-    void failedWithdrawalReasonIsPersistedAndQueried() {
+    void failedWithdrawalIsPersistedAndQueriedWithoutAllocations() {
         WithdrawalDTO failedWithdrawal =
                 WithdrawalDTO.builder()
                         .accountId(1L)
@@ -154,7 +157,6 @@ class WithdrawalMapperTest {
                         .destinationAccountNo("111122223333")
                         .destinationGeneralAccountId(20L)
                         .status(WithdrawalStatus.FAILED)
-                        .failureReason("계좌 잔액보다 많은 금액을 인출할 수 없습니다.")
                         .build();
 
         assertThat(mapper.insertWithdrawal(failedWithdrawal)).isEqualTo(1);
@@ -163,7 +165,7 @@ class WithdrawalMapperTest {
                 mapper.selectWithdrawalHistoryById(failedWithdrawal.getWithdrawalId())
                         .orElseThrow();
         assertThat(saved.getStatus()).isEqualTo(WithdrawalStatus.FAILED);
-        assertThat(saved.getFailureReason()).isEqualTo("계좌 잔액보다 많은 금액을 인출할 수 없습니다.");
+        assertThat(saved.getAllocationCount()).isZero();
     }
 
     private static void resetSchemaAndData() throws Exception {
@@ -194,8 +196,7 @@ class WithdrawalMapperTest {
                         processed_at DATETIME NOT NULL,
                         destination_account_no VARCHAR(30) NOT NULL,
                         destination_general_account_id BIGINT NOT NULL,
-                        status VARCHAR(12) NOT NULL,
-                        failure_reason VARCHAR(255)
+                        status VARCHAR(12) NOT NULL
                     )
                     """);
             statement.execute(
@@ -253,9 +254,9 @@ class WithdrawalMapperTest {
             statement.execute(
                     """
                     INSERT INTO withdrawal VALUES
-                        (10, 1, 800, TIMESTAMP '2026-08-01 09:00:00', '111122223333', 20, 'COMPLETED', NULL),
-                        (11, 1, 999, TIMESTAMP '2026-08-02 09:00:00', '111122223333', 20, 'COMPLETED', NULL),
-                        (12, 1, 50, TIMESTAMP '2026-07-01 09:00:00', '111122223333', 20, 'FAILED', '기존 실패')
+                        (10, 1, 800, TIMESTAMP '2026-08-01 09:00:00', '111122223333', 20, 'COMPLETED'),
+                        (11, 1, 999, TIMESTAMP '2026-08-02 09:00:00', '111122223333', 20, 'COMPLETED'),
+                        (12, 1, 50, TIMESTAMP '2026-07-01 09:00:00', '111122223333', 20, 'FAILED')
                     """);
             statement.execute(
                     """

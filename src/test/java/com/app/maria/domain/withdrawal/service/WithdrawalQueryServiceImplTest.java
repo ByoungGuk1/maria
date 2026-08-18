@@ -43,6 +43,9 @@ class WithdrawalQueryServiceImplTest {
                 .extracting(WithdrawalListResponseDTO::getWithdrawalId)
                 .containsExactly(2L, 1L);
         assertThat(result.get(0).getImmaturePrincipalAmount()).isEqualByComparingTo("400");
+        assertThat(result.get(0).getAllocationCount()).isEqualTo(4);
+        assertThat(result.get(0).getNormalAllocationCount()).isEqualTo(3);
+        assertThat(result.get(0).getEarlyAllocationCount()).isEqualTo(1);
         verify(withdrawalMapper).selectWithdrawalHistories(WithdrawalStatus.COMPLETED);
     }
 
@@ -51,7 +54,6 @@ class WithdrawalQueryServiceImplTest {
         WithdrawalHistoryDTO completed = history(2L, "900");
         WithdrawalHistoryDTO failed = history(1L, "800");
         failed.setStatus(WithdrawalStatus.FAILED);
-        failed.setFailureReason("계좌 잔액보다 많은 금액을 인출할 수 없습니다.");
         when(withdrawalMapper.selectWithdrawalHistoriesByAccountId(1L))
                 .thenReturn(List.of(completed, failed));
 
@@ -61,7 +63,6 @@ class WithdrawalQueryServiceImplTest {
         assertThat(result)
                 .extracting(WithdrawalListResponseDTO::getStatus)
                 .containsExactly(WithdrawalStatus.COMPLETED, WithdrawalStatus.FAILED);
-        assertThat(result.get(1).getFailureReason()).isEqualTo("계좌 잔액보다 많은 금액을 인출할 수 없습니다.");
         verify(withdrawalMapper).selectWithdrawalHistoriesByAccountId(1L);
     }
 
@@ -88,6 +89,9 @@ class WithdrawalQueryServiceImplTest {
         WithdrawalDetailResponseDTO result = withdrawalQueryService.getWithdrawal(1L);
 
         assertThat(result.isEarlyWithdrawal()).isTrue();
+        assertThat(result.getAllocationCount()).isEqualTo(4);
+        assertThat(result.getNormalAllocationCount()).isEqualTo(3);
+        assertThat(result.getEarlyAllocationCount()).isEqualTo(1);
         assertThat(result.getAllocations())
                 .singleElement()
                 .satisfies(
@@ -125,6 +129,9 @@ class WithdrawalQueryServiceImplTest {
                 .earningsAmount(new BigDecimal("100"))
                 .maturedPrincipalAmount(new BigDecimal("300"))
                 .immaturePrincipalAmount(new BigDecimal("400"))
+                .allocationCount(4)
+                .normalAllocationCount(3)
+                .earlyAllocationCount(1)
                 .build();
     }
 }
