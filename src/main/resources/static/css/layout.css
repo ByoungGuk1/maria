@@ -112,7 +112,7 @@ a {
 .card {
     background: var(--cardBg);
     border: 1px solid var(--cardBorder);
-    border-radius: 6px;
+    border-radius: 3px;
 }
 
 .btn {
