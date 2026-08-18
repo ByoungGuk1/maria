@@ -10,7 +10,9 @@
     </th:block>
 </head>
 <body>
-<div layout:fragment="breadcrumb">인출 관리</div>
+<a layout:fragment="breadcrumb"
+   class="breadcrumb-current withdrawal-breadcrumb-link"
+   th:href="@{/admin/withdrawals}">인출 관리</a>
 
 <div layout:fragment="content" class="withdrawals-page">
     <div class="withdrawal-page-header">
@@ -99,7 +101,11 @@
                             <h3>납입건별 인출 배분</h3>
                             <p>원금 배분 건은 확정 시각부터 인출 시각까지의 의무유지기간 진행률을 표시합니다.</p>
                         </div>
-                        <span id="withdrawal-allocation-count">총 0건</span>
+                        <div class="allocation-navigation">
+                            <button type="button" id="previous-allocation" aria-label="이전 배분">&lt;</button>
+                            <span id="withdrawal-allocation-count">0 / 0</span>
+                            <button type="button" id="next-allocation" aria-label="다음 배분">&gt;</button>
+                        </div>
                     </div>
                     <div id="withdrawal-allocations" class="withdrawal-allocations"></div>
                 </section>

@@ -88,6 +88,8 @@ class WithdrawalApiTest {
                         .type(WithdrawalType.IMMATURE_PRINCIPAL_INCLUDED)
                         .finalAt(LocalDateTime.of(2026, 1, 1, 9, 0))
                         .maturityAt(LocalDateTime.of(2027, 1, 1, 9, 0))
+                        .productName("Apple")
+                        .ticker("AAPL")
                         .build();
         WithdrawalDetailResponseDTO response =
                 WithdrawalDetailResponseDTO.builder()
@@ -106,6 +108,8 @@ class WithdrawalApiTest {
                 .andExpect(
                         jsonPath("$.data.allocations[0].type").value("IMMATURE_PRINCIPAL_INCLUDED"))
                 .andExpect(jsonPath("$.data.allocations[0].finalAt").value("2026-01-01T09:00:00"))
+                .andExpect(jsonPath("$.data.allocations[0].productName").value("Apple"))
+                .andExpect(jsonPath("$.data.allocations[0].ticker").value("AAPL"))
                 .andExpect(
                         jsonPath("$.data.allocations[0].maturityAt").value("2027-01-01T09:00:00"));
     }

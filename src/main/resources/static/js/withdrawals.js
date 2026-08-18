@@ -22,6 +22,8 @@ $(function () {
     var completedWithdrawals = [];
     var selectedWithdrawalId = null;
     var currentPage = 1;
+    var detailAllocations = [];
+    var currentAllocationIndex = 0;
 
     function escapeHtml(value) {
         return $("<div>").text(value == null ? "" : value).html();
@@ -132,38 +134,50 @@ $(function () {
         return Math.round(Math.max(0, Math.min(1, (withdrawalAt - finalAt) / total)) * 100);
     }
 
-    function renderAllocations(allocations) {
+    function renderAllocations() {
         var $container = $("#withdrawal-allocations").empty();
-        $("#withdrawal-allocation-count").text("총 " + allocations.length + "건");
+        var allocationCount = detailAllocations.length;
+        $("#withdrawal-allocation-count").text(
+            allocationCount ? (currentAllocationIndex + 1) + " / " + allocationCount : "0 / 0"
+        );
+        $("#previous-allocation").prop("disabled", currentAllocationIndex === 0);
+        $("#next-allocation").prop(
+            "disabled",
+            !allocationCount || currentAllocationIndex === allocationCount - 1
+        );
 
-        if (!allocations.length) {
+        if (!allocationCount) {
             $container.append('<div class="withdrawal-empty">저장된 배분 내역이 없습니다.</div>');
             return;
         }
 
-        allocations.forEach(function (allocation, index) {
-            var progress = calculateProgress(allocation);
-            var isEarnings = allocation.type === "EARNINGS_ONLY";
-            var progressMarkup = isEarnings || progress == null
-                ? '<div class="retention-not-applicable">' +
-                    (isEarnings ? "수익금은 의무유지기간 비대상" : "의무유지기간 정보 없음") +
-                    '</div>'
-                : '<div class="retention-dates"><span>' + escapeHtml(formatDateTime(allocation.finalAt)) +
-                    '</span><span>1년 경과일 ' + escapeHtml(formatDateTime(allocation.maturityAt)) + '</span></div>' +
-                    '<div class="retention-progress"><span style="width:' + progress + '%"></span></div>' +
-                    '<div class="retention-progress-label">인출 시점 기준 ' + progress + '% 경과</div>';
+        var allocation = detailAllocations[currentAllocationIndex];
+        var progress = calculateProgress(allocation);
+        var isEarnings = allocation.type === "EARNINGS_ONLY";
+        var allocationTitle = isEarnings
+            ? "수익금 배분"
+            : (allocation.productName
+                ? allocation.productName + (allocation.ticker ? " (" + allocation.ticker + ")" : "")
+                : "종목 정보 없음");
+        var progressMarkup = isEarnings || progress == null
+            ? '<div class="retention-not-applicable">' +
+                (isEarnings ? "수익금은 의무유지기간 비대상" : "의무유지기간 정보 없음") +
+                '</div>'
+            : '<div class="retention-dates"><span>' + escapeHtml(formatDateTime(allocation.finalAt)) +
+                '</span><span>1년 경과일 ' + escapeHtml(formatDateTime(allocation.maturityAt)) + '</span></div>' +
+                '<div class="retention-progress"><span style="width:' + progress + '%"></span></div>' +
+                '<div class="retention-progress-label">인출 시점 기준 ' + progress + '% 경과</div>';
 
-            $container.append(
-                '<article class="withdrawal-allocation-item ' + statusClass(allocation.type) + '">' +
-                '<div class="allocation-item-header"><div><span>배분 ' + (index + 1) + '</span>' +
-                '<strong>' + escapeHtml(TYPE_LABEL[allocation.type] || allocation.type) + '</strong></div>' +
-                '<strong>' + escapeHtml(formatAmount(allocation.allocatedAmount)) + '</strong></div>' +
-                '<div class="allocation-meta"><span>환전건 ' +
-                escapeHtml(allocation.exchangeId == null ? "해당 없음" : "#" + allocation.exchangeId) +
-                '</span><span>인출 ' + escapeHtml(formatDateTime(allocation.withdrawalAt)) + '</span></div>' +
-                progressMarkup + '</article>'
-            );
-        });
+        $container.append(
+            '<article class="withdrawal-allocation-item ' + statusClass(allocation.type) + '">' +
+            '<div class="allocation-item-header"><div><span>' + escapeHtml(allocationTitle) + '</span>' +
+            '<strong>' + escapeHtml(TYPE_LABEL[allocation.type] || allocation.type) + '</strong></div>' +
+            '<strong>' + escapeHtml(formatAmount(allocation.allocatedAmount)) + '</strong></div>' +
+            '<div class="allocation-meta"><span>환전건 ' +
+            escapeHtml(allocation.exchangeId == null ? "해당 없음" : "#" + allocation.exchangeId) +
+            '</span><span>인출 ' + escapeHtml(formatDateTime(allocation.withdrawalAt)) + '</span></div>' +
+            progressMarkup + '</article>'
+        );
     }
 
     function renderDetail(withdrawal) {
@@ -185,7 +199,9 @@ $(function () {
             .attr("class", "withdrawal-status-badge " + statusClass(withdrawal.status))
             .text(statusLabel(withdrawal.status));
         $("#withdrawal-early-warning").prop("hidden", !withdrawal.earlyWithdrawal);
-        renderAllocations(withdrawal.allocations || []);
+        detailAllocations = withdrawal.allocations || [];
+        currentAllocationIndex = 0;
+        renderAllocations();
         renderList();
     }
 
@@ -268,6 +284,18 @@ $(function () {
         if (currentPage < Math.ceil(withdrawals.length / PAGE_SIZE)) {
             currentPage += 1;
             selectFirstWithdrawalOnCurrentPage();
+        }
+    });
+    $("#previous-allocation").on("click", function () {
+        if (currentAllocationIndex > 0) {
+            currentAllocationIndex -= 1;
+            renderAllocations();
+        }
+    });
+    $("#next-allocation").on("click", function () {
+        if (currentAllocationIndex < detailAllocations.length - 1) {
+            currentAllocationIndex += 1;
+            renderAllocations();
         }
     });
 
