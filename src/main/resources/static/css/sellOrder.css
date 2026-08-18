@@ -17,12 +17,6 @@
     color: var(--textPrimary);
 }
 
-.sellorder-page-description {
-    margin: 4px 0 0;
-    font: 400 12px 'Noto Sans KR', sans-serif;
-    color: var(--textMuted);
-}
-
 .sellorder-search-card,
 .sellorder-detail,
 .sellorder-form-card,

@@ -3,7 +3,6 @@
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layout/main}">
 <head>
-    <title>매도 · 환전 - MARIA</title>
     <th:block layout:fragment="pageStyles">
         <link rel="stylesheet" th:href="@{/css/sellOrder.css}">
     </th:block>
@@ -15,15 +14,14 @@
     <div class="sellorder-header">
         <div>
             <h1 class="sellorder-page-title">매도 · 환전</h1>
-            <p class="sellorder-page-description">계좌를 검색해 보유종목을 조회하고 매도 주문을 접수합니다.</p>
         </div>
     </div>
 
     <section class="card sellorder-search-card">
         <div class="section-header">계좌 검색</div>
         <form id="accountSearchForm" class="sellorder-search-form" novalidate>
-            <label>계좌번호<input id="searchAccountNo" type="text" placeholder="계좌번호" autocomplete="off"></label>
-            <label>고객명<input id="searchCustomerName" type="text" placeholder="고객명" autocomplete="off"></label>
+            <input id="searchAccountNo" type="text" placeholder="계좌번호" autocomplete="off">
+            <input id="searchCustomerName" type="text" placeholder="고객명" autocomplete="off">
             <button class="btn btn-primary" type="submit">검색</button>
         </form>
         <p id="searchError" class="sellorder-form-error" style="display:none"></p>
