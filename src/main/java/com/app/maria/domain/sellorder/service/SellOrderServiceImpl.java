@@ -187,7 +187,12 @@ public class SellOrderServiceImpl implements SellOrderService {
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<SellOrderHistoryDTO> getSellOrderHistory(
-            String keyword, SellOrderStatus status, LocalDate startDate, LocalDate endDate, int page, int size) {
+            String keyword,
+            SellOrderStatus status,
+            LocalDate startDate,
+            LocalDate endDate,
+            int page,
+            int size) {
         int offset = page * size;
         String statusName = status == null ? null : status.name();
         LocalDateTime startDateTime = startDate == null ? null : startDate.atStartOfDay();
@@ -197,7 +202,8 @@ public class SellOrderServiceImpl implements SellOrderService {
                 sellOrderMapper.selectSellOrderHistory(
                         keyword, statusName, startDateTime, endDateTime, offset, size);
         int totalCount =
-                sellOrderMapper.countSellOrderHistory(keyword, statusName, startDateTime, endDateTime);
+                sellOrderMapper.countSellOrderHistory(
+                        keyword, statusName, startDateTime, endDateTime);
         return PageResponseDTO.of(content, totalCount, page, size);
     }
 }
