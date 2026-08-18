@@ -25,6 +25,21 @@
     margin-top: 10px;
 }
 
+.sellorder-filter-date-label {
+    color: var(--textMuted);
+    font: 500 12px 'Noto Sans KR', sans-serif;
+    white-space: nowrap;
+}
+
+.sellorder-filter-date {
+    flex: none;
+    width: 150px;
+}
+
+.sellorder-filter-date-separator {
+    color: var(--textMuted);
+}
+
 .sellorder-form-error {
     margin: 10px 0 0;
     color: var(--danger);

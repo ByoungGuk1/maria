@@ -49,13 +49,21 @@ $(function () {
 
     function buildFilterParams() {
         var params = { page: currentPage, size: PAGE_SIZE };
-        var accountNo = $("#sellOrderFilterAccountNo").val().trim();
-        var customerName = $("#sellOrderFilterCustomerName").val().trim();
-        if (accountNo) {
-            params.accountNo = accountNo;
+        var keyword = $("#sellOrderFilterKeyword").val().trim();
+        var status = $("#sellOrderFilterStatus").val();
+        var startDate = $("#sellOrderFilterStartDate").val();
+        var endDate = $("#sellOrderFilterEndDate").val();
+        if (keyword) {
+            params.keyword = keyword;
         }
-        if (customerName) {
-            params.customerName = customerName;
+        if (status) {
+            params.status = status;
+        }
+        if (startDate) {
+            params.startDate = startDate;
+        }
+        if (endDate) {
+            params.endDate = endDate;
         }
         return params;
     }
@@ -150,16 +158,23 @@ $(function () {
         loadSellOrders();
     });
 
-    $("#sellOrderFilterAccountNo, #sellOrderFilterCustomerName").on("keydown", function (event) {
+    $("#sellOrderFilterKeyword").on("keydown", function (event) {
         if (event.key === "Enter") {
             currentPage = 0;
             loadSellOrders();
         }
     });
 
+    $("#sellOrderFilterStatus").on("change", function () {
+        currentPage = 0;
+        loadSellOrders();
+    });
+
     $("#sellOrderFilterReset").on("click", function () {
-        $("#sellOrderFilterAccountNo").val("");
-        $("#sellOrderFilterCustomerName").val("");
+        $("#sellOrderFilterKeyword").val("");
+        $("#sellOrderFilterStatus").val("");
+        $("#sellOrderFilterStartDate").val("");
+        $("#sellOrderFilterEndDate").val("");
         currentPage = 0;
         loadSellOrders();
     });

@@ -24,8 +24,17 @@
             <span class="section-sub" id="sellOrderCount">0건</span>
         </div>
         <div class="filter-bar sellorder-filter-bar">
-            <input id="sellOrderFilterAccountNo" class="filter-input" type="text" placeholder="계좌번호" autocomplete="off">
-            <input id="sellOrderFilterCustomerName" class="filter-input" type="text" placeholder="고객명" autocomplete="off">
+            <select id="sellOrderFilterStatus" class="filter-select">
+                <option value="">전체 상태</option>
+                <option value="RECEIVED">접수</option>
+                <option value="EXECUTED">체결</option>
+                <option value="REJECTED">거부</option>
+            </select>
+            <label class="sellorder-filter-date-label" for="sellOrderFilterStartDate">매도시각</label>
+            <input id="sellOrderFilterStartDate" class="filter-input sellorder-filter-date" type="date">
+            <span class="sellorder-filter-date-separator">~</span>
+            <input id="sellOrderFilterEndDate" class="filter-input sellorder-filter-date" type="date">
+            <input id="sellOrderFilterKeyword" class="filter-input" type="text" placeholder="계좌번호 또는 고객명" autocomplete="off">
             <button type="button" id="sellOrderFilterSearch" class="btn btn-primary">검색</button>
             <button type="button" id="sellOrderFilterReset" class="btn">초기화</button>
         </div>
