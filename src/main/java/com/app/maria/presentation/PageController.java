@@ -64,4 +64,10 @@ public class PageController {
         model.addAttribute("activePath", "/admin/admin-users");
         return "admin-users";
     }
+
+    @GetMapping("/admin/tax")
+    public String tax(Model model) {
+        model.addAttribute("activePath", "/admin/tax");
+        return "tax-calculation";
+    }
 }
