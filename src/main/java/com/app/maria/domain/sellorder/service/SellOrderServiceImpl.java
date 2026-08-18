@@ -194,9 +194,7 @@ public class SellOrderServiceImpl implements SellOrderService {
         LocalDate today = businessClockService.now().toLocalDate();
         LocalDate yesterday = today.minusDays(1);
 
-        BigDecimal todaySellAmount =
-                sellOrderMapper.sumSellAmountBetween(
-                        today.atStartOfDay(), today.plusDays(1).atStartOfDay());
+        BigDecimal todaySellAmount = getTodaySellAmount();
         BigDecimal yesterdaySellAmount =
                 sellOrderMapper.sumSellAmountBetween(yesterday.atStartOfDay(), today.atStartOfDay());
 

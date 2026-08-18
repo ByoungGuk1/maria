@@ -158,9 +158,9 @@
 }
 
 .kpi-change.up {
-    color: var(--success);
+    color: var(--danger);
 }
 
 .kpi-change.down {
-    color: var(--danger);
+    color: var(--accent);
 }
