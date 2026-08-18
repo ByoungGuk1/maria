@@ -1,9 +1,8 @@
 package com.app.maria.domain.sellorder.dto;
 
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import lombok.*;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -23,5 +22,4 @@ public class SellOrderHistoryDTO {
     private BigDecimal provisionalAmount;
     private BigDecimal finalAmount;
     private String status;
-
 }

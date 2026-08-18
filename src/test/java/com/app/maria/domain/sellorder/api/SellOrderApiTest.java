@@ -371,8 +371,7 @@ class SellOrderApiTest {
                         .name("Apple Inc.")
                         .status("EXECUTED")
                         .build();
-        PageResponseDTO<SellOrderHistoryDTO> page =
-                PageResponseDTO.of(List.of(history), 1, 0, 20);
+        PageResponseDTO<SellOrderHistoryDTO> page = PageResponseDTO.of(List.of(history), 1, 0, 20);
         when(sellOrderService.getSellOrderHistory(null, null, 0, 20)).thenReturn(page);
 
         mockMvc.perform(get("/api/sell-orders/history"))
@@ -437,8 +436,7 @@ class SellOrderApiTest {
     @Test
     @DisplayName("전체 매도·환전 내역 조회 시 인증되지 않은 요청이면 401을 반환한다")
     void getSellOrderHistoryReturns401WhenNotAuthenticated() throws Exception {
-        mockMvc.perform(get("/api/sell-orders/history"))
-                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/sell-orders/history")).andExpect(status().isUnauthorized());
 
         verify(sellOrderService, never()).getSellOrderHistory(any(), any(), anyInt(), anyInt());
     }

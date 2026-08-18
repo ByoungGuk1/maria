@@ -10,6 +10,7 @@ import com.app.maria.global.response.PageResponseDTO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,8 +18,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -63,18 +62,19 @@ public class SellOrderApi {
     }
 
     @GetMapping("/history")
-    public ResponseEntity<ApiResponseDTO<PageResponseDTO<SellOrderHistoryResponseDTO>>> getSellOrderHistory(
-            @RequestParam(required = false) String accountNo,
-            @RequestParam(required = false) String customerName,
-            @RequestParam(defaultValue = "0") @PositiveOrZero int page,
-            @RequestParam(defaultValue = "20") @Positive int size) {
+    public ResponseEntity<ApiResponseDTO<PageResponseDTO<SellOrderHistoryResponseDTO>>>
+            getSellOrderHistory(
+                    @RequestParam(required = false) String accountNo,
+                    @RequestParam(required = false) String customerName,
+                    @RequestParam(defaultValue = "0") @PositiveOrZero int page,
+                    @RequestParam(defaultValue = "20") @Positive int size) {
         PageResponseDTO<SellOrderHistoryDTO> result =
                 sellOrderService.getSellOrderHistory(accountNo, customerName, page, size);
         List<SellOrderHistoryResponseDTO> content =
                 result.getContent().stream().map(SellOrderHistoryResponseDTO::new).toList();
         PageResponseDTO<SellOrderHistoryResponseDTO> response =
-                PageResponseDTO.of(content, result.getTotalCount(), result.getPage(), result.getSize());
+                PageResponseDTO.of(
+                        content, result.getTotalCount(), result.getPage(), result.getSize());
         return ResponseEntity.ok(ApiResponseDTO.of("매도 · 환전 내역 조회 성공", response));
     }
-
 }
