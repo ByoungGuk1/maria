@@ -39,8 +39,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     @Override
-    public List<AccountBenefitStatDTO> getAccountBenefitStats(
-            StatisticsFilterRequestDTO request) {
+    public List<AccountBenefitStatDTO> getAccountBenefitStats(StatisticsFilterRequestDTO request) {
         return statisticsMapper.selectAccountBenefitStats(buildFilter(request));
     }
 

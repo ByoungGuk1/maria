@@ -11,7 +11,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.app.maria.domain.statistics.dto.AccountBenefitStatDTO;
 import com.app.maria.domain.statistics.dto.AgeInvestmentStatDTO;
 import com.app.maria.domain.statistics.dto.FxExchangeStatDTO;
-import com.app.maria.domain.statistics.dto.ProductPurchaseStatDTO;
 import com.app.maria.domain.statistics.dto.ReliefRateStatDTO;
 import com.app.maria.domain.statistics.service.StatisticsService;
 import com.app.maria.global.config.SecurityConfig;
@@ -78,7 +77,8 @@ class StatisticsApiTest {
                                         "홍길동".equals(r.getKeyword())
                                                 && "삼성전자".equals(r.getProductName())
                                                 && LocalDate.of(2026, 8, 1).equals(r.getStartDate())
-                                                && LocalDate.of(2026, 8, 10).equals(r.getEndDate())));
+                                                && LocalDate.of(2026, 8, 10)
+                                                        .equals(r.getEndDate())));
     }
 
     @Test
