@@ -9,18 +9,21 @@ $(function () {
     };
     var PRODUCT_PIE_TOP_N = 5;
 
-    function cssVar(name) {
-        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    var CHART_FONT = "'Noto Sans KR', sans-serif";
+    Chart.defaults.font.family = CHART_FONT;
+
+    var gridColor, tickColor, legendColor, cardBg;
+
+    function refreshThemeColors() {
+        var isDark = document.documentElement.getAttribute("data-theme") === "dark";
+        gridColor = isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.08)";
+        tickColor = isDark ? "#e8eaed" : "#64748b";
+        legendColor = isDark ? "#e8eaed" : "#45484d";
+        cardBg = isDark ? "#1f2430" : "#ffffff";
+        Chart.defaults.color = legendColor;
     }
 
-    var CHART_FONT = "'Noto Sans KR', sans-serif";
-    var gridColor = cssVar("--cardBorder") || "rgba(0,0,0,0.08)";
-    var tickColor = cssVar("--textMuted") || "#94a3b8";
-    var legendColor = cssVar("--textSecondary") || "#45484d";
-    var cardBg = cssVar("--cardBg") || "#ffffff";
-
-    Chart.defaults.font.family = CHART_FONT;
-    Chart.defaults.color = legendColor;
+    refreshThemeColors();
 
     var charts = {};
 
@@ -84,8 +87,7 @@ $(function () {
                 datasets: [{
                     data: data,
                     backgroundColor: labels.map(function (_, i) { return CHART_COLORS[i % CHART_COLORS.length]; }),
-                    borderColor: cardBg,
-                    borderWidth: 2,
+                    borderWidth: 0,
                     hoverOffset: 6
                 }]
             },
@@ -311,6 +313,11 @@ $(function () {
         $("#statFilterProductName").val("");
         $("#statFilterStartDate").val("");
         $("#statFilterEndDate").val("");
+        loadAll();
+    });
+
+    $(document).on("maria:themeChange", function () {
+        refreshThemeColors();
         loadAll();
     });
 
