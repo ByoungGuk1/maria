@@ -24,11 +24,16 @@ public interface SellOrderMapper {
     BigDecimal sumSellAmountBetween(LocalDateTime start, LocalDateTime end);
 
     List<SellOrderHistoryDTO> selectSellOrderHistory(
-            @Param("accountNo") String accountNo,
-            @Param("customerName") String customerName,
+            @Param("keyword") String keyword,
+            @Param("status") String status,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
             @Param("offset") int offset,
             @Param("size") int size);
 
     int countSellOrderHistory(
-            @Param("accountNo") String accountNo, @Param("customerName") String customerName);
+            @Param("keyword") String keyword,
+            @Param("status") String status,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
 }

@@ -5,12 +5,15 @@ import com.app.maria.domain.sellorder.dto.request.SellOrderRequestDTO;
 import com.app.maria.domain.sellorder.dto.response.SellOrderHistoryResponseDTO;
 import com.app.maria.domain.sellorder.dto.response.SellOrderResponseDTO;
 import com.app.maria.domain.sellorder.service.SellOrderService;
+import com.app.maria.domain.sellorder.type.SellOrderStatus;
 import com.app.maria.global.response.ApiResponseDTO;
 import com.app.maria.global.response.PageResponseDTO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
+import java.time.LocalDate;
 import java.util.List;
+import org.springframework.format.annotation.DateTimeFormat;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -64,12 +67,17 @@ public class SellOrderApi {
     @GetMapping("/history")
     public ResponseEntity<ApiResponseDTO<PageResponseDTO<SellOrderHistoryResponseDTO>>>
             getSellOrderHistory(
-                    @RequestParam(required = false) String accountNo,
-                    @RequestParam(required = false) String customerName,
+                    @RequestParam(required = false) String keyword,
+                    @RequestParam(required = false) SellOrderStatus status,
+                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                            LocalDate startDate,
+                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                            LocalDate endDate,
                     @RequestParam(defaultValue = "0") @PositiveOrZero int page,
                     @RequestParam(defaultValue = "20") @Positive int size) {
         PageResponseDTO<SellOrderHistoryDTO> result =
-                sellOrderService.getSellOrderHistory(accountNo, customerName, page, size);
+                sellOrderService.getSellOrderHistory(
+                        keyword, status, startDate, endDate, page, size);
         List<SellOrderHistoryResponseDTO> content =
                 result.getContent().stream().map(SellOrderHistoryResponseDTO::new).toList();
         PageResponseDTO<SellOrderHistoryResponseDTO> response =

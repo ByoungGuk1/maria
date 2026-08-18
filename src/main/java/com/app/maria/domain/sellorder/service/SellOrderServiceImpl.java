@@ -22,6 +22,7 @@ import com.app.maria.global.client.kis.KisPriceClient;
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.response.PageResponseDTO;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -186,11 +187,17 @@ public class SellOrderServiceImpl implements SellOrderService {
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<SellOrderHistoryDTO> getSellOrderHistory(
-            String accountNo, String customerName, int page, int size) {
+            String keyword, SellOrderStatus status, LocalDate startDate, LocalDate endDate, int page, int size) {
         int offset = page * size;
+        String statusName = status == null ? null : status.name();
+        LocalDateTime startDateTime = startDate == null ? null : startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate == null ? null : endDate.atTime(23, 59, 59);
+
         List<SellOrderHistoryDTO> content =
-                sellOrderMapper.selectSellOrderHistory(accountNo, customerName, offset, size);
-        int totalCount = sellOrderMapper.countSellOrderHistory(accountNo, customerName);
+                sellOrderMapper.selectSellOrderHistory(
+                        keyword, statusName, startDateTime, endDateTime, offset, size);
+        int totalCount =
+                sellOrderMapper.countSellOrderHistory(keyword, statusName, startDateTime, endDateTime);
         return PageResponseDTO.of(content, totalCount, page, size);
     }
 }

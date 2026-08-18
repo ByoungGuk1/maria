@@ -20,6 +20,7 @@ import com.app.maria.global.jwt.JwtTokenProvider;
 import com.app.maria.global.response.PageResponseDTO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -372,7 +373,7 @@ class SellOrderApiTest {
                         .status("EXECUTED")
                         .build();
         PageResponseDTO<SellOrderHistoryDTO> page = PageResponseDTO.of(List.of(history), 1, 0, 20);
-        when(sellOrderService.getSellOrderHistory(null, null, 0, 20)).thenReturn(page);
+        when(sellOrderService.getSellOrderHistory(null, null, null, null, 0, 20)).thenReturn(page);
 
         mockMvc.perform(get("/api/sell-orders/history"))
                 .andExpect(status().isOk())
@@ -383,28 +384,43 @@ class SellOrderApiTest {
     }
 
     @Test
-    @DisplayName("계좌번호/고객명/페이지 파라미터를 그대로 서비스에 전달한다")
+    @DisplayName("keyword/상태/날짜범위/페이지 파라미터를 그대로 서비스에 전달한다")
     @WithMockUser(roles = "VIEWER")
     void getSellOrderHistoryPassesQueryParamsToService() throws Exception {
-        when(sellOrderService.getSellOrderHistory("1234567890", "홍길동", 2, 10))
+        when(sellOrderService.getSellOrderHistory(
+                        "1234567890",
+                        SellOrderStatus.EXECUTED,
+                        LocalDate.of(2026, 8, 1),
+                        LocalDate.of(2026, 8, 10),
+                        2,
+                        10))
                 .thenReturn(PageResponseDTO.of(List.of(), 0, 2, 10));
 
         mockMvc.perform(
                         get("/api/sell-orders/history")
-                                .param("accountNo", "1234567890")
-                                .param("customerName", "홍길동")
+                                .param("keyword", "1234567890")
+                                .param("status", "EXECUTED")
+                                .param("startDate", "2026-08-01")
+                                .param("endDate", "2026-08-10")
                                 .param("page", "2")
                                 .param("size", "10"))
                 .andExpect(status().isOk());
 
-        verify(sellOrderService).getSellOrderHistory("1234567890", "홍길동", 2, 10);
+        verify(sellOrderService)
+                .getSellOrderHistory(
+                        "1234567890",
+                        SellOrderStatus.EXECUTED,
+                        LocalDate.of(2026, 8, 1),
+                        LocalDate.of(2026, 8, 10),
+                        2,
+                        10);
     }
 
     @Test
     @DisplayName("매도·환전 내역이 없으면 빈 목록을 반환한다")
     @WithMockUser(roles = "VIEWER")
     void getSellOrderHistoryReturns200WithEmptyContentWhenNoOrdersExist() throws Exception {
-        when(sellOrderService.getSellOrderHistory(null, null, 0, 20))
+        when(sellOrderService.getSellOrderHistory(null, null, null, null, 0, 20))
                 .thenReturn(PageResponseDTO.of(List.of(), 0, 0, 20));
 
         mockMvc.perform(get("/api/sell-orders/history"))
@@ -420,7 +436,8 @@ class SellOrderApiTest {
         mockMvc.perform(get("/api/sell-orders/history").param("page", "-1"))
                 .andExpect(status().isBadRequest());
 
-        verify(sellOrderService, never()).getSellOrderHistory(any(), any(), anyInt(), anyInt());
+        verify(sellOrderService, never())
+                .getSellOrderHistory(any(), any(), any(), any(), anyInt(), anyInt());
     }
 
     @Test
@@ -430,7 +447,8 @@ class SellOrderApiTest {
         mockMvc.perform(get("/api/sell-orders/history").param("size", "0"))
                 .andExpect(status().isBadRequest());
 
-        verify(sellOrderService, never()).getSellOrderHistory(any(), any(), anyInt(), anyInt());
+        verify(sellOrderService, never())
+                .getSellOrderHistory(any(), any(), any(), any(), anyInt(), anyInt());
     }
 
     @Test
@@ -438,6 +456,7 @@ class SellOrderApiTest {
     void getSellOrderHistoryReturns401WhenNotAuthenticated() throws Exception {
         mockMvc.perform(get("/api/sell-orders/history")).andExpect(status().isUnauthorized());
 
-        verify(sellOrderService, never()).getSellOrderHistory(any(), any(), anyInt(), anyInt());
+        verify(sellOrderService, never())
+                .getSellOrderHistory(any(), any(), any(), any(), anyInt(), anyInt());
     }
 }
