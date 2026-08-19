@@ -1,6 +1,8 @@
 package com.app.maria.domain.domestic.dto;
 
 import com.app.maria.domain.domestic.type.DomesticStockStatus;
+import java.time.LocalDate;
+import java.util.List;
 import lombok.*;
 
 @AllArgsConstructor
@@ -10,8 +12,12 @@ import lombok.*;
 @ToString
 @Builder
 public class DomesticInvestmentSearchDTO {
-    private String customerName;
+    private String keyword;
     private DomesticStockStatus status;
+    private Boolean hasRestrictedHolding;
+    private List<Long> unpurchasableAccountIds;
+    private Boolean hasRecentBuy;
+    private LocalDate recentBuySinceDate;
     private int offset;
     private int size;
 }
