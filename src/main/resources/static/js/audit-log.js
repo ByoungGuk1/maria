@@ -237,5 +237,25 @@ $(function () {
         loadAuditLogs();
     });
 
+    $("#previousAuditLogPage").on("click", function () {
+        if (currentPage > 0) {
+            currentPage -= 1;
+            loadAuditLogs();
+        }
+    });
+
+    $("#nextAuditLogPage").on("click", function () {
+        var totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+        if (currentPage < totalPages - 1) {
+            currentPage += 1;
+            loadAuditLogs();
+        }
+    });
+
+    $(document).on("maria:system-clock-changed", function () {
+        currentPage = 0;
+        loadAuditLogs();
+    });
+
     loadAuditLogs();
 });
