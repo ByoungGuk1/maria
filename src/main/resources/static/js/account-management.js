@@ -12,6 +12,7 @@ $(function () {
     });
     var TIME_FORMATTER = new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: true });
     var accounts = [];
+    var accountStatus = "";
     var selectedAccountId = null;
     var currentPage = 1;
     var PAGE_SIZE = 10;
@@ -294,7 +295,7 @@ $(function () {
         var customerId = ($("#accountCustomerIdSearch").val() || "").trim();
         var customerName = ($("#accountCustomerNameSearch").val() || "").trim().toLowerCase();
         var accountNo = ($("#accountNoSearch").val() || "").trim().toLowerCase();
-        var status = $("#accountStatusFilter").val();
+        var status = accountStatus;
         return accounts.filter(function (account) {
             var matchesStatus = !status || account.status === status;
             var matchesCustomerId = !customerId || String(account.customerId || "") === customerId;
@@ -342,9 +343,9 @@ $(function () {
         function addPageButton(label, page, disabled, active) {
             $("<button>", {
                 type: "button",
-                class: "account-page-button" + (active ? " is-active" : ""),
+                class: "page-btn" + (active ? " active" : ""),
                 text: label,
-                disabled: disabled
+                disabled: disabled || active
             }).data("page", page).appendTo($pagination);
         }
         addPageButton("이전", Math.max(1, blockStart - 1), blockStart === 1, false);
@@ -360,7 +361,9 @@ $(function () {
             $("#accountDetail").hide();
             return;
         }
-        $("#accountDetailModal").css("display", "flex");
+        $("#accountDetailModal").addClass("is-open").attr("aria-hidden", "false");
+        $("#accountDetailBackdrop").prop("hidden", false);
+        $("#accountDetail").show();
         $("body").addClass("account-modal-open");
         $("#detailAccountNo").html(MARIA.fmt.accountNoHtml(account.accountNo));
         $("#detailCustomerId").text(account.customerId || "-");
@@ -413,7 +416,8 @@ $(function () {
     }
 
     function closeAccountDetail() {
-        $("#accountDetailModal").hide();
+        $("#accountDetailModal").removeClass("is-open").attr("aria-hidden", "true");
+        $("#accountDetailBackdrop").prop("hidden", true);
         $("body").removeClass("account-modal-open");
     }
 
@@ -577,30 +581,33 @@ $(function () {
     }
 
     $(document).on("click", ".account-row", function () { selectAccount($(this).data("account-id")); });
-    $(document).on("click", ".account-page-button", function () {
+    $(document).on("click", "#accountPagination .page-btn", function () {
         if (this.disabled) return;
         currentPage = Number($(this).data("page"));
         renderAccounts();
     });
     $(document).on("click", ".account-summary-card", function () {
         var status = $(this).data("status") || "";
-        $("#accountStatusFilter").val(status);
+        accountStatus = status;
         $(".account-summary-card").removeClass("is-active");
         $(this).addClass("is-active");
         currentPage = 1;
         renderAccounts();
     });
     $(document).on("input", ".account-currency-input", function () { formatLimitInput(this); });
-    $("#accountCustomerIdSearch, #accountCustomerNameSearch, #accountNoSearch, #accountStatusFilter").on("input change", function () {
+    $("#accountCustomerIdSearch, #accountCustomerNameSearch, #accountNoSearch").on("input", function () {
         currentPage = 1;
-        var status = $("#accountStatusFilter").val();
-        $(".account-summary-card").removeClass("is-active").filter('[data-status="' + status + '"]').addClass("is-active");
         renderAccounts();
     });
     $("#accountTrendStatusFilter").on("change", function () {
         renderApplicationTrend();
     });
-    $("#closeAccountDetail, #accountDetailModal > .account-modal-backdrop").on("click", closeAccountDetail);
+    $("#closeAccountDetail, #accountDetailBackdrop").on("click", closeAccountDetail);
+    $(document).on("keydown", function (event) {
+        if (event.key === "Escape" && $("#accountDetailModal").hasClass("is-open")) {
+            closeAccountDetail();
+        }
+    });
     $("#createCustomerName").on("input", function () {
         var name = $(this).val().trim();
         clearSelectedCustomer();
