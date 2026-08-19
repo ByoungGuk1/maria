@@ -314,8 +314,9 @@
 .sellorder-summary-box {
     min-height: 58px;
     padding: 9px 11px;
-    border: 1px solid var(--cardBorder);
+    border: 1px solid var(--accent);
     border-radius: 4px;
+    background: var(--accentBg);
 }
 
 .sellorder-summary-box span {
