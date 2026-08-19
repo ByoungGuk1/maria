@@ -594,6 +594,11 @@ $(function () {
         currentPage = 1;
         renderAccounts();
     });
+    $(document).on("click", ".account-detail-link-btn", function () {
+        var account = getSelectedAccount();
+        if (!account || !account.accountNo) return;
+        window.location.href = $(this).data("target") + "?accountNo=" + encodeURIComponent(account.accountNo);
+    });
     $(document).on("input", ".account-currency-input", function () { formatLimitInput(this); });
     $("#accountCustomerIdSearch, #accountCustomerNameSearch, #accountNoSearch").on("input", function () {
         currentPage = 1;

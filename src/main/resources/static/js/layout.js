@@ -3,6 +3,10 @@
  * layout/main.html을 쓰는 모든 페이지에서 공통으로 로드된다.
  */
 MARIA.ui = MARIA.ui || {};
+MARIA.deeplink = MARIA.deeplink || {};
+MARIA.deeplink.accountNoFromUrl = function () {
+    return new URLSearchParams(window.location.search).get("accountNo");
+};
 
 // 계좌번호 = 회사코드(3자리) + 고유번호(7자리). DB/lookup용 값은 항상 순수 10자리 숫자 그대로 두고,
 // 화면 표시할 때만 하이픈을 넣는다 - 아무 731로 시작하는 10자리 숫자나 바꾸면 금액과 충돌할 수 있어서

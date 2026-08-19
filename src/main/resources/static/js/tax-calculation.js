@@ -551,6 +551,13 @@ $(function () {
             });
     });
 
+    var deepLinkAccountNo = MARIA.deeplink.accountNoFromUrl();
+    if (deepLinkAccountNo) {
+        $("#taxSearchInput").val(deepLinkAccountNo);
+        searchKeyword = deepLinkAccountNo.toLowerCase();
+        currentPage = 1;
+    }
+
     loadTax();
     loadBatchHistory();
 });

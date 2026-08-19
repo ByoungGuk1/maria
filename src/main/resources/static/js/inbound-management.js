@@ -488,7 +488,12 @@ $(function () {
         }
     });
 
+    var deepLinkAccountNo = MARIA.deeplink.accountNoFromUrl();
+    if (deepLinkAccountNo) {
+        accountKeyword = deepLinkAccountNo;
+        $("#ibAccountSearch").val(deepLinkAccountNo);
+    }
+
     loadSummary();
     loadAccounts(0);
 });
-

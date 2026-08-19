@@ -84,6 +84,13 @@
             <div><div class="account-detail-item-label">개설 일시</div><div id="detailOpenedAt" class="account-detail-item-value">-</div></div>
         </div>
 
+        <nav class="account-detail-navigation" aria-label="선택 계좌 관련 메뉴">
+            <button class="account-detail-link-btn" type="button" data-target="/admin/sell-orders">매도내역</button>
+            <button class="account-detail-link-btn" type="button" data-target="/admin/tax">세액계산</button>
+            <button class="account-detail-link-btn" type="button" data-target="/admin/inbound">입고내역</button>
+            <button class="account-detail-link-btn" type="button" data-target="/admin/withdrawals">인출내역</button>
+        </nav>
+
         <div id="rejectionActions" class="account-reason-form">
             <input id="accountReason" class="account-reason-input" type="text"
                    placeholder="반려 사유를 입력하세요" maxlength="200">
