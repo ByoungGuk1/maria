@@ -204,18 +204,14 @@ class ExchangeRateProviderImplTest {
     }
 
     @Test
-    @DisplayName("기준일 환율이 없으면 Settlement Provider에서 이전 날짜를 재조회한다")
-    void getFinalRateRetriesPreviousDates() {
-        LocalDate previousDate = SEARCH_DATE.minusDays(1);
-        when(exchangeRateClient.getBaseRate("USD", SEARCH_DATE))
-                .thenThrow(new ExchangeRateNotFoundException("당일 환율 없음"));
-        when(exchangeRateClient.getBaseRate("USD", previousDate))
-                .thenReturn(new BigDecimal("1420.50"));
+    @DisplayName("Client가 환율 없음으로 반환하면 Provider에서 날짜 탐색을 중복하지 않는다")
+    void getFinalRateDoesNotRepeatClientLookback() {
+        ExchangeRateNotFoundException notFound = new ExchangeRateNotFoundException("최근 7일 환율 없음");
+        when(exchangeRateClient.getBaseRate("USD", SEARCH_DATE)).thenThrow(notFound);
 
-        BigDecimal result = exchangeRateProvider.getFinalRate("USD", SEARCH_DATE);
+        assertThatThrownBy(() -> exchangeRateProvider.getFinalRate("USD", SEARCH_DATE))
+                .isSameAs(notFound);
 
-        assertThat(result).isEqualByComparingTo("1420.50");
         verify(exchangeRateClient).getBaseRate("USD", SEARCH_DATE);
-        verify(exchangeRateClient).getBaseRate("USD", previousDate);
     }
 }

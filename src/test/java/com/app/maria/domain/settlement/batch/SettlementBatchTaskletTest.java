@@ -152,6 +152,54 @@ class SettlementBatchTaskletTest {
     }
 
     @Test
+    void cachesRateFailureForSameCurrencyAndDateAcrossItems() {
+        SettlementBatchDTO batch = batch();
+        SettlementItemDTO first = SettlementItemDTO.builder().itemId(10L).batchId(1L).build();
+        SettlementItemDTO second = SettlementItemDTO.builder().itemId(11L).batchId(1L).build();
+        when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch));
+        when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of(first, second));
+        when(settlementJoinMapper.selectTargetByItemId(any()))
+                .thenReturn(Optional.of(target(10L)), Optional.of(target(11L)));
+        when(exchangeRateProvider.getFinalRate("USD", batch.getExecutedAt().toLocalDate()))
+                .thenThrow(new ExchangeRateNotFoundException("환율 없음"));
+
+        tasklet.execute(contribution, new ChunkContext(new StepContext(stepExecution)));
+
+        verify(exchangeRateProvider, times(1))
+                .getFinalRate("USD", batch.getExecutedAt().toLocalDate());
+        verify(settlementFailureRecorder)
+                .markFailed(eq(10L), any(ExchangeRateNotFoundException.class));
+        verify(settlementFailureRecorder)
+                .markFailed(eq(11L), any(ExchangeRateNotFoundException.class));
+        verify(settlementTransactionExecutor, never()).execute(any(), any());
+    }
+
+    @Test
+    void reusesCachedRateFailureOnNextTaskletPage() {
+        SettlementBatchDTO batch = batch();
+        SettlementItemDTO first = SettlementItemDTO.builder().itemId(10L).batchId(1L).build();
+        SettlementItemDTO second = SettlementItemDTO.builder().itemId(11L).batchId(1L).build();
+        when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch));
+        when(settlementItemMapper.selectPendingItems(any()))
+                .thenReturn(List.of(first), List.of(second));
+        when(settlementJoinMapper.selectTargetByItemId(any()))
+                .thenReturn(Optional.of(target(10L)), Optional.of(target(11L)));
+        when(exchangeRateProvider.getFinalRate("USD", batch.getExecutedAt().toLocalDate()))
+                .thenThrow(new ExchangeRateNotFoundException("환율 없음"));
+        ChunkContext chunkContext = new ChunkContext(new StepContext(stepExecution));
+
+        tasklet.execute(contribution, chunkContext);
+        tasklet.execute(contribution, chunkContext);
+
+        verify(exchangeRateProvider, times(1))
+                .getFinalRate("USD", batch.getExecutedAt().toLocalDate());
+        verify(settlementFailureRecorder)
+                .markFailed(eq(10L), any(ExchangeRateNotFoundException.class));
+        verify(settlementFailureRecorder)
+                .markFailed(eq(11L), any(ExchangeRateNotFoundException.class));
+    }
+
+    @Test
     void marksBatchFailedWhenCompletedPageContainsFailedItems() {
         when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch()));
         when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of());

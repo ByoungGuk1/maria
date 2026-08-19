@@ -16,8 +16,6 @@ import org.springframework.web.client.RestClientResponseException;
 @Component
 public class ExchangeRateProviderImpl implements ExchangeRateProvider {
 
-    private static final int MAX_LOOKBACK_DAYS = 7;
-
     @Value("${custom.exchange.max-retries:2}")
     private int maxRetries = 2;
 
@@ -36,24 +34,13 @@ public class ExchangeRateProviderImpl implements ExchangeRateProvider {
         validateCurrency(currency);
         validateSearchDate(searchDate);
 
-        ExchangeRateNotFoundException lastNotFound = null;
-        LocalDate lookupDate = searchDate;
-
-        for (int elapsedDays = 0; elapsedDays <= MAX_LOOKBACK_DAYS; elapsedDays++) {
-            BigDecimal finalRate;
-            try {
-                finalRate = getRateWithRetry(currency, lookupDate);
-            } catch (ExchangeRateNotFoundException e) {
-                lastNotFound = e;
-                lookupDate = lookupDate.minusDays(1);
-                continue;
-            } catch (ExchangeRateApiException e) {
-                throw new ExchangeRateExternalApiException(e.getMessage(), e.getCause());
-            }
-            return finalRate;
+        try {
+            return getRateWithRetry(currency, searchDate);
+        } catch (ExchangeRateNotFoundException e) {
+            throw e;
+        } catch (ExchangeRateApiException e) {
+            throw new ExchangeRateExternalApiException(e.getMessage(), e.getCause());
         }
-
-        throw lastNotFound;
     }
 
     private BigDecimal getRateWithRetry(String currency, LocalDate lookupDate) {
