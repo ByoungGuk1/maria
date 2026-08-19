@@ -15,19 +15,23 @@
     <div id="tpError" class="dash-error" style="display:none"></div>
     <div id="tpBody" style="display:none">
         <div class="kpi-grid">
-            <div class="card kpi-card">
+            <div class="card kpi-card kpi-filter-card" data-filter="today">
                 <div class="kpi-label">오늘 판정 건수</div>
                 <div class="kpi-value" id="kpiTodayJudgement">-</div>
             </div>
-            <div class="card kpi-card">
+            <div class="card kpi-card kpi-filter-card" data-filter="todayTarget">
                 <div class="kpi-label">오늘 대상상품 건수</div>
                 <div class="kpi-value" id="kpiTodayTarget">-</div>
             </div>
-            <div class="card kpi-card kpi-card-danger">
+            <div class="card kpi-card kpi-filter-card" data-filter="todayTarget">
                 <div class="kpi-label">오늘 대상상품 순매수 합계</div>
-                <div class="kpi-value kpi-value-danger kpi-value-amount" id="kpiTodayTargetAmount">-</div>
+                <div class="kpi-value kpi-value-amount" id="kpiTodayTargetAmount">-</div>
             </div>
-            <div class="card kpi-card">
+            <div class="card kpi-card kpi-filter-card" data-filter="todayInheritanceGift">
+                <div class="kpi-label">오늘 상속·증여 산입 건수</div>
+                <div class="kpi-value" id="kpiTodayInheritanceGift">-</div>
+            </div>
+            <div class="card kpi-card kpi-filter-card" data-filter="all">
                 <div class="kpi-label">누적 판정 건수</div>
                 <div class="kpi-value" id="kpiTotalJudgement">-</div>
             </div>
@@ -40,6 +44,13 @@
                 <option value="ETF">ETF</option>
                 <option value="ETN">ETN</option>
                 <option value="FUND">펀드</option>
+            </select>
+            <select id="tpFilterTradeType" class="filter-select">
+                <option value="">전체 거래유형</option>
+                <option value="BUY">매수</option>
+                <option value="SELL">매도</option>
+                <option value="INHERITANCE">상속</option>
+                <option value="GIFT">증여</option>
             </select>
             <select id="tpFilterIsTarget" class="filter-select">
                 <option value="">전체 대상여부</option>

@@ -11,7 +11,8 @@ $(function () {
         INHERITANCE: "상속",
         GIFT: "증여"
     };
-    var PAGE_SIZE = 20;
+    var PAGE_SIZE = 17;
+    var activeKpiFilter = null;
 
     var KRW_FORMATTER = new Intl.NumberFormat("ko-KR");
     var DATETIME_FORMATTER = new Intl.DateTimeFormat("ko-KR", {
@@ -131,6 +132,7 @@ $(function () {
         $("#kpiTodayTarget").text(summary.todayTargetCount + " 건");
         $("#kpiTodayTargetAmount").text(formatAmount(summary.todayTargetNetBuyAmount));
         $("#kpiTotalJudgement").text(summary.totalJudgementCount + " 건");
+        $("#kpiTodayInheritanceGift").text(summary.todayInheritanceGiftCount + " 건");
     }
 
     function loadSummary() {
@@ -162,12 +164,34 @@ $(function () {
         if (isTarget) {
             params.isTarget = isTarget;
         }
+        var tradeType = $("#tpFilterTradeType").val();
+        if (tradeType) {
+            params.tradeType = tradeType;
+        }
         return params;
+    }
+
+    function getCardFilterParams() {
+        if (activeKpiFilter === "today") {
+            return { todayOnly: true };
+        }
+        if (activeKpiFilter === "todayTarget") {
+            return { todayOnly: true, isTarget: true };
+        }
+        if (activeKpiFilter === "todayInheritanceGift") {
+            return { todayOnly: true, inheritanceGiftOnly: true };
+        }
+        return {};
+    }
+
+    function clearKpiFilter() {
+        activeKpiFilter = null;
+        $(".kpi-filter-card").removeClass("active");
     }
 
     function loadTargetProducts(page) {
         var targetPage = page || 0;
-        var requestData = $.extend({ page: targetPage, size: PAGE_SIZE }, getFilterParams());
+        var requestData = $.extend({ page: targetPage, size: PAGE_SIZE }, getFilterParams(), getCardFilterParams());
         MARIA.auth.ajax({
             url: "/api/target-products",
             method: "GET",
@@ -193,18 +217,33 @@ $(function () {
     }
 
     $("#tpFilterSubmit").on("click", function () {
+        clearKpiFilter();
         loadTargetProducts(0);
     });
     $("#tpFilterReset").on("click", function () {
+        clearKpiFilter();
         $("#tpFilterCustomerName").val("");
         $("#tpFilterStockType").val("");
         $("#tpFilterIsTarget").val("");
+        $("#tpFilterTradeType").val("");
         loadTargetProducts(0);
     });
     $("#tpFilterCustomerName").on("keypress", function (e) {
         if (e.which === 13) {
+            clearKpiFilter();
             loadTargetProducts(0);
         }
+    });
+    $(".kpi-filter-card").on("click", function () {
+        var filter = $(this).data("filter");
+        activeKpiFilter = filter === "all" ? null : filter;
+        $("#tpFilterCustomerName").val("");
+        $("#tpFilterStockType").val("");
+        $("#tpFilterIsTarget").val("");
+        $("#tpFilterTradeType").val("");
+        $(".kpi-filter-card").removeClass("active");
+        $(this).addClass("active");
+        loadTargetProducts(0);
     });
 
     loadSummary();
