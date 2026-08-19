@@ -297,7 +297,6 @@ $(function () {
         currentPage = Math.min(currentPage, totalPages);
         var startIndex = (currentPage - 1) * PAGE_SIZE;
         var pageAccounts = list.slice(startIndex, startIndex + PAGE_SIZE);
-        $("#accountCount").text(list.length + "건");
 
         if (!list.length) {
             $body.append('<tr><td colspan="7" class="account-empty">조회된 계좌가 없습니다.</td></tr>');
