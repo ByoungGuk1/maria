@@ -20,8 +20,6 @@ public class AuditLogSearchRequestDTO {
     private static final Map<String, String> REASON_CODE_LABELS =
             Map.ofEntries(
                     Map.entry("ADMIN_ROLE_UPDATE", "관리자 권한 변경"),
-                    Map.entry("SELL_ORDER_EXECUTED", "매도 체결"),
-                    Map.entry("SELL_ORDER_REJECTED", "매도 반려"),
                     Map.entry("ACCOUNT_APPLY", "계좌 개설 신청"),
                     Map.entry("ACCOUNT_REAPPLY", "계좌 재신청"),
                     Map.entry("ACCOUNT_CHANGE_LIMIT_AMOUNT", "한도 변경"),

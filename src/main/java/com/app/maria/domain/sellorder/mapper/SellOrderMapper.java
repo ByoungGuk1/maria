@@ -1,6 +1,7 @@
 package com.app.maria.domain.sellorder.mapper;
 
 import com.app.maria.domain.sellorder.dto.SellOrderDTO;
+import com.app.maria.domain.sellorder.dto.SellOrderDetailDTO;
 import com.app.maria.domain.sellorder.dto.SellOrderHistoryDTO;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -36,4 +37,6 @@ public interface SellOrderMapper {
             @Param("status") String status,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
+
+    Optional<SellOrderDetailDTO> selectSellOrderDetail(@Param("orderId") Long orderId);
 }

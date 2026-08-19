@@ -1,7 +1,6 @@
 $(function () {
     var TARGET_TABLE_LABEL = {
         ADMIN_USER: "관리자",
-        SELL_ORDER: "매도주문",
         SYSTEM_CLOCK: "시스템 시각",
         ACCOUNT: "계좌",
         SETTLEMENT_BATCH: "정산배치",
@@ -9,8 +8,6 @@ $(function () {
     };
     var REASON_CODE_LABEL = {
         ADMIN_ROLE_UPDATE: "관리자 권한 변경",
-        SELL_ORDER_EXECUTED: "매도 체결",
-        SELL_ORDER_REJECTED: "매도 반려",
         ACCOUNT_APPLY: "계좌 개설 신청",
         ACCOUNT_REAPPLY: "계좌 재신청",
         ACCOUNT_CHANGE_LIMIT_AMOUNT: "한도 변경",
@@ -33,7 +30,7 @@ $(function () {
     var DATE_TIME_FORMATTER = new Intl.DateTimeFormat("ko-KR", {
         year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"
     });
-    var PAGE_SIZE = 20;
+    var PAGE_SIZE = 10;
     var currentPage = 0;
     var totalCount = 0;
 
@@ -66,7 +63,6 @@ $(function () {
 
     var TARGET_TABLE_BADGE_CLASS = {
         ADMIN_USER: "type-admin-user",
-        SELL_ORDER: "type-sell-order",
         SYSTEM_CLOCK: "type-system-clock",
         ACCOUNT: "type-account",
         SETTLEMENT_BATCH: "type-settlement-batch",
@@ -186,6 +182,8 @@ $(function () {
     }
 
     function loadAuditLogs() {
+        var $content = $(".content");
+        var scrollTop = $content.scrollTop();
         $("#auditLogListBody").html(
             '<tr><td colspan="7" class="audit-log-loading">불러오는 중...</td></tr>'
         );
@@ -200,6 +198,7 @@ $(function () {
                 $("#auditLogCount").text(totalCount + "건");
                 renderRows(page.content || []);
                 renderPagination();
+                $content.scrollTop(scrollTop);
             })
             .fail(function (xhr) {
                 if (xhr.status !== 401) {

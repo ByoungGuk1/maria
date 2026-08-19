@@ -10,7 +10,7 @@ import lombok.*;
 @Setter
 @ToString
 @Builder
-public class SellOrderHistoryDTO {
+public class SellOrderDetailDTO {
 
     private Long orderId;
     private String accountNo;
@@ -19,8 +19,19 @@ public class SellOrderHistoryDTO {
     private String name;
     private BigDecimal sellQty;
     private BigDecimal basePrice;
+    private BigDecimal settlementFxRate;
     private LocalDateTime processedAt;
-    private BigDecimal provisionalAmount;
-    private BigDecimal finalAmount;
     private String status;
+
+    private BigDecimal provisionalAmount;
+    private LocalDateTime provisionalAt;
+    private BigDecimal finalRate;
+    private BigDecimal finalAmount;
+    private LocalDateTime finalAt;
+    private String settlementStatus;
+
+    private String sourceBroker;
+    private LocalDateTime purchaseDate;
+    private BigDecimal purchasePrice;
+    private String purchaseCurrency;
 }
