@@ -110,8 +110,8 @@
 }
 
 .sellorder-account-no {
-    color: var(--textPrimary);
-    font-weight: 600;
+    color: var(--accent);
+    font-weight: 700;
 }
 
 .sellorder-account-name {
@@ -302,6 +302,7 @@
 .sellorder-drawer-table td {
     padding: 10px 14px;
 }
+
 
 .sellorder-summary-grid {
     display: grid;
