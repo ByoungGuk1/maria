@@ -13,6 +13,19 @@
     border-left: 3px solid var(--danger);
 }
 
+.kpi-card-clickable {
+    cursor: pointer;
+}
+
+.kpi-card-clickable:hover {
+    border-color: var(--accent);
+}
+
+.kpi-card-clickable.is-active {
+    border: 1px solid var(--accent);
+    background: var(--accentBg);
+}
+
 .kpi-label {
     font: 500 11px 'Noto Sans KR', sans-serif;
     color: var(--textMuted);
@@ -202,8 +215,8 @@
 }
 
 .account-no {
-    font: 600 13.5px 'Noto Sans KR', sans-serif;
-    color: var(--textPrimary);
+    font: 700 13.5px 'Noto Sans KR', sans-serif;
+    color: var(--accent);
 }
 
 .account-name {

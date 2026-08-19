@@ -346,7 +346,7 @@ $(function () {
         }
         $("#accountDetailModal").css("display", "flex");
         $("body").addClass("account-modal-open");
-        $("#detailAccountNo").text(account.accountNo || "-");
+        $("#detailAccountNo").html(MARIA.fmt.accountNoHtml(account.accountNo));
         $("#detailCustomerId").text(account.customerId || "-");
         $("#detailStatus").text(statusLabel(account.status));
         $("#detailLimitAmount").text(formatAmount(account.limitAmount));

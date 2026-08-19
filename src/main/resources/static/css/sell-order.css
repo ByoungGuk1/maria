@@ -110,8 +110,8 @@
 }
 
 .sellorder-account-no {
-    color: var(--textPrimary);
-    font-weight: 600;
+    color: var(--accent);
+    font-weight: 700;
 }
 
 .sellorder-account-name {

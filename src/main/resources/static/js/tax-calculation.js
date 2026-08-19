@@ -35,6 +35,7 @@ $(function () {
     var PAGE_SIZE = 10;
     var searchKeyword = "";
     var benefitFilter = "";
+    var kpiFilter = null; // null | "taxable" | "reducedOrExcluded" - 상단 KPI 카드 클릭으로 설정됨
     var sortMode = "finalTaxDesc";
     var allBatchHistory = [];
     var batchHistoryPage = 1;
@@ -109,8 +110,19 @@ $(function () {
         return benefit === benefitFilter;
     }
 
+    function matchesKpiFilter(snap) {
+        if (kpiFilter === "taxable") {
+            return Number(snap.finalTax || 0) > 0;
+        }
+        if (kpiFilter === "reducedOrExcluded") {
+            var benefit = ((accountMap[snap.accountId] || {}).benefit || "").toLowerCase();
+            return benefit === "reduced" || benefit === "impossible";
+        }
+        return true;
+    }
+
     function filteredSnapshots() {
-        var visible = allSnapshots.filter(matchesSearch).filter(matchesBenefitFilter);
+        var visible = allSnapshots.filter(matchesSearch).filter(matchesBenefitFilter).filter(matchesKpiFilter);
         if (sortMode === "adjustRatioAsc") {
             visible = visible.slice().sort(function (a, b) {
                 return Number(a.adjustRatio || 0) - Number(b.adjustRatio || 0);
@@ -135,6 +147,13 @@ $(function () {
         $("#kpiTaxable").text(taxable.length + "건");
         $("#kpiReduced").text(reduced.length + "건");
         $("#kpiTaxSum").text(formatAmount(taxSum));
+        renderKpiActiveState();
+    }
+
+    function renderKpiActiveState() {
+        $("#kpiCardAll").toggleClass("is-active", kpiFilter === null);
+        $("#kpiCardTaxable").toggleClass("is-active", kpiFilter === "taxable");
+        $("#kpiCardReduced").toggleClass("is-active", kpiFilter === "reducedOrExcluded");
     }
 
     function renderSnapshots(snapshots) {
@@ -167,7 +186,7 @@ $(function () {
             var stale = isStaleSnapshot(snap);
             var row =
                 "<tr data-account-id=\"" + snap.accountId + "\">" +
-                "<td><div class=\"account-no\">" + escapeHtml(account.accountNo || "-") + "</div>" +
+                "<td><div class=\"account-no\">" + MARIA.fmt.hyphenateAccountNo(account.accountNo) + "</div>" +
                 "<div class=\"account-name\">" + escapeHtml(account.customerName || "") + "</div></td>" +
                 "<td><span class=\"status-badge " + escapeHtml(benefitKey) + "\">" +
                 (BENEFIT_LABEL[benefitKey] || "-") + "</span></td>" +
@@ -308,7 +327,7 @@ $(function () {
         }).done(function (res) {
             var data = res.data;
             var result = data.taxCalculationResultDTO;
-            $("#detailAccountNo").text((account.accountNo || "-") + " · " + (account.customerName || ""));
+            $("#detailAccountNo").html(MARIA.fmt.accountNoHtml(account.accountNo) + " · " + escapeHtml(account.customerName || ""));
             $("#detailDescription").text("기준시각 " + ($("#clockValue").text() || "-"));
             $("#detailWeightedSell").text(formatAmount(result.weightedSell));
             $("#detailWeightedGain").html(formatSignedAmount(result.weightedGain));
@@ -502,6 +521,21 @@ $(function () {
         currentPage = 1;
         renderPage();
     });
+
+    function setKpiFilter(next) {
+        kpiFilter = next;
+        benefitFilter = "";
+        $("#taxBenefitFilter").val("");
+        searchKeyword = "";
+        $("#taxSearchInput").val("");
+        currentPage = 1;
+        renderKpiActiveState();
+        renderPage();
+    }
+
+    $("#kpiCardAll").on("click", function () { setKpiFilter(null); });
+    $("#kpiCardTaxable").on("click", function () { setKpiFilter("taxable"); });
+    $("#kpiCardReduced").on("click", function () { setKpiFilter("reducedOrExcluded"); });
 
     $("#batchTriggerGroup").toggle(canTriggerBatch());
     $("#triggerBatch").on("click", function () {
