@@ -136,6 +136,91 @@ class TargetProductServiceImplTest {
     }
 
     @Test
+    @DisplayName("getJudgements()는 tradeType 필터를 TargetProductSearchDTO에 그대로 전달한다")
+    void getJudgementsPassesTradeTypeToSearchDTO() {
+        ArgumentCaptor<TargetProductSearchDTO> captor =
+                ArgumentCaptor.forClass(TargetProductSearchDTO.class);
+        when(targetProductMapper.selectJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(List.of());
+        when(targetProductMapper.countFilteredJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(0);
+
+        TargetProductSearchRequestDTO request =
+                TargetProductSearchRequestDTO.builder()
+                        .tradeType(TradeType.INHERITANCE)
+                        .page(0)
+                        .size(20)
+                        .build();
+        targetProductService.getJudgements(request);
+
+        verify(targetProductMapper).selectJudgements(captor.capture());
+        assertThat(captor.getValue().getTradeType()).isEqualTo(TradeType.INHERITANCE);
+    }
+
+    @Test
+    @DisplayName("getJudgements()는 inheritanceGiftOnly 필터를 TargetProductSearchDTO에 그대로 전달한다")
+    void getJudgementsPassesInheritanceGiftOnlyToSearchDTO() {
+        ArgumentCaptor<TargetProductSearchDTO> captor =
+                ArgumentCaptor.forClass(TargetProductSearchDTO.class);
+        when(targetProductMapper.selectJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(List.of());
+        when(targetProductMapper.countFilteredJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(0);
+
+        TargetProductSearchRequestDTO request =
+                TargetProductSearchRequestDTO.builder()
+                        .inheritanceGiftOnly(true)
+                        .page(0)
+                        .size(20)
+                        .build();
+        targetProductService.getJudgements(request);
+
+        verify(targetProductMapper).selectJudgements(captor.capture());
+        assertThat(captor.getValue().getInheritanceGiftOnly()).isTrue();
+    }
+
+    @Test
+    @DisplayName(
+            "getJudgements()는 todayOnly가 true면 BusinessClockService의 오늘~내일 범위를 judgedAtFrom/judgedAtTo로 채운다")
+    void getJudgementsResolvesTodayOnlyToJudgedAtRangeUsingClock() {
+        ArgumentCaptor<TargetProductSearchDTO> captor =
+                ArgumentCaptor.forClass(TargetProductSearchDTO.class);
+        when(targetProductMapper.selectJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(List.of());
+        when(targetProductMapper.countFilteredJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(0);
+
+        TargetProductSearchRequestDTO request =
+                TargetProductSearchRequestDTO.builder().todayOnly(true).page(0).size(20).build();
+        targetProductService.getJudgements(request);
+
+        verify(targetProductMapper).selectJudgements(captor.capture());
+        assertThat(captor.getValue().getJudgedAtFrom())
+                .isEqualTo(FIXED_NOW.toLocalDate().atStartOfDay());
+        assertThat(captor.getValue().getJudgedAtTo())
+                .isEqualTo(FIXED_NOW.toLocalDate().plusDays(1).atStartOfDay());
+    }
+
+    @Test
+    @DisplayName("getJudgements()는 todayOnly가 없으면 judgedAtFrom/judgedAtTo를 채우지 않는다")
+    void getJudgementsLeavesJudgedAtRangeNullWhenTodayOnlyNotSet() {
+        ArgumentCaptor<TargetProductSearchDTO> captor =
+                ArgumentCaptor.forClass(TargetProductSearchDTO.class);
+        when(targetProductMapper.selectJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(List.of());
+        when(targetProductMapper.countFilteredJudgements(any(TargetProductSearchDTO.class)))
+                .thenReturn(0);
+
+        TargetProductSearchRequestDTO request =
+                TargetProductSearchRequestDTO.builder().page(0).size(20).build();
+        targetProductService.getJudgements(request);
+
+        verify(targetProductMapper).selectJudgements(captor.capture());
+        assertThat(captor.getValue().getJudgedAtFrom()).isNull();
+        assertThat(captor.getValue().getJudgedAtTo()).isNull();
+    }
+
+    @Test
     @DisplayName("getSummary()는 BusinessClockService의 오늘~내일 범위로 매퍼를 조회하고 결과를 그대로 담는다")
     void getSummaryDelegatesToMapperUsingClockToday() {
         LocalDate today = FIXED_NOW.toLocalDate();
@@ -145,6 +230,7 @@ class TargetProductServiceImplTest {
                         .todayJudgementCount(3)
                         .todayTargetCount(2)
                         .todayTargetNetBuyAmount(new BigDecimal("1500000.00"))
+                        .todayInheritanceGiftCount(1)
                         .build();
         when(targetProductMapper.selectSummary(today, tomorrow)).thenReturn(todayStats);
         when(targetProductMapper.countJudgements()).thenReturn(50);
@@ -155,6 +241,7 @@ class TargetProductServiceImplTest {
         assertThat(result.getTodayJudgementCount()).isEqualTo(3);
         assertThat(result.getTodayTargetCount()).isEqualTo(2);
         assertThat(result.getTodayTargetNetBuyAmount()).isEqualByComparingTo("1500000.00");
+        assertThat(result.getTodayInheritanceGiftCount()).isEqualTo(1);
     }
 
     @Test

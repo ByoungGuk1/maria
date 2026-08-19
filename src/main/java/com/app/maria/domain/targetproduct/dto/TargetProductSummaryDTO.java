@@ -14,4 +14,5 @@ public class TargetProductSummaryDTO {
     private int todayTargetCount;
     private BigDecimal todayTargetNetBuyAmount;
     private int totalJudgementCount;
+    private int todayInheritanceGiftCount;
 }

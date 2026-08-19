@@ -1,0 +1,23 @@
+.kpi-grid {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+@media (max-width: 900px) {
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.kpi-filter-card {
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.kpi-filter-card:hover {
+    border-color: var(--accent);
+}
+
+.kpi-filter-card.active {
+    border-color: var(--accent);
+    background: var(--accentBg);
+}

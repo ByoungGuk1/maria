@@ -5,6 +5,7 @@ import com.app.maria.domain.targetproduct.dto.response.TargetProductJudgementPag
 import com.app.maria.domain.targetproduct.dto.response.TargetProductSummaryResponseDTO;
 import com.app.maria.domain.targetproduct.service.TargetProductService;
 import com.app.maria.domain.targetproduct.type.StockType;
+import com.app.maria.domain.targetproduct.type.TradeType;
 import com.app.maria.global.response.ApiResponseDTO;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -31,6 +32,9 @@ public class TargetProductApi {
             @RequestParam(required = false) String customerName,
             @RequestParam(required = false) StockType stockType,
             @RequestParam(required = false) Boolean isTarget,
+            @RequestParam(required = false) TradeType tradeType,
+            @RequestParam(required = false) Boolean todayOnly,
+            @RequestParam(required = false) Boolean inheritanceGiftOnly,
             @RequestParam(defaultValue = "0") @PositiveOrZero int page,
             @RequestParam(defaultValue = "20") @Positive int size) {
         TargetProductSearchRequestDTO request =
@@ -38,6 +42,9 @@ public class TargetProductApi {
                         .customerName(customerName)
                         .stockType(stockType)
                         .isTarget(isTarget)
+                        .tradeType(tradeType)
+                        .todayOnly(todayOnly)
+                        .inheritanceGiftOnly(inheritanceGiftOnly)
                         .page(page)
                         .size(size)
                         .build();
