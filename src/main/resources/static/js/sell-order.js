@@ -174,6 +174,13 @@ $(function () {
         return rate == null ? "-" : Number(rate).toFixed(2);
     }
 
+    function formatPrice(price, currency) {
+        if (price == null) {
+            return "-";
+        }
+        return Number(price).toLocaleString("ko-KR", { maximumFractionDigits: 4 }) + " " + (currency || "");
+    }
+
     function formatVariance(orderAmount, finalAmount) {
         if (orderAmount == null || finalAmount == null) {
             return "-";
@@ -223,7 +230,7 @@ $(function () {
 
         $("#sellorder-detail-source-broker").text(detail.sourceBroker || "-");
         $("#sellorder-detail-purchase-date").text(formatDateTime(detail.purchaseDate));
-        $("#sellorder-detail-purchase-price").text(formatAmount(detail.purchasePrice));
+        $("#sellorder-detail-purchase-price").text(formatPrice(detail.purchasePrice, detail.purchaseCurrency));
 
         $("#sellorder-detail-drawer").addClass("is-open").attr("aria-hidden", "false");
         $("#sellorder-drawer-backdrop").prop("hidden", false);
