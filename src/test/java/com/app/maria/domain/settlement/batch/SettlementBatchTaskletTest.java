@@ -15,6 +15,7 @@ import com.app.maria.domain.settlement.component.SettlementTransactionExecutor;
 import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
 import com.app.maria.domain.settlement.dto.SettlementItemDTO;
 import com.app.maria.domain.settlement.dto.SettlementJoinDTO;
+import com.app.maria.domain.settlement.exception.ExchangeRateExternalApiException;
 import com.app.maria.domain.settlement.exception.SettlementStateConflictException;
 import com.app.maria.domain.settlement.mapper.SettlementBatchMapper;
 import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
@@ -134,6 +135,57 @@ class SettlementBatchTaskletTest {
     }
 
     @Test
+    void reusesCachedRateOnNextTaskletPage() {
+        SettlementBatchDTO batch = batch();
+        SettlementItemDTO first = SettlementItemDTO.builder().itemId(10L).batchId(1L).build();
+        SettlementItemDTO second = SettlementItemDTO.builder().itemId(11L).batchId(1L).build();
+        SettlementJoinDTO firstTarget = target(10L);
+        SettlementJoinDTO secondTarget = target(11L);
+        when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch));
+        when(settlementItemMapper.selectPendingItems(any()))
+                .thenReturn(List.of(first), List.of(second));
+        when(settlementJoinMapper.selectTargetByItemId(any()))
+                .thenReturn(Optional.of(firstTarget), Optional.of(secondTarget));
+        when(exchangeRateProvider.getFinalRate("USD", batch.getExecutedAt().toLocalDate()))
+                .thenReturn(new BigDecimal("1400"));
+        ChunkContext chunkContext = new ChunkContext(new StepContext(stepExecution));
+
+        tasklet.execute(contribution, chunkContext);
+        tasklet.execute(contribution, chunkContext);
+
+        verify(exchangeRateProvider, times(1))
+                .getFinalRate("USD", batch.getExecutedAt().toLocalDate());
+        verify(settlementTransactionExecutor).execute(firstTarget, new BigDecimal("1400"));
+        verify(settlementTransactionExecutor).execute(secondTarget, new BigDecimal("1400"));
+    }
+
+    @Test
+    void queriesRateOnceForEachCurrency() {
+        SettlementBatchDTO batch = batch();
+        SettlementItemDTO first = SettlementItemDTO.builder().itemId(10L).batchId(1L).build();
+        SettlementItemDTO second = SettlementItemDTO.builder().itemId(11L).batchId(1L).build();
+        SettlementJoinDTO usdTarget = target(10L, "USD");
+        SettlementJoinDTO jpyTarget = target(11L, "JPY");
+        when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch));
+        when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of(first, second));
+        when(settlementJoinMapper.selectTargetByItemId(any()))
+                .thenReturn(Optional.of(usdTarget), Optional.of(jpyTarget));
+        when(exchangeRateProvider.getFinalRate("USD", batch.getExecutedAt().toLocalDate()))
+                .thenReturn(new BigDecimal("1400"));
+        when(exchangeRateProvider.getFinalRate("JPY", batch.getExecutedAt().toLocalDate()))
+                .thenReturn(new BigDecimal("9.5"));
+
+        tasklet.execute(contribution, new ChunkContext(new StepContext(stepExecution)));
+
+        verify(exchangeRateProvider, times(1))
+                .getFinalRate("USD", batch.getExecutedAt().toLocalDate());
+        verify(exchangeRateProvider, times(1))
+                .getFinalRate("JPY", batch.getExecutedAt().toLocalDate());
+        verify(settlementTransactionExecutor).execute(usdTarget, new BigDecimal("1400"));
+        verify(settlementTransactionExecutor).execute(jpyTarget, new BigDecimal("9.5"));
+    }
+
+    @Test
     void recordsFailureAndContinuesWhenOneItemFails() {
         SettlementBatchDTO batch = batch();
         SettlementItemDTO item = SettlementItemDTO.builder().itemId(10L).batchId(1L).build();
@@ -200,6 +252,32 @@ class SettlementBatchTaskletTest {
     }
 
     @Test
+    void reusesCachedExternalApiFailureOnNextTaskletPage() {
+        SettlementBatchDTO batch = batch();
+        SettlementItemDTO first = SettlementItemDTO.builder().itemId(10L).batchId(1L).build();
+        SettlementItemDTO second = SettlementItemDTO.builder().itemId(11L).batchId(1L).build();
+        when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch));
+        when(settlementItemMapper.selectPendingItems(any()))
+                .thenReturn(List.of(first), List.of(second));
+        when(settlementJoinMapper.selectTargetByItemId(any()))
+                .thenReturn(Optional.of(target(10L)), Optional.of(target(11L)));
+        when(exchangeRateProvider.getFinalRate("USD", batch.getExecutedAt().toLocalDate()))
+                .thenThrow(new ExchangeRateExternalApiException("환율 API 장애", null));
+        ChunkContext chunkContext = new ChunkContext(new StepContext(stepExecution));
+
+        tasklet.execute(contribution, chunkContext);
+        tasklet.execute(contribution, chunkContext);
+
+        verify(exchangeRateProvider, times(1))
+                .getFinalRate("USD", batch.getExecutedAt().toLocalDate());
+        verify(settlementFailureRecorder)
+                .markFailed(eq(10L), any(ExchangeRateExternalApiException.class));
+        verify(settlementFailureRecorder)
+                .markFailed(eq(11L), any(ExchangeRateExternalApiException.class));
+        verify(settlementTransactionExecutor, never()).execute(any(), any());
+    }
+
+    @Test
     void marksBatchFailedWhenCompletedPageContainsFailedItems() {
         when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch()));
         when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of());
@@ -250,10 +328,14 @@ class SettlementBatchTaskletTest {
     }
 
     private SettlementJoinDTO target(Long itemId) {
+        return target(itemId, "USD");
+    }
+
+    private SettlementJoinDTO target(Long itemId, String currency) {
         return SettlementJoinDTO.builder()
                 .itemId(itemId)
                 .batchId(1L)
-                .purchaseCurrency("USD")
+                .purchaseCurrency(currency)
                 .build();
     }
 }
