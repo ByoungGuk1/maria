@@ -278,14 +278,23 @@ $(function () {
     }
 
     function openDetailPanel() {
-        $("#taxDetail").prop("hidden", false).addClass("is-open");
+        $("#taxDetail").prop("hidden", false);
         $("#detailPanelBackdrop").prop("hidden", false);
+        // hidden 해제와 is-open 추가를 같은 틱에 하면 브라우저가 시작 상태(hidden)를 그릴 틈이 없어
+        // transition이 통째로 씹힌다 — 한 프레임 뒤로 미뤄야 슬라이드/페이드가 실제로 보인다.
+        requestAnimationFrame(function () {
+            $("#taxDetail").addClass("is-open");
+            $("#detailPanelBackdrop").addClass("is-open");
+        });
     }
 
     function closeDetailPanel() {
         $("#taxDetail").removeClass("is-open");
-        $("#detailPanelBackdrop").prop("hidden", true);
-        setTimeout(function () { $("#taxDetail").prop("hidden", true); }, 180);
+        $("#detailPanelBackdrop").removeClass("is-open");
+        setTimeout(function () {
+            $("#taxDetail").prop("hidden", true);
+            $("#detailPanelBackdrop").prop("hidden", true);
+        }, 180);
     }
 
     function openDetail(accountId) {
