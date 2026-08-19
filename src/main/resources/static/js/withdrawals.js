@@ -1,6 +1,5 @@
 $(function () {
-    var PAGE_SIZE = 15;
-    var ALLOCATION_PAGE_SIZE = 4;
+    var PAGE_SIZE = 10;
     var STATUS_LABEL = {
         REQUESTED: "처리 요청",
         COMPLETED: "처리 완료",
@@ -28,6 +27,7 @@ $(function () {
     var accountAllocationEntries = [];
     var selectedAllocationIndex = null;
     var currentAllocationPage = 1;
+    var allocationSortDirection = "DESC";
 
     function escapeHtml(value) {
         return $("<div>").text(value == null ? "" : value).html();
@@ -291,20 +291,9 @@ $(function () {
             return;
         }
 
-        var totalPages = Math.max(
-            1,
-            Math.ceil(accountAllocationEntries.length / ALLOCATION_PAGE_SIZE)
-        );
-        currentAllocationPage = Math.min(currentAllocationPage, totalPages);
-        var startIndex = (currentAllocationPage - 1) * ALLOCATION_PAGE_SIZE;
-        var visibleEntries = accountAllocationEntries.slice(
-            startIndex,
-            startIndex + ALLOCATION_PAGE_SIZE
-        );
         var groups = [];
         var groupByWithdrawalId = {};
-        visibleEntries.forEach(function (entry, pageIndex) {
-            var index = startIndex + pageIndex;
+        accountAllocationEntries.forEach(function (entry, index) {
             var withdrawalId = String(entry.withdrawal.withdrawalId);
             if (!groupByWithdrawalId[withdrawalId]) {
                 groupByWithdrawalId[withdrawalId] = {
@@ -319,12 +308,14 @@ $(function () {
             });
         });
 
-        groups.forEach(function (group) {
+        var totalPages = groups.length;
+        currentAllocationPage = Math.min(currentAllocationPage, totalPages);
+        groups.slice(currentAllocationPage - 1, currentAllocationPage).forEach(function (group) {
             var withdrawal = group.withdrawal;
             var $group = $('<section class="withdrawal-allocation-group"></section>');
             $group.append(
                 '<div class="withdrawal-allocation-group-header">' +
-                '<div><span>인출 일시</span><strong>' +
+                '<div><span>인출 일시 · 배분 ' + group.entries.length + '건</span><strong>' +
                 escapeHtml(formatDateTime(withdrawal.processedAt)) + '</strong></div>' +
                 '<div><span>요청금액</span><strong>' +
                 escapeHtml(formatAmount(
@@ -353,6 +344,19 @@ $(function () {
         });
 
         renderAllocationPagination(totalPages);
+    }
+
+    function sortAccountAllocationEntries() {
+        var direction = allocationSortDirection === "ASC" ? 1 : -1;
+        accountAllocationEntries.sort(function (left, right) {
+            var leftDatetime = left.allocation
+                ? left.allocation.withdrawalAt
+                : left.withdrawal.processedAt;
+            var rightDatetime = right.allocation
+                ? right.allocation.withdrawalAt
+                : right.withdrawal.processedAt;
+            return (new Date(leftDatetime) - new Date(rightDatetime)) * direction;
+        });
     }
 
     function renderAllocationPagination(totalPages) {
@@ -535,15 +539,7 @@ $(function () {
                     });
                 }
             });
-            accountAllocationEntries.sort(function (left, right) {
-                var rightDatetime = right.allocation
-                    ? right.allocation.withdrawalAt
-                    : right.withdrawal.processedAt;
-                var leftDatetime = left.allocation
-                    ? left.allocation.withdrawalAt
-                    : left.withdrawal.processedAt;
-                return new Date(rightDatetime) - new Date(leftDatetime);
-            });
+            sortAccountAllocationEntries();
             renderAccountAllocations();
         }).catch(function (xhr) {
             if (selectedAccountNo !== requestedAccountNo) {
@@ -623,8 +619,20 @@ $(function () {
         if (!entry) {
             return;
         }
-        renderAccountAllocations();
+        $(".withdrawal-allocation-item, .withdrawal-unallocated-item")
+            .removeClass("is-selected");
+        $(this).addClass("is-selected");
         renderWithdrawalDetail(entry.withdrawal, entry.allocation);
+    });
+    $(document).on("click", ".allocation-sort-option", function () {
+        allocationSortDirection = String($(this).data("allocation-sort"));
+        $(".allocation-sort-option").removeClass("active");
+        $(this).addClass("active");
+        currentAllocationPage = 1;
+        selectedAllocationIndex = null;
+        closeDrawer();
+        sortAccountAllocationEntries();
+        renderAccountAllocations();
     });
     $(document).on("click", ".withdrawal-unallocated-item", function () {
         selectedAllocationIndex = Number($(this).data("allocation-index"));
@@ -632,7 +640,9 @@ $(function () {
         if (!entry) {
             return;
         }
-        renderAccountAllocations();
+        $(".withdrawal-allocation-item, .withdrawal-unallocated-item")
+            .removeClass("is-selected");
+        $(this).addClass("is-selected");
         renderUnallocatedWithdrawalDetail(entry.withdrawal);
     });
     $("#withdrawal-drawer-close, #withdrawal-drawer-backdrop").on("click", closeDrawer);
