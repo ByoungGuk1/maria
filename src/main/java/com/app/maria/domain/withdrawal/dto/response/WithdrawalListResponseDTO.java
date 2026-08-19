@@ -22,6 +22,9 @@ public class WithdrawalListResponseDTO {
     private BigDecimal earningsAmount;
     private BigDecimal maturedPrincipalAmount;
     private BigDecimal immaturePrincipalAmount;
+    private int allocationCount;
+    private int normalAllocationCount;
+    private int earlyAllocationCount;
 
     public static WithdrawalListResponseDTO from(WithdrawalHistoryDTO withdrawal) {
         return WithdrawalListResponseDTO.builder()
@@ -35,6 +38,9 @@ public class WithdrawalListResponseDTO {
                 .earningsAmount(withdrawal.getEarningsAmount())
                 .maturedPrincipalAmount(withdrawal.getMaturedPrincipalAmount())
                 .immaturePrincipalAmount(withdrawal.getImmaturePrincipalAmount())
+                .allocationCount(withdrawal.getAllocationCount())
+                .normalAllocationCount(withdrawal.getNormalAllocationCount())
+                .earlyAllocationCount(withdrawal.getEarlyAllocationCount())
                 .build();
     }
 }
