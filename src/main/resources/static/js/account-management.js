@@ -309,7 +309,7 @@ $(function () {
             var selectedClass = account.accountId === selectedAccountId ? " is-selected" : "";
             $body.append(
                 '<tr class="account-row' + selectedClass + '" data-account-id="' + account.accountId + '">' +
-                '<td><div class="account-number">' + escapeHtml(account.accountNo || "-") + '</div>' +
+                '<td><div class="account-number">' + MARIA.fmt.hyphenateAccountNo(account.accountNo) + '</div>' +
                 '<div class="account-customer-id">' + escapeHtml(account.customerName || "고객 ID " + account.customerId) + ' · 고객 ID ' + escapeHtml(account.customerId) + '</div></td>' +
                 '<td><span class="account-status-badge ' + statusClass + '">' + escapeHtml(statusLabel(account.status)) + '</span></td>' +
                 '<td class="account-amount">' + formatAmount(account.limitAmount) + '</td>' +
