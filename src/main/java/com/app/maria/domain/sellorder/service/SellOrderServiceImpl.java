@@ -6,6 +6,7 @@ import com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper;
 import com.app.maria.domain.inbound.dto.InboundDetailDTO;
 import com.app.maria.domain.inbound.mapper.InboundMapper;
 import com.app.maria.domain.sellorder.dto.SellOrderDTO;
+import com.app.maria.domain.sellorder.dto.SellOrderDetailDTO;
 import com.app.maria.domain.sellorder.dto.SellOrderHistoryDTO;
 import com.app.maria.domain.sellorder.dto.SellOrderSummaryDTO;
 import com.app.maria.domain.sellorder.dto.request.SellOrderRequestDTO;
@@ -16,8 +17,6 @@ import com.app.maria.domain.sellorder.mapper.SellOrderMapper;
 import com.app.maria.domain.sellorder.type.SellOrderStatus;
 import com.app.maria.domain.settlement.service.ProvisionalExchangeService;
 import com.app.maria.domain.settlement.service.SettlementService;
-import com.app.maria.global.audit.dto.AuditLogDTO;
-import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.client.exchange.ExchangeRateClient;
 import com.app.maria.global.client.kis.KisExchangeCode;
 import com.app.maria.global.client.kis.KisPriceClient;
@@ -47,7 +46,6 @@ public class SellOrderServiceImpl implements SellOrderService {
     private final SellLimitService sellLimitService;
     private final BusinessClockService businessClockService;
     private final ProvisionalExchangeService provisionalExchangeService;
-    private final AuditLogService auditLogService;
     private final SettlementService settlementService;
 
     @Override
@@ -97,22 +95,6 @@ public class SellOrderServiceImpl implements SellOrderService {
                             .build();
             sellOrderMapper.insertSellOrder(rejected);
 
-            auditLogService.log(
-                    AuditLogDTO.builder()
-                            .adminId(actorAdminId)
-                            .targetTable("SELL_ORDER")
-                            .targetPk(String.valueOf(rejected.getOrderId()))
-                            .beforeValue(null)
-                            .afterValue(
-                                    "REJECTED / accountId="
-                                            + rejected.getAccountId()
-                                            + ", foreignProductId="
-                                            + rejected.getForeignProductId()
-                                            + ", sellQty="
-                                            + rejected.getSellQty())
-                            .reasonCode("SELL_ORDER_REJECTED")
-                            .build());
-
             return List.of(new SellOrderResponseDTO(rejected));
         }
 
@@ -141,20 +123,6 @@ public class SellOrderServiceImpl implements SellOrderService {
             sellOrderMapper.insertSellOrder(executed);
             executeOrders.add(executed);
 
-            auditLogService.log(
-                    AuditLogDTO.builder()
-                            .adminId(actorAdminId)
-                            .targetTable("SELL_ORDER")
-                            .targetPk(String.valueOf(executed.getOrderId()))
-                            .beforeValue(
-                                    "inboundDetailId="
-                                            + lot.getInboundDetailId()
-                                            + ", lotCurrentQty="
-                                            + lot.getCurrentQty())
-                            .afterValue("EXECUTED / sellQty=" + qtyFromThisLot)
-                            .reasonCode("SELL_ORDER_EXECUTED")
-                            .build());
-
             provisionalExchangeService.createProvisionalExchange(executed);
 
             remainingQty = remainingQty.subtract(qtyFromThisLot);
@@ -171,6 +139,14 @@ public class SellOrderServiceImpl implements SellOrderService {
                         .selectSellOrderById(orderId)
                         .orElseThrow(() -> new SellOrderNotFoundException("매도 주문 조회 실패"));
         return new SellOrderResponseDTO(dto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SellOrderDetailDTO getSellOrderDetail(Long orderId) {
+        return sellOrderMapper
+                .selectSellOrderDetail(orderId)
+                .orElseThrow(() -> new SellOrderNotFoundException("매도 주문 조회 실패"));
     }
 
     @Override

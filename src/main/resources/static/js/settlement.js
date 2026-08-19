@@ -47,26 +47,35 @@ $(function () {
         return { current: current, total: totalPages, items: list.slice((current - 1) * pageSize, current * pageSize) };
     }
 
-    function renderPagination(containerSelector, infoSelector, previousSelector, nextSelector, page) {
-        $(infoSelector).text(page.current + " / " + page.total);
-        $(previousSelector).prop("disabled", page.current === 1);
-        $(nextSelector).prop("disabled", page.current === page.total);
-        $(containerSelector).css("display", "flex");
-    }
+    function renderPagination(containerSelector, page, onPageChange) {
+        var $pagination = $(containerSelector).empty();
+        if (page.total <= 1) {
+            $pagination.hide();
+            return;
+        }
+        var blockSize = 10;
+        var blockStart = Math.floor((page.current - 1) / blockSize) * blockSize + 1;
+        var blockEnd = Math.min(page.total, blockStart + blockSize - 1);
 
-    function bindPagination(previousSelector, nextSelector, getPage, setPage, getItemCount, pageSize, render) {
-        $(previousSelector).on("click", function () {
-            if (getPage() > 1) {
-                setPage(getPage() - 1);
-                render();
+        function addButton(label, targetPage, disabled, active) {
+            var $button = $("<button>", {
+                type: "button",
+                class: "page-btn" + (active ? " active" : ""),
+                text: label,
+                disabled: disabled || active
+            });
+            if (!disabled && !active) {
+                $button.on("click", function () { onPageChange(targetPage); });
             }
-        });
-        $(nextSelector).on("click", function () {
-            if (getPage() < Math.ceil(getItemCount() / pageSize)) {
-                setPage(getPage() + 1);
-                render();
-            }
-        });
+            $pagination.append($button);
+        }
+
+        addButton("이전", blockStart - 1, blockStart === 1, false);
+        for (var pageNumber = blockStart; pageNumber <= blockEnd; pageNumber += 1) {
+            addButton(String(pageNumber), pageNumber, false, pageNumber === page.current);
+        }
+        addButton("다음", blockEnd + 1, blockEnd === page.total, false);
+        $pagination.css("display", "flex");
     }
 
     function startOfDay(value) {
@@ -168,7 +177,10 @@ $(function () {
                 "<td>#" + batch.batchId + "</td><td>" + formatDateTime(batch.executedAt) + "</td><td>" + statusBadge(batch.status) + "</td>" +
                 "<td>" + batch.totalCount + "</td><td>" + batch.successCount + "</td><td>" + batch.failedCount + "</td><td>" + batch.processedCount + "</td><td>" + escapeHtml(batch.runId) + "</td></tr>");
         });
-        renderPagination("#settlementPagination", "#settlementPageInfo", "#previousSettlementPage", "#nextSettlementPage", page);
+        renderPagination("#settlementPagination", page, function (targetPage) {
+            currentPage = targetPage;
+            renderBatches();
+        });
     }
 
     function renderItems(itemList) {
@@ -179,7 +191,10 @@ $(function () {
         page.items.forEach(function (item) {
             $body.append('<tr class="settlement-item-row' + (item.itemId === selectedItemId ? " is-selected" : "") + '" data-item-id="' + item.itemId + '"><td>#' + item.itemId + "</td><td>" + MARIA.fmt.accountNoHtml(item.accountNo) + "</td><td>" + escapeHtml(item.ticker) + "</td><td>" + formatAmount(item.provisionalAmount) + "</td><td>" + formatAmount(item.finalAmount) + "</td><td>" + statusBadge(item.result) + "</td><td>" + escapeHtml(item.failureCode || item.failureMessage) + "</td><td>" + formatDateTime(item.processedAt) + "</td></tr>");
         });
-        renderPagination("#settlementItemPagination", "#settlementItemPageInfo", "#previousSettlementItemPage", "#nextSettlementItemPage", page);
+        renderPagination("#settlementItemPagination", page, function (targetPage) {
+            currentItemPage = targetPage;
+            renderItems(items);
+        });
     }
 
     function selectBatch(batchId, preserveItemPage) {
@@ -188,7 +203,7 @@ $(function () {
             itemFilter = "all";
             currentItemPage = 1;
         }
-        MARIA.auth.ajax({ url: "/api/settlement/batches/" + selectedBatchId, method: "GET" })
+        return MARIA.auth.ajax({ url: "/api/settlement/batches/" + selectedBatchId, method: "GET" })
             .done(function (res) {
                 var latestBatch = res.data;
                 var batchIndex = batches.findIndex(function (item) { return item.batchId === selectedBatchId; });
@@ -196,6 +211,7 @@ $(function () {
                     batches[batchIndex] = latestBatch;
                 }
                 renderBatchCount();
+                renderBatchTrend();
                 renderBatches();
                 renderDetail(latestBatch);
                 $("#settlementItemFilter").val(itemFilter);
@@ -205,7 +221,9 @@ $(function () {
     }
 
     function renderDetail(batch) {
-        $("#settlementDetail").show();
+        $("#settlementDetail").addClass("is-open").attr("aria-hidden", "false");
+        $("#settlementDetailBackdrop").prop("hidden", false);
+        $("body").addClass("settlement-drawer-open");
         setTextValues({
             "#detailBatchTitle": "배치 #" + selectedBatchId + " 상세",
             "#detailBatchFailure": batch.failureMessage || "",
@@ -220,23 +238,46 @@ $(function () {
         $("#settlementItemFilter").toggle(batch.status === "FAILED");
     }
 
+    function closeSettlementItemDetail() {
+        $("#settlementItemDetail").removeClass("is-open").attr("aria-hidden", "true");
+        $("#settlementItemDetailBackdrop").prop("hidden", true);
+    }
+
+    function closeSettlementDetail() {
+        closeSettlementItemDetail();
+        $("#settlementDetail").removeClass("is-open").attr("aria-hidden", "true");
+        $("#settlementDetailBackdrop").prop("hidden", true);
+        $("body").removeClass("settlement-drawer-open");
+    }
+
     function loadBatchItems(preserveItemPage) {
         $("#settlementItemBody").html('<tr><td colspan="8" class="settlement-empty">불러오는 중...</td></tr>');
-        if (itemFilter === "failed") {
-            loadFailedItemsWithHistory(preserveItemPage);
-            return;
-        }
         loadAllBatchItems(preserveItemPage);
     }
 
+    function latestItemsByExchange(itemList) {
+        var latestByExchange = {};
+        itemList.forEach(function (item) {
+            var key = String(item.exchangeId);
+            if (!latestByExchange[key] || Number(item.itemId) > Number(latestByExchange[key].itemId)) {
+                latestByExchange[key] = item;
+            }
+        });
+        return Object.keys(latestByExchange).map(function (key) { return latestByExchange[key]; })
+            .sort(function (left, right) { return Number(right.itemId) - Number(left.itemId); });
+    }
+
     function applyItems(responseItems, preserveItemPage) {
-        items = itemFilter === "success"
-            ? responseItems.filter(function (item) { return item.result === "SUCCESS"; })
-            : responseItems;
+        var latestItems = latestItemsByExchange(responseItems);
+        items = itemFilter === "all"
+            ? latestItems
+            : latestItems.filter(function (item) {
+                return item.result === (itemFilter === "success" ? "SUCCESS" : "FAILED");
+            });
         if (!preserveItemPage) {
             currentItemPage = 1;
             selectedItemId = null;
-            $("#settlementItemDetail").hide();
+            closeSettlementItemDetail();
         }
         renderItems(items);
     }
@@ -250,26 +291,14 @@ $(function () {
             .fail(function (xhr) { if (xhr.status !== 401) $("#settlementItemBody").empty(); handleRequestFailure(xhr, "정산 항목을 불러오지 못했습니다."); });
     }
 
-    function loadFailedItemsWithHistory(preserveItemPage) {
-        $.when(
-            MARIA.auth.ajax({ url: "/api/settlement/batches/detail/" + selectedBatchId, method: "GET" }),
-            MARIA.auth.ajax({ url: "/api/settlement/batches/detail/fail/" + selectedBatchId, method: "GET" })
-        ).done(function (allResponse, failedResponse) {
-            allBatchItems = allResponse[0].data || [];
-            applyItems(failedResponse[0].data || [], preserveItemPage);
-        }).fail(function (xhr) {
-            if (xhr.status !== 401) $("#settlementItemBody").empty();
-            handleRequestFailure(xhr, "정산 항목을 불러오지 못했습니다.");
-        });
-    }
-
     function selectItem(itemId) {
         selectedItemId = Number(itemId);
         MARIA.auth.ajax({ url: "/api/settlement/batches/" + selectedBatchId + "/items/" + selectedItemId, method: "GET" })
             .done(function (res) {
                 var item = res.data;
                 renderItems(items);
-                $("#settlementItemDetail").show();
+                $("#settlementItemDetail").addClass("is-open").attr("aria-hidden", "false");
+                $("#settlementItemDetailBackdrop").prop("hidden", false);
                 var difference = item.finalAmount == null || item.provisionalAmount == null ? null : Number(item.finalAmount) - Number(item.provisionalAmount);
                 setTextValues({
                     "#detailItemTitle": "정산 항목 #" + item.itemId + " 상세",
@@ -316,14 +345,43 @@ $(function () {
 
     $(document).on("click", ".settlement-batch-row", function () { selectBatch($(this).data("batch-id")); });
     $(document).on("click", ".settlement-item-row", function () { selectItem($(this).data("item-id")); });
-    bindPagination("#previousSettlementPage", "#nextSettlementPage", function () { return currentPage; }, function (page) { currentPage = page; }, function () { return batches.length; }, PAGE_SIZE, renderBatches);
-    bindPagination("#previousSettlementItemPage", "#nextSettlementItemPage", function () { return currentItemPage; }, function (page) { currentItemPage = page; }, function () { return items.length; }, ITEM_PAGE_SIZE, function () { renderItems(items); });
+    $(document).on("mouseenter", ".settlement-item-table td, .settlement-batch-summary strong", function () {
+        if (this.scrollWidth > this.clientWidth) {
+            $(this).attr("title", $(this).text().trim()).attr("data-overflow-title", "true");
+        }
+    }).on("mouseleave", "[data-overflow-title='true']", function () {
+        $(this).removeAttr("title data-overflow-title");
+    });
+    $("#closeSettlementDetail, #settlementDetailBackdrop").on("click", closeSettlementDetail);
+    $("#closeSettlementItemDetail, #settlementItemDetailBackdrop").on("click", closeSettlementItemDetail);
+    $(document).on("keydown", function (event) {
+        if (event.key !== "Escape") return;
+        if ($("#settlementItemDetail").hasClass("is-open")) {
+            closeSettlementItemDetail();
+        } else {
+            closeSettlementDetail();
+        }
+    });
     $("#settlementItemFilter").on("change", function () {
         itemFilter = $(this).val();
         loadBatchItems();
     });
     $("#executeSettlement").prop("disabled", !canExecuteSettlement()).on("click", function () { if (!canExecuteSettlement()) return; MARIA.auth.ajax({ url: "/api/settlement/jobs", method: "POST" }).done(function (res) { selectedBatchId = res.data.batchId; currentPage = 1; loadBatches(); }).fail(function (xhr) { handleRequestFailure(xhr, "정산 배치 실행에 실패했습니다."); }); });
     $("#retrySettlementBatch").on("click", function () { if (!selectedBatchId || !canExecuteSettlement()) return; MARIA.auth.ajax({ url: "/api/settlement/batches/" + selectedBatchId + "/retry", method: "POST" }).done(function () { loadBatches(); }).fail(function (xhr) { handleRequestFailure(xhr, "정산 배치 재처리에 실패했습니다."); }); });
-    $("#retrySettlementItem").on("click", function () { if (!selectedBatchId || !selectedItemId || !canExecuteSettlement()) return; MARIA.auth.ajax({ url: "/api/settlement/batches/" + selectedBatchId + "/items/" + selectedItemId + "/retry", method: "POST" }).done(function () { selectBatch(selectedBatchId, true); }).fail(function (xhr) { handleRequestFailure(xhr, "정산 항목 재처리에 실패했습니다."); }); });
+    $("#retrySettlementItem").on("click", function () {
+        if (!selectedBatchId || !selectedItemId || !canExecuteSettlement()) return;
+        MARIA.auth.ajax({
+            url: "/api/settlement/batches/" + selectedBatchId + "/items/" + selectedItemId + "/retry",
+            method: "POST"
+        }).done(function (res) {
+            var retryItemId = res.data && res.data.itemId;
+            if (res.data) allBatchItems.push(res.data);
+            selectBatch(selectedBatchId, true).done(function () {
+                if (retryItemId) selectItem(retryItemId);
+            });
+        }).fail(function (xhr) {
+            handleRequestFailure(xhr, "정산 항목 재처리에 실패했습니다.");
+        });
+    });
     loadBatches();
 });
