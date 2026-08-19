@@ -23,6 +23,10 @@ $(function () {
         return amount == null ? "-" : "₩" + KRW_FORMATTER.format(amount);
     }
 
+    function truncateAmount(amount) {
+        return amount == null ? amount : Math.trunc(amount);
+    }
+
     function formatQty(qty) {
         return qty == null ? "-" : QTY_FORMATTER.format(qty) + "주";
     }
@@ -79,10 +83,10 @@ $(function () {
     }
 
     function renderSummary(summary) {
-        $("#kpiTodaySellAmount").text(formatAmount(summary.todaySellAmount));
+        $("#kpiTodaySellAmount").text(formatAmount(truncateAmount(summary.todaySellAmount)));
         $("#kpiTodayExecutedCount").text((summary.todayExecutedCount || 0) + "건");
-        $("#kpiPendingProvisionalAmount").text(formatAmount(summary.pendingProvisionalAmount));
-        $("#kpiTodayFinalizedAmount").text(formatAmount(summary.todayFinalizedAmount));
+        $("#kpiPendingProvisionalAmount").text(formatAmount(truncateAmount(summary.pendingProvisionalAmount)));
+        $("#kpiTodayFinalizedAmount").text(formatAmount(truncateAmount(summary.todayFinalizedAmount)));
 
         var sellChange = formatChangeRate(summary.todaySellAmountChangeRate);
         $("#kpiTodaySellAmountChange").text(sellChange.text).attr("class", "kpi-change " + sellChange.cls);
@@ -124,10 +128,10 @@ $(function () {
                 '<div class="sellorder-account-name">' + escapeHtml(order.customerName || "") + "</div></td>" +
                 '<td class="sellorder-ellipsis">' + productLabel + "</td>" +
                 '<td class="sellorder-amount">' + formatQty(order.sellQty) + "</td>" +
-                '<td class="sellorder-amount">' + formatAmount(order.basePrice) + "</td>" +
+                '<td class="sellorder-amount">' + formatAmount(truncateAmount(order.basePrice)) + "</td>" +
                 "<td>" + formatDateTime(order.processedAt) + "</td>" +
-                '<td class="sellorder-amount">' + formatAmount(order.provisionalAmount) + "</td>" +
-                '<td class="sellorder-amount">' + formatAmount(order.finalAmount) + "</td>" +
+                '<td class="sellorder-amount">' + formatAmount(truncateAmount(order.provisionalAmount)) + "</td>" +
+                '<td class="sellorder-amount">' + formatAmount(truncateAmount(order.finalAmount)) + "</td>" +
                 "<td><span class=\"sellorder-status-badge " + statusClassOf(order.status) + '">' +
                 escapeHtml(sellOrderStatusLabel(order.status)) + "</span></td>" +
                 "</tr>";
@@ -171,7 +175,7 @@ $(function () {
     };
 
     function formatRate(rate) {
-        return rate == null ? "-" : Number(rate).toFixed(2);
+        return rate == null ? "-" : "₩" + Number(rate).toFixed(2);
     }
 
     function formatPrice(price, currency) {
@@ -185,7 +189,7 @@ $(function () {
         if (orderAmount == null || finalAmount == null) {
             return "-";
         }
-        var diff = finalAmount - orderAmount;
+        var diff = Math.trunc(finalAmount - orderAmount);
         var sign = diff > 0 ? "+" : "";
         return sign + KRW_FORMATTER.format(diff) + "원";
     }
@@ -213,17 +217,17 @@ $(function () {
         $("#sellorder-detail-qty").text(formatQty(detail.sellQty));
         $("#sellorder-detail-processed-at").text(formatDateTime(detail.processedAt));
 
-        $("#sellorder-detail-base-price").text(formatAmount(detail.basePrice));
+        $("#sellorder-detail-base-price").text(formatAmount(truncateAmount(detail.basePrice)));
         $("#sellorder-detail-fx-rate").text(
             detail.settlementFxRate == null ? "-" : "정산환율 " + formatRate(detail.settlementFxRate)
         );
 
-        $("#sellorder-detail-provisional-amount").text(formatAmount(detail.provisionalAmount));
-        $("#sellorder-detail-provisional-amount-detail").text(formatAmount(detail.provisionalAmount));
+        $("#sellorder-detail-provisional-amount").text(formatAmount(truncateAmount(detail.provisionalAmount)));
+        $("#sellorder-detail-provisional-amount-detail").text(formatAmount(truncateAmount(detail.provisionalAmount)));
         $("#sellorder-detail-provisional-at").text(formatDateTime(detail.provisionalAt));
         $("#sellorder-detail-final-rate").text(formatRate(detail.finalRate));
-        $("#sellorder-detail-final-amount").text(formatAmount(detail.finalAmount));
-        $("#sellorder-detail-final-amount-detail").text(formatAmount(detail.finalAmount));
+        $("#sellorder-detail-final-amount").text(formatAmount(truncateAmount(detail.finalAmount)));
+        $("#sellorder-detail-final-amount-detail").text(formatAmount(truncateAmount(detail.finalAmount)));
         $("#sellorder-detail-final-at").text(formatDateTime(detail.finalAt));
         $("#sellorder-detail-settlement-status").text(
             SETTLEMENT_STATUS_LABEL[detail.settlementStatus] || detail.settlementStatus || "-"
@@ -237,7 +241,7 @@ $(function () {
 
         $("#sellorder-detail-source-broker").text(detail.sourceBroker || "-");
         $("#sellorder-detail-purchase-date").text(formatDateTime(detail.purchaseDate));
-        $("#sellorder-detail-purchase-price").text(formatPrice(detail.purchasePrice, detail.purchaseCurrency));
+        $("#sellorder-detail-purchase-price").text(formatPrice(truncateAmount(detail.purchasePrice), detail.purchaseCurrency));
 
         $("#sellorder-detail-drawer").addClass("is-open").attr("aria-hidden", "false");
         $("#sellorder-drawer-backdrop").prop("hidden", false);
