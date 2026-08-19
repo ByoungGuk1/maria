@@ -24,16 +24,6 @@ class AuditLogResponseDTOTest {
     }
 
     @Test
-    @DisplayName("targetTable이 SELL_ORDER면 targetAccountNo를 targetName으로 쓴다")
-    void targetNameUsesTargetAccountNoForSellOrder() {
-        AuditLogResponseDTO response =
-                new AuditLogResponseDTO(
-                        auditLogBuilder("SELL_ORDER", "50").targetAccountNo("1234567890").build());
-
-        assertThat(response.getTargetName()).isEqualTo("1234567890");
-    }
-
-    @Test
     @DisplayName("targetTable이 ACCOUNT면 targetOwnerAccountNo를 targetName으로 쓴다")
     void targetNameUsesTargetOwnerAccountNoForAccount() {
         AuditLogResponseDTO response =

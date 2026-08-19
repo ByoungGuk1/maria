@@ -39,7 +39,6 @@ public class AuditLogResponseDTO {
         this.targetName =
                 switch (dto.getTargetTable()) {
                     case "ADMIN_USER" -> dto.getTargetAdminName();
-                    case "SELL_ORDER" -> dto.getTargetAccountNo();
                     case "ACCOUNT" -> dto.getTargetOwnerAccountNo();
                     case "SETTLEMENT_BATCH" ->
                             dto.getTargetBatchExecutedAt() != null
