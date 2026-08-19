@@ -109,7 +109,17 @@
         <div class="account-related-grid">
             <section><div class="account-related-title"><strong>보유주식</strong></div><div id="detailHoldings" class="account-related-list"></div></section>
             <section><div class="account-related-title"><strong>입고주식</strong></div><div id="detailInbounds" class="account-related-list"></div></section>
-            <section><div class="account-related-title"><strong>해지상태</strong></div><div id="detailClosure" class="account-related-list"></div></section>
+            <section>
+                <div class="account-related-title"><strong>해지상태</strong></div>
+                <div id="detailClosure" class="account-related-list"></div>
+                <div id="closureReviewActions" class="closure-review-actions" hidden>
+                    <input id="closureRejectionReason" type="text" maxlength="200" placeholder="반려 사유를 입력하세요">
+                    <div>
+                        <button id="rejectClosure" class="btn" type="button">반려</button>
+                        <button id="approveClosure" class="btn btn-primary" type="button">승인</button>
+                    </div>
+                </div>
+            </section>
             <section><div class="account-related-title"><strong>인출목록</strong></div><div id="detailWithdrawals" class="account-related-list"></div></section>
         </div>
         </section>

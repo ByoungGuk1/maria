@@ -709,6 +709,30 @@
     overflow-y: auto;
 }
 
+#detailClosure {
+    max-height: none;
+}
+
+.closure-review-actions {
+    padding: 12px;
+    border-top: 1px solid var(--cardBorder);
+}
+
+.closure-review-actions[hidden] {
+    display: none;
+}
+
+.closure-review-actions input {
+    width: 100%;
+}
+
+.closure-review-actions > div {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+}
+
 .account-related-item {
     display: flex;
     align-items: center;
