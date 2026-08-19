@@ -345,6 +345,13 @@ $(function () {
 
     $(document).on("click", ".settlement-batch-row", function () { selectBatch($(this).data("batch-id")); });
     $(document).on("click", ".settlement-item-row", function () { selectItem($(this).data("item-id")); });
+    $(document).on("mouseenter", ".settlement-item-table td, .settlement-batch-summary strong", function () {
+        if (this.scrollWidth > this.clientWidth) {
+            $(this).attr("title", $(this).text().trim()).attr("data-overflow-title", "true");
+        }
+    }).on("mouseleave", "[data-overflow-title='true']", function () {
+        $(this).removeAttr("title data-overflow-title");
+    });
     $("#closeSettlementDetail, #settlementDetailBackdrop").on("click", closeSettlementDetail);
     $("#closeSettlementItemDetail, #settlementItemDetailBackdrop").on("click", closeSettlementItemDetail);
     $(document).on("keydown", function (event) {
