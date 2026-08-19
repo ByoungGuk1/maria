@@ -9,10 +9,6 @@
     padding: 12px 14px;
 }
 
-.kpi-card-danger {
-    border-left: 3px solid var(--danger);
-}
-
 .kpi-card-clickable {
     cursor: pointer;
 }
@@ -38,7 +34,7 @@
 }
 
 .kpi-value-danger {
-    color: var(--danger);
+    color: var(--textPrimary);
 }
 
 .kpi-value-amount {
