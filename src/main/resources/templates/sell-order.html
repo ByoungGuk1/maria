@@ -92,6 +92,88 @@
         </div>
         <div class="pagination" id="sellOrderPagination"></div>
     </section>
+
+    <div id="sellorder-drawer-backdrop" class="sellorder-drawer-backdrop" hidden></div>
+    <aside id="sellorder-detail-drawer" class="sellorder-detail-drawer"
+           aria-labelledby="sellorder-detail-title" aria-hidden="true">
+        <div class="sellorder-drawer-header">
+            <div>
+                <span class="sellorder-section-label">매도 · 환전 상세</span>
+                <h2 id="sellorder-detail-title">매도 내역</h2>
+            </div>
+            <div class="sellorder-drawer-actions">
+                <span id="sellorder-detail-status" class="sellorder-status-badge"></span>
+                <button type="button" id="sellorder-drawer-close" aria-label="상세 닫기">&times;</button>
+            </div>
+        </div>
+
+        <div class="sellorder-drawer-section-title">기본 정보</div>
+        <table class="dash-table sellorder-drawer-table">
+            <thead>
+            <tr>
+                <th>계좌번호</th>
+                <th>고객명</th>
+                <th>종목</th>
+                <th>매도수량</th>
+                <th>매도시각</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td id="sellorder-detail-account-no">-</td>
+                <td id="sellorder-detail-customer-name">-</td>
+                <td id="sellorder-detail-product">-</td>
+                <td id="sellorder-detail-qty">-</td>
+                <td id="sellorder-detail-processed-at">-</td>
+            </tr>
+            </tbody>
+        </table>
+
+        <div class="sellorder-summary-grid">
+            <article class="sellorder-summary-box">
+                <span>매도기준가</span>
+                <strong id="sellorder-detail-base-price">-</strong>
+                <small id="sellorder-detail-fx-rate">-</small>
+            </article>
+            <article class="sellorder-summary-box">
+                <span>가환전액</span>
+                <strong id="sellorder-detail-provisional-amount">-</strong>
+            </article>
+            <article class="sellorder-summary-box">
+                <span>확정액</span>
+                <strong id="sellorder-detail-final-amount">-</strong>
+                <small id="sellorder-detail-variance">-</small>
+            </article>
+        </div>
+
+        <div class="sellorder-drawer-section-title">가환전 · 확정산</div>
+        <dl class="sellorder-detail-grid">
+            <div><dt>가환전액</dt><dd id="sellorder-detail-provisional-amount-detail">-</dd></div>
+            <div><dt>가환전 시각</dt><dd id="sellorder-detail-provisional-at">-</dd></div>
+            <div><dt>확정 환율</dt><dd id="sellorder-detail-final-rate">-</dd></div>
+            <div><dt>확정액</dt><dd id="sellorder-detail-final-amount-detail">-</dd></div>
+            <div><dt>확정 시각</dt><dd id="sellorder-detail-final-at">-</dd></div>
+            <div><dt>정산 상태</dt><dd id="sellorder-detail-settlement-status">-</dd></div>
+        </dl>
+
+        <div class="sellorder-drawer-section-title">매도 lot 출처</div>
+        <table class="dash-table sellorder-drawer-table">
+            <thead>
+            <tr>
+                <th>입고 출처</th>
+                <th>매수일</th>
+                <th>매수단가</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td id="sellorder-detail-source-broker">-</td>
+                <td id="sellorder-detail-purchase-date">-</td>
+                <td id="sellorder-detail-purchase-price">-</td>
+            </tr>
+            </tbody>
+        </table>
+    </aside>
 </div>
 
 <th:block layout:fragment="pageScripts">

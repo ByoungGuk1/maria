@@ -33,7 +33,7 @@ $(function () {
     var DATE_TIME_FORMATTER = new Intl.DateTimeFormat("ko-KR", {
         year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"
     });
-    var PAGE_SIZE = 20;
+    var PAGE_SIZE = 10;
     var currentPage = 0;
     var totalCount = 0;
 
@@ -186,6 +186,8 @@ $(function () {
     }
 
     function loadAuditLogs() {
+        var $content = $(".content");
+        var scrollTop = $content.scrollTop();
         $("#auditLogListBody").html(
             '<tr><td colspan="7" class="audit-log-loading">불러오는 중...</td></tr>'
         );
@@ -200,6 +202,7 @@ $(function () {
                 $("#auditLogCount").text(totalCount + "건");
                 renderRows(page.content || []);
                 renderPagination();
+                $content.scrollTop(scrollTop);
             })
             .fail(function (xhr) {
                 if (xhr.status !== 401) {
