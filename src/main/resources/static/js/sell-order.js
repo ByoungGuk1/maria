@@ -11,7 +11,7 @@ $(function () {
         year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"
     });
 
-    var PAGE_SIZE = 20;
+    var PAGE_SIZE = 10;
     var currentPage = 0;
     var totalPages = 1;
 
