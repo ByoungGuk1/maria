@@ -243,6 +243,16 @@
     inset: 0;
     background: rgba(0, 0, 0, 0.45);
     z-index: 1500;
+    opacity: 0;
+    transition: opacity .2s ease;
+}
+
+.detail-overlay-backdrop[hidden] {
+    display: none;
+}
+
+.detail-overlay-backdrop.is-open {
+    opacity: 1;
 }
 
 .detail-panel {
@@ -257,6 +267,12 @@
     z-index: 1501;
     overflow-y: auto;
     padding-top: 44px;
+    transform: translateX(102%);
+    transition: transform .2s ease;
+}
+
+.detail-panel.is-open {
+    transform: translateX(0);
 }
 
 .detail-panel-close {
