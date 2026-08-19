@@ -205,7 +205,9 @@ $(function () {
     }
 
     function renderDetail(batch) {
-        $("#settlementDetail").show();
+        $("#settlementDetail").addClass("is-open").attr("aria-hidden", "false");
+        $("#settlementDetailBackdrop").prop("hidden", false);
+        $("body").addClass("settlement-drawer-open");
         setTextValues({
             "#detailBatchTitle": "배치 #" + selectedBatchId + " 상세",
             "#detailBatchFailure": batch.failureMessage || "",
@@ -218,6 +220,12 @@ $(function () {
         });
         $("#retrySettlementBatch").toggle(canExecuteSettlement() && batch.status === "FAILED");
         $("#settlementItemFilter").toggle(batch.status === "FAILED");
+    }
+
+    function closeSettlementDetail() {
+        $("#settlementDetail").removeClass("is-open").attr("aria-hidden", "true");
+        $("#settlementDetailBackdrop").prop("hidden", true);
+        $("body").removeClass("settlement-drawer-open");
     }
 
     function loadBatchItems(preserveItemPage) {
@@ -316,6 +324,10 @@ $(function () {
 
     $(document).on("click", ".settlement-batch-row", function () { selectBatch($(this).data("batch-id")); });
     $(document).on("click", ".settlement-item-row", function () { selectItem($(this).data("item-id")); });
+    $("#closeSettlementDetail, #settlementDetailBackdrop").on("click", closeSettlementDetail);
+    $(document).on("keydown", function (event) {
+        if (event.key === "Escape") closeSettlementDetail();
+    });
     bindPagination("#previousSettlementPage", "#nextSettlementPage", function () { return currentPage; }, function (page) { currentPage = page; }, function () { return batches.length; }, PAGE_SIZE, renderBatches);
     bindPagination("#previousSettlementItemPage", "#nextSettlementItemPage", function () { return currentItemPage; }, function (page) { currentItemPage = page; }, function () { return items.length; }, ITEM_PAGE_SIZE, function () { renderItems(items); });
     $("#settlementItemFilter").on("change", function () {
