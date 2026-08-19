@@ -119,7 +119,7 @@ $(function () {
                 ? escapeHtml(order.ticker) + (order.name ? " · " + escapeHtml(order.name) : "")
                 : "-";
             var row =
-                "<tr>" +
+                '<tr data-order-id="' + order.orderId + '">' +
                 '<td class="sellorder-ellipsis"><div class="sellorder-account-no">' + escapeHtml(order.accountNo || "-") + "</div>" +
                 '<div class="sellorder-account-name">' + escapeHtml(order.customerName || "") + "</div></td>" +
                 '<td class="sellorder-ellipsis">' + productLabel + "</td>" +
@@ -164,6 +164,98 @@ $(function () {
         }
         addButton("다음", blockEnd + 1, blockEnd === totalPages - 1, false);
     }
+
+    var SETTLEMENT_STATUS_LABEL = {
+        PROVISIONAL: "가환전",
+        FINALIZED: "확정산"
+    };
+
+    function formatRate(rate) {
+        return rate == null ? "-" : Number(rate).toFixed(2);
+    }
+
+    function formatVariance(orderAmount, finalAmount) {
+        if (orderAmount == null || finalAmount == null) {
+            return "-";
+        }
+        var diff = finalAmount - orderAmount;
+        var sign = diff > 0 ? "+" : "";
+        return sign + KRW_FORMATTER.format(diff) + "원";
+    }
+
+    function closeDrawer() {
+        $("#sellorder-detail-drawer").removeClass("is-open").attr("aria-hidden", "true");
+        $("#sellorder-drawer-backdrop").prop("hidden", true);
+    }
+
+    function renderDrawer(detail) {
+        var orderAmount = detail.sellQty != null && detail.basePrice != null
+            ? detail.sellQty * detail.basePrice
+            : null;
+
+        $("#sellorder-detail-title").text((detail.customerName || "-") + " 고객 매도");
+        $("#sellorder-detail-status")
+            .attr("class", "sellorder-status-badge " + statusClassOf(detail.status))
+            .text(sellOrderStatusLabel(detail.status));
+
+        $("#sellorder-detail-account-no").text(detail.accountNo || "-");
+        $("#sellorder-detail-customer-name").text(detail.customerName || "-");
+        $("#sellorder-detail-product").text(
+            detail.ticker ? detail.ticker + (detail.name ? " · " + detail.name : "") : "-"
+        );
+        $("#sellorder-detail-qty").text(formatQty(detail.sellQty));
+        $("#sellorder-detail-processed-at").text(formatDateTime(detail.processedAt));
+
+        $("#sellorder-detail-base-price").text(formatAmount(detail.basePrice));
+        $("#sellorder-detail-fx-rate").text(formatRate(detail.settlementFxRate));
+
+        $("#sellorder-detail-provisional-amount").text(formatAmount(detail.provisionalAmount));
+        $("#sellorder-detail-provisional-at").text(formatDateTime(detail.provisionalAt));
+        $("#sellorder-detail-final-rate").text(formatRate(detail.finalRate));
+        $("#sellorder-detail-final-amount").text(formatAmount(detail.finalAmount));
+        $("#sellorder-detail-final-at").text(formatDateTime(detail.finalAt));
+        $("#sellorder-detail-settlement-status").text(
+            SETTLEMENT_STATUS_LABEL[detail.settlementStatus] || detail.settlementStatus || "-"
+        );
+
+        $("#sellorder-detail-order-amount").text(formatAmount(orderAmount));
+        $("#sellorder-detail-variance").text(formatVariance(orderAmount, detail.finalAmount));
+
+        $("#sellorder-detail-source-broker").text(detail.sourceBroker || "-");
+        $("#sellorder-detail-purchase-date").text(formatDateTime(detail.purchaseDate));
+        $("#sellorder-detail-purchase-price").text(formatAmount(detail.purchasePrice));
+
+        $("#sellorder-detail-drawer").addClass("is-open").attr("aria-hidden", "false");
+        $("#sellorder-drawer-backdrop").prop("hidden", false);
+    }
+
+    function openDrawer(orderId) {
+        MARIA.auth.ajax({
+            url: "/api/sell-orders/" + orderId + "/detail",
+            method: "GET"
+        })
+            .done(function (res) {
+                renderDrawer(res.data || {});
+            })
+            .fail(function (xhr) {
+                if (xhr.status === 401) {
+                    return;
+                }
+                showError((xhr.responseJSON && xhr.responseJSON.message) || "매도 상세 정보를 불러오지 못했습니다.");
+            });
+    }
+
+    $(document).on("click", "#sellOrderListBody tr[data-order-id]", function () {
+        openDrawer($(this).data("order-id"));
+    });
+
+    $("#sellorder-drawer-close, #sellorder-drawer-backdrop").on("click", closeDrawer);
+
+    $(document).on("keydown", function (event) {
+        if (event.key === "Escape") {
+            closeDrawer();
+        }
+    });
 
     function loadSellOrders() {
         $("#sellOrderListBody").html('<tr><td colspan="8" class="sellorder-loading">불러오는 중...</td></tr>');

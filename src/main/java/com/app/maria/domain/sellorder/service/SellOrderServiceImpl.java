@@ -6,6 +6,7 @@ import com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper;
 import com.app.maria.domain.inbound.dto.InboundDetailDTO;
 import com.app.maria.domain.inbound.mapper.InboundMapper;
 import com.app.maria.domain.sellorder.dto.SellOrderDTO;
+import com.app.maria.domain.sellorder.dto.SellOrderDetailDTO;
 import com.app.maria.domain.sellorder.dto.SellOrderHistoryDTO;
 import com.app.maria.domain.sellorder.dto.SellOrderSummaryDTO;
 import com.app.maria.domain.sellorder.dto.request.SellOrderRequestDTO;
@@ -171,6 +172,14 @@ public class SellOrderServiceImpl implements SellOrderService {
                         .selectSellOrderById(orderId)
                         .orElseThrow(() -> new SellOrderNotFoundException("매도 주문 조회 실패"));
         return new SellOrderResponseDTO(dto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SellOrderDetailDTO getSellOrderDetail(Long orderId) {
+        return sellOrderMapper
+                .selectSellOrderDetail(orderId)
+                .orElseThrow(() -> new SellOrderNotFoundException("매도 주문 조회 실패"));
     }
 
     @Override

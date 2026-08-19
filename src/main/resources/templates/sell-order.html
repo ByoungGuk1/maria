@@ -92,6 +92,59 @@
         </div>
         <div class="pagination" id="sellOrderPagination"></div>
     </section>
+
+    <div id="sellorder-drawer-backdrop" class="sellorder-drawer-backdrop" hidden></div>
+    <aside id="sellorder-detail-drawer" class="sellorder-detail-drawer"
+           aria-labelledby="sellorder-detail-title" aria-hidden="true">
+        <div class="sellorder-drawer-header">
+            <div>
+                <span class="sellorder-section-label">매도 · 환전 상세</span>
+                <h2 id="sellorder-detail-title">매도 내역</h2>
+            </div>
+            <div class="sellorder-drawer-actions">
+                <span id="sellorder-detail-status" class="sellorder-status-badge"></span>
+                <button type="button" id="sellorder-drawer-close" aria-label="상세 닫기">&times;</button>
+            </div>
+        </div>
+
+        <div class="sellorder-drawer-section-title">기본 정보</div>
+        <dl class="sellorder-detail-grid">
+            <div><dt>계좌번호</dt><dd id="sellorder-detail-account-no">-</dd></div>
+            <div><dt>고객명</dt><dd id="sellorder-detail-customer-name">-</dd></div>
+            <div><dt>종목</dt><dd id="sellorder-detail-product">-</dd></div>
+            <div><dt>매도수량</dt><dd id="sellorder-detail-qty">-</dd></div>
+            <div><dt>매도시각</dt><dd id="sellorder-detail-processed-at">-</dd></div>
+        </dl>
+
+        <div class="sellorder-drawer-section-title">기준가</div>
+        <dl class="sellorder-detail-grid">
+            <div><dt>매도기준가</dt><dd id="sellorder-detail-base-price">-</dd></div>
+            <div><dt>정산 환율</dt><dd id="sellorder-detail-fx-rate">-</dd></div>
+        </dl>
+
+        <div class="sellorder-drawer-section-title">가환전 → 확정산 흐름</div>
+        <dl class="sellorder-detail-grid">
+            <div><dt>가환전액</dt><dd id="sellorder-detail-provisional-amount">-</dd></div>
+            <div><dt>가환전 시각</dt><dd id="sellorder-detail-provisional-at">-</dd></div>
+            <div><dt>확정 환율</dt><dd id="sellorder-detail-final-rate">-</dd></div>
+            <div><dt>확정액</dt><dd id="sellorder-detail-final-amount">-</dd></div>
+            <div><dt>확정 시각</dt><dd id="sellorder-detail-final-at">-</dd></div>
+            <div><dt>정산 상태</dt><dd id="sellorder-detail-settlement-status">-</dd></div>
+        </dl>
+
+        <div class="sellorder-drawer-section-title">체결 ↔ 결제 변동</div>
+        <dl class="sellorder-detail-grid">
+            <div><dt>체결 기준액 (매도수량 × 기준가)</dt><dd id="sellorder-detail-order-amount">-</dd></div>
+            <div><dt>확정산액과의 차이</dt><dd id="sellorder-detail-variance">-</dd></div>
+        </dl>
+
+        <div class="sellorder-drawer-section-title">매도 lot 출처</div>
+        <dl class="sellorder-detail-grid">
+            <div><dt>입고 출처</dt><dd id="sellorder-detail-source-broker">-</dd></div>
+            <div><dt>매수일</dt><dd id="sellorder-detail-purchase-date">-</dd></div>
+            <div><dt>매수단가</dt><dd id="sellorder-detail-purchase-price">-</dd></div>
+        </dl>
+    </aside>
 </div>
 
 <th:block layout:fragment="pageScripts">
