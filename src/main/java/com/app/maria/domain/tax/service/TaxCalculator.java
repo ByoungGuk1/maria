@@ -56,10 +56,6 @@ public class TaxCalculator {
     private List<TaxLotDetailDTO> buildLotDetails(List<SellLotDTO> sellLots) {
         List<TaxLotDetailDTO> details = new ArrayList<>();
         for (SellLotDTO lot : sellLots) {
-            BigDecimal purchaseCost =
-                    lot.getPurchasePrice()
-                            .multiply(lot.getPurchaseFxRate())
-                            .multiply(lot.getSellQty());
             details.add(
                     TaxLotDetailDTO.builder()
                             .productLabel(lot.getProductLabel())
@@ -69,7 +65,7 @@ public class TaxCalculator {
                                             .setScale(AMOUNT_SCALE, RoundingMode.HALF_UP))
                             .gainAmount(
                                     lot.getFinalAmount()
-                                            .subtract(purchaseCost)
+                                            .subtract(purchaseCost(lot))
                                             .setScale(AMOUNT_SCALE, RoundingMode.HALF_UP))
                             .build());
         }
@@ -113,12 +109,8 @@ public class TaxCalculator {
                 if (!inRange(lot.getSellAt(), rule)) {
                     continue;
                 }
-                BigDecimal purchaseCost =
-                        lot.getPurchasePrice()
-                                .multiply(lot.getPurchaseFxRate())
-                                .multiply(lot.getSellQty());
                 sellAmount = sellAmount.add(lot.getFinalAmount());
-                gainAmount = gainAmount.add(lot.getFinalAmount().subtract(purchaseCost));
+                gainAmount = gainAmount.add(lot.getFinalAmount().subtract(purchaseCost(lot)));
             }
             BigDecimal externalNetBuyAmount = BigDecimal.ZERO;
             for (ExternalBuyDTO externalTrade : externalTrades) {
@@ -147,6 +139,10 @@ public class TaxCalculator {
         return !date.isBefore(rule.getValidFrom()) && !date.isAfter(rule.getValidTo());
     }
 
+    private BigDecimal purchaseCost(SellLotDTO lot) {
+        return lot.getPurchasePrice().multiply(lot.getPurchaseFxRate()).multiply(lot.getSellQty());
+    }
+
     private RiaSellAggregateDTO aggregateRiaSell(List<SellLotDTO> lots, List<TaxRuleDTO> taxRules) {
         BigDecimal weightedSell = BigDecimal.ZERO;
         BigDecimal weightedGain = BigDecimal.ZERO;
@@ -155,12 +151,8 @@ public class TaxCalculator {
         for (SellLotDTO lot : lots) {
             BigDecimal weight = findWeight(taxRules, lot.getSellAt());
 
-            BigDecimal purchaseCost =
-                    lot.getPurchasePrice()
-                            .multiply(lot.getPurchaseFxRate())
-                            .multiply(lot.getSellQty());
             BigDecimal sellAmount = lot.getFinalAmount();
-            BigDecimal gainAmount = sellAmount.subtract(purchaseCost);
+            BigDecimal gainAmount = sellAmount.subtract(purchaseCost(lot));
 
             weightedSell = weightedSell.add(sellAmount.multiply(weight));
             weightedGain = weightedGain.add(gainAmount.multiply(weight));
