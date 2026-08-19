@@ -6,6 +6,7 @@ import com.app.maria.domain.settlement.component.SettlementTransactionExecutor;
 import com.app.maria.domain.settlement.dto.SettlementBatchDTO;
 import com.app.maria.domain.settlement.dto.SettlementItemDTO;
 import com.app.maria.domain.settlement.dto.SettlementJoinDTO;
+import com.app.maria.domain.settlement.exception.ExchangeRateExternalApiException;
 import com.app.maria.domain.settlement.exception.SettlementBatchNotFoundException;
 import com.app.maria.domain.settlement.exception.SettlementStateConflictException;
 import com.app.maria.domain.settlement.mapper.SettlementBatchMapper;
@@ -13,16 +14,16 @@ import com.app.maria.domain.settlement.mapper.SettlementItemMapper;
 import com.app.maria.domain.settlement.mapper.SettlementJoinMapper;
 import com.app.maria.domain.settlement.provider.ExchangeRateProvider;
 import com.app.maria.domain.settlement.type.BatchStatus;
+import com.app.maria.global.exception.ExchangeRateNotFoundException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.StepContribution;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
+import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.stereotype.Component;
 
@@ -31,6 +32,7 @@ import org.springframework.stereotype.Component;
 public class SettlementBatchTasklet implements Tasklet {
 
     private static final String LAST_ITEM_ID = "settlement.lastItemId";
+    private static final String RATE_CACHE_PREFIX = "settlement.rate.";
     private static final long INITIAL_ITEM_ID = 0L;
 
     private final SettlementBatchMapper settlementBatchMapper;
@@ -77,9 +79,8 @@ public class SettlementBatchTasklet implements Tasklet {
         }
 
         LocalDate rateDate = batch.getExecutedAt().toLocalDate();
-        Map<String, BigDecimal> rateCache = new HashMap<>();
         for (SettlementItemDTO item : items) {
-            processItem(batchId, item, rateDate, rateCache);
+            processItem(batchId, item, rateDate, executionContext);
             executionContext.putLong(LAST_ITEM_ID, item.getItemId());
         }
 
@@ -90,7 +91,7 @@ public class SettlementBatchTasklet implements Tasklet {
             Long batchId,
             SettlementItemDTO item,
             LocalDate rateDate,
-            Map<String, BigDecimal> rateCache) {
+            ExecutionContext executionContext) {
         try {
             SettlementJoinDTO query =
                     SettlementJoinDTO.builder().batchId(batchId).itemId(item.getItemId()).build();
@@ -101,17 +102,60 @@ public class SettlementBatchTasklet implements Tasklet {
             }
 
             SettlementJoinDTO value = target.get();
-            String rateKey = value.getPurchaseCurrency() + ":" + rateDate;
             BigDecimal finalRate =
-                    rateCache.computeIfAbsent(
-                            rateKey,
-                            ignored ->
-                                    exchangeRateProvider.getFinalRate(
-                                            value.getPurchaseCurrency(), rateDate));
+                    resolveFinalRate(value.getPurchaseCurrency(), rateDate, executionContext);
             settlementTransactionExecutor.execute(value, finalRate);
         } catch (Exception e) {
             settlementFailureRecorder.markFailed(item.getItemId(), e);
         }
+    }
+
+    private BigDecimal resolveFinalRate(
+            String currency, LocalDate rateDate, ExecutionContext executionContext) {
+        String cacheKey = RATE_CACHE_PREFIX + currency + ":" + rateDate;
+        String valueKey = cacheKey + ".value";
+        String failureTypeKey = cacheKey + ".failureType";
+        String failureMessageKey = cacheKey + ".failureMessage";
+
+        if (executionContext.containsKey(valueKey)) {
+            return new BigDecimal(executionContext.getString(valueKey));
+        }
+        if (executionContext.containsKey(failureTypeKey)) {
+            throw cachedFailure(
+                    executionContext.getString(failureTypeKey),
+                    executionContext.getString(failureMessageKey));
+        }
+
+        try {
+            BigDecimal rate = exchangeRateProvider.getFinalRate(currency, rateDate);
+            executionContext.putString(valueKey, rate.toPlainString());
+            return rate;
+        } catch (ExchangeRateNotFoundException e) {
+            cacheFailure(executionContext, failureTypeKey, failureMessageKey, "NOT_FOUND", e);
+            throw e;
+        } catch (ExchangeRateExternalApiException e) {
+            cacheFailure(executionContext, failureTypeKey, failureMessageKey, "EXTERNAL_API", e);
+            throw e;
+        }
+    }
+
+    private void cacheFailure(
+            ExecutionContext executionContext,
+            String failureTypeKey,
+            String failureMessageKey,
+            String failureType,
+            Exception exception) {
+        executionContext.putString(failureTypeKey, failureType);
+        executionContext.putString(
+                failureMessageKey,
+                exception.getMessage() == null ? "환율 조회 실패" : exception.getMessage());
+    }
+
+    private RuntimeException cachedFailure(String failureType, String failureMessage) {
+        if ("NOT_FOUND".equals(failureType)) {
+            return new ExchangeRateNotFoundException(failureMessage);
+        }
+        return new ExchangeRateExternalApiException(failureMessage, null);
     }
 
     private void finalizeBatch(Long batchId) {
