@@ -214,19 +214,26 @@ $(function () {
         $("#sellorder-detail-processed-at").text(formatDateTime(detail.processedAt));
 
         $("#sellorder-detail-base-price").text(formatAmount(detail.basePrice));
-        $("#sellorder-detail-fx-rate").text(formatRate(detail.settlementFxRate));
+        $("#sellorder-detail-fx-rate").text(
+            detail.settlementFxRate == null ? "-" : "정산환율 " + formatRate(detail.settlementFxRate)
+        );
 
         $("#sellorder-detail-provisional-amount").text(formatAmount(detail.provisionalAmount));
+        $("#sellorder-detail-provisional-amount-detail").text(formatAmount(detail.provisionalAmount));
         $("#sellorder-detail-provisional-at").text(formatDateTime(detail.provisionalAt));
         $("#sellorder-detail-final-rate").text(formatRate(detail.finalRate));
         $("#sellorder-detail-final-amount").text(formatAmount(detail.finalAmount));
+        $("#sellorder-detail-final-amount-detail").text(formatAmount(detail.finalAmount));
         $("#sellorder-detail-final-at").text(formatDateTime(detail.finalAt));
         $("#sellorder-detail-settlement-status").text(
             SETTLEMENT_STATUS_LABEL[detail.settlementStatus] || detail.settlementStatus || "-"
         );
 
-        $("#sellorder-detail-order-amount").text(formatAmount(orderAmount));
-        $("#sellorder-detail-variance").text(formatVariance(orderAmount, detail.finalAmount));
+        $("#sellorder-detail-variance").text(
+            orderAmount == null || detail.finalAmount == null
+                ? "-"
+                : "체결대비 " + formatVariance(orderAmount, detail.finalAmount)
+        );
 
         $("#sellorder-detail-source-broker").text(detail.sourceBroker || "-");
         $("#sellorder-detail-purchase-date").text(formatDateTime(detail.purchaseDate));
