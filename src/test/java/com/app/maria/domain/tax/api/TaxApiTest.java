@@ -61,7 +61,10 @@ class TaxApiTest {
                         .adjustRatio(new BigDecimal("0.7442"))
                         .finalDeduction(new BigDecimal("20688760.00"))
                         .finalTax(new BigDecimal("1938472.80"))
-                        .build());
+                        .build(),
+                null,
+                null,
+                null);
     }
 
     private TaxCalculationSaveResponseDTO saved() {

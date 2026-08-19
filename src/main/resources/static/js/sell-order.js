@@ -124,7 +124,7 @@ $(function () {
                 : "-";
             var row =
                 '<tr data-order-id="' + order.orderId + '">' +
-                '<td class="sellorder-ellipsis"><div class="sellorder-account-no">' + escapeHtml(order.accountNo || "-") + "</div>" +
+                '<td class="sellorder-ellipsis"><div class="sellorder-account-no">' + MARIA.fmt.hyphenateAccountNo(order.accountNo) + "</div>" +
                 '<div class="sellorder-account-name">' + escapeHtml(order.customerName || "") + "</div></td>" +
                 '<td class="sellorder-ellipsis">' + productLabel + "</td>" +
                 '<td class="sellorder-amount">' + formatQty(order.sellQty) + "</td>" +

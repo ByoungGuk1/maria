@@ -19,9 +19,17 @@ $(function () {
     var accountApplicationChart = null;
     var customerSearchTimer = null;
     var customerSearchRequest = null;
+    var businessToday = null; // "YYYY-MM-DD" - system_clock 기준(실제 브라우저 시간 아님)
 
     function escapeHtml(value) {
         return $("<div>").text(value == null ? "" : value).html();
+    }
+
+    function loadBusinessToday() {
+        return MARIA.auth.ajax({ url: "/api/admin/system-clock", method: "GET" })
+            .done(function (res) {
+                businessToday = res.data ? res.data.slice(0, 10) : null;
+            });
     }
 
     function formatAmount(amount) {
@@ -196,7 +204,7 @@ $(function () {
             var date = new Date(value);
             return date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
         }
-        var today = new Date();
+        var today = businessToday ? new Date(businessToday) : new Date();
         var yesterday = new Date(today);
         yesterday.setDate(today.getDate() - 1);
         var todayKey = dateKey(today);
@@ -205,14 +213,22 @@ $(function () {
             var scoped = status ? accounts.filter(function (account) { return account.status === status; }) : accounts;
             var todayCount = scoped.filter(function (account) { return dateKey(account.createdAt) === todayKey; }).length;
             var yesterdayCount = scoped.filter(function (account) { return dateKey(account.createdAt) === yesterdayKey; }).length;
-            var delta = todayCount - yesterdayCount;
-            return (delta >= 0 ? "+" : "") + delta + " 전날 대비";
+            if (yesterdayCount === 0) {
+                return { text: "—", cls: "" };
+            }
+            var rate = (todayCount - yesterdayCount) / yesterdayCount * 100;
+            var arrow = rate > 0 ? "▲" : rate < 0 ? "▼" : "-";
+            var cls = rate > 0 ? "up" : rate < 0 ? "down" : "";
+            return { text: arrow + Math.abs(rate).toFixed(1) + "%", cls: cls };
         }
-        $("#totalAccountDelta").text(deltaText(""));
+        function applyDelta(selector, status) {
+            var delta = deltaText(status);
+            $(selector).text(delta.text).attr("class", delta.cls);
+        }
+        applyDelta("#totalAccountDelta", "");
         STATUS_CONFIG.forEach(function (status) {
             $(status.summarySelector).text(accounts.filter(function (account) { return account.status === status.value; }).length);
-            var deltaSelector = status.summarySelector.replace("Count", "Delta");
-            $(deltaSelector).text(deltaText(status.value));
+            applyDelta(status.summarySelector.replace("Count", "Delta"), status.value);
         });
     }
 
@@ -309,7 +325,7 @@ $(function () {
             var selectedClass = account.accountId === selectedAccountId ? " is-selected" : "";
             $body.append(
                 '<tr class="account-row' + selectedClass + '" data-account-id="' + account.accountId + '">' +
-                '<td><div class="account-number">' + escapeHtml(account.accountNo || "-") + '</div>' +
+                '<td><div class="account-number">' + MARIA.fmt.hyphenateAccountNo(account.accountNo) + '</div>' +
                 '<div class="account-customer-id">' + escapeHtml(account.customerName || "고객 ID " + account.customerId) + ' · 고객 ID ' + escapeHtml(account.customerId) + '</div></td>' +
                 '<td><span class="account-status-badge ' + statusClass + '">' + escapeHtml(statusLabel(account.status)) + '</span></td>' +
                 '<td class="account-amount">' + formatAmount(account.limitAmount) + '</td>' +
@@ -346,7 +362,7 @@ $(function () {
         }
         $("#accountDetailModal").css("display", "flex");
         $("body").addClass("account-modal-open");
-        $("#detailAccountNo").text(account.accountNo || "-");
+        $("#detailAccountNo").html(MARIA.fmt.accountNoHtml(account.accountNo));
         $("#detailCustomerId").text(account.customerId || "-");
         $("#detailStatus").text(statusLabel(account.status));
         $("#detailLimitAmount").text(formatAmount(account.limitAmount));
@@ -686,5 +702,8 @@ $(function () {
         });
     });
 
+    loadBusinessToday().done(function () {
+        renderSummary();
+    });
     loadAccounts();
 });

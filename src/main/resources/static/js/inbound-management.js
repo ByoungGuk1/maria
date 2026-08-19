@@ -131,7 +131,7 @@ $(function () {
                 '<div class="ib-list-item ib-account-item' + (isSelected ? " selected" : "") + '">' +
                 '<div class="ib-list-item-top">' +
                 '<span class="ib-list-item-name">' + escapeHtml(acc.customerName) + '</span>' +
-                '<span class="ib-list-item-ticker">' + escapeHtml(acc.accountNo || "-") + '</span>' +
+                '<span class="ib-list-item-ticker">' + MARIA.fmt.hyphenateAccountNo(acc.accountNo) + '</span>' +
                 '</div>' +
                 '<div class="ib-list-item-bottom">' +
                 '<span>입고 ' + acc.inboundCount + '건</span>' +
@@ -372,7 +372,7 @@ $(function () {
         var availableQty = item.remainingQty + item.approvedQty;
         $detail.append(
             '<div class="section-header">' +
-            '<span>3-way MIN 계산 — ' + escapeHtml(item.accountNo || "-") + ' · ' + escapeHtml(item.customerName) + ' · ' + escapeHtml(item.ticker || item.productName) + '</span>' +
+            '<span>3-way MIN 계산 — ' + MARIA.fmt.accountNoHtml(item.accountNo) + ' · ' + escapeHtml(item.customerName) + ' · ' + escapeHtml(item.ticker || item.productName) + '</span>' +
             '<span class="section-sub' + (isZeroApproved ? " ib-zero-text" : "") + '">최종 채택: ' + formatQty(item.approvedQty) + '</span>' +
             '</div>' +
             (isZeroApproved
@@ -419,7 +419,7 @@ $(function () {
             '<th>계좌번호</th><th>고객명</th><th>종목</th><th>출처</th><th>처리일시</th><th>잔여가능수량</th>' +
             '</tr></thead>' +
             '<tbody><tr>' +
-            '<td>' + escapeHtml(item.accountNo || "-") + '</td>' +
+            '<td>' + MARIA.fmt.accountNoHtml(item.accountNo) + '</td>' +
             '<td>' + escapeHtml(item.customerName) + '</td>' +
             '<td>' + escapeHtml(item.ticker || "-") + ' (' + escapeHtml(item.productName || "-") + ')</td>' +
             '<td>' + (item.sourceBroker ? escapeHtml(item.sourceBroker) : "-") + '</td>' +

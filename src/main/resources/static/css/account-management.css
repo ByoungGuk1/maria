@@ -88,7 +88,7 @@
     color: var(--summary-text-color);
 }
 
-.account-summary-total { --summary-border-color: #94a3b8; --summary-text-color: #475569; }
+.account-summary-total { --summary-border-color: #94a3b8; --summary-text-color: var(--textPrimary); }
 .account-summary-applied { --summary-border-color: var(--accent); --summary-text-color: var(--accent); }
 .account-summary-opened { --summary-border-color: var(--success); --summary-text-color: var(--success); }
 .account-summary-rejected { --summary-border-color: #d69e2e; --summary-text-color: #b7791f; }
@@ -439,8 +439,16 @@
 }
 
 .account-number {
-    color: var(--textPrimary);
-    font-weight: 600;
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.account-summary-card small.up {
+    color: var(--danger);
+}
+
+.account-summary-card small.down {
+    color: var(--accent);
 }
 
 .account-customer-id {
