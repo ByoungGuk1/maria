@@ -191,8 +191,28 @@ $(function () {
 
     function renderSummary() {
         $("#totalAccountCount").text(accounts.length);
+        function dateKey(value) {
+            if (!value) return "";
+            var date = new Date(value);
+            return date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+        }
+        var today = new Date();
+        var yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        var todayKey = dateKey(today);
+        var yesterdayKey = dateKey(yesterday);
+        function deltaText(status) {
+            var scoped = status ? accounts.filter(function (account) { return account.status === status; }) : accounts;
+            var todayCount = scoped.filter(function (account) { return dateKey(account.createdAt) === todayKey; }).length;
+            var yesterdayCount = scoped.filter(function (account) { return dateKey(account.createdAt) === yesterdayKey; }).length;
+            var delta = todayCount - yesterdayCount;
+            return (delta >= 0 ? "+" : "") + delta + " 전날 대비";
+        }
+        $("#totalAccountDelta").text(deltaText(""));
         STATUS_CONFIG.forEach(function (status) {
             $(status.summarySelector).text(accounts.filter(function (account) { return account.status === status.value; }).length);
+            var deltaSelector = status.summarySelector.replace("Count", "Delta");
+            $(deltaSelector).text(deltaText(status.value));
         });
     }
 
@@ -255,14 +275,18 @@ $(function () {
     }
 
     function filteredAccounts() {
-        var keyword = ($("#accountSearch").val() || "").trim().toLowerCase();
-
+        var customerId = ($("#accountCustomerIdSearch").val() || "").trim();
+        var customerName = ($("#accountCustomerNameSearch").val() || "").trim().toLowerCase();
+        var accountNo = ($("#accountNoSearch").val() || "").trim().toLowerCase();
         var status = $("#accountStatusFilter").val();
         return accounts.filter(function (account) {
             var matchesStatus = !status || account.status === status;
-            var searchable = [account.accountNo, account.customerId, account.customerName, statusLabel(account.status)]
-                .join(" ").toLowerCase();
-            return matchesStatus && (!keyword || searchable.indexOf(keyword) !== -1);
+            var matchesCustomerId = !customerId || String(account.customerId || "") === customerId;
+            var matchesCustomerName = !customerName
+                || String(account.customerName || "").toLowerCase().includes(customerName);
+            var matchesAccountNo = !accountNo
+                || String(account.accountNo || "").toLowerCase().includes(accountNo);
+            return matchesStatus && matchesCustomerId && matchesCustomerName && matchesAccountNo;
         });
     }
 
@@ -297,10 +321,23 @@ $(function () {
                 '</tr>'
             );
         });
-        $("#accountPageInfo").text(currentPage + " / " + totalPages);
-        $("#previousAccountPage").prop("disabled", currentPage === 1);
-        $("#nextAccountPage").prop("disabled", currentPage === totalPages);
-        $("#accountPagination").css("display", "flex");
+        var $pagination = $("#accountPagination").empty();
+        var blockStart = Math.floor((currentPage - 1) / 10) * 10 + 1;
+        var blockEnd = Math.min(totalPages, blockStart + 9);
+        function addPageButton(label, page, disabled, active) {
+            $("<button>", {
+                type: "button",
+                class: "account-page-button" + (active ? " is-active" : ""),
+                text: label,
+                disabled: disabled
+            }).data("page", page).appendTo($pagination);
+        }
+        addPageButton("이전", Math.max(1, blockStart - 1), blockStart === 1, false);
+        for (var page = blockStart; page <= blockEnd; page += 1) {
+            addPageButton(String(page), page, false, page === currentPage);
+        }
+        addPageButton("다음", Math.min(totalPages, blockEnd + 1), blockEnd === totalPages, false);
+        $pagination.css("display", "flex");
     }
 
     function renderDetail(account) {
@@ -308,7 +345,8 @@ $(function () {
             $("#accountDetail").hide();
             return;
         }
-        $("#accountDetail").show();
+        $("#accountDetailModal").css("display", "flex");
+        $("body").addClass("account-modal-open");
         $("#detailAccountNo").text(account.accountNo || "-");
         $("#detailCustomerId").text(account.customerId || "-");
         $("#detailStatus").text(statusLabel(account.status));
@@ -324,6 +362,44 @@ $(function () {
         $("#rejectionActions").toggle(account.status === "APPLIED");
         $("#openReapplyModal").toggle(account.status === "REJECTED");
         $("#overrideActions").toggle(account.status === "REJECTED");
+    }
+
+    function renderRelatedList(selector, items, renderer, emptyMessage) {
+        var $list = $(selector).empty();
+        if (!items || !items.length) {
+            $list.append('<div class="account-related-empty">' + escapeHtml(emptyMessage) + '</div>');
+            return;
+        }
+        items.forEach(function (item) { $list.append(renderer(item)); });
+    }
+
+    function loadManagementDetail(accountId) {
+        $("#detailHoldings, #detailInbounds, #detailClosure, #detailWithdrawals").html('<div class="account-related-empty">불러오는 중...</div>');
+        MARIA.auth.ajax({ url: "/api/account/" + accountId + "/management-detail", method: "GET" })
+            .done(function (res) {
+                if (selectedAccountId !== accountId) return;
+                var detail = res.data || {};
+                renderRelatedList("#detailHoldings", detail.holdings, function (item) {
+                    return '<div class="account-related-item"><strong>' + escapeHtml(item.ticker) + '</strong><span>' + escapeHtml(item.productName) + ' · ' + escapeHtml(item.currentQty) + '주</span></div>';
+                }, "보유주식이 없습니다.");
+                renderRelatedList("#detailInbounds", detail.inbounds, function (item) {
+                    return '<div class="account-related-item"><strong>' + escapeHtml(item.ticker) + ' ' + escapeHtml(item.qty) + '주</strong><span>' + escapeHtml(item.sourceBroker || "-") + ' · ' + formatDateTime(item.recordedAt) + '</span></div>';
+                }, "입고주식이 없습니다.");
+                renderRelatedList("#detailClosure", detail.closure ? [detail.closure] : [], function (item) {
+                    return '<div class="account-related-item"><strong>' + escapeHtml(item.status) + '</strong><span>신청 ' + formatDateTime(item.requestedAt) + (item.rejectionReason ? ' · ' + escapeHtml(item.rejectionReason) : '') + '</span></div>';
+                }, "해지 신청 이력이 없습니다.");
+                renderRelatedList("#detailWithdrawals", detail.withdrawals, function (item) {
+                    return '<div class="account-related-item"><strong>' + formatAmount(item.requestedAmount) + '</strong><span>' + escapeHtml(item.status) + ' · ' + formatDateTime(item.processedAt) + '</span></div>';
+                }, "인출 이력이 없습니다.");
+            })
+            .fail(function (xhr) {
+                handleRequestFailure(xhr, "계좌 관련 내역을 불러오지 못했습니다.");
+            });
+    }
+
+    function closeAccountDetail() {
+        $("#accountDetailModal").hide();
+        $("body").removeClass("account-modal-open");
     }
 
     function openLimitModal() {
@@ -396,6 +472,7 @@ $(function () {
                 renderAccounts();
                 renderDetail(account);
                 loadStatusLogs(account.accountId);
+                loadManagementDetail(account.accountId);
             })
             .fail(function (xhr) {
                 if (selectedAccountId === requestedAccountId) {
@@ -485,27 +562,30 @@ $(function () {
     }
 
     $(document).on("click", ".account-row", function () { selectAccount($(this).data("account-id")); });
-    $(document).on("input", ".account-currency-input", function () { formatLimitInput(this); });
-    $("#accountSearch, #accountStatusFilter").on("input change", function () {
+    $(document).on("click", ".account-page-button", function () {
+        if (this.disabled) return;
+        currentPage = Number($(this).data("page"));
+        renderAccounts();
+    });
+    $(document).on("click", ".account-summary-card", function () {
+        var status = $(this).data("status") || "";
+        $("#accountStatusFilter").val(status);
+        $(".account-summary-card").removeClass("is-active");
+        $(this).addClass("is-active");
         currentPage = 1;
+        renderAccounts();
+    });
+    $(document).on("input", ".account-currency-input", function () { formatLimitInput(this); });
+    $("#accountCustomerIdSearch, #accountCustomerNameSearch, #accountNoSearch, #accountStatusFilter").on("input change", function () {
+        currentPage = 1;
+        var status = $("#accountStatusFilter").val();
+        $(".account-summary-card").removeClass("is-active").filter('[data-status="' + status + '"]').addClass("is-active");
         renderAccounts();
     });
     $("#accountTrendStatusFilter").on("change", function () {
         renderApplicationTrend();
     });
-    $("#previousAccountPage").on("click", function () {
-        if (currentPage > 1) {
-            currentPage -= 1;
-            renderAccounts();
-        }
-    });
-    $("#nextAccountPage").on("click", function () {
-        var totalPages = totalPagesOf(filteredAccounts());
-        if (currentPage < totalPages) {
-            currentPage += 1;
-            renderAccounts();
-        }
-    });
+    $("#closeAccountDetail, #accountDetailModal > .account-modal-backdrop").on("click", closeAccountDetail);
     $("#createCustomerName").on("input", function () {
         var name = $(this).val().trim();
         clearSelectedCustomer();

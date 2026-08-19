@@ -15,17 +15,16 @@
     <div class="account-management-header">
         <div>
             <h1 class="account-page-title">계좌 관리</h1>
-            <p class="account-page-description">RIA 계좌 상태를 조회하고 개설 신청을 처리합니다.</p>
         </div>
         <span class="account-count" id="accountCount">-</span>
     </div>
     <div class="account-summary-grid">
-        <div class="card account-summary-total"><span>전체 계좌</span><strong id="totalAccountCount">-</strong></div>
-        <div class="card account-summary-applied"><span>신청</span><strong id="appliedAccountCount">-</strong></div>
-        <div class="card account-summary-opened"><span>개설</span><strong id="openedAccountCount">-</strong></div>
-        <div class="card account-summary-rejected"><span>반려</span><strong id="rejectedAccountCount">-</strong></div>
-        <div class="card account-summary-closure-requested"><span>해지신청</span><strong id="closureRequestedAccountCount">-</strong></div>
-        <div class="card account-summary-closed"><span>해지</span><strong id="closedAccountCount">-</strong></div>
+        <button class="card account-summary-total account-summary-card is-active" type="button" data-status=""><span>전체 계좌</span><strong id="totalAccountCount">-</strong><small id="totalAccountDelta">-</small></button>
+        <button class="card account-summary-applied account-summary-card" type="button" data-status="APPLIED"><span>신청</span><strong id="appliedAccountCount">-</strong><small id="appliedAccountDelta">-</small></button>
+        <button class="card account-summary-opened account-summary-card" type="button" data-status="OPENED"><span>개설</span><strong id="openedAccountCount">-</strong><small id="openedAccountDelta">-</small></button>
+        <button class="card account-summary-rejected account-summary-card" type="button" data-status="REJECTED"><span>반려</span><strong id="rejectedAccountCount">-</strong><small id="rejectedAccountDelta">-</small></button>
+        <button class="card account-summary-closure-requested account-summary-card" type="button" data-status="CLOSURE_REQUESTED"><span>해지신청</span><strong id="closureRequestedAccountCount">-</strong><small id="closureRequestedAccountDelta">-</small></button>
+        <button class="card account-summary-closed account-summary-card" type="button" data-status="CLOSED"><span>해지</span><strong id="closedAccountCount">-</strong><small id="closedAccountDelta">-</small></button>
     </div>
 
     <div class="account-form-grid">
@@ -63,7 +62,9 @@
         </section>
     </div>
 
-    <section id="accountDetail" class="card account-detail" style="display:none">
+    <div id="accountDetailModal" class="account-modal account-detail-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="detailAccountNo">
+        <div class="account-modal-backdrop"></div>
+        <section id="accountDetail" class="card account-detail account-detail-modal-content">
         <div class="account-detail-header">
             <div>
                 <strong id="detailAccountNo">-</strong>
@@ -74,6 +75,7 @@
                 <button id="rejectAccount" class="btn" type="button">반려</button>
                 <button id="openLimitModal" class="btn btn-primary" type="button" style="display:none">한도 변경</button>
                 <button id="openReapplyModal" class="btn" type="button" style="display:none">재신청</button>
+                <button id="closeAccountDetail" class="btn" type="button">닫기</button>
             </div>
         </div>
 
@@ -103,12 +105,21 @@
             <div class="account-history-header"><strong>상태 변경 이력</strong></div>
             <ul id="accountHistoryList" class="account-history-list"></ul>
         </div>
-    </section>
+        <div class="account-related-grid">
+            <section><div class="account-related-title"><strong>보유주식</strong></div><div id="detailHoldings" class="account-related-list"></div></section>
+            <section><div class="account-related-title"><strong>입고주식</strong></div><div id="detailInbounds" class="account-related-list"></div></section>
+            <section><div class="account-related-title"><strong>해지상태</strong></div><div id="detailClosure" class="account-related-list"></div></section>
+            <section><div class="account-related-title"><strong>인출목록</strong></div><div id="detailWithdrawals" class="account-related-list"></div></section>
+        </div>
+        </section>
+    </div>
 
     <section class="card account-list-card">
         <div class="account-toolbar">
             <div class="account-filter-group">
-                <input id="accountSearch" class="account-search" type="search" placeholder="계좌번호 또는 고객 ID 검색" autocomplete="off">
+                <input id="accountCustomerIdSearch" class="account-search" type="search" inputmode="numeric" placeholder="고객 ID 검색" autocomplete="off">
+                <input id="accountCustomerNameSearch" class="account-search" type="search" placeholder="고객명 검색" autocomplete="off">
+                <input id="accountNoSearch" class="account-search" type="search" placeholder="계좌번호 검색" autocomplete="off">
             </div>
             <div>
                 <select id="accountStatusFilter" class="account-status-filter">
@@ -122,7 +133,7 @@
                 <tbody id="accountListBody"><tr><td colspan="7" class="account-loading">불러오는 중...</td></tr></tbody>
             </table>
         </div>
-        <div class="account-pagination" id="accountPagination" style="display:none"><button id="previousAccountPage" class="btn" type="button">이전</button><span id="accountPageInfo"></span><button id="nextAccountPage" class="btn" type="button">다음</button></div>
+        <div class="account-pagination" id="accountPagination" style="display:none"></div>
     </section>
 
     <div id="accountLimitModal" class="account-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="accountLimitModalTitle">
