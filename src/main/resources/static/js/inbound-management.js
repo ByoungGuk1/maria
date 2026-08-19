@@ -455,13 +455,19 @@ $(function () {
             );
         }
 
-        $("#ibOverlayBackdrop").show();
-        $("#ibOverlayPanel").show();
+        $("#ibOverlayBackdrop").prop("hidden", false);
+        requestAnimationFrame(function () {
+            $("#ibOverlayBackdrop").addClass("is-open");
+            $("#ibOverlayPanel").addClass("is-open");
+        });
     }
 
     function closeDetailOverlay() {
-        $("#ibOverlayBackdrop").hide();
-        $("#ibOverlayPanel").hide();
+        $("#ibOverlayBackdrop").removeClass("is-open");
+        $("#ibOverlayPanel").removeClass("is-open");
+        setTimeout(function () {
+            $("#ibOverlayBackdrop").prop("hidden", true);
+        }, 200);
     }
 
     $("#ibOverlayClose").on("click", closeDetailOverlay);

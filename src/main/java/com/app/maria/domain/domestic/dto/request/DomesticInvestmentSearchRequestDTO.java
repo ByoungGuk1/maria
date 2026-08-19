@@ -11,15 +11,21 @@ import lombok.*;
 @ToString
 @Builder
 public class DomesticInvestmentSearchRequestDTO {
-    private String customerName;
+    private String keyword;
     private DomesticStockStatus status;
+    private Boolean hasRestrictedHolding;
+    private Boolean hasUnpurchasableHolding;
+    private Boolean hasRecentBuy;
+    private Integer recentBuyDays;
     private int page;
     private int size;
 
     public DomesticInvestmentSearchDTO toDomesticInvestmentSearchDTO() {
         return DomesticInvestmentSearchDTO.builder()
-                .customerName(customerName)
+                .keyword(keyword)
                 .status(status)
+                .hasRestrictedHolding(hasRestrictedHolding)
+                .hasRecentBuy(hasRecentBuy)
                 .offset(page * size)
                 .size(size)
                 .build();
