@@ -3,6 +3,8 @@ package com.app.maria.domain.accountclosure.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -14,6 +16,7 @@ import static org.mockito.Mockito.when;
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.mapper.AccountMapper;
+import com.app.maria.domain.account.service.AccountLogService;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.accountclosure.dto.AccountClosureDTO;
 import com.app.maria.domain.accountclosure.dto.request.AccountClosureApplyRequestDTO;
@@ -60,6 +63,7 @@ class AccountClosureServiceImplTest {
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 12, 10, 0);
 
     @Mock private AccountMapper accountMapper;
+    @Mock private AccountLogService accountLogService;
     @Mock private AccountClosureMapper accountClosureMapper;
     @Mock private BusinessClockService businessClockService;
     @Mock private GeneralAccountClient generalAccountClient;
@@ -182,6 +186,15 @@ class AccountClosureServiceImplTest {
                             assertThat(closure.getRequestedAt()).isEqualTo(NOW);
                         });
         assertThat(result).isEqualTo(CLOSURE_REQUEST_ID);
+        verify(accountLogService)
+                .recordStatusChange(
+                        argThat(
+                                account ->
+                                        account.getAccountId().equals(ACCOUNT_ID)
+                                                && account.getStatus() == Status.CLOSURE_REQUESTED),
+                        eq(Status.OPENED),
+                        eq(NOW),
+                        eq("계좌 해지 신청"));
         assertAuditLog(7L, "OPENED", "CLOSURE_REQUESTED", "ACCOUNT_CLOSURE_REQUESTED");
 
         InOrder order =
@@ -313,6 +326,15 @@ class AccountClosureServiceImplTest {
         assertThat(closure.getProcessedAt()).isEqualTo(NOW);
         assertThat(closure.getProcessedBy()).isEqualTo(7L);
         assertThat(closure.getRejectionReason()).isEqualTo("관리자 반려 사유");
+        verify(accountLogService)
+                .recordStatusChange(
+                        argThat(
+                                account ->
+                                        account.getAccountId().equals(ACCOUNT_ID)
+                                                && account.getStatus() == Status.OPENED),
+                        eq(Status.CLOSURE_REQUESTED),
+                        eq(NOW),
+                        eq("계좌 해지 신청 반려: 관리자 반려 사유"));
         assertAuditLog(7L, "CLOSURE_REQUESTED", "OPENED", "ACCOUNT_CLOSURE_REJECTED");
 
         InOrder order = inOrder(accountClosureMapper, businessClockService, accountMapper);
@@ -364,6 +386,15 @@ class AccountClosureServiceImplTest {
         assertThat(closure.getProcessedAt()).isEqualTo(NOW);
         verify(accountMapper).completeClosure(ACCOUNT_ID);
         verify(accountClosureMapper).completeClosureRequest(closure);
+        verify(accountLogService)
+                .recordStatusChange(
+                        argThat(
+                                account ->
+                                        account.getAccountId().equals(ACCOUNT_ID)
+                                                && account.getStatus() == Status.CLOSED),
+                        eq(Status.CLOSURE_REQUESTED),
+                        eq(NOW),
+                        eq("계좌 해지 완료"));
         assertAuditLog(7L, "CLOSURE_REQUESTED", "CLOSED", "ACCOUNT_CLOSURE_APPROVED");
     }
 
