@@ -23,4 +23,7 @@ public class WithdrawalHistoryDTO {
     private BigDecimal earningsAmount;
     private BigDecimal maturedPrincipalAmount;
     private BigDecimal immaturePrincipalAmount;
+    private int allocationCount;
+    private int normalAllocationCount;
+    private int earlyAllocationCount;
 }

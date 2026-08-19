@@ -44,6 +44,18 @@
             <if test="isTarget != null">
                 AND j.is_target = #{isTarget}
             </if>
+            <if test="tradeType != null">
+                AND j.trade_type = #{tradeType}
+            </if>
+            <if test="inheritanceGiftOnly != null and inheritanceGiftOnly">
+                AND j.trade_type IN ('INHERITANCE', 'GIFT')
+            </if>
+            <if test="judgedAtFrom != null">
+                AND j.judged_at &gt;= #{judgedAtFrom}
+            </if>
+            <if test="judgedAtTo != null">
+                AND j.judged_at &lt; #{judgedAtTo}
+            </if>
         </where>
         ORDER BY j.judged_at DESC
         LIMIT #{size} OFFSET #{offset}
@@ -67,6 +79,18 @@
             <if test="isTarget != null">
                 AND j.is_target = #{isTarget}
             </if>
+            <if test="tradeType != null">
+                AND j.trade_type = #{tradeType}
+            </if>
+            <if test="inheritanceGiftOnly != null and inheritanceGiftOnly">
+                AND j.trade_type IN ('INHERITANCE', 'GIFT')
+            </if>
+            <if test="judgedAtFrom != null">
+                AND j.judged_at &gt;= #{judgedAtFrom}
+            </if>
+            <if test="judgedAtTo != null">
+                AND j.judged_at &lt; #{judgedAtTo}
+            </if>
         </where>
     </select>
 
@@ -74,7 +98,8 @@
         SELECT
         COUNT(*) AS todayJudgementCount,
         COALESCE(SUM(CASE WHEN is_target = TRUE THEN 1 ELSE 0 END), 0) AS todayTargetCount,
-        COALESCE(SUM(CASE WHEN is_target = TRUE THEN net_buy_amount ELSE 0 END), 0) AS todayTargetNetBuyAmount
+        COALESCE(SUM(CASE WHEN is_target = TRUE THEN net_buy_amount ELSE 0 END), 0) AS todayTargetNetBuyAmount,
+        COALESCE(SUM(CASE WHEN trade_type IN ('INHERITANCE', 'GIFT') THEN 1 ELSE 0 END), 0) AS todayInheritanceGiftCount
         FROM target_product_judgement
         WHERE judged_at &gt;= #{today} AND judged_at &lt; #{tomorrow}
     </select>

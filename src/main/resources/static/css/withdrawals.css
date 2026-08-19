@@ -130,6 +130,7 @@
     grid-template-columns: minmax(300px, 5fr) minmax(480px, 7fr);
     gap: 16px;
     align-items: stretch;
+    height: 700px;
 }
 
 .withdrawal-list-card,
@@ -210,7 +211,10 @@
     cursor: pointer;
 }
 
-.withdrawal-list-item:hover,
+.withdrawal-list-item:hover {
+    background: var(--tableHeaderBg);
+}
+
 .withdrawal-list-item.is-selected {
     background: var(--accentBg);
 }
@@ -224,7 +228,11 @@
     display: block;
 }
 
-.withdrawal-account-cell strong,
+.withdrawal-account-cell strong {
+    color: var(--accent);
+    font-size: 11.5px;
+}
+
 .withdrawal-request-amount {
     color: var(--textPrimary);
     font-size: 11.5px;
@@ -295,8 +303,7 @@
     color: var(--success);
 }
 
-.withdrawal-status-badge.failed,
-.withdrawal-status-badge.cancelled {
+.withdrawal-status-badge.failed {
     background: var(--dangerBg);
     color: var(--danger);
 }
@@ -408,8 +415,10 @@
 
 #withdrawal-detail-content {
     display: flex;
+    min-height: 0;
     flex: 1;
     flex-direction: column;
+    overflow: hidden;
 }
 
 #withdrawal-detail-content[hidden] {
@@ -549,17 +558,48 @@
 }
 
 .account-allocation-section {
-    flex: none;
+    min-height: 0;
+    flex: 1;
     border-top: 0;
     border-bottom: 1px solid var(--cardBorder);
+    overflow: hidden;
+}
+
+.withdrawal-allocation-sort {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--cardBorder);
+    color: var(--textMuted);
+    font-size: 10.5px;
+}
+
+.allocation-sort-option {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--textMuted);
+    font: inherit;
+    cursor: pointer;
+}
+
+.allocation-sort-option:hover,
+.allocation-sort-option.active {
+    color: var(--textPrimary);
+}
+
+.allocation-sort-option.active {
+    font-weight: 700;
 }
 
 .withdrawal-allocations {
-    display: grid;
-    flex: 1;
-    gap: 6px;
-    align-content: start;
+    display: flex;
+    min-height: 0;
+    flex: 1 1 0;
+    flex-direction: column;
     padding: 10px 14px;
+    overflow: hidden;
 }
 
 .allocation-pagination {
@@ -567,6 +607,10 @@
 }
 
 .withdrawal-allocation-group {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
     overflow: hidden;
     border: 1px solid var(--cardBorder);
     border-radius: 5px;
@@ -601,18 +645,73 @@
 
 .withdrawal-allocation-group-items {
     display: grid;
+    min-height: 0;
+    flex: 1;
     gap: 6px;
+    align-content: start;
     padding: 7px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-color: #334155 transparent;
+    scrollbar-width: thin;
 }
 
-.withdrawal-cancelled-allocation {
-    padding: 22px 14px;
-    border: 1px dashed var(--cardBorder);
+.withdrawal-allocation-group-items::-webkit-scrollbar {
+    width: 7px;
+}
+
+.withdrawal-allocation-group-items::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.withdrawal-allocation-group-items::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: #334155;
+    background-clip: padding-box;
+}
+
+.withdrawal-allocation-group-items::-webkit-scrollbar-thumb:hover {
+    background: #1e293b;
+    background-clip: padding-box;
+}
+
+.withdrawal-unallocated-item {
+    display: flex;
+    width: 100%;
+    min-height: 122px;
+    box-sizing: border-box;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 12px;
+    border: 1px solid var(--cardBorder);
     border-radius: 4px;
     background: var(--inputBg);
     color: var(--textMuted);
+    font-family: inherit;
     font-size: 11px;
     text-align: center;
+    cursor: pointer;
+}
+
+.withdrawal-unallocated-item strong {
+    color: var(--textPrimary);
+    font-size: 12px;
+}
+
+.withdrawal-unallocated-item.failed {
+    border-color: var(--danger);
+    background: var(--dangerBg);
+}
+
+.withdrawal-unallocated-item.failed strong,
+.withdrawal-unallocated-item.failed span {
+    color: var(--danger);
+}
+
+.withdrawal-unallocated-item:hover {
+    border-style: solid;
 }
 
 .withdrawal-allocation-item {
@@ -691,6 +790,7 @@
     .withdrawal-workspace {
         grid-template-columns: 1fr;
         align-items: start;
+        height: auto;
     }
 
     .withdrawal-list-card,

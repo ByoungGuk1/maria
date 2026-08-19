@@ -14,10 +14,6 @@
    th:href="@{/admin/withdrawals}">인출 관리</a>
 
 <div layout:fragment="content" class="withdrawals-page">
-    <div class="withdrawal-page-header">
-        <h1>인출 관리</h1>
-    </div>
-
     <div class="withdrawal-filter">
         <label for="withdrawal-keyword">고객 검색</label>
         <input id="withdrawal-keyword" type="search"
@@ -34,6 +30,9 @@
         </button>
         <button type="button" class="withdrawal-type-tab" data-withdrawal-type="EARLY">
             조기 인출 <span id="withdrawal-early-count">0</span>
+        </button>
+        <button type="button" class="withdrawal-type-tab" data-withdrawal-type="FAILED">
+            실패 <span id="withdrawal-failed-count">0</span>
         </button>
     </div>
 
@@ -69,6 +68,13 @@
                             <p>배분 내역을 선택하면 해당 인출의 상세 정보를 확인할 수 있습니다.</p>
                         </div>
                     </div>
+                    <div class="withdrawal-allocation-sort" aria-label="배분 내역 날짜 정렬">
+                        <button type="button" class="allocation-sort-option active"
+                                data-allocation-sort="DESC">날짜 내림차순</button>
+                        <span aria-hidden="true">·</span>
+                        <button type="button" class="allocation-sort-option"
+                                data-allocation-sort="ASC">날짜 오름차순</button>
+                    </div>
                     <div id="withdrawal-allocations" class="withdrawal-allocations"></div>
                     <div id="withdrawal-allocation-pagination"
                          class="withdrawal-pagination allocation-pagination" hidden></div>
@@ -96,7 +102,7 @@
             이 계좌는 조기인출로 인해 세제혜택 전체 취소 상태입니다.
         </div>
 
-        <section class="withdrawal-selected-allocation">
+        <section id="withdrawal-selected-allocation" class="withdrawal-selected-allocation">
             <div class="withdrawal-card-header">
                 <div>
                     <span class="withdrawal-section-label">선택한 배분</span>

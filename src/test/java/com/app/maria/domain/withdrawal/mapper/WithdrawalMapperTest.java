@@ -4,12 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.app.maria.domain.withdrawal.dto.LeftAmountDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationHistoryDTO;
+import com.app.maria.domain.withdrawal.dto.WithdrawalDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalHistoryDTO;
 import com.app.maria.domain.withdrawal.type.WithdrawalStatus;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Statement;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.apache.ibatis.builder.xml.XMLMapperBuilder;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
@@ -106,6 +108,9 @@ class WithdrawalMapperTest {
         assertThat(result.get(1).getEarningsAmount()).isEqualByComparingTo("100");
         assertThat(result.get(1).getMaturedPrincipalAmount()).isEqualByComparingTo("300");
         assertThat(result.get(1).getImmaturePrincipalAmount()).isEqualByComparingTo("400");
+        assertThat(result.get(1).getAllocationCount()).isEqualTo(4);
+        assertThat(result.get(1).getNormalAllocationCount()).isEqualTo(2);
+        assertThat(result.get(1).getEarlyAllocationCount()).isEqualTo(2);
     }
 
     @Test
@@ -142,6 +147,27 @@ class WithdrawalMapperTest {
         assertThat(allocations.get(2).getTicker()).isEqualTo("MSFT");
     }
 
+    @Test
+    void failedWithdrawalIsPersistedAndQueriedWithoutAllocations() {
+        WithdrawalDTO failedWithdrawal =
+                WithdrawalDTO.builder()
+                        .accountId(1L)
+                        .requestedAmount(new BigDecimal("1000"))
+                        .processedAt(LocalDateTime.of(2026, 8, 3, 9, 0))
+                        .destinationAccountNo("111122223333")
+                        .destinationGeneralAccountId(20L)
+                        .status(WithdrawalStatus.FAILED)
+                        .build();
+
+        assertThat(mapper.insertWithdrawal(failedWithdrawal)).isEqualTo(1);
+
+        WithdrawalHistoryDTO saved =
+                mapper.selectWithdrawalHistoryById(failedWithdrawal.getWithdrawalId())
+                        .orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(WithdrawalStatus.FAILED);
+        assertThat(saved.getAllocationCount()).isZero();
+    }
+
     private static void resetSchemaAndData() throws Exception {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement()) {
@@ -164,7 +190,7 @@ class WithdrawalMapperTest {
             statement.execute(
                     """
                     CREATE TABLE withdrawal (
-                        withdrawal_id BIGINT PRIMARY KEY,
+                        withdrawal_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                         account_id BIGINT NOT NULL,
                         requested_amount DECIMAL(15, 2) NOT NULL,
                         processed_at DATETIME NOT NULL,

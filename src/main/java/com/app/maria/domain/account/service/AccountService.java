@@ -7,6 +7,7 @@ import com.app.maria.domain.account.dto.request.AccountSearchRequestDTO;
 import com.app.maria.domain.account.dto.response.AccountJoinResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
+import com.app.maria.domain.account.dto.response.AccountManagementDetailResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import java.math.BigDecimal;
 import java.util.List;
@@ -35,6 +36,8 @@ public interface AccountService {
     AccountResponseDTO getAccountByAccountId(Long accountId);
 
     List<AccountLogResponseDTO> getStatusLogsByAccountId(Long accountId);
+
+    AccountManagementDetailResponseDTO getManagementDetail(Long accountId);
 
     AccountResponseDTO overrideAccount(Long accountId, String reason);
 

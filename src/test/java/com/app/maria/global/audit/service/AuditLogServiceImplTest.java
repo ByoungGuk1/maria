@@ -91,8 +91,7 @@ class AuditLogServiceImplTest {
         assertThat(passedVo.getMatchedRoles()).containsExactly("ADMIN");
         assertThat(passedVo.getReasonKeyword()).isEqualTo("관리자 권한 변경");
         assertThat(passedVo.getMatchedReasonCodes()).containsExactly("ADMIN_ROLE_UPDATE");
-        assertThat(passedVo.getKnownReasonCodes())
-                .contains("ADMIN_ROLE_UPDATE", "SELL_ORDER_EXECUTED");
+        assertThat(passedVo.getKnownReasonCodes()).contains("ADMIN_ROLE_UPDATE", "ACCOUNT_APPLY");
     }
 
     @Test
@@ -123,11 +122,7 @@ class AuditLogServiceImplTest {
         ArgumentCaptor<AuditLogSearchDTO> captor = ArgumentCaptor.forClass(AuditLogSearchDTO.class);
         verify(auditLogMapper).selectAuditLogs(captor.capture());
         assertThat(captor.getValue().getKnownReasonCodes())
-                .contains(
-                        "ADMIN_ROLE_UPDATE",
-                        "SELL_ORDER_EXECUTED",
-                        "ACCOUNT_APPLY",
-                        "SETTLEMENT_BATCH_REQUESTED");
+                .contains("ADMIN_ROLE_UPDATE", "ACCOUNT_APPLY", "SETTLEMENT_BATCH_REQUESTED");
     }
 
     @Test

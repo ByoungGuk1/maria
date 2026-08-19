@@ -179,21 +179,6 @@ class AuditLogMapperTest {
     }
 
     @Test
-    @DisplayName("targetKeyword가 매도주문 대상 계좌번호에 포함되면 매치된다 (sell_order+account join)")
-    void selectAuditLogsFiltersByTargetKeywordMatchingAccountNo() throws SQLException {
-        insertAccount(100L, "1234567890");
-        insertSellOrder(50L, 100L);
-        auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "50", "SELL_ORDER_EXECUTED"));
-
-        List<AuditLogDTO> result =
-                auditLogMapper.selectAuditLogs(
-                        searchDefaults().targetKeyword("1234567890").build());
-
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getTargetAccountNo()).isEqualTo("1234567890");
-    }
-
-    @Test
     @DisplayName("작업유형이 ACCOUNT면 account를 직접 join해서 계좌번호를 targetOwnerAccountNo로 조회한다")
     void selectAuditLogsResolvesAccountTargetOwnerAccountNo() throws SQLException {
         insertAccount(200L, "9000000001");
@@ -414,7 +399,6 @@ class AuditLogMapperTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getTargetAdminName()).isNull();
-        assertThat(result.get(0).getTargetAccountNo()).isNull();
     }
 
     @Test
@@ -456,32 +440,25 @@ class AuditLogMapperTest {
 
     @Test
     @DisplayName(
-            "countAuditLogs도 adminKeyword/targetKeyword 조건에 필요한 join(admin_user×2, sell_order, account×2)이 걸려있어 에러 없이 동작한다")
+            "countAuditLogs도 adminKeyword/targetKeyword 조건에 필요한 join(admin_user×2, account)이 걸려있어 에러 없이 동작한다")
     void countAuditLogsWorksWithFieldFiltersRequiringAllJoins() throws SQLException {
         insertAdmin(1L, "박지훈", "REVIEWER");
         insertAdmin(2L, "이국희", "VIEWER");
-        insertAccount(100L, "1234567890");
-        insertSellOrder(50L, 100L);
         insertAccount(200L, "9000000001");
         auditLogMapper.insertLog(auditLog(1L, "ADMIN_USER", "2", "ADMIN_ROLE_UPDATE"));
-        auditLogMapper.insertLog(auditLog(1L, "SELL_ORDER", "50", "SELL_ORDER_EXECUTED"));
         auditLogMapper.insertLog(auditLog(1L, "ACCOUNT", "200", "ACCOUNT_OPENED"));
 
-        // adminKeyword는 au.name, targetKeyword는
-        // target_admin.name/acc.account_no/target_account.account_no를
-        // 참조하는 WHERE 절을 타므로, 5개 조인이 select뿐 아니라 count에도 없으면 "Unknown column" 에러가 난다.
+        // adminKeyword는 au.name, targetKeyword는 target_admin.name/target_account.account_no를
+        // 참조하는 WHERE 절을 타므로, 이 join들이 select뿐 아니라 count에도 없으면 "Unknown column" 에러가 난다.
         long totalForActor =
                 auditLogMapper.countAuditLogs(searchDefaults().adminKeyword("박지훈").build());
         long totalForTargetAdmin =
                 auditLogMapper.countAuditLogs(searchDefaults().targetKeyword("이국희").build());
-        long totalForAccountNo =
-                auditLogMapper.countAuditLogs(searchDefaults().targetKeyword("1234567890").build());
         long totalForAccountOwnerAccountNo =
                 auditLogMapper.countAuditLogs(searchDefaults().targetKeyword("9000000001").build());
 
-        assertThat(totalForActor).isEqualTo(3);
+        assertThat(totalForActor).isEqualTo(2);
         assertThat(totalForTargetAdmin).isEqualTo(1);
-        assertThat(totalForAccountNo).isEqualTo(1);
         assertThat(totalForAccountOwnerAccountNo).isEqualTo(1);
     }
 
@@ -508,18 +485,6 @@ class AuditLogMapperTest {
                             + ", '"
                             + accountNo
                             + "')");
-        }
-    }
-
-    private void insertSellOrder(Long orderId, Long accountId) throws SQLException {
-        try (Connection connection = dataSource.getConnection();
-                Statement statement = connection.createStatement()) {
-            statement.execute(
-                    "INSERT INTO sell_order (order_id, account_id) VALUES ("
-                            + orderId
-                            + ", "
-                            + accountId
-                            + ")");
         }
     }
 
@@ -577,13 +542,6 @@ class AuditLogMapperTest {
                     CREATE TABLE account (
                         account_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                         account_no VARCHAR(20) NOT NULL
-                    )
-                    """);
-            statement.execute(
-                    """
-                    CREATE TABLE sell_order (
-                        order_id   BIGINT AUTO_INCREMENT PRIMARY KEY,
-                        account_id BIGINT NOT NULL
                     )
                     """);
             statement.execute(

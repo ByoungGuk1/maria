@@ -96,7 +96,12 @@
                COALESCE(SUM(CASE WHEN wa.type = 'MATURED_PRINCIPAL_INCLUDED'
                                  THEN wa.allocated_amount ELSE 0 END), 0) AS matured_principal_amount,
                COALESCE(SUM(CASE WHEN wa.type = 'IMMATURE_PRINCIPAL_INCLUDED'
-                                 THEN wa.allocated_amount ELSE 0 END), 0) AS immature_principal_amount
+                                 THEN wa.allocated_amount ELSE 0 END), 0) AS immature_principal_amount,
+               COUNT(wa.allocation_id) AS allocation_count,
+               COALESCE(SUM(CASE WHEN wa.type IN ('EARNINGS_ONLY', 'MATURED_PRINCIPAL_INCLUDED')
+                                 THEN 1 ELSE 0 END), 0) AS normal_allocation_count,
+               COALESCE(SUM(CASE WHEN wa.type = 'IMMATURE_PRINCIPAL_INCLUDED'
+                                 THEN 1 ELSE 0 END), 0) AS early_allocation_count
         FROM withdrawal w
         JOIN account a ON a.account_id = w.account_id
         JOIN customer c ON c.customer_id = a.customer_id

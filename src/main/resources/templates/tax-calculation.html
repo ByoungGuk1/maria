@@ -16,15 +16,15 @@
 
     <div id="taxBody" style="display:none">
         <div class="kpi-grid">
-            <div class="card kpi-card">
+            <div class="card kpi-card kpi-card-clickable" id="kpiCardAll">
                 <div class="kpi-label">세액계산 계좌수</div>
                 <div class="kpi-value" id="kpiTotal">-</div>
             </div>
-            <div class="card kpi-card">
+            <div class="card kpi-card kpi-card-clickable" id="kpiCardTaxable">
                 <div class="kpi-label">과세대상 (최종세액 > 0)</div>
                 <div class="kpi-value" id="kpiTaxable">-</div>
             </div>
-            <div class="card kpi-card kpi-card-danger">
+            <div class="card kpi-card kpi-card-danger kpi-card-clickable" id="kpiCardReduced">
                 <div class="kpi-label">세제혜택 일부감액·배제</div>
                 <div class="kpi-value kpi-value-danger" id="kpiReduced">-</div>
             </div>

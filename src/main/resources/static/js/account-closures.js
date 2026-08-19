@@ -74,7 +74,7 @@ $(function () {
                 '<span class="closure-status-badge ' + statusClass(closure.status) + '">' +
                 escapeHtml(statusLabel(closure.status)) + '</span></span>' +
                 '<span class="closure-list-secondary">' +
-                '<span>RIA ' + escapeHtml(closure.accountNo || "-") + '</span>' +
+                '<span>RIA ' + MARIA.fmt.accountNoHtml(closure.accountNo) + '</span>' +
                 '<span>' + escapeHtml(formatDateTime(closure.requestedAt)) + '</span>' +
                 '</span></button>'
             );
@@ -100,7 +100,7 @@ $(function () {
         $("#closure-detail-content").prop("hidden", false);
         $("#detail-request-title").text((closure.customerName || "-") + " 고객 해지 신청");
         $("#detail-customer-name").text(closure.customerName || "-");
-        $("#detail-account-no").text(closure.accountNo || "-");
+        $("#detail-account-no").html(MARIA.fmt.accountNoHtml(closure.accountNo));
         $("#detail-account-amount").text(formatAmount(closure.accountAmount));
         $("#detail-destination-id").text(closure.destinationGeneralAccountId);
         $("#detail-requested-at").text(formatDateTime(closure.requestedAt));

@@ -15,11 +15,13 @@ public class TargetProductSummaryResponseDTO {
     private int todayTargetCount;
     private BigDecimal todayTargetNetBuyAmount;
     private int totalJudgementCount;
+    private int todayInheritanceGiftCount;
 
     public TargetProductSummaryResponseDTO(TargetProductSummaryDTO dto) {
         this.todayJudgementCount = dto.getTodayJudgementCount();
         this.todayTargetCount = dto.getTodayTargetCount();
         this.todayTargetNetBuyAmount = dto.getTodayTargetNetBuyAmount();
         this.totalJudgementCount = dto.getTotalJudgementCount();
+        this.todayInheritanceGiftCount = dto.getTodayInheritanceGiftCount();
     }
 }

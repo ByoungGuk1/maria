@@ -25,8 +25,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AccountTransactionalServiceImpl implements AccountTransactionalService {
     private static final int ACCOUNT_NO_RETRY_LIMIT = 5;
-    private static final long ACCOUNT_NO_MIN = 1_000_000_000L;
-    private static final long ACCOUNT_NO_MAX_EXCLUSIVE = 10_000_000_000L;
+    // 계좌번호 = 회사코드(3자리, 고정) + 고유번호(7자리, 랜덤) = 총 10자리.
+    // 실제 계좌번호가 앞자리를 발급기관 코드로 고정하는 관례를 반영 — 순수 랜덤 10자리는 비현실적.
+    private static final String COMPANY_CODE = "731";
+    private static final long SERIAL_MAX_EXCLUSIVE = 10_000_000L;
     private final AccountMapper accountMapper;
     private final AccountLogService accountLogService;
     private final AuditLogService auditLogService;
@@ -228,9 +230,9 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
         account.setOpenedAt(openedAt);
         for (int i = 0; i < ACCOUNT_NO_RETRY_LIMIT; i++) {
             account.setAccountNo(
-                    Long.toString(
-                            ThreadLocalRandom.current()
-                                    .nextLong(ACCOUNT_NO_MIN, ACCOUNT_NO_MAX_EXCLUSIVE)));
+                    COMPANY_CODE
+                            + String.format(
+                                    "%07d", ThreadLocalRandom.current().nextLong(SERIAL_MAX_EXCLUSIVE)));
             try {
                 if ((override
                                 ? accountMapper.overrideToOpened(account)
