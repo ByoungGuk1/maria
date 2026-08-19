@@ -91,7 +91,10 @@ class StatisticsMapperTest {
 
         assertThat(result).hasSize(2);
         AgeInvestmentStatDTO thirties =
-                result.stream().filter(r -> r.getAgeGroup().equals("30대")).findFirst().orElseThrow();
+                result.stream()
+                        .filter(r -> r.getAgeGroup().equals("30대"))
+                        .findFirst()
+                        .orElseThrow();
         assertThat(thirties.getPurchaseAmount()).isEqualByComparingTo("700000");
         assertThat(thirties.getPurchaseCount()).isEqualTo(1);
         AgeInvestmentStatDTO sixties =
@@ -196,7 +199,8 @@ class StatisticsMapperTest {
         insertKrwExchange(1L, "1000000", "2026-08-01 09:00:00", "990000", "2026-08-02 09:00:00");
         insertKrwExchange(1L, "500000", "2026-08-02 09:00:00", "495000", "2026-08-02 15:00:00");
 
-        List<FxExchangeStatDTO> result = statisticsMapper.selectFxExchangeStats(baseFilter().build());
+        List<FxExchangeStatDTO> result =
+                statisticsMapper.selectFxExchangeStats(baseFilter().build());
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getStatDate()).isEqualTo(LocalDate.of(2026, 8, 2));
@@ -263,7 +267,8 @@ class StatisticsMapperTest {
         insertSellOrder(1L, "5", "100000", "2026-06-15 10:00:00", "EXECUTED");
         insertSellOrder(1L, "1", "100000", "2026-09-15 10:00:00", "REJECTED");
 
-        List<ReliefRateStatDTO> result = statisticsMapper.selectReliefRateStats(baseFilter().build());
+        List<ReliefRateStatDTO> result =
+                statisticsMapper.selectReliefRateStats(baseFilter().build());
 
         assertThat(result).hasSize(3);
         assertThat(result)
@@ -277,11 +282,11 @@ class StatisticsMapperTest {
     @Test
     @DisplayName("매도 이력이 없어도 3개 구간을 전부 0원으로 반환한다")
     void selectReliefRateStatsReturnsThreeZeroBucketsWhenNoSellOrdersExist() {
-        List<ReliefRateStatDTO> result = statisticsMapper.selectReliefRateStats(baseFilter().build());
+        List<ReliefRateStatDTO> result =
+                statisticsMapper.selectReliefRateStats(baseFilter().build());
 
         assertThat(result).hasSize(3);
-        assertThat(result)
-                .allSatisfy(r -> assertThat(r.getSellAmount()).isEqualByComparingTo("0"));
+        assertThat(result).allSatisfy(r -> assertThat(r.getSellAmount()).isEqualByComparingTo("0"));
     }
 
     // ---- schema / fixtures ----
@@ -352,12 +357,17 @@ class StatisticsMapperTest {
                     VALUES (%d, %d, %s, '%s', %s, '%s', 'FINALIZED')
                     """
                             .formatted(
-                                    accountId, orderId, provisionalAmount, provisionalAt, finalAmount, finalAt));
+                                    accountId,
+                                    orderId,
+                                    provisionalAmount,
+                                    provisionalAt,
+                                    finalAmount,
+                                    finalAt));
         }
     }
 
-    private void insertKrwExchangeForOrder(Long orderId, String finalAmount, String settlementStatus)
-            throws SQLException {
+    private void insertKrwExchangeForOrder(
+            Long orderId, String finalAmount, String settlementStatus) throws SQLException {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement()) {
             statement.execute(
