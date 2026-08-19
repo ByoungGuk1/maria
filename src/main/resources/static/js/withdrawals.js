@@ -1,5 +1,5 @@
 $(function () {
-    var PAGE_SIZE = 10;
+    var PAGE_SIZE = 12;
     var STATUS_LABEL = {
         REQUESTED: "처리 요청",
         COMPLETED: "처리 완료",
@@ -598,10 +598,18 @@ $(function () {
         selectAccount(account.accountNo);
     }
 
-    $("#withdrawal-search-button").on("click", applyFilters);
+    function submitSearch() {
+        if (!( $("#withdrawal-keyword").val() || "").trim()) {
+            MARIA.ui.showError("고객명 또는 RIA 계좌번호를 입력해 주세요.");
+            return;
+        }
+        applyFilters();
+    }
+
+    $("#withdrawal-search-button").on("click", submitSearch);
     $("#withdrawal-keyword").on("keydown", function (event) {
         if (event.key === "Enter") {
-            applyFilters();
+            submitSearch();
         }
     });
     $(".withdrawal-type-tab").on("click", function () {

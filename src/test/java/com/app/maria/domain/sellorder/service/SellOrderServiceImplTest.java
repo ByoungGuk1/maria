@@ -13,6 +13,7 @@ import com.app.maria.domain.inbound.dto.InboundDetailDTO;
 import com.app.maria.domain.inbound.mapper.InboundMapper;
 import com.app.maria.domain.sellorder.dto.SellOrderDTO;
 import com.app.maria.domain.sellorder.dto.SellOrderHistoryDTO;
+import com.app.maria.domain.sellorder.dto.SellOrderSummaryDTO;
 import com.app.maria.domain.sellorder.dto.request.SellOrderRequestDTO;
 import com.app.maria.domain.sellorder.dto.response.SellOrderResponseDTO;
 import com.app.maria.domain.sellorder.exception.SellOrderException;
@@ -20,8 +21,7 @@ import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.domain.sellorder.mapper.SellOrderMapper;
 import com.app.maria.domain.sellorder.type.SellOrderStatus;
 import com.app.maria.domain.settlement.service.ProvisionalExchangeService;
-import com.app.maria.global.audit.dto.AuditLogDTO;
-import com.app.maria.global.audit.service.AuditLogService;
+import com.app.maria.domain.settlement.service.SettlementService;
 import com.app.maria.global.client.exchange.ExchangeRateClient;
 import com.app.maria.global.client.kis.KisPriceClient;
 import com.app.maria.global.clock.service.BusinessClockService;
@@ -60,9 +60,9 @@ class SellOrderServiceImplTest {
 
     @Mock BusinessClockService businessClockService;
 
-    @Mock AuditLogService auditLogService;
-
     @Mock ProvisionalExchangeService provisionalExchangeService;
+
+    @Mock SettlementService settlementService;
 
     @InjectMocks SellOrderServiceImpl sellOrderService;
 
@@ -134,13 +134,6 @@ class SellOrderServiceImplTest {
         assertThat(saved.getBasePrice()).isEqualByComparingTo(expectedBasePrice);
         assertThat(saved.getSettlementFxRate()).isEqualByComparingTo("1433.6");
         assertThat(saved.getProcessedAt()).isEqualTo(NOW);
-
-        ArgumentCaptor<AuditLogDTO> auditCaptor = ArgumentCaptor.forClass(AuditLogDTO.class);
-        verify(auditLogService, times(1)).log(auditCaptor.capture());
-        AuditLogDTO auditLog = auditCaptor.getValue();
-        assertThat(auditLog.getAdminId()).isEqualTo(ACTOR_ADMIN_ID);
-        assertThat(auditLog.getTargetTable()).isEqualTo("SELL_ORDER");
-        assertThat(auditLog.getReasonCode()).isEqualTo("SELL_ORDER_EXECUTED");
     }
 
     @Test
@@ -172,7 +165,6 @@ class SellOrderServiceImplTest {
         verify(inboundMapper, times(1)).decreaseCurrentQty(1L, new BigDecimal("6"));
         verify(inboundMapper, times(1)).decreaseCurrentQty(2L, new BigDecimal("4"));
         verify(sellOrderMapper, times(2)).insertSellOrder(any());
-        verify(auditLogService, times(2)).log(any());
     }
 
     @Test
@@ -231,13 +223,6 @@ class SellOrderServiceImplTest {
         verify(sellOrderMapper, times(1)).insertSellOrder(captor.capture());
         assertThat(captor.getValue().getStatus()).isEqualTo(SellOrderStatus.REJECTED);
         assertThat(captor.getValue().getInboundDetailId()).isNull();
-
-        ArgumentCaptor<AuditLogDTO> auditCaptor = ArgumentCaptor.forClass(AuditLogDTO.class);
-        verify(auditLogService, times(1)).log(auditCaptor.capture());
-        AuditLogDTO auditLog = auditCaptor.getValue();
-        assertThat(auditLog.getAdminId()).isEqualTo(ACTOR_ADMIN_ID);
-        assertThat(auditLog.getTargetTable()).isEqualTo("SELL_ORDER");
-        assertThat(auditLog.getReasonCode()).isEqualTo("SELL_ORDER_REJECTED");
     }
 
     @Test
@@ -255,7 +240,7 @@ class SellOrderServiceImplTest {
                 .isInstanceOf(KisPriceNotFoundException.class);
 
         verify(exchangeRateClient, never()).getBaseRate(any());
-        verifyNoInteractions(sellOrderMapper, sellLimitService, auditLogService);
+        verifyNoInteractions(sellOrderMapper, sellLimitService);
         verify(inboundMapper, never()).decreaseCurrentQty(any(), any());
     }
 
@@ -276,8 +261,7 @@ class SellOrderServiceImplTest {
                 exchangeRateClient,
                 sellOrderMapper,
                 foreignProductMapper,
-                sellLimitService,
-                auditLogService);
+                sellLimitService);
     }
 
     @Test
@@ -297,8 +281,7 @@ class SellOrderServiceImplTest {
                 exchangeRateClient,
                 sellOrderMapper,
                 foreignProductMapper,
-                sellLimitService,
-                auditLogService);
+                sellLimitService);
     }
 
     @Test
@@ -315,12 +298,7 @@ class SellOrderServiceImplTest {
                 .hasMessage("종목 정보를 찾을 수 없습니다.");
 
         verify(inboundMapper, never()).decreaseCurrentQty(any(), any());
-        verifyNoInteractions(
-                kisPriceClient,
-                exchangeRateClient,
-                sellOrderMapper,
-                sellLimitService,
-                auditLogService);
+        verifyNoInteractions(kisPriceClient, exchangeRateClient, sellOrderMapper, sellLimitService);
     }
 
     @Test
@@ -339,7 +317,7 @@ class SellOrderServiceImplTest {
                 .isInstanceOf(SellOrderException.class)
                 .hasMessage("다른 요청이 먼저 처리되었습니다.");
 
-        verifyNoInteractions(sellOrderMapper, auditLogService);
+        verifyNoInteractions(sellOrderMapper);
     }
 
     @Test
@@ -363,7 +341,6 @@ class SellOrderServiceImplTest {
                 .hasMessage("다른 요청이 먼저 처리되었습니다.");
 
         verify(sellOrderMapper, times(1)).insertSellOrder(any());
-        verify(auditLogService, times(1)).log(any());
     }
 
     @Test
@@ -471,5 +448,67 @@ class SellOrderServiceImplTest {
 
         assertThat(result.getContent()).isEmpty();
         assertThat(result.getTotalCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("오늘 매도금액/체결건수는 전일 대비 증감률과 함께 계산된다")
+    void getSellOrderSummaryComputesChangeRatesAgainstYesterday() {
+        LocalDate today = NOW.toLocalDate();
+        LocalDate yesterday = today.minusDays(1);
+        when(businessClockService.now()).thenReturn(NOW);
+
+        when(sellOrderMapper.sumSellAmountBetween(
+                        today.atStartOfDay(), today.plusDays(1).atStartOfDay()))
+                .thenReturn(new BigDecimal("1100000"));
+        when(sellOrderMapper.sumSellAmountBetween(yesterday.atStartOfDay(), today.atStartOfDay()))
+                .thenReturn(new BigDecimal("1000000"));
+        when(sellOrderMapper.countSellOrderHistory(
+                        null, "EXECUTED", today.atStartOfDay(), today.atTime(23, 59, 59)))
+                .thenReturn(5);
+        when(sellOrderMapper.countSellOrderHistory(
+                        null, "EXECUTED", yesterday.atStartOfDay(), yesterday.atTime(23, 59, 59)))
+                .thenReturn(10);
+        when(settlementService.getPendingProvisionalAmount()).thenReturn(new BigDecimal("2900000"));
+        when(settlementService.getFinalizedAmountBetween(
+                        today.atStartOfDay(), today.plusDays(1).atStartOfDay()))
+                .thenReturn(new BigDecimal("110000"));
+
+        SellOrderSummaryDTO summary = sellOrderService.getSellOrderSummary();
+
+        assertThat(summary.getTodaySellAmount()).isEqualByComparingTo("1100000");
+        assertThat(summary.getTodaySellAmountChangeRate()).isEqualByComparingTo("10.0");
+        assertThat(summary.getTodayExecutedCount()).isEqualTo(5);
+        assertThat(summary.getTodayExecutedCountChangeRate()).isEqualByComparingTo("-50.0");
+        assertThat(summary.getPendingProvisionalAmount()).isEqualByComparingTo("2900000");
+        assertThat(summary.getTodayFinalizedAmount()).isEqualByComparingTo("110000");
+    }
+
+    @Test
+    @DisplayName("전일 값이 0이면 증감률은 null이다")
+    void getSellOrderSummaryReturnsNullChangeRateWhenYesterdayIsZero() {
+        LocalDate today = NOW.toLocalDate();
+        LocalDate yesterday = today.minusDays(1);
+        when(businessClockService.now()).thenReturn(NOW);
+
+        when(sellOrderMapper.sumSellAmountBetween(
+                        today.atStartOfDay(), today.plusDays(1).atStartOfDay()))
+                .thenReturn(new BigDecimal("500000"));
+        when(sellOrderMapper.sumSellAmountBetween(yesterday.atStartOfDay(), today.atStartOfDay()))
+                .thenReturn(BigDecimal.ZERO);
+        when(sellOrderMapper.countSellOrderHistory(
+                        null, "EXECUTED", today.atStartOfDay(), today.atTime(23, 59, 59)))
+                .thenReturn(3);
+        when(sellOrderMapper.countSellOrderHistory(
+                        null, "EXECUTED", yesterday.atStartOfDay(), yesterday.atTime(23, 59, 59)))
+                .thenReturn(0);
+        when(settlementService.getPendingProvisionalAmount()).thenReturn(BigDecimal.ZERO);
+        when(settlementService.getFinalizedAmountBetween(
+                        today.atStartOfDay(), today.plusDays(1).atStartOfDay()))
+                .thenReturn(BigDecimal.ZERO);
+
+        SellOrderSummaryDTO summary = sellOrderService.getSellOrderSummary();
+
+        assertThat(summary.getTodaySellAmountChangeRate()).isNull();
+        assertThat(summary.getTodayExecutedCountChangeRate()).isNull();
     }
 }

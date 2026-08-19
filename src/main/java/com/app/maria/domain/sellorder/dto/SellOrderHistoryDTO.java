@@ -12,6 +12,7 @@ import lombok.*;
 @Builder
 public class SellOrderHistoryDTO {
 
+    private Long orderId;
     private String accountNo;
     private String customerName;
     private String ticker;

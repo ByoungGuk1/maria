@@ -13,6 +13,7 @@ import lombok.*;
 @Builder
 public class SellOrderHistoryResponseDTO {
 
+    private Long orderId;
     private String accountNo;
     private String customerName;
     private String ticker;
@@ -25,6 +26,7 @@ public class SellOrderHistoryResponseDTO {
     private String status;
 
     public SellOrderHistoryResponseDTO(SellOrderHistoryDTO dto) {
+        this.orderId = dto.getOrderId();
         this.accountNo = dto.getAccountNo();
         this.customerName = dto.getCustomerName();
         this.ticker = dto.getTicker();

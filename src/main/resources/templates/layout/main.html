@@ -67,19 +67,20 @@
         <div class="sidebar-group">
             <div class="sidebar-group-label">세금 · 리스크</div>
             <div class="sidebar-items">
+                <a class="sidebar-item" th:href="@{/admin/target-products}"
+                   th:classappend="${activePath == '/admin/target-products'} ? ' active' : ''">
+                      <span class="sidebar-item-label">
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#e2e8f0" stroke-width="1.3"><circle cx="6" cy="6" r="4"/><line x1="9" y1="9" x2="12.5" y2="12.5"/></svg>
+                          외부 감시
+                      </span>
+                </a>
                 <a class="sidebar-item" th:href="@{/admin/tax}"
                    th:classappend="${activePath == '/admin/tax'} ? ' active' : ''">
-                    <span class="sidebar-item-label">
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#e2e8f0" stroke-width="1.3"><rect x="2" y="1" width="10" height="12" rx="1"/><line x1="4.5" y1="4.5" x2="9.5" y2="4.5"/><line x1="4.5" y1="7" x2="9.5" y2="7"/><line x1="4.5" y1="9.5" x2="7.5" y2="9.5"/></svg>
-                        세액 계산
-                    </span>
-                </a>
-                <a class="sidebar-item" th:href="@{/admin/target-products}"
-                    th:classappend="${activePath == '/admin/target-products'} ? ' active' : ''">
-                    <span class="sidebar-item-label">
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#e2e8f0" stroke-width="1.3"><circle cx="6" cy="6" r="4"/><line x1="9" y1="9" x2="12.5" y2="12.5"/></svg>
-                        외부 감시
-                    </span>
+                      <span class="sidebar-item-label">
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#e2e8f0" stroke-width="1.3"><rect x="2" y="1" width="10" height="12" rx="1"/><line x1="4.5" y1="4.5" x2="9.5" y2="4.5"/><line x1="4.5" y1="7"
+                                                                                                                                                                                                                            x2="9.5" y2="7"/><line x1="4.5" y1="9.5" x2="7.5" y2="9.5"/></svg>
+                          세액 계산
+                      </span>
                 </a>
             </div>
         </div>
@@ -94,8 +95,6 @@
                         국내투자 현황
                     </span>
                 </a>
-                <span class="sidebar-item disabled">
-                </span>
                 <a class="sidebar-item"
                    th:classappend="${activePath == '/admin/withdrawals'} ? ' active' : ''"
                    th:href="@{/admin/withdrawals}">
@@ -119,14 +118,6 @@
         <div class="sidebar-group">
             <div class="sidebar-group-label">시스템</div>
             <div class="sidebar-items">
-                <a class="sidebar-item"
-                   th:classappend="${activePath == '/admin/dashboard'} ? ' active' : ''"
-                   th:href="@{/admin/dashboard}">
-                    <span class="sidebar-item-label">
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#e2e8f0" stroke-width="1.4"><rect x="1" y="1" width="5" height="5"/><rect x="8" y="1" width="5" height="5"/><rect x="1" y="8" width="5" height="5"/><rect x="8" y="8" width="5" height="5"/></svg>
-                        대시보드
-                    </span>
-                </a>
                 <a class="sidebar-item"
                    th:classappend="${activePath == '/admin/audit-log'} ? ' active' : ''"
                    th:href="@{/admin/audit-log}">

@@ -1,7 +1,7 @@
 $(function () {
-    // 이미 로그인돼 있으면 바로 대시보드로.
+    // 이미 로그인돼 있으면 바로 계좌 관리로.
     if (MARIA.auth.getAccessToken()) {
-        window.location.href = "/admin/dashboard";
+        window.location.href = "/admin/account";
         return;
     }
 
@@ -20,7 +20,7 @@ $(function () {
         })
             .done(function (res) {
                 MARIA.auth.saveTokens(res.data.accessToken, res.data.refreshToken);
-                window.location.href = "/admin/dashboard";
+                window.location.href = "/admin/account";
             })
             .fail(function (xhr) {
                 var message = "로그인에 실패했습니다.";
