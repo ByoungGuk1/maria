@@ -4,6 +4,7 @@ import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.dto.AccountJoinDTO;
 import com.app.maria.domain.account.dto.AccountLimitUsageDTO;
 import com.app.maria.domain.account.dto.AccountSearchDTO;
+import com.app.maria.domain.account.dto.response.AccountManagementDetailResponseDTO;
 import com.app.maria.domain.account.type.BenefitType;
 import com.app.maria.domain.account.type.Status;
 import java.math.BigDecimal;
@@ -107,4 +108,13 @@ public interface AccountMapper {
 
     List<AccountDTO> selectOpenedAccountsAfter(
             @Param("lastAccountId") long lastAccountId, @Param("pageSize") int pageSize);
+
+    List<AccountManagementDetailResponseDTO.Holding> selectManagementHoldings(Long accountId);
+
+    List<AccountManagementDetailResponseDTO.Inbound> selectManagementInbounds(Long accountId);
+
+    Optional<AccountManagementDetailResponseDTO.Closure> selectLatestManagementClosure(
+            Long accountId);
+
+    List<AccountManagementDetailResponseDTO.Withdrawal> selectManagementWithdrawals(Long accountId);
 }

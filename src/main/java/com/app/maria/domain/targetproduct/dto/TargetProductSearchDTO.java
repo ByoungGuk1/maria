@@ -1,6 +1,8 @@
 package com.app.maria.domain.targetproduct.dto;
 
 import com.app.maria.domain.targetproduct.type.StockType;
+import com.app.maria.domain.targetproduct.type.TradeType;
+import java.time.LocalDateTime;
 import lombok.*;
 
 @AllArgsConstructor
@@ -13,6 +15,10 @@ public class TargetProductSearchDTO {
     private String customerName;
     private StockType stockType;
     private Boolean isTarget;
+    private TradeType tradeType;
+    private Boolean inheritanceGiftOnly;
+    private LocalDateTime judgedAtFrom;
+    private LocalDateTime judgedAtTo;
     private int offset;
     private int size;
 }

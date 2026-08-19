@@ -345,6 +345,94 @@ class TargetProductMapperTest {
     }
 
     @Test
+    @DisplayName("tradeType 필터는 해당 거래유형인 행만 조회한다")
+    void selectJudgementsFiltersByTradeType() throws SQLException {
+        insertCustomer("ci-1", "홍길동");
+        targetProductMapper.insertJudgement(baseBuilder(50L).tradeType(TradeType.BUY).build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(51L).tradeType(TradeType.INHERITANCE).build());
+
+        List<TargetProductJudgementListDTO> result =
+                targetProductMapper.selectJudgements(
+                        TargetProductSearchDTO.builder()
+                                .tradeType(TradeType.INHERITANCE)
+                                .offset(0)
+                                .size(10)
+                                .build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTradeType()).isEqualTo(TradeType.INHERITANCE);
+    }
+
+    @Test
+    @DisplayName("countFilteredJudgements는 tradeType 필터에 맞는 행만 센다")
+    void countFilteredJudgementsFiltersByTradeType() throws SQLException {
+        insertCustomer("ci-1", "홍길동");
+        targetProductMapper.insertJudgement(baseBuilder(52L).tradeType(TradeType.GIFT).build());
+        targetProductMapper.insertJudgement(baseBuilder(53L).tradeType(TradeType.GIFT).build());
+        targetProductMapper.insertJudgement(baseBuilder(54L).tradeType(TradeType.BUY).build());
+
+        int count =
+                targetProductMapper.countFilteredJudgements(
+                        TargetProductSearchDTO.builder().tradeType(TradeType.GIFT).build());
+
+        assertThat(count).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("inheritanceGiftOnly 필터는 상속·증여 거래유형인 행만 조회한다")
+    void selectJudgementsFiltersByInheritanceGiftOnly() throws SQLException {
+        insertCustomer("ci-1", "홍길동");
+        targetProductMapper.insertJudgement(
+                baseBuilder(55L).tradeType(TradeType.INHERITANCE).build());
+        targetProductMapper.insertJudgement(baseBuilder(56L).tradeType(TradeType.GIFT).build());
+        targetProductMapper.insertJudgement(baseBuilder(57L).tradeType(TradeType.BUY).build());
+        targetProductMapper.insertJudgement(baseBuilder(58L).tradeType(TradeType.SELL).build());
+
+        List<TargetProductJudgementListDTO> result =
+                targetProductMapper.selectJudgements(
+                        TargetProductSearchDTO.builder()
+                                .inheritanceGiftOnly(true)
+                                .offset(0)
+                                .size(10)
+                                .build());
+
+        assertThat(result).hasSize(2);
+        assertThat(result)
+                .extracting(TargetProductJudgementListDTO::getTradeType)
+                .containsExactlyInAnyOrder(TradeType.INHERITANCE, TradeType.GIFT);
+    }
+
+    @Test
+    @DisplayName("judgedAtFrom/judgedAtTo 필터는 그 범위 안의 judged_at인 행만 조회한다")
+    void selectJudgementsFiltersByJudgedAtRange() throws SQLException {
+        insertCustomer("ci-1", "홍길동");
+        targetProductMapper.insertJudgement(
+                baseBuilder(59L).judgedAt(LocalDateTime.of(2026, 8, 6, 23, 59)).build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(60L).judgedAt(LocalDateTime.of(2026, 8, 7, 0, 0)).build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(61L).judgedAt(LocalDateTime.of(2026, 8, 7, 23, 59)).build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(62L).judgedAt(LocalDateTime.of(2026, 8, 8, 0, 0)).build());
+
+        List<TargetProductJudgementListDTO> result =
+                targetProductMapper.selectJudgements(
+                        TargetProductSearchDTO.builder()
+                                .judgedAtFrom(LocalDateTime.of(2026, 8, 7, 0, 0))
+                                .judgedAtTo(LocalDateTime.of(2026, 8, 8, 0, 0))
+                                .offset(0)
+                                .size(10)
+                                .build());
+
+        assertThat(result).hasSize(2);
+        assertThat(result)
+                .extracting(TargetProductJudgementListDTO::getJudgedAt)
+                .containsExactlyInAnyOrder(
+                        LocalDateTime.of(2026, 8, 7, 0, 0), LocalDateTime.of(2026, 8, 7, 23, 59));
+    }
+
+    @Test
     @DisplayName("저장된 판정 결과의 전체 건수를 반환한다")
     void countJudgementsReturnsTotalRowCount() {
         targetProductMapper.insertJudgement(baseBuilder(30L).build());
@@ -466,6 +554,38 @@ class TargetProductMapperTest {
         assertThat(summary.getTodayJudgementCount()).isEqualTo(0);
         assertThat(summary.getTodayTargetCount()).isEqualTo(0);
         assertThat(summary.getTodayTargetNetBuyAmount()).isEqualByComparingTo("0");
+        assertThat(summary.getTodayInheritanceGiftCount()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("오늘 상속·증여 산입 건수는 INHERITANCE·GIFT만 세고, 매수·매도와 어제 건은 제외한다")
+    void selectSummaryCountsOnlyTodaysInheritanceAndGiftTradeTypes() {
+        LocalDate today = LocalDate.of(2026, 8, 7);
+        LocalDate tomorrow = today.plusDays(1);
+        targetProductMapper.insertJudgement(
+                baseBuilder(60L)
+                        .judgedAt(LocalDateTime.of(2026, 8, 7, 9, 0))
+                        .tradeType(TradeType.INHERITANCE)
+                        .build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(61L)
+                        .judgedAt(LocalDateTime.of(2026, 8, 7, 10, 0))
+                        .tradeType(TradeType.GIFT)
+                        .build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(62L)
+                        .judgedAt(LocalDateTime.of(2026, 8, 7, 11, 0))
+                        .tradeType(TradeType.BUY)
+                        .build());
+        targetProductMapper.insertJudgement(
+                baseBuilder(63L)
+                        .judgedAt(LocalDateTime.of(2026, 8, 6, 23, 59))
+                        .tradeType(TradeType.INHERITANCE)
+                        .build());
+
+        TargetProductSummaryDTO summary = targetProductMapper.selectSummary(today, tomorrow);
+
+        assertThat(summary.getTodayInheritanceGiftCount()).isEqualTo(2);
     }
 
     private void insertCustomer(String ciHash, String name) throws SQLException {

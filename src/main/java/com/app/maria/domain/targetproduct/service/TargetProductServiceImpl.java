@@ -89,6 +89,11 @@ public class TargetProductServiceImpl implements TargetProductService {
     @Transactional(readOnly = true)
     public TargetProductJudgementPageDTO getJudgements(TargetProductSearchRequestDTO request) {
         TargetProductSearchDTO searchDTO = request.toTargetProductSearchDTO();
+        if (Boolean.TRUE.equals(request.getTodayOnly())) {
+            LocalDate today = businessClockService.now().toLocalDate();
+            searchDTO.setJudgedAtFrom(today.atStartOfDay());
+            searchDTO.setJudgedAtTo(today.plusDays(1).atStartOfDay());
+        }
         List<TargetProductJudgementListDTO> content =
                 targetProductMapper.selectJudgements(searchDTO);
         long totalElements = targetProductMapper.countFilteredJudgements(searchDTO);
@@ -115,6 +120,7 @@ public class TargetProductServiceImpl implements TargetProductService {
                 .todayJudgementCount(todayStats.getTodayJudgementCount())
                 .todayTargetCount(todayStats.getTodayTargetCount())
                 .todayTargetNetBuyAmount(todayStats.getTodayTargetNetBuyAmount())
+                .todayInheritanceGiftCount(todayStats.getTodayInheritanceGiftCount())
                 .totalJudgementCount(totalCount)
                 .build();
     }

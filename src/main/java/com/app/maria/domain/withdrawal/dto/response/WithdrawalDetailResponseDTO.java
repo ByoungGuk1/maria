@@ -26,6 +26,9 @@ public class WithdrawalDetailResponseDTO {
     private BigDecimal earningsAmount;
     private BigDecimal maturedPrincipalAmount;
     private BigDecimal immaturePrincipalAmount;
+    private int allocationCount;
+    private int normalAllocationCount;
+    private int earlyAllocationCount;
     private boolean earlyWithdrawal;
     private List<WithdrawalAllocationResponseDTO> allocations;
 
@@ -44,6 +47,9 @@ public class WithdrawalDetailResponseDTO {
                 .earningsAmount(withdrawal.getEarningsAmount())
                 .maturedPrincipalAmount(withdrawal.getMaturedPrincipalAmount())
                 .immaturePrincipalAmount(withdrawal.getImmaturePrincipalAmount())
+                .allocationCount(withdrawal.getAllocationCount())
+                .normalAllocationCount(withdrawal.getNormalAllocationCount())
+                .earlyAllocationCount(withdrawal.getEarlyAllocationCount())
                 .earlyWithdrawal(withdrawal.getImmaturePrincipalAmount().signum() > 0)
                 .allocations(
                         allocations.stream().map(WithdrawalAllocationResponseDTO::from).toList())

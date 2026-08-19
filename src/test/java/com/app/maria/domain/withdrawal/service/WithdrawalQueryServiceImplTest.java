@@ -43,6 +43,9 @@ class WithdrawalQueryServiceImplTest {
                 .extracting(WithdrawalListResponseDTO::getWithdrawalId)
                 .containsExactly(2L, 1L);
         assertThat(result.get(0).getImmaturePrincipalAmount()).isEqualByComparingTo("400");
+        assertThat(result.get(0).getAllocationCount()).isEqualTo(4);
+        assertThat(result.get(0).getNormalAllocationCount()).isEqualTo(3);
+        assertThat(result.get(0).getEarlyAllocationCount()).isEqualTo(1);
         verify(withdrawalMapper).selectWithdrawalHistories(WithdrawalStatus.COMPLETED);
     }
 
@@ -86,6 +89,9 @@ class WithdrawalQueryServiceImplTest {
         WithdrawalDetailResponseDTO result = withdrawalQueryService.getWithdrawal(1L);
 
         assertThat(result.isEarlyWithdrawal()).isTrue();
+        assertThat(result.getAllocationCount()).isEqualTo(4);
+        assertThat(result.getNormalAllocationCount()).isEqualTo(3);
+        assertThat(result.getEarlyAllocationCount()).isEqualTo(1);
         assertThat(result.getAllocations())
                 .singleElement()
                 .satisfies(
@@ -123,6 +129,9 @@ class WithdrawalQueryServiceImplTest {
                 .earningsAmount(new BigDecimal("100"))
                 .maturedPrincipalAmount(new BigDecimal("300"))
                 .immaturePrincipalAmount(new BigDecimal("400"))
+                .allocationCount(4)
+                .normalAllocationCount(3)
+                .earlyAllocationCount(1)
                 .build();
     }
 }
