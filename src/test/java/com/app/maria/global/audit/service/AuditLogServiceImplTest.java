@@ -92,7 +92,7 @@ class AuditLogServiceImplTest {
         assertThat(passedVo.getReasonKeyword()).isEqualTo("관리자 권한 변경");
         assertThat(passedVo.getMatchedReasonCodes()).containsExactly("ADMIN_ROLE_UPDATE");
         assertThat(passedVo.getKnownReasonCodes())
-                .contains("ADMIN_ROLE_UPDATE", "SELL_ORDER_EXECUTED");
+                .contains("ADMIN_ROLE_UPDATE", "ACCOUNT_APPLY");
     }
 
     @Test
@@ -125,7 +125,6 @@ class AuditLogServiceImplTest {
         assertThat(captor.getValue().getKnownReasonCodes())
                 .contains(
                         "ADMIN_ROLE_UPDATE",
-                        "SELL_ORDER_EXECUTED",
                         "ACCOUNT_APPLY",
                         "SETTLEMENT_BATCH_REQUESTED");
     }
