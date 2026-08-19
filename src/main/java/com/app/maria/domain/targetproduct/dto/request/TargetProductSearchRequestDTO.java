@@ -2,6 +2,7 @@ package com.app.maria.domain.targetproduct.dto.request;
 
 import com.app.maria.domain.targetproduct.dto.TargetProductSearchDTO;
 import com.app.maria.domain.targetproduct.type.StockType;
+import com.app.maria.domain.targetproduct.type.TradeType;
 import lombok.*;
 
 @AllArgsConstructor
@@ -14,6 +15,9 @@ public class TargetProductSearchRequestDTO {
     private String customerName;
     private StockType stockType;
     private Boolean isTarget;
+    private TradeType tradeType;
+    private Boolean todayOnly;
+    private Boolean inheritanceGiftOnly;
 
     private int page;
 
@@ -24,6 +28,8 @@ public class TargetProductSearchRequestDTO {
                 .customerName(customerName)
                 .stockType(stockType)
                 .isTarget(isTarget)
+                .tradeType(tradeType)
+                .inheritanceGiftOnly(inheritanceGiftOnly)
                 .offset(page * size)
                 .size(size)
                 .build();
