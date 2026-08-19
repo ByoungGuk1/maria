@@ -2,15 +2,21 @@ package com.app.maria.domain.domestic.mapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.app.maria.domain.domestic.dto.DomesticAccountLiteDTO;
+import com.app.maria.domain.domestic.dto.DomesticCashHeavyAccountDTO;
+import com.app.maria.domain.domestic.dto.DomesticFundHoldingDetailDTO;
 import com.app.maria.domain.domestic.dto.DomesticHoldingDTO;
 import com.app.maria.domain.domestic.dto.DomesticInvestmentListDTO;
 import com.app.maria.domain.domestic.dto.DomesticInvestmentSearchDTO;
+import com.app.maria.domain.domestic.dto.DomesticInvestmentSummaryDTO;
+import com.app.maria.domain.domestic.dto.DomesticRestrictedHoldingDTO;
 import com.app.maria.domain.domestic.type.DomesticStockStatus;
 import java.io.IOException;
 import java.io.Reader;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -122,8 +128,8 @@ class DomesticStockBalanceMapperTest {
     }
 
     @Test
-    @DisplayName("customerName 필터는 고객명에 부분일치하는 계좌만 조회한다")
-    void selectAccountSummariesFiltersByCustomerNameContains() throws SQLException {
+    @DisplayName("keyword 필터는 고객명에 부분일치하는 계좌만 조회한다")
+    void selectAccountSummariesFiltersByKeywordMatchingCustomerName() throws SQLException {
         insertCustomer(1L, "홍길동");
         insertCustomer(2L, "김철수");
         insertAccount(1L, 1L, "1111111111", "0", "OPENED");
@@ -134,6 +140,22 @@ class DomesticStockBalanceMapperTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getCustomerName()).isEqualTo("홍길동");
+    }
+
+    @Test
+    @DisplayName("keyword 필터는 계좌번호에 부분일치하는 계좌도 조회한다")
+    void selectAccountSummariesFiltersByKeywordMatchingAccountNo() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertCustomer(2L, "김철수");
+        insertAccount(1L, 1L, "1111111111", "0", "OPENED");
+        insertAccount(2L, 2L, "2222222222", "0", "OPENED");
+
+        List<DomesticInvestmentListDTO> result =
+                domesticStockBalanceMapper.selectAccountSummaries(
+                        condition("2222222222", null, 0, 20));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCustomerName()).isEqualTo("김철수");
     }
 
     @Test
@@ -168,6 +190,97 @@ class DomesticStockBalanceMapperTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getCustomerName()).isEqualTo("홍길동");
+    }
+
+    @Test
+    @DisplayName("hasRestrictedHolding=true면 거래제한·정지 보유종목이 있는 계좌만 조회한다")
+    void selectAccountSummariesFiltersByHasRestrictedHolding() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertCustomer(2L, "김철수");
+        insertAccount(1L, 1L, "1111111111", "0", "OPENED");
+        insertAccount(2L, 2L, "2222222222", "0", "OPENED");
+        insertDomesticProduct(1L, "005930", "삼성전자", "STOCK", null, null);
+        insertBalance(1L, 1L, "TRADE_SUSPENDED", "10");
+        insertBalance(2L, 1L, "HOLDING", "10");
+
+        List<DomesticInvestmentListDTO> result =
+                domesticStockBalanceMapper.selectAccountSummaries(
+                        DomesticInvestmentSearchDTO.builder()
+                                .hasRestrictedHolding(true)
+                                .offset(0)
+                                .size(20)
+                                .build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCustomerName()).isEqualTo("홍길동");
+    }
+
+    @Test
+    @DisplayName("unpurchasableAccountIds가 주어지면 해당 계좌ID만 조회한다")
+    void selectAccountSummariesFiltersByUnpurchasableAccountIds() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertCustomer(2L, "김철수");
+        insertAccount(1L, 1L, "1111111111", "0", "OPENED");
+        insertAccount(2L, 2L, "2222222222", "0", "OPENED");
+
+        List<DomesticInvestmentListDTO> result =
+                domesticStockBalanceMapper.selectAccountSummaries(
+                        DomesticInvestmentSearchDTO.builder()
+                                .unpurchasableAccountIds(List.of(2L))
+                                .offset(0)
+                                .size(20)
+                                .build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCustomerName()).isEqualTo("김철수");
+    }
+
+    @Test
+    @DisplayName("hasRecentBuy=true면 기준일 이후 매수한 보유종목이 있는 계좌만 조회한다")
+    void selectAccountSummariesFiltersByHasRecentBuyTrue() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertCustomer(2L, "김철수");
+        insertAccount(1L, 1L, "1111111111", "0", "OPENED");
+        insertAccount(2L, 2L, "2222222222", "0", "OPENED");
+        insertDomesticProduct(1L, "005930", "삼성전자", "STOCK", null, null);
+        insertBalanceWithDate(1L, 1L, "HOLDING", "10", LocalDateTime.of(2026, 8, 15, 9, 0));
+        insertBalanceWithDate(2L, 1L, "HOLDING", "10", LocalDateTime.of(2026, 7, 1, 9, 0));
+
+        List<DomesticInvestmentListDTO> result =
+                domesticStockBalanceMapper.selectAccountSummaries(
+                        DomesticInvestmentSearchDTO.builder()
+                                .hasRecentBuy(true)
+                                .recentBuySinceDate(LocalDate.of(2026, 8, 1))
+                                .offset(0)
+                                .size(20)
+                                .build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCustomerName()).isEqualTo("홍길동");
+    }
+
+    @Test
+    @DisplayName("hasRecentBuy=false면 기준일 이후 매수 이력이 없는 계좌만 조회한다")
+    void selectAccountSummariesFiltersByHasRecentBuyFalse() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertCustomer(2L, "김철수");
+        insertAccount(1L, 1L, "1111111111", "0", "OPENED");
+        insertAccount(2L, 2L, "2222222222", "0", "OPENED");
+        insertDomesticProduct(1L, "005930", "삼성전자", "STOCK", null, null);
+        insertBalanceWithDate(1L, 1L, "HOLDING", "10", LocalDateTime.of(2026, 8, 15, 9, 0));
+        insertBalanceWithDate(2L, 1L, "HOLDING", "10", LocalDateTime.of(2026, 7, 1, 9, 0));
+
+        List<DomesticInvestmentListDTO> result =
+                domesticStockBalanceMapper.selectAccountSummaries(
+                        DomesticInvestmentSearchDTO.builder()
+                                .hasRecentBuy(false)
+                                .recentBuySinceDate(LocalDate.of(2026, 8, 1))
+                                .offset(0)
+                                .size(20)
+                                .build());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCustomerName()).isEqualTo("김철수");
     }
 
     @Test
@@ -261,10 +374,343 @@ class DomesticStockBalanceMapperTest {
         assertThat(result).isEmpty();
     }
 
+    // ---- selectSummaryStats ----
+
+    @Test
+    @DisplayName("totalAccountCount은 OPENED 상태 계좌만 센다")
+    void selectSummaryStatsCountsOnlyOpenedAccounts() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertCustomer(2L, "김철수");
+        insertAccount(1L, 1L, "1111111111", "0", "OPENED");
+        insertAccount(2L, 2L, "2222222222", "0", "CLOSED");
+
+        DomesticInvestmentSummaryDTO result =
+                domesticStockBalanceMapper.selectSummaryStats(LocalDate.of(2026, 8, 1));
+
+        assertThat(result.getTotalAccountCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("restrictedAccountCount은 거래제한·거래정지 보유종목이 있는 계좌 수를 중복 없이 센다")
+    void selectSummaryStatsCountsDistinctRestrictedAccounts() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertAccount(1L, 1L, "1111111111", "0", "OPENED");
+        insertDomesticProduct(1L, "005930", "삼성전자", "STOCK", null, null);
+        insertDomesticProduct(2L, "000660", "SK하이닉스", "STOCK", null, null);
+        insertBalance(1L, 1L, "TRADE_RESTRICTED", "10");
+        insertBalance(1L, 2L, "TRADE_SUSPENDED", "5");
+
+        DomesticInvestmentSummaryDTO result =
+                domesticStockBalanceMapper.selectSummaryStats(LocalDate.of(2026, 8, 1));
+
+        assertThat(result.getRestrictedAccountCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("totalCashAmount은 OPENED 계좌의 예탁금만 합산한다")
+    void selectSummaryStatsSumsCashAmountForOpenedAccountsOnly() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertCustomer(2L, "김철수");
+        insertAccount(1L, 1L, "1111111111", "1000000", "OPENED");
+        insertAccount(2L, 2L, "2222222222", "500000", "CLOSED");
+
+        DomesticInvestmentSummaryDTO result =
+                domesticStockBalanceMapper.selectSummaryStats(LocalDate.of(2026, 8, 1));
+
+        assertThat(result.getTotalCashAmount()).isEqualByComparingTo("1000000");
+    }
+
+    @Test
+    @DisplayName("domesticStockAmount·domesticFundAmount은 종목구분별로 나눠서 합산하고, 전량매도 보유는 제외한다")
+    void selectSummaryStatsSumsStockAndFundAmountsSeparately() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertAccount(1L, 1L, "1111111111", "0", "OPENED");
+        insertDomesticProduct(1L, "005930", "삼성전자", "STOCK", null, null);
+        insertDomesticProduct(2L, "448630", "TIGER 미국배당다우존스", "FUND", "85.00", "2020-01-01");
+        insertDomesticProduct(3L, "000660", "SK하이닉스", "STOCK", null, null);
+        insertBalance(1L, 1L, "HOLDING", "10000");
+        insertBalance(1L, 2L, "HOLDING", "5000");
+        insertBalance(1L, 3L, "SOLD_OUT", "9999");
+
+        DomesticInvestmentSummaryDTO result =
+                domesticStockBalanceMapper.selectSummaryStats(LocalDate.of(2026, 8, 1));
+
+        assertThat(result.getDomesticStockAmount()).isEqualByComparingTo("1000000");
+        assertThat(result.getDomesticFundAmount()).isEqualByComparingTo("500000");
+    }
+
+    @Test
+    @DisplayName("stockHoldingAccountCount·fundHoldingAccountCount은 종목구분별 보유 계좌 수를 중복 없이 센다")
+    void selectSummaryStatsCountsHoldingAccountsPerType() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertCustomer(2L, "김철수");
+        insertAccount(1L, 1L, "1111111111", "0", "OPENED");
+        insertAccount(2L, 2L, "2222222222", "0", "OPENED");
+        insertDomesticProduct(1L, "005930", "삼성전자", "STOCK", null, null);
+        insertDomesticProduct(2L, "000660", "SK하이닉스", "STOCK", null, null);
+        insertDomesticProduct(3L, "448630", "TIGER 미국배당다우존스", "FUND", "85.00", "2020-01-01");
+        insertBalance(1L, 1L, "HOLDING", "10");
+        insertBalance(1L, 2L, "HOLDING", "5");
+        insertBalance(2L, 3L, "HOLDING", "20");
+
+        DomesticInvestmentSummaryDTO result =
+                domesticStockBalanceMapper.selectSummaryStats(LocalDate.of(2026, 8, 1));
+
+        assertThat(result.getStockHoldingAccountCount()).isEqualTo(1);
+        assertThat(result.getFundHoldingAccountCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("recentBuyAccountCount은 last_purchase_date가 기준일 이후인 계좌 수를 중복 없이 센다")
+    void selectSummaryStatsCountsRecentBuyAccounts() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertCustomer(2L, "김철수");
+        insertAccount(1L, 1L, "1111111111", "0", "OPENED");
+        insertAccount(2L, 2L, "2222222222", "0", "OPENED");
+        insertDomesticProduct(1L, "005930", "삼성전자", "STOCK", null, null);
+        insertBalanceWithDate(1L, 1L, "HOLDING", "10", LocalDateTime.of(2026, 8, 10, 9, 0));
+        insertBalanceWithDate(2L, 1L, "HOLDING", "10", LocalDateTime.of(2026, 7, 1, 9, 0));
+
+        DomesticInvestmentSummaryDTO result =
+                domesticStockBalanceMapper.selectSummaryStats(LocalDate.of(2026, 8, 1));
+
+        assertThat(result.getRecentBuyAccountCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("데이터가 없으면 모든 값이 0을 반환한다(NULL이 아니라)")
+    void selectSummaryStatsReturnsZerosWhenNoData() {
+        DomesticInvestmentSummaryDTO result =
+                domesticStockBalanceMapper.selectSummaryStats(LocalDate.of(2026, 8, 1));
+
+        assertThat(result.getTotalAccountCount()).isEqualTo(0);
+        assertThat(result.getRestrictedAccountCount()).isEqualTo(0);
+        assertThat(result.getTotalCashAmount()).isEqualByComparingTo("0");
+        assertThat(result.getDomesticStockAmount()).isEqualByComparingTo("0");
+        assertThat(result.getDomesticFundAmount()).isEqualByComparingTo("0");
+        assertThat(result.getStockHoldingAccountCount()).isEqualTo(0);
+        assertThat(result.getFundHoldingAccountCount()).isEqualTo(0);
+        assertThat(result.getRecentBuyAccountCount()).isEqualTo(0);
+    }
+
+    // ---- selectActiveFundHoldings ----
+
+    @Test
+    @DisplayName("OPENED 계좌의 활성(전량매도·보유종료 아닌) 펀드 보유 건마다 고객·계좌·종목정보를 반환한다")
+    void selectActiveFundHoldingsReturnsOneRowPerActiveFundHolding() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertAccount(1L, 1L, "1111111111", "0", "OPENED");
+        insertDomesticProduct(1L, "448630", "TIGER 미국배당다우존스", "FUND", "85.00", "2020-01-01");
+        insertBalance(1L, 1L, "HOLDING", "10");
+
+        List<DomesticFundHoldingDetailDTO> result =
+                domesticStockBalanceMapper.selectActiveFundHoldings();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCustomerName()).isEqualTo("홍길동");
+        assertThat(result.get(0).getAccountNo()).isEqualTo("1111111111");
+        assertThat(result.get(0).getProductName()).isEqualTo("TIGER 미국배당다우존스");
+        assertThat(result.get(0).getDomesticStockRatio()).isEqualByComparingTo("85.00");
+    }
+
+    @Test
+    @DisplayName("STOCK 종목과 전량매도·보유종료 상태인 펀드는 제외한다")
+    void selectActiveFundHoldingsExcludesStockAndInactiveHoldings() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertAccount(1L, 1L, "1111111111", "0", "OPENED");
+        insertDomesticProduct(1L, "005930", "삼성전자", "STOCK", null, null);
+        insertDomesticProduct(2L, "448630", "TIGER 미국배당다우존스", "FUND", "85.00", "2020-01-01");
+        insertBalance(1L, 1L, "HOLDING", "10");
+        insertBalance(1L, 2L, "SOLD_OUT", "10");
+
+        List<DomesticFundHoldingDetailDTO> result =
+                domesticStockBalanceMapper.selectActiveFundHoldings();
+
+        assertThat(result).isEmpty();
+    }
+
+    // ---- selectAccountsByRecentBuyStatus ----
+
+    @Test
+    @DisplayName("hasRecentBuy=true면 기준일 이후 활성 매수가 있는 계좌만 반환한다")
+    void selectAccountsByRecentBuyStatusReturnsAccountsWithRecentPurchaseWhenTrue()
+            throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertCustomer(2L, "김철수");
+        insertAccount(1L, 1L, "1111111111", "0", "OPENED");
+        insertAccount(2L, 2L, "2222222222", "0", "OPENED");
+        insertDomesticProduct(1L, "005930", "삼성전자", "STOCK", null, null);
+        insertBalanceWithDate(1L, 1L, "HOLDING", "10", LocalDateTime.of(2026, 8, 15, 9, 0));
+        insertBalanceWithDate(2L, 1L, "HOLDING", "10", LocalDateTime.of(2026, 7, 1, 9, 0));
+
+        List<DomesticAccountLiteDTO> result =
+                domesticStockBalanceMapper.selectAccountsByRecentBuyStatus(
+                        LocalDate.of(2026, 8, 1), true);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCustomerName()).isEqualTo("홍길동");
+    }
+
+    @Test
+    @DisplayName("hasRecentBuy=false면 기준일 이후 활성 매수가 없는 계좌만 반환한다(보유종목 없는 계좌 포함)")
+    void selectAccountsByRecentBuyStatusReturnsAccountsWithoutRecentPurchaseWhenFalse()
+            throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertCustomer(2L, "김철수");
+        insertCustomer(3L, "이영희");
+        insertAccount(1L, 1L, "1111111111", "0", "OPENED");
+        insertAccount(2L, 2L, "2222222222", "0", "OPENED");
+        insertAccount(3L, 3L, "3333333333", "0", "OPENED");
+        insertDomesticProduct(1L, "005930", "삼성전자", "STOCK", null, null);
+        insertBalanceWithDate(1L, 1L, "HOLDING", "10", LocalDateTime.of(2026, 8, 15, 9, 0));
+        insertBalanceWithDate(2L, 1L, "HOLDING", "10", LocalDateTime.of(2026, 7, 1, 9, 0));
+        // 계좌 3은 보유종목 자체가 없음
+
+        List<DomesticAccountLiteDTO> result =
+                domesticStockBalanceMapper.selectAccountsByRecentBuyStatus(
+                        LocalDate.of(2026, 8, 1), false);
+
+        assertThat(result).hasSize(2);
+        assertThat(result)
+                .extracting(DomesticAccountLiteDTO::getCustomerName)
+                .containsExactlyInAnyOrder("김철수", "이영희");
+    }
+
+    // ---- selectRestrictedHoldings ----
+
+    @Test
+    @DisplayName("거래제한·거래정지 보유종목을 고객명·계좌번호·종목정보와 함께 반환한다")
+    void selectRestrictedHoldingsReturnsDetailsForRestrictedAndSuspendedHoldings()
+            throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertAccount(1L, 1L, "1234567890", "0", "OPENED");
+        insertDomesticProduct(1L, "207940", "삼성바이오로직스", "STOCK", null, null);
+        insertBalance(1L, 1L, "TRADE_SUSPENDED", "10");
+
+        List<DomesticRestrictedHoldingDTO> result =
+                domesticStockBalanceMapper.selectRestrictedHoldings();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCustomerName()).isEqualTo("홍길동");
+        assertThat(result.get(0).getAccountNo()).isEqualTo("1234567890");
+        assertThat(result.get(0).getProductName()).isEqualTo("삼성바이오로직스");
+        assertThat(result.get(0).getStatus()).isEqualTo(DomesticStockStatus.TRADE_SUSPENDED);
+    }
+
+    @Test
+    @DisplayName("거래제한·거래정지가 아닌 보유종목은 제외한다")
+    void selectRestrictedHoldingsExcludesOtherStatuses() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertAccount(1L, 1L, "1234567890", "0", "OPENED");
+        insertDomesticProduct(1L, "005930", "삼성전자", "STOCK", null, null);
+        insertBalance(1L, 1L, "HOLDING", "10");
+
+        List<DomesticRestrictedHoldingDTO> result =
+                domesticStockBalanceMapper.selectRestrictedHoldings();
+
+        assertThat(result).isEmpty();
+    }
+
+    // ---- selectCashHeavyAccounts ----
+
+    @Test
+    @DisplayName("예탁금 비중이 높은 계좌를 반환한다")
+    void selectCashHeavyAccountsReturnsAccountsAtOrAboveHalfCashRatio() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertAccount(1L, 1L, "1234567890", "1000000", "OPENED");
+        insertDomesticProduct(1L, "005930", "삼성전자", "STOCK", null, null);
+        insertBalance(1L, 1L, "HOLDING", "10000");
+
+        List<DomesticCashHeavyAccountDTO> result =
+                domesticStockBalanceMapper.selectCashHeavyAccounts(0, 20);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCashAmount()).isEqualByComparingTo("1000000");
+        assertThat(result.get(0).getInvestedAmount()).isEqualByComparingTo("1000000");
+    }
+
+    @Test
+    @DisplayName("예탁금 비중이 낮은 계좌도 제외되지 않고 비중 내림차순으로 포함된다")
+    void selectCashHeavyAccountsIncludesLowRatioAccountsOrderedDesc() throws SQLException {
+        insertCustomer(1L, "고비중");
+        insertCustomer(2L, "저비중");
+        insertAccount(1L, 1L, "1111111111", "1000000", "OPENED");
+        insertAccount(2L, 2L, "2222222222", "100000", "OPENED");
+        insertDomesticProduct(1L, "005930", "삼성전자", "STOCK", null, null);
+        insertBalance(2L, 1L, "HOLDING", "9000");
+
+        List<DomesticCashHeavyAccountDTO> result =
+                domesticStockBalanceMapper.selectCashHeavyAccounts(0, 20);
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).getCustomerName()).isEqualTo("고비중");
+        assertThat(result.get(1).getCustomerName()).isEqualTo("저비중");
+    }
+
+    @Test
+    @DisplayName("예탁금이 0원인 계좌도 제외되지 않고 포함된다")
+    void selectCashHeavyAccountsIncludesZeroCashAccounts() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertAccount(1L, 1L, "1234567890", "0", "OPENED");
+
+        List<DomesticCashHeavyAccountDTO> result =
+                domesticStockBalanceMapper.selectCashHeavyAccounts(0, 20);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCashAmount()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    @DisplayName("보유종목이 전혀 없어 투자금액이 0이어도 예탁금이 있으면 비중 100%로 잡혀 포함된다")
+    void selectCashHeavyAccountsIncludesAccountsWithNoHoldingsAsFullCash() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertAccount(1L, 1L, "1234567890", "500000", "OPENED");
+
+        List<DomesticCashHeavyAccountDTO> result =
+                domesticStockBalanceMapper.selectCashHeavyAccounts(0, 20);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getInvestedAmount()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    @DisplayName("offset·size로 페이지네이션이 적용된다")
+    void selectCashHeavyAccountsAppliesOffsetAndSizeForPagination() throws SQLException {
+        insertCustomer(1L, "고객1");
+        insertCustomer(2L, "고객2");
+        insertCustomer(3L, "고객3");
+        insertAccount(1L, 1L, "1111111111", "300000", "OPENED");
+        insertAccount(2L, 2L, "2222222222", "200000", "OPENED");
+        insertAccount(3L, 3L, "3333333333", "100000", "OPENED");
+
+        List<DomesticCashHeavyAccountDTO> firstPage =
+                domesticStockBalanceMapper.selectCashHeavyAccounts(0, 2);
+        List<DomesticCashHeavyAccountDTO> secondPage =
+                domesticStockBalanceMapper.selectCashHeavyAccounts(2, 2);
+
+        assertThat(firstPage).hasSize(2);
+        assertThat(secondPage).hasSize(1);
+    }
+
+    // ---- countCashHeavyAccounts ----
+
+    @Test
+    @DisplayName("countCashHeavyAccounts는 OPENED 상태 계좌 수를 반환한다")
+    void countCashHeavyAccountsCountsOnlyOpenedAccounts() throws SQLException {
+        insertCustomer(1L, "홍길동");
+        insertCustomer(2L, "김철수");
+        insertAccount(1L, 1L, "1111111111", "0", "OPENED");
+        insertAccount(2L, 2L, "2222222222", "0", "CLOSED");
+
+        int count = domesticStockBalanceMapper.countCashHeavyAccounts();
+
+        assertThat(count).isEqualTo(1);
+    }
+
     private DomesticInvestmentSearchDTO condition(
-            String customerName, DomesticStockStatus status, int offset, int size) {
+            String keyword, DomesticStockStatus status, int offset, int size) {
         return DomesticInvestmentSearchDTO.builder()
-                .customerName(customerName)
+                .keyword(keyword)
                 .status(status)
                 .offset(offset)
                 .size(size)

@@ -5,9 +5,13 @@ import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.domestic.dto.*;
 import com.app.maria.domain.domestic.dto.request.DomesticInvestmentSearchRequestDTO;
 import com.app.maria.domain.domestic.dto.request.DomesticTradeRequestDTO;
+import com.app.maria.domain.domestic.dto.response.*;
 import com.app.maria.domain.domestic.exception.DomesticInvestmentNotFoundException;
 import com.app.maria.domain.domestic.mapper.DomesticStockBalanceMapper;
+import com.app.maria.domain.domestic.type.Type;
+import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.response.ApiResponseDTO;
+import java.time.LocalDate;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -26,21 +30,43 @@ public class DomesticInvestmentServiceImpl implements DomesticInvestmentService 
     private final AccountMapper accountMapper;
     private final DomesticPurchaseEligibilityService domesticPurchaseEligibilityService;
     private final RestClient restClient;
+    private final BusinessClockService businessClockService;
 
     public DomesticInvestmentServiceImpl(
             DomesticStockBalanceMapper domesticStockBalanceMapper,
             AccountMapper accountMapper,
             DomesticPurchaseEligibilityService domesticPurchaseEligibilityService,
-            @Qualifier("returnSecuritiesRestClient") RestClient restClient) {
+            @Qualifier("returnSecuritiesRestClient") RestClient restClient,
+            BusinessClockService businessClockService) {
         this.domesticStockBalanceMapper = domesticStockBalanceMapper;
         this.accountMapper = accountMapper;
         this.domesticPurchaseEligibilityService = domesticPurchaseEligibilityService;
         this.restClient = restClient;
+        this.businessClockService = businessClockService;
     }
 
     @Override
     public DomesticInvestmentPageDTO getInvestments(DomesticInvestmentSearchRequestDTO request) {
         var condition = request.toDomesticInvestmentSearchDTO();
+        if (Boolean.TRUE.equals(request.getHasUnpurchasableHolding())) {
+            List<Long> unpurchasableAccountIds = resolveUnpurchasableAccountIds();
+            if (unpurchasableAccountIds.isEmpty()) {
+                return DomesticInvestmentPageDTO.builder()
+                        .content(List.of())
+                        .page(request.getPage())
+                        .size(request.getSize())
+                        .totalElements(0)
+                        .totalPages(0)
+                        .build();
+            }
+            condition.setUnpurchasableAccountIds(unpurchasableAccountIds);
+        }
+        if (request.getHasRecentBuy() != null) {
+            int days = request.getRecentBuyDays() != null ? request.getRecentBuyDays() : 7;
+            condition.setRecentBuySinceDate(
+                    businessClockService.now().toLocalDate().minusDays(days));
+        }
+
         List<DomesticInvestmentListDTO> content =
                 domesticStockBalanceMapper.selectAccountSummaries(condition);
         int totalElements = domesticStockBalanceMapper.countAccountSummaries(condition);
@@ -53,6 +79,17 @@ public class DomesticInvestmentServiceImpl implements DomesticInvestmentService 
                 .totalElements(totalElements)
                 .totalPages(totalPages)
                 .build();
+    }
+
+    private List<Long> resolveUnpurchasableAccountIds() {
+        return domesticStockBalanceMapper.selectActiveFundHoldings().stream()
+                .filter(
+                        h ->
+                                !domesticPurchaseEligibilityService.isPurchasable(
+                                        Type.FUND, h.getDomesticStockRatio(), h.getInceptionDate()))
+                .map(DomesticFundHoldingDetailDTO::getAccountId)
+                .distinct()
+                .toList();
     }
 
     @Override
@@ -93,6 +130,85 @@ public class DomesticInvestmentServiceImpl implements DomesticInvestmentService 
                 .holdings(holdings)
                 .tradeHistory(tradeHistory)
                 .build();
+    }
+
+    @Override
+    public DomesticInvestmentSummaryResponseDTO getSummary(int days) {
+        LocalDate today = businessClockService.now().toLocalDate();
+        LocalDate sinceDate = today.minusDays(days);
+        DomesticInvestmentSummaryDTO stats =
+                domesticStockBalanceMapper.selectSummaryStats(sinceDate);
+
+        long unpurchasableCount =
+                domesticStockBalanceMapper.selectActiveFundHoldings().stream()
+                        .filter(
+                                h ->
+                                        !domesticPurchaseEligibilityService.isPurchasable(
+                                                Type.FUND,
+                                                h.getDomesticStockRatio(),
+                                                h.getInceptionDate()))
+                        .count();
+
+        return new DomesticInvestmentSummaryResponseDTO(
+                DomesticInvestmentSummaryDTO.builder()
+                        .totalAccountCount(stats.getTotalAccountCount())
+                        .restrictedAccountCount(stats.getRestrictedAccountCount())
+                        .unpurchasableHoldingCount((int) unpurchasableCount)
+                        .totalCashAmount(stats.getTotalCashAmount())
+                        .domesticStockAmount(stats.getDomesticStockAmount())
+                        .domesticFundAmount(stats.getDomesticFundAmount())
+                        .stockHoldingAccountCount(stats.getStockHoldingAccountCount())
+                        .fundHoldingAccountCount(stats.getFundHoldingAccountCount())
+                        .recentBuyAccountCount(stats.getRecentBuyAccountCount())
+                        .noRecentBuyAccountCount(
+                                stats.getTotalAccountCount() - stats.getRecentBuyAccountCount())
+                        .build());
+    }
+
+    @Override
+    public List<DomesticUnpurchasableHoldingResponseDTO> getUnpurchasableHoldings() {
+        return domesticStockBalanceMapper.selectActiveFundHoldings().stream()
+                .filter(
+                        h ->
+                                !domesticPurchaseEligibilityService.isPurchasable(
+                                        Type.FUND, h.getDomesticStockRatio(), h.getInceptionDate()))
+                .map(DomesticUnpurchasableHoldingResponseDTO::new)
+                .toList();
+    }
+
+    @Override
+    public List<DomesticAccountLiteResponseDTO> getRecentBuyAccounts(
+            int days, boolean hasRecentBuy) {
+        LocalDate today = businessClockService.now().toLocalDate();
+        LocalDate sinceDate = today.minusDays(days);
+        return domesticStockBalanceMapper
+                .selectAccountsByRecentBuyStatus(sinceDate, hasRecentBuy)
+                .stream()
+                .map(DomesticAccountLiteResponseDTO::new)
+                .toList();
+    }
+
+    @Override
+    public List<DomesticRestrictedHoldingResponseDTO> getRestrictedHoldings() {
+        return domesticStockBalanceMapper.selectRestrictedHoldings().stream()
+                .map(DomesticRestrictedHoldingResponseDTO::new)
+                .toList();
+    }
+
+    @Override
+    public DomesticCashHeavyPageResponseDTO getCashHeavyAccounts(int page, int size) {
+        List<DomesticCashHeavyAccountDTO> content =
+                domesticStockBalanceMapper.selectCashHeavyAccounts(page * size, size);
+        int totalElements = domesticStockBalanceMapper.countCashHeavyAccounts();
+        int totalPages = (int) Math.ceil((double) totalElements / size);
+        return new DomesticCashHeavyPageResponseDTO(
+                DomesticCashHeavyPageDTO.builder()
+                        .content(content)
+                        .page(page)
+                        .size(size)
+                        .totalElements(totalElements)
+                        .totalPages(totalPages)
+                        .build());
     }
 
     private List<DomesticTradeHistoryDTO> fetchDomesticTradeHistory(String ciHash) {

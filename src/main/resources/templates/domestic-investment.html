@@ -14,14 +14,63 @@
     <div id="diLoading" class="dash-loading">불러오는 중...</div>
     <div id="diError" class="dash-error" style="display:none"></div>
     <div id="diBody" style="display:none">
+        <div class="kpi-grid">
+            <div class="card kpi-card kpi-clickable" data-detail="none">
+                <div class="kpi-label">전체 계좌 수</div>
+                <div class="kpi-value" id="kpiTotalAccount">-</div>
+            </div>
+            <div class="card kpi-card kpi-clickable" data-detail="restricted">
+                <div class="kpi-label">거래제한·정지 계좌 수</div>
+                <div class="kpi-value" id="kpiRestrictedAccount">-</div>
+            </div>
+            <div class="card kpi-card kpi-clickable" data-detail="unpurchasable">
+                <div class="kpi-label">매수불가 종목 보유 건수</div>
+                <div class="kpi-value" id="kpiUnpurchasable">-</div>
+            </div>
+            <div class="card kpi-card">
+                <div class="kpi-label di-recent-header">
+                    <span>최근 매수 활동</span>
+                    <select id="diRecentDays" class="di-days-select">
+                        <option value="1">1일</option>
+                        <option value="7">7일</option>
+                        <option value="14">14일</option>
+                        <option value="30">30일</option>
+                    </select>
+                </div>
+                <div class="kpi-value di-recent-value">
+                    <span class="di-recent-item kpi-clickable" data-detail="recentBuy">
+                        <strong id="kpiRecentBuy">-</strong>개 있음
+                    </span>
+                    <span class="di-recent-item kpi-clickable" data-detail="noRecentBuy">
+                        <strong id="kpiNoRecentBuy">-</strong>개 없음
+                    </span>
+                </div>
+            </div>
+            <div class="card kpi-card">
+            <div class="kpi-label">총 예탁금 합계</div>
+                <div class="kpi-value kpi-value-amount" id="kpiTotalCash">-</div>
+            </div>
+        </div>
+        <div class="card" id="diDetailPanel" style="display:none">
+            <div class="section-header">
+                <span id="diDetailTitle">상세</span>
+                <span class="section-sub" id="diDetailCount"></span>
+                <button type="button" id="diDetailClose" class="di-detail-close" aria-label="닫기">&times;</button>
+            </div>
+            <table class="dash-table">
+                <thead id="diDetailTableHead"></thead>
+                <tbody id="diDetailTableBody"></tbody>
+            </table>
+            <div id="diDetailPagination" class="pagination"></div>
+        </div>
         <div class="di-layout">
             <div class="card di-list-card">
                 <div class="section-header">
-                    <span>계좌 목록</span>
+                    <span id="diListTitle">계좌 목록</span>
                     <span class="section-sub" id="diListCount">0건 수신</span>
                 </div>
                 <div class="filter-bar di-filter-bar">
-                    <input type="text" id="diFilterCustomerName" class="filter-input" placeholder="고객명 검색">
+                    <input type="text" id="diFilterCustomerName" class="filter-input" placeholder="고객명 또는 계좌번호 검색">
                     <select id="diFilterStatus" class="filter-select">
                         <option value="">전체 상태</option>
                         <option value="HOLDING">보유중</option>
