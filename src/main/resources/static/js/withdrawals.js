@@ -1,5 +1,5 @@
 $(function () {
-    var PAGE_SIZE = 10;
+    var PAGE_SIZE = 12;
     var STATUS_LABEL = {
         REQUESTED: "처리 요청",
         COMPLETED: "처리 완료",
@@ -167,7 +167,7 @@ $(function () {
                 '<button type="button" class="withdrawal-list-item' + selectedClass + '"' +
                 ' data-account-no="' + escapeHtml(account.accountNo) + '">' +
                 '<span class="withdrawal-account-cell"><strong>' +
-                escapeHtml(account.accountNo) + '</strong><small>' +
+                MARIA.fmt.accountNoHtml(account.accountNo) + '</strong><small>' +
                 escapeHtml(account.customerName) + '</small></span>' +
                 '<strong class="withdrawal-history-count">' + account.allocationCount + '건</strong>' +
                 '<strong class="withdrawal-request-amount">' +
@@ -436,14 +436,14 @@ $(function () {
     function renderWithdrawalOverview(withdrawal) {
         $("#withdrawal-detail-title").text((withdrawal.customerName || "-") + " 고객 인출");
         $("#withdrawal-customer-name").text(withdrawal.customerName || "-");
-        $("#withdrawal-account-no").text(withdrawal.riaAccountNo || "-");
+        $("#withdrawal-account-no").html(MARIA.fmt.accountNoHtml(withdrawal.riaAccountNo));
         $("#withdrawal-account-opened-at").text(formatDateTime(accountMetadataByNo[selectedAccountNo] &&
             accountMetadataByNo[selectedAccountNo].openedAt));
         $("#withdrawal-current-balance").text(formatAmount(
             accountMetadataByNo[selectedAccountNo] && accountMetadataByNo[selectedAccountNo].amount
         ));
         $("#withdrawal-requested-amount").text(formatAmount(withdrawal.requestedAmount));
-        $("#withdrawal-destination-account").text(withdrawal.destinationAccountNo || "-");
+        $("#withdrawal-destination-account").html(MARIA.fmt.accountNoHtml(withdrawal.destinationAccountNo));
         $("#withdrawal-processed-at").text(formatDateTime(withdrawal.processedAt));
         $("#withdrawal-early-result").text(withdrawal.earlyWithdrawal ? "발생" : "없음");
         $("#withdrawal-earnings-amount").text(formatAmount(withdrawal.earningsAmount));
@@ -499,7 +499,7 @@ $(function () {
             selectedAccountBenefit !== "IMPOSSIBLE"
         );
         closeDrawer();
-        $("#withdrawal-allocation-title").text(account.accountNo + " · " + account.customerName);
+        $("#withdrawal-allocation-title").html(MARIA.fmt.accountNoHtml(account.accountNo) + " · " + escapeHtml(account.customerName));
         $("#withdrawal-allocations").html('<div class="withdrawal-loading">배분 내역을 불러오는 중...</div>');
 
         var requestedAccountNo = accountNo;
@@ -598,10 +598,18 @@ $(function () {
         selectAccount(account.accountNo);
     }
 
-    $("#withdrawal-search-button").on("click", applyFilters);
+    function submitSearch() {
+        if (!( $("#withdrawal-keyword").val() || "").trim()) {
+            MARIA.ui.showError("고객명 또는 RIA 계좌번호를 입력해 주세요.");
+            return;
+        }
+        applyFilters();
+    }
+
+    $("#withdrawal-search-button").on("click", submitSearch);
     $("#withdrawal-keyword").on("keydown", function (event) {
         if (event.key === "Enter") {
-            applyFilters();
+            submitSearch();
         }
     });
     $(".withdrawal-type-tab").on("click", function () {
@@ -651,6 +659,11 @@ $(function () {
             closeDrawer();
         }
     });
+
+    var deepLinkAccountNo = MARIA.deeplink.accountNoFromUrl();
+    if (deepLinkAccountNo) {
+        $("#withdrawal-keyword").val(deepLinkAccountNo);
+    }
 
     loadWithdrawals();
 });

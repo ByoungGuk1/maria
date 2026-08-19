@@ -111,7 +111,7 @@ $(function () {
                     : "") +
                 '</div>' +
                 '<div class="di-list-item-bottom">' +
-                '<span>계좌 ' + escapeHtml(item.accountNo || "-") + '</span>' +
+                '<span>계좌 ' + MARIA.fmt.accountNoHtml(item.accountNo) + '</span>' +
                 '<span>예탁금 ' + formatAmount(item.cashAmount) + '</span>' +
                 '<span>보유종목 ' + item.holdingCount + '건</span>' +
                 '</div>' +
@@ -162,7 +162,7 @@ $(function () {
 
         $detail.append(
             '<div class="section-header">' +
-            '<span>' + escapeHtml(data.accountNo || "-") + ' · ' + escapeHtml(data.customerName) + '</span>' +
+            '<span>' + MARIA.fmt.accountNoHtml(data.accountNo) + ' · ' + escapeHtml(data.customerName) + '</span>' +
             '<span class="section-sub">예탁금 ' + formatAmount(data.cashAmount) + '</span>' +
             '</div>'
         );

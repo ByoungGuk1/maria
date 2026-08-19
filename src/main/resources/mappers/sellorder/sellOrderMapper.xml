@@ -51,7 +51,7 @@
     </sql>
 
     <select id="selectSellOrderHistory" resultType="SellOrderHistoryDTO">
-        SELECT s.sell_qty, s.base_price, s.processed_at, s.status,
+        SELECT s.order_id, s.sell_qty, s.base_price, s.processed_at, s.status,
             krw.provisional_amount, krw.final_amount, acc.account_no, c.name AS customerName, fp.ticker, fp.name AS name
         FROM sell_order s LEFT JOIN krw_exchange krw ON krw.order_id = s.order_id
             LEFT JOIN account acc ON acc.account_id = s.account_id
@@ -68,6 +68,21 @@
         LEFT JOIN account acc ON acc.account_id = s.account_id
         LEFT JOIN customer c ON c.customer_id = acc.customer_id
         <include refid="sellOrderHistoryFilter"/>
+    </select>
+
+    <select id="selectSellOrderDetail" parameterType="Long" resultType="SellOrderDetailDTO">
+        SELECT s.order_id, acc.account_no, c.name AS customerName, fp.ticker, fp.name AS name,
+            s.sell_qty, s.base_price, s.settlement_fx_rate, s.processed_at, s.status,
+            krw.provisional_amount, krw.provisional_at, krw.final_rate, krw.final_amount, krw.final_at,
+            krw.settlement_status,
+            ind.source_broker, ind.purchase_date, ind.purchase_price, ind.purchase_currency
+        FROM sell_order s
+            LEFT JOIN account acc ON acc.account_id = s.account_id
+            LEFT JOIN customer c ON c.customer_id = acc.customer_id
+            LEFT JOIN foreign_product fp ON fp.foreign_product_id = s.foreign_product_id
+            LEFT JOIN krw_exchange krw ON krw.order_id = s.order_id
+            LEFT JOIN inbound_detail ind ON ind.inbound_detail_id = s.inbound_detail_id
+        WHERE s.order_id = #{orderId}
     </select>
 
 </mapper>

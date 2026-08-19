@@ -67,23 +67,77 @@ MARIA.auth = (function ($) {
         window.location.href = "/login";
     }
 
-    // Authorization 헤더를 자동으로 붙이는 $.ajax 래퍼. 401이 오면 토큰을 지우고
-    // 로그인 페이지로 보낸다(리프레시 재시도는 하지 않음 - 필요해지면 여기에 추가).
+    // Authorization 헤더를 자동으로 붙이는 $.ajax 래퍼. 401이 오면 refresh token으로
+    // 한 번 재발급을 시도한 뒤 원래 요청을 재시도한다. refresh마저 실패하면 로그아웃.
     function ajax(options) {
         var token = getAccessToken();
         var authHeader = token ? { Authorization: "Bearer " + token } : {};
         var mergedHeaders = $.extend({}, options.headers || {}, authHeader);
 
-        return $.ajax(
+        var deferred = $.Deferred();
+
+        $.ajax(
             $.extend({}, options, {
                 headers: mergedHeaders
             })
-        ).fail(function (xhr) {
-            if (xhr.status === 401) {
-                clearTokens();
-                window.location.href = "/login";
-            }
-        });
+        )
+            .done(function (data, textStatus, jqXHR) {
+                deferred.resolve(data, textStatus, jqXHR);
+            })
+            .fail(function (xhr) {
+                if (xhr.status !== 401) {
+                    deferred.reject(xhr);
+                    return;
+                }
+                refreshAccessToken()
+                    .done(function () {
+                        var retryHeaders = $.extend({}, options.headers || {}, {
+                            Authorization: "Bearer " + getAccessToken()
+                        });
+                        $.ajax($.extend({}, options, { headers: retryHeaders }))
+                            .done(function (data, textStatus, jqXHR) {
+                                deferred.resolve(data, textStatus, jqXHR);
+                            })
+                            .fail(function (retryXhr) {
+                                if (retryXhr.status === 401) {
+                                    logout();
+                                }
+                                deferred.reject(retryXhr);
+                            });
+                    })
+                    .fail(function () {
+                        logout();
+                        deferred.reject(xhr);
+                    });
+            });
+
+        return deferred.promise();
+    }
+
+    // refresh token으로 access token을 재발급받아 저장한다. 동시에 여러 요청이 401을
+    // 맞아도 진행 중인 재발급 호출 하나만 공유한다.
+    var refreshInFlight = null;
+    function refreshAccessToken() {
+        var refreshToken = getRefreshToken();
+        if (!refreshToken) {
+            return $.Deferred().reject().promise();
+        }
+        if (refreshInFlight) {
+            return refreshInFlight;
+        }
+        refreshInFlight = $.ajax({
+            url: "/api/auth/admin/refresh",
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ refreshToken: refreshToken })
+        })
+            .done(function (res) {
+                saveTokens(res.data.accessToken, res.data.refreshToken);
+            })
+            .always(function () {
+                refreshInFlight = null;
+            });
+        return refreshInFlight;
     }
 
     return {

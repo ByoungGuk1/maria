@@ -1,12 +1,16 @@
 package com.app.maria.domain.tax.service;
 
+import com.app.maria.domain.account.dto.AccountBenefitLogDTO;
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
+import com.app.maria.domain.account.mapper.AccountBenefitLogMapper;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.type.BenefitType;
+import com.app.maria.domain.tax.batch.TaxSnapshotBatchHistoryReader;
 import com.app.maria.domain.tax.batch.TaxSnapshotJobLauncher;
 import com.app.maria.domain.tax.dto.ExternalBuyDTO;
 import com.app.maria.domain.tax.dto.SellLotDTO;
+import com.app.maria.domain.tax.dto.TaxBatchHistoryDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationDTO;
 import com.app.maria.domain.tax.dto.TaxCalculationResultDTO;
 import com.app.maria.domain.tax.dto.TaxRuleDTO;
@@ -26,6 +30,7 @@ import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.config.properties.RiaTaxProperties;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
@@ -37,18 +42,29 @@ import org.springframework.transaction.annotation.Transactional;
 public class TaxCalculationServiceImpl implements TaxCalculationService {
     private final TaxMapper taxMapper;
     private final AccountMapper accountMapper;
+    private final AccountBenefitLogMapper accountBenefitLogMapper;
     private final BusinessClockService clockService;
     private final RiaTaxProperties riaTaxProperties;
     private final TaxCalculator taxCalculator;
     private final TaxSnapshotMapper taxSnapshotMapper;
     private final TaxSnapshotJobLauncher taxSnapshotJobLauncher;
+    private final TaxSnapshotBatchHistoryReader taxSnapshotBatchHistoryReader;
     private final AuditLogService auditLogService;
     private final AuditActorProvider auditActorProvider;
 
     @Override
     @Transactional(readOnly = true)
     public TaxCalculationPreviewResponseDTO taxCalculate(Long accountId) {
-        return TaxCalculationPreviewResponseDTO.of(accountId, calculateFor(findAccount(accountId)));
+        AccountDTO account = findAccount(accountId);
+        Optional<AccountBenefitLogDTO> latestBenefitLog =
+                accountBenefitLogMapper.selectLatestByAccountId(accountId);
+
+        return TaxCalculationPreviewResponseDTO.of(
+                accountId,
+                calculateFor(account),
+                latestBenefitLog.map(AccountBenefitLogDTO::getReason).orElse(null),
+                latestBenefitLog.map(AccountBenefitLogDTO::getChangedAt).orElse(null),
+                taxMapper.findLatestCalculation(accountId).orElse(null));
     }
 
     @Override
@@ -94,6 +110,11 @@ public class TaxCalculationServiceImpl implements TaxCalculationService {
                         .build());
 
         return TaxSnapshotBatchResultResponseDTO.of(runId);
+    }
+
+    @Override
+    public List<TaxBatchHistoryDTO> getRecentBatchHistory() {
+        return taxSnapshotBatchHistoryReader.findRecent();
     }
 
     private TaxBasisType resolveBasisType(AccountDTO account) {

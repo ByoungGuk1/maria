@@ -8,6 +8,8 @@ import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.exception.InvalidAccountRequestException;
 import com.app.maria.domain.account.mapper.AccountMapper;
 import com.app.maria.domain.account.service.AccountService;
+import com.app.maria.domain.accountclosure.dto.request.AccountClosureApplyRequestDTO;
+import com.app.maria.domain.accountclosure.service.AccountClosureService;
 import com.app.maria.domain.externaltradesync.service.ExternalTradeSyncService;
 import com.app.maria.domain.inbound.dto.request.InboundRequestDTO;
 import com.app.maria.domain.inbound.service.InboundService;
@@ -18,6 +20,8 @@ import com.app.maria.domain.settlement.provider.ExchangeRateProvider;
 import com.app.maria.domain.settlement.service.SettlementService;
 import com.app.maria.domain.settlement.type.BatchStatus;
 import com.app.maria.domain.tax.batch.TaxSnapshotJobLauncher;
+import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
+import com.app.maria.domain.withdrawal.service.WithdrawalService;
 import com.app.maria.global.client.exchange.ExchangeRateClient;
 import com.app.maria.global.client.kis.KisPriceClient;
 import com.app.maria.global.client.mydata.MydataClient;
@@ -98,6 +102,8 @@ class GoldenScenarioTest {
     @Autowired private InboundService inboundService;
     @Autowired private SellOrderService sellOrderService;
     @Autowired private SettlementService settlementService;
+    @Autowired private WithdrawalService withdrawalService;
+    @Autowired private AccountClosureService accountClosureService;
     @Autowired private SystemClockManagementService systemClockManagementService;
     @Autowired private BusinessClockService businessClockService;
     @Autowired private TaxSnapshotJobLauncher taxSnapshotJobLauncher;
@@ -139,12 +145,18 @@ class GoldenScenarioTest {
     void generateGoldenScenario() throws Exception {
         List<CustomerRow> customers = loadCustomers(0, SCENARIO_SIZE);
         Counters counters = new Counters();
+        List<SoldAccountRow> soldAccounts = new ArrayList<>();
 
         try (Connection securitiesConnection = openSecuritiesConnection()) {
             for (CustomerRow customer : customers) {
                 // 계좌마다 신청~매도 시점을 2026년 안에서 흩뿌린다 — §3 구간가중치(1~5월/6~7월/8~12월)도
                 // 자연히 다양해지고, 산출된 일자가 전부 똑같아 보이는 문제도 없어진다.
-                processCustomer(customer, randomBusinessDateTime(), counters, securitiesConnection);
+                processCustomer(
+                        customer,
+                        randomBusinessDateTime(),
+                        counters,
+                        securitiesConnection,
+                        soldAccounts);
             }
         }
 
@@ -156,16 +168,27 @@ class GoldenScenarioTest {
         // 이게 있어야 조정비율([3]단계)이 100%로만 고정되지 않고 계좌마다 달라짐.
         externalTradeSyncService.syncAll();
 
+        // 정산이 끝나 left_amount가 생긴 계좌들 중 일부만 인출/해지까지 처리한다 — 인출은
+        // left_amount(정산 결과) 없이는 원천적으로 불가능해서 반드시 정산 이후에 와야 한다.
+        try (Connection securitiesConnection = openSecuritiesConnection()) {
+            diversifyAfterSettlement(soldAccounts, securitiesConnection, counters);
+        }
+
         taxSnapshotJobLauncher.launch(businessClockService.now());
 
         System.out.printf(
-                "골든 시나리오 완료 — 신청 %d / 승인 %d / 반려 %d / 한도초과 %d / 입고 %d / 매도 %d%n",
+                "골든 시나리오 완료 — 신청 %d / 승인 %d / 반려 %d / 한도초과 %d / 입고 %d(부분승인 %d) / 매도 %d / "
+                        + "국내투자 %d / 인출 %d / 해지 %d%n",
                 counters.applied,
                 counters.approved,
                 counters.rejected,
                 counters.limitExceeded,
                 counters.inbounded,
-                counters.sold);
+                counters.partiallyApproved,
+                counters.sold,
+                counters.domesticInvested,
+                counters.withdrawn,
+                counters.closed);
     }
 
     /**
@@ -176,6 +199,7 @@ class GoldenScenarioTest {
     void addFreshAccountsAfterBatch() throws Exception {
         List<CustomerRow> customers = loadCustomers(SCENARIO_SIZE, 10);
         Counters counters = new Counters();
+        List<SoldAccountRow> soldAccounts = new ArrayList<>();
 
         try (Connection securitiesConnection = openSecuritiesConnection()) {
             for (CustomerRow customer : customers) {
@@ -183,7 +207,8 @@ class GoldenScenarioTest {
                         customer,
                         LocalDateTime.of(2026, 8, 17, 10, 0),
                         counters,
-                        securitiesConnection);
+                        securitiesConnection,
+                        soldAccounts);
             }
         }
 
@@ -209,7 +234,8 @@ class GoldenScenarioTest {
             CustomerRow customer,
             LocalDateTime at,
             Counters counters,
-            Connection securitiesConnection)
+            Connection securitiesConnection,
+            List<SoldAccountRow> soldAccounts)
             throws SQLException {
         setClockRaw(at);
 
@@ -231,6 +257,13 @@ class GoldenScenarioTest {
         }
         counters.approved++;
 
+        // RIA 내 국내투자(domestic_stock_balance)는 이 계좌를 사는 서비스 메서드가 앱에 아직 없다
+        // (조회 API만 존재) — account APPLIED 시드와 동일한 이유로 raw insert 예외를 둔다.
+        if (random.nextInt(100) < 25) {
+            insertDomesticHolding(accountId, at);
+            counters.domesticInvested++;
+        }
+
         if (random.nextInt(100) >= 70) {
             return; // 개설만 하고 입고는 안 하는 계좌 30%
         }
@@ -239,14 +272,25 @@ class GoldenScenarioTest {
         if (holding == null) {
             return;
         }
+
+        // 20%는 신청수량을 실제 보유수량보다 부풀려서 3-way MIN이 실제로 승인수량을 깎는
+        // 케이스를 만든다(B1 핵심 로직인데 항상 100% 승인만 나오면 검증이 안 됨).
+        boolean forcePartial = random.nextInt(100) < 20;
+        BigDecimal requestedQty =
+                forcePartial
+                        ? holding.heldQty().add(BigDecimal.valueOf(1 + random.nextInt(20)))
+                        : holding.heldQty();
         inboundService.processInbound(
                 InboundRequestDTO.builder()
                         .accountId(accountId)
                         .foreignProductId(holding.foreignProductId())
-                        .requestedQty(holding.heldQty())
+                        .requestedQty(requestedQty)
                         .currentHoldingAtRequest(holding.heldQty())
                         .build());
         counters.inbounded++;
+        if (forcePartial) {
+            counters.partiallyApproved++;
+        }
 
         if (random.nextInt(100) >= 60) {
             return; // 입고만 하고 매도는 안 하는 계좌 40%
@@ -255,6 +299,16 @@ class GoldenScenarioTest {
                 holding.heldQty()
                         .multiply(BigDecimal.valueOf(30 + random.nextInt(70)))
                         .divide(BigDecimal.valueOf(100), 4, RoundingMode.DOWN);
+        // 계좌 매도한도(limit_amount, 500만~4천만원)를 넘는 요청은 반려된다(§8-3, sellLimitService).
+        // 주가·환율 스텁이 최악의 경우(3,000×1,400원) 나와도 한도를 안 넘게 수량을 미리 눌러둔다 —
+        // 안 그러면 대부분의 매도가 반려돼서 세액 계산 데이터가 텅 비게 된다.
+        AccountDTO account = accountMapper.selectByAccountId(accountId).orElse(null);
+        if (account != null && account.getLimitAmount() != null) {
+            BigDecimal worstCasePerShare = BigDecimal.valueOf(3000L * 1400L);
+            BigDecimal safeMaxQty =
+                    account.getLimitAmount().divide(worstCasePerShare, 4, RoundingMode.DOWN);
+            sellQty = sellQty.min(safeMaxQty);
+        }
         if (sellQty.signum() <= 0) {
             return;
         }
@@ -266,6 +320,115 @@ class GoldenScenarioTest {
                         .sellQty(sellQty)
                         .build());
         counters.sold++;
+        soldAccounts.add(new SoldAccountRow(accountId, customer.customerId(), customer.ciHash()));
+    }
+
+    // 정산 이후에만 가능한 인출/해지를 계좌 일부에 적용한다. 인출은 조기인출 동의로 강제해서
+    // 세제혜택 전체 취소(benefit=IMPOSSIBLE) 케이스도 자연히 만든다 — 별도 로직 불필요.
+    private void diversifyAfterSettlement(
+            List<SoldAccountRow> soldAccounts, Connection securitiesConnection, Counters counters)
+            throws SQLException {
+        for (SoldAccountRow row : soldAccounts) {
+            int pick = random.nextInt(100);
+            if (pick < 12) {
+                attemptWithdrawal(row, securitiesConnection, counters);
+            } else if (pick < 18) {
+                attemptClosure(row, securitiesConnection, counters);
+            }
+        }
+    }
+
+    private void attemptWithdrawal(
+            SoldAccountRow row, Connection securitiesConnection, Counters counters)
+            throws SQLException {
+        Long generalAccountId = pickGeneralAccountId(row.ciHash(), securitiesConnection);
+        AccountDTO account = accountMapper.selectByAccountId(row.accountId()).orElse(null);
+        if (generalAccountId == null || account == null || account.getAmount() == null) {
+            return;
+        }
+        BigDecimal requestedAmount =
+                account.getAmount()
+                        .multiply(BigDecimal.valueOf(20 + random.nextInt(50)))
+                        .divide(BigDecimal.valueOf(100), 0, RoundingMode.DOWN);
+        if (requestedAmount.signum() <= 0) {
+            return;
+        }
+        try {
+            withdrawalService.withdraw(
+                    WithdrawalRequestDTO.builder()
+                            .accountId(row.accountId())
+                            .requestedAmount(requestedAmount)
+                            .earlyWithdrawalAgreed(true) // 미성숙 원금도 인출 가능하게(조기인출 시나리오 목적)
+                            .destinationGeneralAccountId(generalAccountId)
+                            .build());
+            counters.withdrawn++;
+        } catch (RuntimeException e) {
+            // 원금 부족 등 조건 미충족 — 이 계좌는 스킵
+        }
+    }
+
+    private void attemptClosure(
+            SoldAccountRow row, Connection securitiesConnection, Counters counters)
+            throws SQLException {
+        Long generalAccountId = pickGeneralAccountId(row.ciHash(), securitiesConnection);
+        if (generalAccountId == null) {
+            return;
+        }
+        try {
+            Long closureRequestId =
+                    accountClosureService.applyClosure(
+                            row.customerId(),
+                            AccountClosureApplyRequestDTO.builder()
+                                    .customerId(row.customerId())
+                                    .destinationGeneralAccountId(generalAccountId)
+                                    .earlyWithdrawalAgreed(true)
+                                    .build());
+            accountClosureService.approveClosure(ADMIN_ID, closureRequestId);
+            counters.closed++;
+        } catch (RuntimeException e) {
+            // 상태 충돌 등 조건 미충족 — 이 계좌는 스킵
+        }
+    }
+
+    private void insertDomesticHolding(Long accountId, LocalDateTime at) {
+        long domesticProductId = 1 + random.nextInt(77);
+        BigDecimal qty = BigDecimal.valueOf(1 + random.nextInt(200));
+        BigDecimal avgPrice = BigDecimal.valueOf(1000 + random.nextInt(199000));
+        String[] statuses = {
+            "HOLDING", "HOLDING", "HOLDING", "PARTIALLY_SOLD", "SOLD_OUT", "TRADE_RESTRICTED"
+        };
+        String status = statuses[random.nextInt(statuses.length)];
+        jdbcTemplate.update(
+                "INSERT INTO domestic_stock_balance "
+                        + "(account_id, domestic_product_id, qty, status, last_purchase_date, avg_purchase_price) "
+                        + "VALUES (?, ?, ?, ?, ?, ?)",
+                accountId,
+                domesticProductId,
+                qty,
+                status,
+                at,
+                avgPrice);
+    }
+
+    // pickHolding과 동일한 이유로 ORDER BY RAND() 대신 후보를 전부 가져와 시드된 random으로 고른다.
+    private Long pickGeneralAccountId(String ciHash, Connection connection) throws SQLException {
+        String sql =
+                "SELECT ga.general_account_id FROM general_account ga "
+                        + "JOIN general_customer gc ON gc.general_customer_id = ga.general_customer_id "
+                        + "WHERE gc.ci_hash = ? AND ga.status = 'ACTIVE'";
+        List<Long> candidates = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, ciHash);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    candidates.add(resultSet.getLong("general_account_id"));
+                }
+            }
+        }
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        return candidates.get(random.nextInt(candidates.size()));
     }
 
     private List<CustomerRow> loadCustomers(int offset, int limit) {
@@ -277,7 +440,16 @@ class GoldenScenarioTest {
     }
 
     private static final class Counters {
-        int applied, approved, rejected, limitExceeded, inbounded, sold;
+        int applied,
+                approved,
+                rejected,
+                limitExceeded,
+                inbounded,
+                partiallyApproved,
+                sold,
+                domesticInvested,
+                withdrawn,
+                closed;
     }
 
     private Long applyAccount(Long customerId) {
@@ -356,4 +528,6 @@ class GoldenScenarioTest {
     private record CustomerRow(Long customerId, String ciHash) {}
 
     private record HoldingRow(Long foreignProductId, BigDecimal heldQty) {}
+
+    private record SoldAccountRow(Long accountId, Long customerId, String ciHash) {}
 }
