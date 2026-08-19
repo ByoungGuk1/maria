@@ -47,6 +47,23 @@ class WithdrawalQueryServiceImplTest {
     }
 
     @Test
+    void accountHistoryConvertsEveryStatusWithoutDroppingFailedWithdrawals() {
+        WithdrawalHistoryDTO completed = history(2L, "900");
+        WithdrawalHistoryDTO failed = history(1L, "800");
+        failed.setStatus(WithdrawalStatus.FAILED);
+        when(withdrawalMapper.selectWithdrawalHistoriesByAccountId(1L))
+                .thenReturn(List.of(completed, failed));
+
+        List<WithdrawalListResponseDTO> result =
+                withdrawalQueryService.getWithdrawalsByAccountId(1L);
+
+        assertThat(result)
+                .extracting(WithdrawalListResponseDTO::getStatus)
+                .containsExactly(WithdrawalStatus.COMPLETED, WithdrawalStatus.FAILED);
+        verify(withdrawalMapper).selectWithdrawalHistoriesByAccountId(1L);
+    }
+
+    @Test
     void detailIncludesAllocationMaturityAndEarlyWithdrawalResult() {
         WithdrawalHistoryDTO history = history(1L, "800");
         LocalDateTime finalAt = LocalDateTime.of(2026, 1, 1, 9, 0);
@@ -59,6 +76,8 @@ class WithdrawalQueryServiceImplTest {
                         .withdrawalAt(PROCESSED_AT)
                         .type(WithdrawalType.IMMATURE_PRINCIPAL_INCLUDED)
                         .finalAt(finalAt)
+                        .productName("Apple")
+                        .ticker("AAPL")
                         .build();
         when(withdrawalMapper.selectWithdrawalHistoryById(1L)).thenReturn(Optional.of(history));
         when(withdrawalMapper.selectAllocationHistoriesByWithdrawalId(1L))
@@ -74,6 +93,8 @@ class WithdrawalQueryServiceImplTest {
                             assertThat(item.getAllocatedAmount()).isEqualByComparingTo("400");
                             assertThat(item.getFinalAt()).isEqualTo(finalAt);
                             assertThat(item.getMaturityAt()).isEqualTo(finalAt.plusYears(1));
+                            assertThat(item.getProductName()).isEqualTo("Apple");
+                            assertThat(item.getTicker()).isEqualTo("AAPL");
                         });
     }
 

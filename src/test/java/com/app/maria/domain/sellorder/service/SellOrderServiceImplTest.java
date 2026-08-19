@@ -12,6 +12,8 @@ import com.app.maria.domain.foreignproduct.mapper.ForeignProductMapper;
 import com.app.maria.domain.inbound.dto.InboundDetailDTO;
 import com.app.maria.domain.inbound.mapper.InboundMapper;
 import com.app.maria.domain.sellorder.dto.SellOrderDTO;
+import com.app.maria.domain.sellorder.dto.SellOrderHistoryDTO;
+import com.app.maria.domain.sellorder.dto.SellOrderSummaryDTO;
 import com.app.maria.domain.sellorder.dto.request.SellOrderRequestDTO;
 import com.app.maria.domain.sellorder.dto.response.SellOrderResponseDTO;
 import com.app.maria.domain.sellorder.exception.SellOrderException;
@@ -19,13 +21,16 @@ import com.app.maria.domain.sellorder.exception.SellOrderNotFoundException;
 import com.app.maria.domain.sellorder.mapper.SellOrderMapper;
 import com.app.maria.domain.sellorder.type.SellOrderStatus;
 import com.app.maria.domain.settlement.service.ProvisionalExchangeService;
+import com.app.maria.domain.settlement.service.SettlementService;
 import com.app.maria.global.audit.dto.AuditLogDTO;
 import com.app.maria.global.audit.service.AuditLogService;
 import com.app.maria.global.client.exchange.ExchangeRateClient;
 import com.app.maria.global.client.kis.KisPriceClient;
 import com.app.maria.global.clock.service.BusinessClockService;
 import com.app.maria.global.exception.KisPriceNotFoundException;
+import com.app.maria.global.response.PageResponseDTO;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -60,6 +65,8 @@ class SellOrderServiceImplTest {
     @Mock AuditLogService auditLogService;
 
     @Mock ProvisionalExchangeService provisionalExchangeService;
+
+    @Mock SettlementService settlementService;
 
     @InjectMocks SellOrderServiceImpl sellOrderService;
 
@@ -389,5 +396,146 @@ class SellOrderServiceImplTest {
 
         assertThatThrownBy(() -> sellOrderService.getSellOrder(999L))
                 .isInstanceOf(SellOrderNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("page와 size로 offset을 계산해서 매퍼에 넘기고, 목록/건수를 PageResponseDTO로 감싸 반환한다")
+    void getSellOrderHistoryComputesOffsetAndWrapsMapperResultsInPageResponse() {
+        List<SellOrderHistoryDTO> content =
+                List.of(SellOrderHistoryDTO.builder().accountNo("1000000001").build());
+        when(sellOrderMapper.selectSellOrderHistory(null, null, null, null, 40, 20))
+                .thenReturn(content);
+        when(sellOrderMapper.countSellOrderHistory(null, null, null, null)).thenReturn(45);
+
+        PageResponseDTO<SellOrderHistoryDTO> result =
+                sellOrderService.getSellOrderHistory(null, null, null, null, 2, 20);
+
+        assertThat(result.getContent()).isEqualTo(content);
+        assertThat(result.getTotalCount()).isEqualTo(45);
+        assertThat(result.getPage()).isEqualTo(2);
+        assertThat(result.getSize()).isEqualTo(20);
+        verify(sellOrderMapper).selectSellOrderHistory(null, null, null, null, 40, 20);
+        verify(sellOrderMapper).countSellOrderHistory(null, null, null, null);
+    }
+
+    @Test
+    @DisplayName("keyword 필터를 그대로 매퍼에 전달한다")
+    void getSellOrderHistoryPassesKeywordThroughToMapper() {
+        when(sellOrderMapper.selectSellOrderHistory("1234567890", null, null, null, 0, 20))
+                .thenReturn(List.of());
+        when(sellOrderMapper.countSellOrderHistory("1234567890", null, null, null)).thenReturn(0);
+
+        sellOrderService.getSellOrderHistory("1234567890", null, null, null, 0, 20);
+
+        verify(sellOrderMapper).selectSellOrderHistory("1234567890", null, null, null, 0, 20);
+        verify(sellOrderMapper).countSellOrderHistory("1234567890", null, null, null);
+    }
+
+    @Test
+    @DisplayName("status는 enum 이름 문자열로 변환해서 매퍼에 전달한다")
+    void getSellOrderHistoryConvertsStatusEnumToNameForMapper() {
+        when(sellOrderMapper.selectSellOrderHistory(null, "REJECTED", null, null, 0, 20))
+                .thenReturn(List.of());
+        when(sellOrderMapper.countSellOrderHistory(null, "REJECTED", null, null)).thenReturn(0);
+
+        sellOrderService.getSellOrderHistory(null, SellOrderStatus.REJECTED, null, null, 0, 20);
+
+        verify(sellOrderMapper).selectSellOrderHistory(null, "REJECTED", null, null, 0, 20);
+        verify(sellOrderMapper).countSellOrderHistory(null, "REJECTED", null, null);
+    }
+
+    @Test
+    @DisplayName("startDate/endDate는 각각 그 날의 00:00:00과 23:59:59로 변환해서 매퍼에 전달한다")
+    void getSellOrderHistoryConvertsDateRangeToStartAndEndOfDayForMapper() {
+        LocalDate startDate = LocalDate.of(2026, 8, 1);
+        LocalDate endDate = LocalDate.of(2026, 8, 10);
+        LocalDateTime expectedStart = LocalDateTime.of(2026, 8, 1, 0, 0, 0);
+        LocalDateTime expectedEnd = LocalDateTime.of(2026, 8, 10, 23, 59, 59);
+        when(sellOrderMapper.selectSellOrderHistory(null, null, expectedStart, expectedEnd, 0, 20))
+                .thenReturn(List.of());
+        when(sellOrderMapper.countSellOrderHistory(null, null, expectedStart, expectedEnd))
+                .thenReturn(0);
+
+        sellOrderService.getSellOrderHistory(null, null, startDate, endDate, 0, 20);
+
+        verify(sellOrderMapper)
+                .selectSellOrderHistory(null, null, expectedStart, expectedEnd, 0, 20);
+        verify(sellOrderMapper).countSellOrderHistory(null, null, expectedStart, expectedEnd);
+    }
+
+    @Test
+    @DisplayName("매도 이력이 없으면 빈 목록과 0건을 담은 PageResponseDTO를 반환한다")
+    void getSellOrderHistoryReturnsEmptyPageWhenNoOrdersExist() {
+        when(sellOrderMapper.selectSellOrderHistory(null, null, null, null, 0, 20))
+                .thenReturn(List.of());
+        when(sellOrderMapper.countSellOrderHistory(null, null, null, null)).thenReturn(0);
+
+        PageResponseDTO<SellOrderHistoryDTO> result =
+                sellOrderService.getSellOrderHistory(null, null, null, null, 0, 20);
+
+        assertThat(result.getContent()).isEmpty();
+        assertThat(result.getTotalCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("오늘 매도금액/체결건수는 전일 대비 증감률과 함께 계산된다")
+    void getSellOrderSummaryComputesChangeRatesAgainstYesterday() {
+        LocalDate today = NOW.toLocalDate();
+        LocalDate yesterday = today.minusDays(1);
+        when(businessClockService.now()).thenReturn(NOW);
+
+        when(sellOrderMapper.sumSellAmountBetween(
+                        today.atStartOfDay(), today.plusDays(1).atStartOfDay()))
+                .thenReturn(new BigDecimal("1100000"));
+        when(sellOrderMapper.sumSellAmountBetween(yesterday.atStartOfDay(), today.atStartOfDay()))
+                .thenReturn(new BigDecimal("1000000"));
+        when(sellOrderMapper.countSellOrderHistory(
+                        null, "EXECUTED", today.atStartOfDay(), today.atTime(23, 59, 59)))
+                .thenReturn(5);
+        when(sellOrderMapper.countSellOrderHistory(
+                        null, "EXECUTED", yesterday.atStartOfDay(), yesterday.atTime(23, 59, 59)))
+                .thenReturn(10);
+        when(settlementService.getPendingProvisionalAmount()).thenReturn(new BigDecimal("2900000"));
+        when(settlementService.getFinalizedAmountBetween(
+                        today.atStartOfDay(), today.plusDays(1).atStartOfDay()))
+                .thenReturn(new BigDecimal("110000"));
+
+        SellOrderSummaryDTO summary = sellOrderService.getSellOrderSummary();
+
+        assertThat(summary.getTodaySellAmount()).isEqualByComparingTo("1100000");
+        assertThat(summary.getTodaySellAmountChangeRate()).isEqualByComparingTo("10.0");
+        assertThat(summary.getTodayExecutedCount()).isEqualTo(5);
+        assertThat(summary.getTodayExecutedCountChangeRate()).isEqualByComparingTo("-50.0");
+        assertThat(summary.getPendingProvisionalAmount()).isEqualByComparingTo("2900000");
+        assertThat(summary.getTodayFinalizedAmount()).isEqualByComparingTo("110000");
+    }
+
+    @Test
+    @DisplayName("전일 값이 0이면 증감률은 null이다")
+    void getSellOrderSummaryReturnsNullChangeRateWhenYesterdayIsZero() {
+        LocalDate today = NOW.toLocalDate();
+        LocalDate yesterday = today.minusDays(1);
+        when(businessClockService.now()).thenReturn(NOW);
+
+        when(sellOrderMapper.sumSellAmountBetween(
+                        today.atStartOfDay(), today.plusDays(1).atStartOfDay()))
+                .thenReturn(new BigDecimal("500000"));
+        when(sellOrderMapper.sumSellAmountBetween(yesterday.atStartOfDay(), today.atStartOfDay()))
+                .thenReturn(BigDecimal.ZERO);
+        when(sellOrderMapper.countSellOrderHistory(
+                        null, "EXECUTED", today.atStartOfDay(), today.atTime(23, 59, 59)))
+                .thenReturn(3);
+        when(sellOrderMapper.countSellOrderHistory(
+                        null, "EXECUTED", yesterday.atStartOfDay(), yesterday.atTime(23, 59, 59)))
+                .thenReturn(0);
+        when(settlementService.getPendingProvisionalAmount()).thenReturn(BigDecimal.ZERO);
+        when(settlementService.getFinalizedAmountBetween(
+                        today.atStartOfDay(), today.plusDays(1).atStartOfDay()))
+                .thenReturn(BigDecimal.ZERO);
+
+        SellOrderSummaryDTO summary = sellOrderService.getSellOrderSummary();
+
+        assertThat(summary.getTodaySellAmountChangeRate()).isNull();
+        assertThat(summary.getTodayExecutedCountChangeRate()).isNull();
     }
 }

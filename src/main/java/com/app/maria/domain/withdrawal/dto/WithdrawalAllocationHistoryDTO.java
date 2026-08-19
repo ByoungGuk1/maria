@@ -18,4 +18,6 @@ public class WithdrawalAllocationHistoryDTO {
     private LocalDateTime withdrawalAt;
     private WithdrawalType type;
     private LocalDateTime finalAt;
+    private String productName;
+    private String ticker;
 }

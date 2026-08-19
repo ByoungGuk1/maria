@@ -3,7 +3,6 @@
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layout/main}">
 <head>
-    <title>세액 계산 - MARIA</title>
     <th:block layout:fragment="pageStyles">
         <link rel="stylesheet" th:href="@{/css/tax-calculation.css}">
     </th:block>
@@ -18,7 +17,7 @@
     <div id="taxBody" style="display:none">
         <div class="kpi-grid">
             <div class="card kpi-card">
-                <div class="kpi-label">전체 스냅샷</div>
+                <div class="kpi-label">세액계산 계좌수</div>
                 <div class="kpi-value" id="kpiTotal">-</div>
             </div>
             <div class="card kpi-card">
@@ -35,33 +34,56 @@
             </div>
         </div>
 
-        <section id="taxDetail" class="card tax-detail">
-            <div class="tax-detail-header">
-                <div>
-                    <strong id="detailAccountNo">계좌를 선택하세요</strong>
-                    <p class="tax-detail-description" id="detailDescription">목록에서 행을 클릭하면 실시간 계산 결과가 여기 표시됩니다.</p>
-                </div>
-                <span id="detailStaleBadge" class="tax-stale-badge" style="display:none">배치값과 다름</span>
+        <div class="card batch-bar" id="batchHistorySummary" style="margin-bottom:16px">
+            <div>
+                <div class="batch-bar-label">최근 배치 이력</div>
+                <div class="batch-bar-value" id="batchHistoryLatest">-</div>
             </div>
-            <div class="tax-detail-grid">
-                <div><div class="tax-detail-item-label">[1] 가중매도금액</div><div id="detailWeightedSell" class="tax-detail-item-value">-</div></div>
-                <div><div class="tax-detail-item-label">[1] 조정전공제액</div><div id="detailWeightedGain" class="tax-detail-item-value">-</div></div>
-                <div><div class="tax-detail-item-label">[2] 외부 순매수금액</div><div id="detailExternalAmount" class="tax-detail-item-value">-</div></div>
-                <div><div class="tax-detail-item-label">[3] 조정비율</div><div id="detailAdjustRatio" class="tax-detail-item-value">-</div></div>
-                <div><div class="tax-detail-item-label">[4] 최종공제액</div><div id="detailFinalDeduction" class="tax-detail-item-value">-</div></div>
-                <div><div class="tax-detail-item-label">[5] 총양도소득(비가중)</div><div id="detailOriginalGain" class="tax-detail-item-value">-</div></div>
-                <div><div class="tax-detail-item-label">[5] 최종세액</div><div id="detailFinalTax" class="tax-detail-item-value tax-detail-item-value-highlight">-</div></div>
-                <div><div class="tax-detail-item-label">기준시각</div><div id="detailAsOf" class="tax-detail-item-value">-</div></div>
-            </div>
-        </section>
+            <span id="batchHistoryLatestBadge" class="status-badge">-</span>
+            <span class="section-sub" id="batchHistoryCount"></span>
+            <button type="button" id="batchHistoryToggle" class="tax-batch-btn">전체 이력 보기</button>
+        </div>
+
+        <div class="card" id="batchHistoryDetail" style="margin-bottom:16px; display:none">
+            <table class="tax-table">
+                <thead>
+                <tr>
+                    <th>실행 ID</th>
+                    <th>시작</th>
+                    <th>종료</th>
+                    <th>상태</th>
+                    <th>처리건수</th>
+                    <th>스킵건수</th>
+                </tr>
+                </thead>
+                <tbody id="batchHistoryBody">
+                <tr>
+                    <td colspan="6" class="tax-empty">불러오는 중...</td>
+                </tr>
+                </tbody>
+            </table>
+            <div class="pagination" id="batchHistoryPagination"></div>
+        </div>
 
         <div class="card">
             <div class="section-header">
-                <span>세액 스냅샷 목록</span>
+                <span>세액 계산 배치 목록</span>
                 <span class="section-sub" id="taxSnapshotCount"></span>
+                <select id="taxBenefitFilter" class="tax-filter-select">
+                    <option value="">세제혜택 전체</option>
+                    <option value="possible">가능</option>
+                    <option value="reduced">일부감액</option>
+                    <option value="impossible">배제</option>
+                </select>
+                <select id="taxSortSelect" class="tax-filter-select">
+                    <option value="finalTaxDesc">최종세액 높은 순</option>
+                    <option value="adjustRatioAsc">조정비율 낮은 순</option>
+                </select>
                 <input type="text" id="taxSearchInput" class="tax-search-input" placeholder="계좌번호 또는 고객명 검색">
-                <button type="button" id="triggerBatch" class="tax-batch-btn">배치 수동 실행</button>
-                <span id="batchTriggerResult" class="tax-batch-result"></span>
+                <span id="batchTriggerGroup" class="tax-batch-inline">
+                    <button type="button" id="triggerBatch" class="tax-batch-btn">배치 수동 실행</button>
+                    <span id="batchTriggerResult" class="tax-batch-result"></span>
+                </span>
             </div>
             <table class="tax-table">
                 <thead>
@@ -74,21 +96,87 @@
                     <th>최종공제액</th>
                     <th>최종세액</th>
                     <th>산출시각</th>
+                    <th></th>
                 </tr>
                 </thead>
                 <tbody id="taxSnapshotBody">
                 <tr>
-                    <td colspan="8" class="tax-empty">불러오는 중...</td>
+                    <td colspan="9" class="tax-empty">불러오는 중...</td>
                 </tr>
                 </tbody>
             </table>
-            <div class="tax-pagination" id="taxPagination" style="display:none">
-                <button id="previousTaxPage" class="btn" type="button">이전</button>
-                <span id="taxPageInfo"></span>
-                <button id="nextTaxPage" class="btn" type="button">다음</button>
-            </div>
+            <div class="pagination" id="taxPagination"></div>
         </div>
     </div>
+
+<div id="detailPanelBackdrop" class="tax-detail-backdrop" hidden></div>
+<aside id="taxDetail" class="tax-detail-panel" hidden>
+    <div class="tax-detail-header">
+        <div>
+            <strong id="detailAccountNo">계좌를 선택하세요</strong>
+            <p class="tax-detail-description" id="detailDescription">목록에서 행을 클릭하면 실시간 계산 결과가 여기 표시됩니다.</p>
+        </div>
+        <button type="button" id="detailCloseBtn" class="tax-detail-close" aria-label="닫기">&times;</button>
+    </div>
+    <span id="detailStaleBadge" class="tax-stale-badge" style="display:none">배치값과 다름</span>
+    <span id="detailSavedBadge" class="tax-saved-badge" style="display:none"></span>
+    <div id="detailBenefitReason" class="tax-benefit-reason" style="display:none"></div>
+
+    <div class="tax-detail-grid">
+        <div><div class="tax-detail-item-label">[1] 가중매도금액</div><div id="detailWeightedSell" class="tax-detail-item-value">-</div></div>
+        <div><div class="tax-detail-item-label">[1] 조정전공제액</div><div id="detailWeightedGain" class="tax-detail-item-value">-</div></div>
+        <div><div class="tax-detail-item-label">[2] 외부 순매수금액</div><div id="detailExternalAmount" class="tax-detail-item-value">-</div></div>
+        <div><div class="tax-detail-item-label">[3] 조정비율</div><div id="detailAdjustRatio" class="tax-detail-item-value">-</div></div>
+        <div><div class="tax-detail-item-label">[4] 최종공제액</div><div id="detailFinalDeduction" class="tax-detail-item-value">-</div></div>
+        <div><div class="tax-detail-item-label">[5] 총양도소득(비가중)</div><div id="detailOriginalGain" class="tax-detail-item-value">-</div></div>
+        <div><div class="tax-detail-item-label">[5] 최종세액</div><div id="detailFinalTax" class="tax-detail-item-value tax-detail-item-value-highlight">-</div></div>
+    </div>
+
+    <div class="tax-breakdown">
+        <div class="tax-breakdown-title">구간별 근거 — 조정비율이 왜 이렇게 나왔는지</div>
+        <table class="tax-breakdown-table">
+            <thead>
+            <tr>
+                <th>구간</th>
+                <th>가중치</th>
+                <th>매도금액</th>
+                <th>양도소득</th>
+                <th>외부 순매수금액</th>
+            </tr>
+            </thead>
+            <tbody id="detailBreakdownBody"></tbody>
+        </table>
+    </div>
+
+    <div class="tax-breakdown">
+        <div class="tax-breakdown-title">매도 내역 (종목별)</div>
+        <table class="tax-breakdown-table">
+            <thead>
+            <tr>
+                <th>종목</th>
+                <th>매도일</th>
+                <th>매도금액</th>
+                <th>양도소득</th>
+            </tr>
+            </thead>
+            <tbody id="detailLotBody"></tbody>
+        </table>
+    </div>
+
+    <div class="tax-breakdown">
+        <div class="tax-breakdown-title">외부 순매수 내역 (종목별)</div>
+        <table class="tax-breakdown-table">
+            <thead>
+            <tr>
+                <th>종목</th>
+                <th>매수일</th>
+                <th>순매수금액</th>
+            </tr>
+            </thead>
+            <tbody id="detailExternalTradeBody"></tbody>
+        </table>
+    </div>
+</aside>
 </div>
 
 <th:block layout:fragment="pageScripts">

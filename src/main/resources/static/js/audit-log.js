@@ -45,6 +45,25 @@ $(function () {
         return value ? DATE_TIME_FORMATTER.format(new Date(value)) : "-";
     }
 
+    function formatClockValue(value) {
+        var date = new Date(value);
+        if (isNaN(date.getTime())) {
+            return value;
+        }
+        function pad(n) {
+            return String(n).padStart(2, "0");
+        }
+        return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate()) +
+            " " + pad(date.getHours()) + ":" + pad(date.getMinutes()) + ":" + pad(date.getSeconds());
+    }
+
+    function formatAuditValue(targetTable, value) {
+        if (value == null) {
+            return "-";
+        }
+        return targetTable === "SYSTEM_CLOCK" ? formatClockValue(value) : value;
+    }
+
     var TARGET_TABLE_BADGE_CLASS = {
         ADMIN_USER: "type-admin-user",
         SELL_ORDER: "type-sell-order",
@@ -126,19 +145,44 @@ $(function () {
                 escapeHtml(targetTableLabel(log.targetTable)) + "</span></td>" +
                 "<td class=\"audit-log-target-name\">" + escapeHtml(targetLabel) + "</td>" +
                 "<td>" + escapeHtml(reasonCodeLabel(log.reasonCode)) + "</td>" +
-                "<td class=\"audit-log-before\">" + escapeHtml(log.beforeValue || "-") + "</td>" +
-                "<td class=\"audit-log-after\">" + escapeHtml(log.afterValue || "-") + "</td>" +
+                "<td class=\"audit-log-before\">" +
+                escapeHtml(formatAuditValue(log.targetTable, log.beforeValue)) + "</td>" +
+                "<td class=\"audit-log-after\">" +
+                escapeHtml(formatAuditValue(log.targetTable, log.afterValue)) + "</td>" +
                 "</tr>"
             );
         });
     }
 
     function renderPagination() {
+        var $pagination = $("#auditLogPagination").empty();
         var totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-        $("#auditLogPageInfo").text((currentPage + 1) + " / " + totalPages);
-        $("#previousAuditLogPage").prop("disabled", currentPage <= 0);
-        $("#nextAuditLogPage").prop("disabled", currentPage >= totalPages - 1);
-        $("#auditLogPagination").css("display", totalCount > 0 ? "flex" : "none");
+        if (totalCount === 0 || totalPages <= 1) {
+            return;
+        }
+
+        var BLOCK_SIZE = 10;
+        var blockStart = Math.floor(currentPage / BLOCK_SIZE) * BLOCK_SIZE;
+        var blockEnd = Math.min(totalPages - 1, blockStart + BLOCK_SIZE - 1);
+
+        function addButton(label, targetPage, isDisabled, isActive) {
+            var classes = "page-btn" + (isActive ? " active" : "");
+            var $btn = $('<button type="button" class="' + classes + '">' + label + "</button>");
+            $btn.prop("disabled", isDisabled || isActive);
+            if (!isDisabled && !isActive) {
+                $btn.on("click", function () {
+                    currentPage = targetPage;
+                    loadAuditLogs();
+                });
+            }
+            $pagination.append($btn);
+        }
+
+        addButton("이전", blockStart - 1, blockStart === 0, false);
+        for (var i = blockStart; i <= blockEnd; i++) {
+            addButton(String(i + 1), i, false, i === currentPage);
+        }
+        addButton("다음", blockEnd + 1, blockEnd === totalPages - 1, false);
     }
 
     function loadAuditLogs() {
@@ -206,6 +250,11 @@ $(function () {
             currentPage += 1;
             loadAuditLogs();
         }
+    });
+
+    $(document).on("maria:system-clock-changed", function () {
+        currentPage = 0;
+        loadAuditLogs();
     });
 
     loadAuditLogs();

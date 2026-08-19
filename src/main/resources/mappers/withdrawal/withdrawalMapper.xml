@@ -119,6 +119,15 @@
         ORDER BY w.processed_at DESC, w.withdrawal_id DESC
     </select>
 
+    <select id="selectWithdrawalHistoriesByAccountId"
+            parameterType="Long"
+            resultType="com.app.maria.domain.withdrawal.dto.WithdrawalHistoryDTO">
+        <include refid="withdrawalHistoryColumns"/>
+        WHERE w.account_id = #{accountId}
+        <include refid="withdrawalHistoryGroupBy"/>
+        ORDER BY w.processed_at DESC, w.withdrawal_id DESC
+    </select>
+
     <select id="selectWithdrawalHistoryById"
             parameterType="Long"
             resultType="com.app.maria.domain.withdrawal.dto.WithdrawalHistoryDTO">
@@ -136,10 +145,14 @@
                wa.allocated_amount,
                wa.withdrawal_at,
                wa.type,
-               ke.final_at
+               ke.final_at,
+               fp.name AS product_name,
+               fp.ticker
         FROM withdrawal_allocation wa
         LEFT JOIN left_amount la ON la.left_amount_id = wa.left_amount_id
         LEFT JOIN krw_exchange ke ON ke.exchange_id = la.exchange_id
+        LEFT JOIN sell_order so ON so.order_id = ke.order_id
+        LEFT JOIN foreign_product fp ON fp.foreign_product_id = so.foreign_product_id
         WHERE wa.withdrawal_id = #{withdrawalId}
         ORDER BY wa.allocation_id ASC
     </select>

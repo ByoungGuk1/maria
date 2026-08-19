@@ -109,6 +109,21 @@ class WithdrawalMapperTest {
     }
 
     @Test
+    void accountWithdrawalHistoriesContainEveryStatusAndRemainNewestFirst() {
+        List<WithdrawalHistoryDTO> result = mapper.selectWithdrawalHistoriesByAccountId(1L);
+
+        assertThat(result)
+                .extracting(WithdrawalHistoryDTO::getWithdrawalId)
+                .containsExactly(11L, 10L, 12L);
+        assertThat(result)
+                .extracting(WithdrawalHistoryDTO::getStatus)
+                .containsExactly(
+                        WithdrawalStatus.COMPLETED,
+                        WithdrawalStatus.COMPLETED,
+                        WithdrawalStatus.FAILED);
+    }
+
+    @Test
     void withdrawalDetailAllocationsKeepAccountingOrderAndFinalAt() {
         WithdrawalHistoryDTO history = mapper.selectWithdrawalHistoryById(10L).orElseThrow();
         List<WithdrawalAllocationHistoryDTO> allocations =
@@ -119,7 +134,12 @@ class WithdrawalMapperTest {
                 .extracting(WithdrawalAllocationHistoryDTO::getAllocationId)
                 .containsExactly(1L, 2L, 3L, 4L);
         assertThat(allocations.get(0).getFinalAt()).isNull();
+        assertThat(allocations.get(0).getProductName()).isNull();
         assertThat(allocations.get(2).getFinalAt()).isNotNull();
+        assertThat(allocations.get(1).getProductName()).isEqualTo("Apple");
+        assertThat(allocations.get(1).getTicker()).isEqualTo("AAPL");
+        assertThat(allocations.get(2).getProductName()).isEqualTo("Microsoft");
+        assertThat(allocations.get(2).getTicker()).isEqualTo("MSFT");
     }
 
     private static void resetSchemaAndData() throws Exception {
@@ -158,8 +178,24 @@ class WithdrawalMapperTest {
                     CREATE TABLE krw_exchange (
                         exchange_id BIGINT PRIMARY KEY,
                         account_id BIGINT NOT NULL,
+                        order_id BIGINT,
                         settlement_status VARCHAR(12) NOT NULL,
                         final_at DATETIME NULL
+                    )
+                    """);
+            statement.execute(
+                    """
+                    CREATE TABLE sell_order (
+                        order_id BIGINT PRIMARY KEY,
+                        foreign_product_id BIGINT NOT NULL
+                    )
+                    """);
+            statement.execute(
+                    """
+                    CREATE TABLE foreign_product (
+                        foreign_product_id BIGINT PRIMARY KEY,
+                        ticker VARCHAR(20) NOT NULL,
+                        name VARCHAR(100) NOT NULL
                     )
                     """);
             statement.execute(
@@ -199,13 +235,24 @@ class WithdrawalMapperTest {
             statement.execute(
                     """
                     INSERT INTO krw_exchange VALUES
-                        (1, 1, 'FINALIZED', TIMESTAMP '2025-01-02 09:00:00'),
-                        (2, 1, 'FINALIZED', TIMESTAMP '2025-01-01 09:00:00'),
-                        (3, 2, 'FINALIZED', TIMESTAMP '2024-01-01 09:00:00'),
-                        (4, 1, 'PROVISIONAL', TIMESTAMP '2024-01-01 09:00:00'),
-                        (5, 1, 'FINALIZED', NULL),
-                        (6, 1, 'FINALIZED', TIMESTAMP '2025-01-01 09:00:00'),
-                        (7, 1, 'FINALIZED', TIMESTAMP '2024-01-01 09:00:00')
+                        (1, 1, 201, 'FINALIZED', TIMESTAMP '2025-01-02 09:00:00'),
+                        (2, 1, 202, 'FINALIZED', TIMESTAMP '2025-01-01 09:00:00'),
+                        (3, 2, 203, 'FINALIZED', TIMESTAMP '2024-01-01 09:00:00'),
+                        (4, 1, 204, 'PROVISIONAL', TIMESTAMP '2024-01-01 09:00:00'),
+                        (5, 1, 205, 'FINALIZED', NULL),
+                        (6, 1, 206, 'FINALIZED', TIMESTAMP '2025-01-01 09:00:00'),
+                        (7, 1, 207, 'FINALIZED', TIMESTAMP '2024-01-01 09:00:00')
+                    """);
+            statement.execute(
+                    """
+                    INSERT INTO foreign_product VALUES
+                        (301, 'AAPL', 'Apple'), (302, 'MSFT', 'Microsoft')
+                    """);
+            statement.execute(
+                    """
+                    INSERT INTO sell_order VALUES
+                        (201, 301), (202, 302), (203, 301), (204, 301),
+                        (205, 301), (206, 302), (207, 301)
                     """);
             statement.execute(
                     """

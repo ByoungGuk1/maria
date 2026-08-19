@@ -113,6 +113,7 @@ $(function () {
                     currentBusinessTime = new Date(res.data);
                     renderBusinessTime();
                 }
+                $(document).trigger("maria:system-clock-changed");
                 closeClockModal();
             })
             .fail(function (xhr) {
@@ -126,6 +127,7 @@ $(function () {
     function applyTheme(theme) {
         document.documentElement.setAttribute("data-theme", theme);
         $("#themeToggle").text(theme === "dark" ? "🌙" : "☀");
+        $(document).trigger("maria:themeChange", [theme]);
     }
 
     function loadAccountReviewCount() {
