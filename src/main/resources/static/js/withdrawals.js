@@ -660,5 +660,10 @@ $(function () {
         }
     });
 
+    var deepLinkAccountNo = MARIA.deeplink.accountNoFromUrl();
+    if (deepLinkAccountNo) {
+        $("#withdrawal-keyword").val(deepLinkAccountNo);
+    }
+
     loadWithdrawals();
 });

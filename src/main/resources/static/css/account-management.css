@@ -54,8 +54,12 @@
     cursor: pointer;
 }
 
-.account-summary-card:hover,
-.account-summary-card.is-active {
+.account-summary-card:hover {
+    background: var(--tableHeaderBg);
+}
+
+.account-summary-card.is-active,
+.account-summary-card.is-active:hover {
     background: var(--accentBg);
     box-shadow: inset 0 0 0 1px var(--summary-border-color);
 }
@@ -399,43 +403,52 @@
     cursor: pointer;
 }
 
-.account-table tbody tr:hover,
-.account-table tbody tr.is-selected {
+.account-table tbody tr:hover {
+    background: var(--tableHeaderBg);
+}
+
+.account-table tbody tr.is-selected,
+.account-table tbody tr.is-selected:hover {
     background: var(--accentBg);
 }
 
-.account-pagination {
+.pagination {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    color: var(--textMuted);
-    font: 500 12px 'Noto Sans KR', sans-serif;
-    padding: 12px 14px;
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 14px 0 4px;
+    overflow-x: auto;
 }
 
-.account-page-button {
+.page-btn {
     min-width: 30px;
     height: 30px;
-    padding: 0 9px;
+    padding: 0 8px;
     border: 1px solid var(--inputBorder);
-    border-radius: 4px;
-    background: var(--inputBg);
+    border-radius: 6px;
+    background: var(--cardBg);
     color: var(--textSecondary);
     cursor: pointer;
-    font: 600 11px 'Noto Sans KR', sans-serif;
+    font: 500 12px 'Noto Sans KR', sans-serif;
 }
 
-.account-page-button:hover:not(:disabled),
-.account-page-button.is-active {
+.page-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.page-btn.active {
     border-color: var(--accent);
     background: var(--accent);
     color: #fff;
+    cursor: default;
 }
 
-.account-page-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.45;
+.page-btn:disabled {
+    cursor: default;
+    opacity: 0.4;
 }
 
 .account-number {
@@ -528,6 +541,30 @@
     font-variant-numeric: tabular-nums;
 }
 
+.account-detail-navigation {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--cardBorder);
+}
+
+.account-detail-link-btn {
+    padding: 7px 11px;
+    border: 1px solid var(--inputBorder);
+    border-radius: 6px;
+    background: var(--cardBg);
+    color: var(--accent);
+    font: 600 11px 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+}
+
+.account-detail-link-btn:hover {
+    border-color: var(--accent);
+    background: var(--accentBg);
+}
+
 .account-reason-form {
     display: flex;
     gap: 8px;
@@ -592,7 +629,7 @@
 
 .account-modal {
     position: fixed;
-    z-index: 20;
+    z-index: 1120;
     inset: 0;
     align-items: center;
     justify-content: center;
@@ -615,16 +652,35 @@
     overflow: hidden;
 }
 
-.account-detail-modal {
-    z-index: 18;
+.account-detail-drawer-backdrop {
+    position: fixed;
+    z-index: 1090;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
 }
 
-.account-detail-modal-content {
-    position: relative;
-    width: min(1080px, 100%);
-    max-height: calc(100vh - 40px);
+.account-detail-drawer-backdrop[hidden] {
+    display: none;
+}
+
+.account-detail-drawer {
+    position: fixed;
+    z-index: 1100;
+    top: 0;
+    right: 0;
+    width: min(820px, 96vw);
+    height: 100dvh;
     overflow-y: auto;
     padding: 18px;
+    border-left: 1px solid var(--cardBorder);
+    background: var(--cardBg);
+    box-shadow: -18px 0 42px rgba(15, 23, 42, 0.2);
+    transform: translateX(102%);
+    transition: transform 0.2s ease;
+}
+
+.account-detail-drawer.is-open {
+    transform: translateX(0);
 }
 
 .account-related-grid {
@@ -651,6 +707,30 @@
 .account-related-list {
     max-height: 150px;
     overflow-y: auto;
+}
+
+#detailClosure {
+    max-height: none;
+}
+
+.closure-review-actions {
+    padding: 12px;
+    border-top: 1px solid var(--cardBorder);
+}
+
+.closure-review-actions[hidden] {
+    display: none;
+}
+
+.closure-review-actions input {
+    width: 100%;
+}
+
+.closure-review-actions > div {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
 }
 
 .account-related-item {

@@ -330,6 +330,12 @@ $(function () {
         loadSellOrders();
     });
 
+    var deepLinkAccountNo = MARIA.deeplink.accountNoFromUrl();
+    if (deepLinkAccountNo) {
+        $("#sellOrderFilterKeyword").val(deepLinkAccountNo);
+        currentPage = 0;
+    }
+
     loadSellOrderSummary();
     loadSellOrders();
 });
