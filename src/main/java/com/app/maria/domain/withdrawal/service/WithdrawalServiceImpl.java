@@ -36,7 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class WithdrawalServiceImpl implements WithdrawalService {
+public class WithdrawalServiceImpl {
 
     private final BusinessClockService businessClockService;
     private final AccountMapper accountMapper;
@@ -44,7 +44,6 @@ public class WithdrawalServiceImpl implements WithdrawalService {
     private final AccountBenefitLogMapper accountBenefitLogMapper;
     private final GeneralAccountClient generalAccountClient;
 
-    @Override
     @Transactional
     public List<WithdrawalAllocationDTO> withdraw(WithdrawalRequestDTO requestDTO) {
         return processWithdrawal(requestDTO, Status.OPENED).getAllocations();
@@ -89,13 +88,20 @@ public class WithdrawalServiceImpl implements WithdrawalService {
             throw new WithdrawalNotAllowedException("현재 계좌 상태에서는 인출할 수 없습니다.");
         }
 
+        LocalDateTime currentDatetime = businessClockService.now();
+
         if (account.getAmount().compareTo(requestedAmount) < 0) {
-            throw new InsufficientWithdrawalAmountException("계좌 잔액보다 많은 금액을 인출할 수 없습니다.");
+            throw new InsufficientWithdrawalAmountException(
+                    "계좌 잔액보다 많은 금액을 인출할 수 없습니다.",
+                    accountId,
+                    requestedAmount,
+                    currentDatetime,
+                    destinationGeneralAccount.getAccountNo(),
+                    requestDTO.getDestinationGeneralAccountId());
         }
 
         List<LeftAmountDTO> leftAmounts =
                 withdrawalMapper.selectAvailableLeftAmountsByAccountId(accountId);
-        LocalDateTime currentDatetime = businessClockService.now();
 
         // 확정된 납입 원금의 잔액 합계와 자유롭게 인출할 수 있는 수익금을 계산한다.
         BigDecimal totalPrincipal =
@@ -242,7 +248,6 @@ public class WithdrawalServiceImpl implements WithdrawalService {
                 .build();
     }
 
-    @Override
     @Transactional
     public WithdrawalResultDTO withdrawForClosure(WithdrawalRequestDTO requestDTO) {
 
@@ -305,12 +310,10 @@ public class WithdrawalServiceImpl implements WithdrawalService {
         return allocations;
     }
 
-    @Override
     public boolean hasImmaturePrincipal(Long accountId) {
         return getImmaturePrincipalAmount(accountId).compareTo(BigDecimal.ZERO) > 0;
     }
 
-    @Override
     public BigDecimal getImmaturePrincipalAmount(Long accountId) {
         List<LeftAmountDTO> leftAmounts =
                 withdrawalMapper.selectAvailableLeftAmountsByAccountId(accountId);
@@ -323,7 +326,6 @@ public class WithdrawalServiceImpl implements WithdrawalService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    @Override
     public BigDecimal getImmatureAllocatedAmount(Long withdrawalId) {
         return withdrawalMapper.selectImmatureAllocatedAmountByWithdrawalId(withdrawalId);
     }

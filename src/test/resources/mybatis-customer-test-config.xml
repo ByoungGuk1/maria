@@ -10,6 +10,7 @@
 
     <typeAliases>
         <typeAlias alias="CustomerCiHashDTO" type="com.app.maria.domain.customer.dto.CustomerCiHashDTO"/>
+        <typeAlias alias="CustomerSearchDTO" type="com.app.maria.domain.customer.dto.CustomerSearchDTO"/>
     </typeAliases>
 
     <environments default="customer-mapper-test">
