@@ -66,7 +66,8 @@ public class ExchangeRateClient {
             String unitDenomination = matcher.group(2);
             if (unitDenomination != null) {
                 // 예: JPY(100)은 "100엔당" 환율이므로, 1단위 환율로 환산
-                baseRate = baseRate.divide(new BigDecimal(unitDenomination), 4, RoundingMode.HALF_UP);
+                baseRate =
+                        baseRate.divide(new BigDecimal(unitDenomination), 4, RoundingMode.HALF_UP);
             }
 
             return baseRate;
