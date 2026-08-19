@@ -11,16 +11,14 @@
 <div layout:fragment="breadcrumb">정산 배치</div>
 
 <div layout:fragment="content" class="settlement-management">
-    <div class="settlement-header">
-        <div>
-            <h1>정산 배치</h1>
-            <p>가환전 완료 건을 확정산하고 배치 처리 결과를 확인합니다.</p>
-        </div>
-        <button id="executeSettlement" class="btn btn-primary" type="button">정산 배치 실행</button>
-    </div>
-
     <section class="card settlement-trend-card">
-        <div class="settlement-section-header"><strong>최근 14일 정산 항목 처리 추이</strong><span id="settlementTrendTotal">-</span></div>
+        <div class="settlement-section-header">
+            <div class="settlement-trend-title">
+                <strong>최근 14일 정산 항목 처리 추이</strong>
+                <span id="settlementTrendTotal">-</span>
+            </div>
+            <button id="executeSettlement" class="btn btn-primary" type="button">정산 배치 실행</button>
+        </div>
         <div id="settlementTrendDetail" class="settlement-trend-detail" style="display:none">
             <strong id="settlementTrendDetailDate">-</strong>
             <div class="settlement-trend-detail-grid">
@@ -41,15 +39,13 @@
                 <tbody id="settlementBatchBody"><tr><td colspan="8" class="settlement-empty">불러오는 중...</td></tr></tbody>
             </table>
         </div>
-        <div id="settlementPagination" class="settlement-pagination" style="display:none">
-            <button id="previousSettlementPage" class="btn" type="button">이전</button>
-            <span id="settlementPageInfo"></span>
-            <button id="nextSettlementPage" class="btn" type="button">다음</button>
-        </div>
+        <div id="settlementPagination" class="settlement-pagination" style="display:none"></div>
     </div>
 
-    <section id="settlementDetail" class="card settlement-detail" style="display:none">
-        <div class="settlement-detail-header">
+    <div id="settlementDetailBackdrop" class="settlement-detail-backdrop" hidden></div>
+    <aside id="settlementDetail" class="settlement-detail settlement-detail-drawer"
+           aria-hidden="true" aria-labelledby="detailBatchTitle">
+        <div class="settlement-detail-header settlement-drawer-header">
             <div><strong id="detailBatchTitle">배치 상세</strong><p id="detailBatchFailure"></p></div>
             <div class="settlement-detail-actions">
                 <select id="settlementItemFilter" class="settlement-item-filter" style="display:none">
@@ -58,6 +54,7 @@
                     <option value="failed">실패 항목만 보기</option>
                 </select>
                 <button id="retrySettlementBatch" class="btn" type="button" style="display:none">실패 배치 재처리</button>
+                <button id="closeSettlementDetail" class="settlement-drawer-close" type="button" aria-label="정산 상세 닫기">×</button>
             </div>
         </div>
         <div class="settlement-batch-summary">
@@ -68,22 +65,24 @@
             <div><span>실패</span><strong id="detailBatchFailedCount">-</strong></div>
             <div><span>처리</span><strong id="detailBatchProcessedCount">-</strong></div>
         </div>
-        <div class="settlement-table-wrap">
+        <div class="settlement-table-wrap settlement-item-table-wrap">
             <table class="settlement-table settlement-item-table">
                 <thead><tr><th>Item ID</th><th>계좌번호</th><th>종목</th><th>가환전액</th><th>확정산액</th><th>결과</th><th>실패 사유</th><th>처리 일시</th></tr></thead>
                 <tbody id="settlementItemBody"><tr><td colspan="8" class="settlement-empty">배치를 선택하세요.</td></tr></tbody>
             </table>
         </div>
-        <div id="settlementItemPagination" class="settlement-pagination" style="display:none">
-            <button id="previousSettlementItemPage" class="btn" type="button">이전</button>
-            <span id="settlementItemPageInfo"></span>
-            <button id="nextSettlementItemPage" class="btn" type="button">다음</button>
-        </div>
+        <div id="settlementItemPagination" class="settlement-pagination" style="display:none"></div>
+    </aside>
 
-        <div id="settlementItemDetail" class="settlement-item-detail" style="display:none">
-            <div class="settlement-detail-header">
+    <div id="settlementItemDetailBackdrop" class="settlement-item-detail-backdrop" hidden></div>
+    <aside id="settlementItemDetail" class="settlement-item-detail settlement-item-detail-drawer"
+           aria-hidden="true" aria-labelledby="detailItemTitle">
+            <div class="settlement-detail-header settlement-drawer-header">
                 <div><strong id="detailItemTitle">정산 항목 상세</strong><p id="detailItemFailure"></p></div>
-                <button id="retrySettlementItem" class="btn" type="button" style="display:none">실패 항목 재처리</button>
+                <div class="settlement-detail-actions">
+                    <button id="retrySettlementItem" class="btn" type="button" style="display:none">실패 항목 재처리</button>
+                    <button id="closeSettlementItemDetail" class="settlement-drawer-close" type="button" aria-label="정산 항목 상세 닫기">×</button>
+                </div>
             </div>
             <div class="settlement-item-detail-grid">
                 <div><span>환전 ID</span><strong id="detailItemExchangeId">-</strong></div>
@@ -104,8 +103,7 @@
                 <strong>처리 이력</strong>
                 <ol id="settlementRetryHistory" class="settlement-retry-history-list"></ol>
             </div>
-        </div>
-    </section>
+    </aside>
 </div>
 
 <th:block layout:fragment="pageScripts">
