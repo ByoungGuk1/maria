@@ -232,7 +232,8 @@ public class AccountTransactionalServiceImpl implements AccountTransactionalServ
             account.setAccountNo(
                     COMPANY_CODE
                             + String.format(
-                                    "%07d", ThreadLocalRandom.current().nextLong(SERIAL_MAX_EXCLUSIVE)));
+                                    "%07d",
+                                    ThreadLocalRandom.current().nextLong(SERIAL_MAX_EXCLUSIVE)));
             try {
                 if ((override
                                 ? accountMapper.overrideToOpened(account)
