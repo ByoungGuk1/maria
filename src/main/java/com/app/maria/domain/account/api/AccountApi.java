@@ -4,6 +4,7 @@ import com.app.maria.domain.account.dto.request.*;
 import com.app.maria.domain.account.dto.response.AccountJoinResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountLimitUsageResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountLogResponseDTO;
+import com.app.maria.domain.account.dto.response.AccountManagementDetailResponseDTO;
 import com.app.maria.domain.account.dto.response.AccountResponseDTO;
 import com.app.maria.domain.account.service.AccountService;
 import com.app.maria.global.response.ApiResponseDTO;
@@ -96,6 +97,13 @@ public class AccountApi {
         return ResponseEntity.ok(
                 ApiResponseDTO.of(
                         "계좌 상태 이력 조회", accountService.getStatusLogsByAccountId(accountId)));
+    }
+
+    @GetMapping("/{accountId}/management-detail")
+    public ResponseEntity<ApiResponseDTO<AccountManagementDetailResponseDTO>> getManagementDetail(
+            @PathVariable @Positive(message = "계좌 ID는 0보다 커야 합니다.") Long accountId) {
+        return ResponseEntity.ok(
+                ApiResponseDTO.of("계좌 관리 상세 조회", accountService.getManagementDetail(accountId)));
     }
 
     @PostMapping("/{accountId}/override")

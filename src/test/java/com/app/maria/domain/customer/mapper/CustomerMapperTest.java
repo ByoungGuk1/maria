@@ -3,6 +3,7 @@ package com.app.maria.domain.customer.mapper;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.app.maria.domain.customer.dto.CustomerCiHashDTO;
+import com.app.maria.domain.customer.dto.CustomerSearchDTO;
 import java.io.IOException;
 import java.io.Reader;
 import java.sql.Connection;
@@ -115,6 +116,41 @@ class CustomerMapperTest {
                 .containsExactlyInAnyOrder("ci-1", "ci-2");
     }
 
+    @Test
+    @DisplayName("이름 앞부분이 일치하고 계좌가 없는 고객만 최신순으로 조회한다")
+    void searchEligibleCustomersByNameReturnsOnlyCustomersWithoutAccount() throws SQLException {
+        insertSearchCustomer(
+                1L, "김리아", "1990-01-02", "010-1111-2222", "STABLE", "2026-08-15 09:00:00");
+        insertSearchCustomer(
+                2L, "김리아", "1991-02-03", "010-3333-4444", "ACTIVE", "2026-08-16 09:00:00");
+        insertSearchCustomer(
+                3L, "김마리아", "1992-03-04", "010-5555-6666", "NEUTRAL", "2026-08-17 09:00:00");
+        insertSearchCustomer(
+                4L, "이리아", "1993-04-05", "010-7777-8888", "STABLE", "2026-08-18 09:00:00");
+        insertAccount(2L, "REJECTED");
+
+        List<CustomerSearchDTO> result = customerMapper.searchEligibleCustomersByName("김", 10);
+
+        assertThat(result).extracting(CustomerSearchDTO::getCustomerId).containsExactly(3L, 1L);
+        assertThat(result.get(0).getName()).isEqualTo("김마리아");
+        assertThat(result.get(0).getPhone()).isEqualTo("010-5555-6666");
+    }
+
+    @Test
+    @DisplayName("정확히 일치하는 이름은 최신 가입 고객보다 먼저 노출하고 조회 개수를 제한한다")
+    void searchEligibleCustomersByNamePrioritizesExactNameAndLimitsResults() throws SQLException {
+        insertSearchCustomer(
+                1L, "홍길", "1990-01-02", "010-1111-2222", "STABLE", "2026-08-15 09:00:00");
+        insertSearchCustomer(
+                2L, "홍길동", "1991-02-03", "010-3333-4444", "ACTIVE", "2026-08-17 09:00:00");
+        insertSearchCustomer(
+                3L, "홍길순", "1992-03-04", "010-5555-6666", "NEUTRAL", "2026-08-16 09:00:00");
+
+        List<CustomerSearchDTO> result = customerMapper.searchEligibleCustomersByName("홍길", 2);
+
+        assertThat(result).extracting(CustomerSearchDTO::getCustomerId).containsExactly(1L, 2L);
+    }
+
     private void insertCustomer(Long customerId, String ciHash) throws SQLException {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement()) {
@@ -139,6 +175,35 @@ class CustomerMapperTest {
         }
     }
 
+    private void insertSearchCustomer(
+            Long customerId,
+            String name,
+            String birthDate,
+            String phone,
+            String investorType,
+            String createdAt)
+            throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "INSERT INTO customer (customer_id, name, birth_date, phone, investor_type, ci_hash, created_at) VALUES ("
+                            + customerId
+                            + ", '"
+                            + name
+                            + "', '"
+                            + birthDate
+                            + "', '"
+                            + phone
+                            + "', '"
+                            + investorType
+                            + "', 'search-ci-"
+                            + customerId
+                            + "', '"
+                            + createdAt
+                            + "')");
+        }
+    }
+
     private void resetSchema() throws SQLException {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement()) {
@@ -147,7 +212,12 @@ class CustomerMapperTest {
                     """
                     CREATE TABLE customer (
                         customer_id BIGINT PRIMARY KEY,
-                        ci_hash VARCHAR(64) NOT NULL
+                        name VARCHAR(50),
+                        birth_date DATE,
+                        phone VARCHAR(20),
+                        investor_type VARCHAR(20),
+                        ci_hash VARCHAR(64) NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                     )
                     """);
             statement.execute(

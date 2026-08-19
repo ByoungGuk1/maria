@@ -287,4 +287,42 @@
         limit #{pageSize}
     </select>
 
+    <select id="selectManagementHoldings" resultType="com.app.maria.domain.account.dto.response.AccountManagementDetailResponseDTO$Holding">
+        SELECT fp.ticker, fp.name AS productName, fp.market, fp.currency,
+               SUM(id.current_qty) AS currentQty
+        FROM inbound_detail id
+        JOIN inbound i ON i.inbound_id = id.inbound_id
+        JOIN foreign_product fp ON fp.foreign_product_id = id.foreign_product_id
+        WHERE i.account_id = #{accountId} AND id.current_qty &gt; 0
+        GROUP BY fp.foreign_product_id, fp.ticker, fp.name, fp.market, fp.currency
+        ORDER BY fp.ticker
+    </select>
+
+    <select id="selectManagementInbounds" resultType="com.app.maria.domain.account.dto.response.AccountManagementDetailResponseDTO$Inbound">
+        SELECT i.inbound_id AS inboundId, fp.ticker, fp.name AS productName,
+               id.source_broker AS sourceBroker, id.qty, id.current_qty AS currentQty,
+               id.purchase_date AS purchaseDate, id.recorded_at AS recordedAt
+        FROM inbound i
+        JOIN inbound_detail id ON id.inbound_id = i.inbound_id
+        JOIN foreign_product fp ON fp.foreign_product_id = id.foreign_product_id
+        WHERE i.account_id = #{accountId}
+        ORDER BY id.recorded_at DESC, id.inbound_detail_id DESC
+    </select>
+
+    <select id="selectLatestManagementClosure" resultType="com.app.maria.domain.account.dto.response.AccountManagementDetailResponseDTO$Closure">
+        SELECT closure_request_id AS closureRequestId, status, requested_at AS requestedAt,
+               processed_at AS processedAt, rejection_reason AS rejectionReason
+        FROM account_closure_request
+        WHERE account_id = #{accountId}
+        ORDER BY requested_at DESC, closure_request_id DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectManagementWithdrawals" resultType="com.app.maria.domain.account.dto.response.AccountManagementDetailResponseDTO$Withdrawal">
+        SELECT withdrawal_id AS withdrawalId, requested_amount AS requestedAmount,
+               destination_account_no AS destinationAccountNo, status, processed_at AS processedAt
+        FROM withdrawal
+        WHERE account_id = #{accountId}
+        ORDER BY processed_at DESC, withdrawal_id DESC
+    </select>
 </mapper>
