@@ -298,11 +298,7 @@ class SellOrderServiceImplTest {
                 .hasMessage("종목 정보를 찾을 수 없습니다.");
 
         verify(inboundMapper, never()).decreaseCurrentQty(any(), any());
-        verifyNoInteractions(
-                kisPriceClient,
-                exchangeRateClient,
-                sellOrderMapper,
-                sellLimitService);
+        verifyNoInteractions(kisPriceClient, exchangeRateClient, sellOrderMapper, sellLimitService);
     }
 
     @Test
