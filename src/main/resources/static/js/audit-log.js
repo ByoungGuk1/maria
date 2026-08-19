@@ -186,6 +186,8 @@ $(function () {
     }
 
     function loadAuditLogs() {
+        var $content = $(".content");
+        var scrollTop = $content.scrollTop();
         $("#auditLogListBody").html(
             '<tr><td colspan="7" class="audit-log-loading">불러오는 중...</td></tr>'
         );
@@ -200,6 +202,7 @@ $(function () {
                 $("#auditLogCount").text(totalCount + "건");
                 renderRows(page.content || []);
                 renderPagination();
+                $content.scrollTop(scrollTop);
             })
             .fail(function (xhr) {
                 if (xhr.status !== 401) {

@@ -272,6 +272,8 @@ $(function () {
     });
 
     function loadSellOrders() {
+        var $content = $(".content");
+        var scrollTop = $content.scrollTop();
         $("#sellOrderListBody").html('<tr><td colspan="8" class="sellorder-loading">불러오는 중...</td></tr>');
         hideError();
 
@@ -287,6 +289,7 @@ $(function () {
                 $("#sellOrderCount").text(totalCount + "건");
                 renderRows(page.content || []);
                 renderPagination();
+                $content.scrollTop(scrollTop);
             })
             .fail(function (xhr) {
                 if (xhr.status === 401) {
