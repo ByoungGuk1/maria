@@ -182,7 +182,7 @@ $(function () {
                     $("#ibInboundPagination").empty();
                 }
                 $("#ibLoading").hide();
-                $("#ibBody").show();
+                $("#ibBody").css("display", "flex");
             })
             .fail(function (xhr) {
                 if (xhr.status === 401) {
@@ -448,7 +448,7 @@ $(function () {
                 '<span>취득 정보</span>' +
                 '<span class="section-sub">lot ' + item.lots.length + '건</span>' +
                 '</div>' +
-                '<table class="dash-table">' +
+                '<table class="dash-table ib-lot-table">' +
                 '<thead><tr><th>출처</th><th>매수일</th><th>기록일</th><th>매수단가</th><th>보유 현황</th><th>매도 이력</th></tr></thead>' +
                 '<tbody>' + lotRows + '</tbody>' +
                 '</table>'
