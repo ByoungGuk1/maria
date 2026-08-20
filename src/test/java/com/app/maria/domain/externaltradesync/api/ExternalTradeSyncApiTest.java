@@ -2,11 +2,13 @@ package com.app.maria.domain.externaltradesync.api;
 
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.app.maria.domain.externaltradesync.launcher.ExternalTradeSyncLauncher;
+import com.app.maria.domain.externaltradesync.dto.response.ExternalTradeSyncResultDTO;
+import com.app.maria.domain.externaltradesync.service.ExternalTradeSyncService;
 import com.app.maria.global.config.SecurityConfig;
 import com.app.maria.global.jwt.JwtTokenProvider;
 import org.junit.jupiter.api.DisplayName;
@@ -24,28 +26,42 @@ class ExternalTradeSyncApiTest {
 
     @Autowired MockMvc mockMvc;
 
-    @MockitoBean ExternalTradeSyncLauncher externalTradeSyncLauncher;
+    @MockitoBean ExternalTradeSyncService externalTradeSyncService;
 
     @MockitoBean JwtTokenProvider jwtTokenProvider;
 
     @Test
-    @DisplayName("SETTLEMENT 권한이면 202와 함께 동기화를 실행시킨다")
+    @DisplayName("SETTLEMENT 권한이면 200과 함께 동기화 결과를 반환한다")
     @WithMockUser(roles = "SETTLEMENT")
-    void executeSyncTriggersLauncherAndReturnsAcceptedForSettlementRole() throws Exception {
-        mockMvc.perform(post("/api/external-trade-sync/jobs"))
-                .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.message").value("외부 순매수 동기화가 실행되었습니다."));
+    void executeSyncRunsSyncAndReturnsResultForSettlementRole() throws Exception {
+        when(externalTradeSyncService.syncAll())
+                .thenReturn(
+                        ExternalTradeSyncResultDTO.builder()
+                                .customerCount(10)
+                                .failedCustomerCount(0)
+                                .newJudgementCount(3)
+                                .skippedJudgementCount(7)
+                                .build());
 
-        verify(externalTradeSyncLauncher).launch();
+        mockMvc.perform(post("/api/external-trade-sync/jobs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("동기화 완료 · 신규 3건"))
+                .andExpect(jsonPath("$.data.newJudgementCount").value(3))
+                .andExpect(jsonPath("$.data.skippedJudgementCount").value(7));
+
+        verify(externalTradeSyncService).syncAll();
     }
 
     @Test
-    @DisplayName("ADMIN 권한이면 202와 함께 동기화를 실행시킨다")
+    @DisplayName("ADMIN 권한이면 200과 함께 동기화 결과를 반환한다")
     @WithMockUser(roles = "ADMIN")
-    void executeSyncTriggersLauncherAndReturnsAcceptedForAdminRole() throws Exception {
-        mockMvc.perform(post("/api/external-trade-sync/jobs")).andExpect(status().isAccepted());
+    void executeSyncRunsSyncAndReturnsResultForAdminRole() throws Exception {
+        when(externalTradeSyncService.syncAll())
+                .thenReturn(ExternalTradeSyncResultDTO.builder().build());
 
-        verify(externalTradeSyncLauncher).launch();
+        mockMvc.perform(post("/api/external-trade-sync/jobs")).andExpect(status().isOk());
+
+        verify(externalTradeSyncService).syncAll();
     }
 
     @Test
@@ -54,6 +70,6 @@ class ExternalTradeSyncApiTest {
     void executeSyncReturns403ForViewerRole() throws Exception {
         mockMvc.perform(post("/api/external-trade-sync/jobs")).andExpect(status().isForbidden());
 
-        verify(externalTradeSyncLauncher, never()).launch();
+        verify(externalTradeSyncService, never()).syncAll();
     }
 }
