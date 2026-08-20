@@ -34,7 +34,7 @@
             </div>
         </div>
 
-        <div class="card batch-bar" id="batchHistorySummary" style="margin-bottom:16px">
+        <div class="card batch-bar" id="batchHistorySummary">
             <div>
                 <div class="batch-bar-label">최근 배치 이력</div>
                 <div class="batch-bar-value" id="batchHistoryLatest">-</div>
@@ -44,7 +44,7 @@
             <button type="button" id="batchHistoryToggle" class="tax-batch-btn">전체 이력 보기</button>
         </div>
 
-        <div class="card" id="batchHistoryDetail" style="margin-bottom:16px; display:none">
+        <div class="card" id="batchHistoryDetail" style="display:none">
             <table class="tax-table">
                 <thead>
                 <tr>
@@ -65,7 +65,7 @@
             <div class="pagination" id="batchHistoryPagination"></div>
         </div>
 
-        <div class="card">
+        <div class="card tax-list-card">
             <div class="section-header">
                 <span>세액 계산 배치 목록</span>
                 <span class="section-sub" id="taxSnapshotCount"></span>
@@ -85,6 +85,7 @@
                     <span id="batchTriggerResult" class="tax-batch-result"></span>
                 </span>
             </div>
+            <div class="tax-list-wrap">
             <table class="tax-table">
                 <thead>
                 <tr>
@@ -96,7 +97,7 @@
                     <th>최종공제액</th>
                     <th>최종세액</th>
                     <th>산출시각</th>
-                    <th></th>
+                    <th>계산 상태</th>
                 </tr>
                 </thead>
                 <tbody id="taxSnapshotBody">
@@ -105,6 +106,7 @@
                 </tr>
                 </tbody>
             </table>
+            </div>
             <div class="pagination" id="taxPagination"></div>
         </div>
     </div>

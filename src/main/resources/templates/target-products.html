@@ -59,13 +59,18 @@
             </select>
             <button type="button" id="tpFilterSubmit" class="btn btn-primary">검색</button>
             <button type="button" id="tpFilterReset" class="btn">초기화</button>
+            <span id="tpBatchTriggerGroup" class="tp-batch-inline">
+                  <button type="button" id="tpTriggerBatch" class="tp-batch-btn">배치 수동 실행</button>
+                  <span id="tpBatchTriggerResult" class="tp-batch-result"></span>
+            </span>
         </div>
-        <div class="card">
-            <div class="section-header">
+        <div class="card tp-list-card">
+        <div class="section-header">
                 <span>외부 순매수 판정 목록</span>
                 <span class="section-sub">myData 연동, 최신순</span>
             </div>
-            <table class="dash-table">
+            <div class="tp-table-wrap">
+            <table class="dash-table tp-judgement-table">
                 <thead>
                 <tr>
                     <th>판정일시</th>
@@ -84,6 +89,7 @@
                 </tr>
                 </tbody>
             </table>
+            </div>
             <div id="tpPagination" class="pagination"></div>
         </div>
     </div>

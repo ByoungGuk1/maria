@@ -278,7 +278,6 @@ public class AccountClosureServiceImpl implements AccountClosureService {
             String reason) {
         AccountDTO changedAccount =
                 AccountDTO.builder().accountId(accountId).status(newStatus).build();
-        accountLogService.recordStatusChange(
-                changedAccount, previousStatus, changedAt, reason);
+        accountLogService.recordStatusChange(changedAccount, previousStatus, changedAt, reason);
     }
 }

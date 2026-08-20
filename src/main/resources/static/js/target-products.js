@@ -11,8 +11,9 @@ $(function () {
         INHERITANCE: "상속",
         GIFT: "증여"
     };
-    var PAGE_SIZE = 17;
+    var PAGE_SIZE = 20;
     var activeKpiFilter = null;
+    var newJudgementIds = [];
 
     var KRW_FORMATTER = new Intl.NumberFormat("ko-KR");
     var DATETIME_FORMATTER = new Intl.DateTimeFormat("ko-KR", {
@@ -33,6 +34,10 @@ $(function () {
     }
     function escapeHtml(value) {
         return $("<div>").text(value).html();
+    }
+    function canTriggerBatch() {
+        var admin = MARIA.auth.currentAdmin();
+        return !!admin && (admin.role === "ADMIN" || admin.role === "SETTLEMENT");
     }
     function assetLabel(item) {
         if (item.stockType === "FUND") {
@@ -79,9 +84,11 @@ $(function () {
             var targetBadge = item.isTarget
                 ? '<span class="status-badge completed" title="' + escapeHtml(judgementReason(item)) + '">대상</span>'
                 : '<span class="status-badge failed" title="' + escapeHtml(judgementReason(item)) + '">비대상</span>';
+            var isNew = newJudgementIds.indexOf(item.judgementId) !== -1;
+            var newBadge = isNew ? '<span class="tp-new-badge">NEW</span> ' : "";
             var row =
-                "<tr>" +
-                "<td>" + formatDateTime(item.judgedAt) + "</td>" +
+                "<tr" + (isNew ? ' class="tp-new-row"' : "") + ">" +
+                "<td>" + newBadge + formatDateTime(item.judgedAt) + "</td>" +
                 "<td>" + escapeHtml(item.customerName || "-") + "</td>" +
                 "<td>" + (STOCK_TYPE_LABEL[item.stockType] || item.stockType) + "</td>" +
                 "<td>" + assetLabel(item) + "</td>" +
@@ -201,7 +208,7 @@ $(function () {
                 renderTable(res.data.content);
                 renderPagination(res.data);
                 $("#tpLoading").hide();
-                $("#tpBody").show();
+                $("#tpBody").css("display", "flex");
             })
             .fail(function (xhr) {
                 if (xhr.status === 401) {
@@ -236,14 +243,45 @@ $(function () {
     });
     $(".kpi-filter-card").on("click", function () {
         var filter = $(this).data("filter");
-        activeKpiFilter = filter === "all" ? null : filter;
+        var resolvedFilter = filter === "all" ? null : filter;
+        if (activeKpiFilter === resolvedFilter) {
+            resolvedFilter = null;
+        }
+        activeKpiFilter = resolvedFilter;
         $("#tpFilterCustomerName").val("");
         $("#tpFilterStockType").val("");
         $("#tpFilterIsTarget").val("");
         $("#tpFilterTradeType").val("");
         $(".kpi-filter-card").removeClass("active");
-        $(this).addClass("active");
+        if (activeKpiFilter === null) {
+            $('.kpi-filter-card[data-filter="all"]').addClass("active");
+        } else {
+            $(this).addClass("active");
+        }
         loadTargetProducts(0);
+    });
+
+    $("#tpBatchTriggerGroup").toggle(canTriggerBatch());
+    $("#tpTriggerBatch").on("click", function () {
+        if (!canTriggerBatch()) return;
+        $("#tpBatchTriggerResult").text("실행 중...");
+        MARIA.auth.ajax({ url: "/api/external-trade-sync/jobs", method: "POST" })
+            .done(function (res) {
+                var r = res.data;
+                newJudgementIds = r.newJudgementIds || [];
+                var text = "완료 · 신규 " + r.newJudgementCount + "건 · 스킵 " + r.skippedJudgementCount + "건";
+                if (r.failedCustomerCount > 0) {
+                    text += " · 실패 " + r.failedCustomerCount + "명";
+                }
+                $("#tpBatchTriggerResult").text(text);
+                loadSummary();
+                loadTargetProducts(0);
+            })
+            .fail(function (xhr) {
+                if (xhr.status === 401) return;
+                $("#tpBatchTriggerResult").text("실패");
+                MARIA.ui.showError((xhr.responseJSON && xhr.responseJSON.message) || "배치 실행에 실패했습니다.");
+            });
     });
 
     loadSummary();

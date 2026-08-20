@@ -5,13 +5,14 @@
 }
 
 .withdrawal-breadcrumb-link {
-    text-decoration: underline;
-    text-decoration-thickness: 1px;
-    text-underline-offset: 3px;
+    color: var(--textPrimary);
+    font-weight: 600;
+    cursor: pointer;
 }
 
 .withdrawal-breadcrumb-link:hover {
     color: var(--accent);
+    text-decoration: underline;
 }
 
 .withdrawal-page-header {
@@ -513,6 +514,13 @@
 
 .withdrawal-account-warning {
     margin-top: 12px;
+}
+
+.withdrawal-account-warning,
+.withdrawal-drawer-warning {
+    border: 0;
+    background: var(--dangerBg);
+    color: var(--danger);
 }
 
 .withdrawal-selected-allocation {

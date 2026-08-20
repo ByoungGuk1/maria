@@ -1,18 +1,23 @@
 .di-layout {
     display: flex;
     gap: 16px;
-    align-items: flex-start;
+    flex: 1;
+    min-height: 0;
 }
 
 .di-list-card {
     width: 480px;
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     overflow: hidden;
 }
 
 .di-detail-card {
     flex: 1;
     min-width: 0;
+    overflow-y: auto;
 }
 
 .di-filter-bar {
@@ -38,6 +43,9 @@
 .di-list-items {
     display: flex;
     flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
 }
 
 .di-list-item {
@@ -198,4 +206,21 @@
 
 .di-list-card .section-header {
     border-bottom: none;
+}
+
+.content:has(#diBody) {
+    overflow: hidden;
+}
+
+#diBody {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    height: calc(100vh - 92px);
+    min-height: 0;
+    overflow: hidden;
+}
+
+#diBody > .kpi-grid {
+    margin-bottom: 0;
 }
