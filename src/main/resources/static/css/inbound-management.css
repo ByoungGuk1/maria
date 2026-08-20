@@ -312,6 +312,12 @@
     background: var(--tableHeaderBg);
 }
 
+.ib-inbound-table tbody tr.selected,
+.ib-inbound-table tbody tr.selected:hover {
+    background: var(--accentBg);
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+
 .ib-cell-sub {
     font: 400 10.5px 'Noto Sans KR', sans-serif;
     color: var(--textMuted);
@@ -396,4 +402,10 @@
 
 #ibBody > .kpi-grid {
     margin-bottom: 0;
+}
+
+.ib-inbound-table tbody tr.selected,
+.ib-inbound-table tbody tr.selected:hover {
+    background: var(--accentBg);
+    box-shadow: inset 3px 0 0 var(--accent);
 }

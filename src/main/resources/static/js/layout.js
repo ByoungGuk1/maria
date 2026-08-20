@@ -41,39 +41,24 @@ $(function () {
         return;
     }
 
-    // 공통 내비게이션: 브랜드는 관리자 첫 화면으로, 현재 경로명은
-    // 쿼리스트링을 제거한 현재 페이지의 첫 화면으로 이동한다.
+    // 브랜드명은 특정 화면으로 이동하지 않는 고정 영역으로 둔다.
     $(".sidebar-brand")
-        .attr({ role: "link", tabindex: "0" })
-        .on("click keydown", function (event) {
-            if (event.type === "click" || event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                window.location.href = "/admin/statistics";
-            }
-        });
+        .removeAttr("href role tabindex")
+        .css("cursor", "default");
 
+    // 현재 경로명은 쿼리스트링을 제거한 현재 페이지의 첫 화면으로 이동한다.
     $(".breadcrumb").each(function () {
         // Thymeleaf fragment가 span 대신 div를 주입하는 페이지도 있으므로
         // 마지막 breadcrumb 항목을 현재 페이지 링크로 정규화한다.
         $(this).children().last().addClass("breadcrumb-current");
     });
     $(".breadcrumb").on("click keydown", ".breadcrumb-current", function (event) {
-        if ($(this).hasClass("withdrawal-breadcrumb-link")) {
-            return;
-        }
         if (event.type === "click" || event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             window.location.href = window.location.pathname;
         }
     });
     $(".breadcrumb-current").attr({ role: "link", tabindex: "0" });
-    if (window.location.pathname === "/admin/withdrawals") {
-        // 인출관리에서는 기존 화면 동작을 유지해 경로명을 링크로 사용하지 않는다.
-        $(".withdrawal-breadcrumb-link")
-            .removeAttr("href role tabindex")
-            .off("click keydown")
-            .css("cursor", "default");
-    }
 
     var currentAdminRole = adminRole(MARIA.auth.currentAdmin());
     if (currentAdminRole) {
