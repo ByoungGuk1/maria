@@ -14,6 +14,7 @@ $(function () {
     var PAGE_SIZE = 10;
     var currentPage = 0;
     var totalPages = 1;
+    var selectedOrderId = null;
 
     function escapeHtml(value) {
         return $("<div>").text(value == null ? "" : value).html();
@@ -122,8 +123,9 @@ $(function () {
             var productLabel = order.ticker
                 ? escapeHtml(order.ticker) + (order.name ? " · " + escapeHtml(order.name) : "")
                 : "-";
+            var selectedClass = Number(order.orderId) === Number(selectedOrderId) ? " is-selected" : "";
             var row =
-                '<tr data-order-id="' + order.orderId + '">' +
+                '<tr class="sellorder-row' + selectedClass + '" data-order-id="' + order.orderId + '">' +
                 '<td class="sellorder-ellipsis"><div class="sellorder-account-no">' + MARIA.fmt.hyphenateAccountNo(order.accountNo) + "</div>" +
                 '<div class="sellorder-account-name">' + escapeHtml(order.customerName || "") + "</div></td>" +
                 '<td class="sellorder-ellipsis">' + productLabel + "</td>" +
@@ -264,6 +266,9 @@ $(function () {
     }
 
     $(document).on("click", "#sellOrderListBody tr[data-order-id]", function () {
+        selectedOrderId = Number($(this).data("order-id"));
+        $("#sellOrderListBody tr[data-order-id]").removeClass("is-selected");
+        $(this).addClass("is-selected");
         openDrawer($(this).data("order-id"));
     });
 

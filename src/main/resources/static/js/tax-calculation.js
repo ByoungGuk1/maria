@@ -35,6 +35,7 @@ $(function () {
     var PAGE_SIZE = 10;
     var searchKeyword = "";
     var benefitFilter = "";
+    var selectedAccountId = null;
     var kpiFilter = null; // null | "taxable" | "reducedOrExcluded" - 상단 KPI 카드 클릭으로 설정됨
     var sortMode = "finalTaxDesc";
     var allBatchHistory = [];
@@ -77,6 +78,15 @@ $(function () {
 
     function isStaleSnapshot(snap) {
         return !!businessToday && dateOnly(snap.calculatedAt) !== businessToday;
+    }
+
+    function snapshotStatus(snap) {
+        if (!businessToday) {
+            return { label: "확인 중", className: "tax-row-pending" };
+        }
+        return isStaleSnapshot(snap)
+            ? { label: "오래된 값", className: "tax-row-flag" }
+            : { label: "최신값", className: "tax-row-current" };
     }
 
     function showError(message) {
@@ -183,9 +193,10 @@ $(function () {
         pageSnapshots.forEach(function (snap) {
             var account = accountMap[snap.accountId] || {};
             var benefitKey = (account.benefit || "").toLowerCase();
-            var stale = isStaleSnapshot(snap);
+            var calculationStatus = snapshotStatus(snap);
+            var selectedClass = Number(snap.accountId) === Number(selectedAccountId) ? " is-selected" : "";
             var row =
-                "<tr data-account-id=\"" + snap.accountId + "\">" +
+                "<tr class=\"tax-snapshot-row" + selectedClass + "\" data-account-id=\"" + snap.accountId + "\">" +
                 "<td><div class=\"account-no\">" + MARIA.fmt.hyphenateAccountNo(account.accountNo) + "</div>" +
                 "<div class=\"account-name\">" + escapeHtml(account.customerName || "") + "</div></td>" +
                 "<td><span class=\"status-badge " + escapeHtml(benefitKey) + "\">" +
@@ -196,7 +207,7 @@ $(function () {
                 "<td>" + formatAmount(snap.finalDeduction) + "</td>" +
                 "<td>" + formatAmount(snap.finalTax) + "</td>" +
                 "<td>" + formatDateTime(snap.calculatedAt) + "</td>" +
-                "<td>" + (stale ? "<span class=\"tax-row-flag\" title=\"오늘 배치 기준이 아닙니다\">오래된 값</span>" : "") + "</td>" +
+                "<td><span class=\"" + calculationStatus.className + "\">" + calculationStatus.label + "</span></td>" +
                 "</tr>";
             $body.append(row);
         });
@@ -436,6 +447,9 @@ $(function () {
         return MARIA.auth.ajax({ url: "/api/admin/system-clock", method: "GET" })
             .done(function (res) {
                 businessToday = dateOnly(res.data);
+                if (allSnapshots.length) {
+                    renderPage();
+                }
             });
     }
 
@@ -453,7 +467,7 @@ $(function () {
                 if (accountIds.length === 0) {
                     renderSnapshots([]);
                     $("#taxLoading").hide();
-                    $("#taxBody").show();
+                    $("#taxBody").css("display", "flex");
                     return;
                 }
 
@@ -480,7 +494,7 @@ $(function () {
                     });
                     renderSnapshots(snapshots);
                     $("#taxLoading").hide();
-                    $("#taxBody").show();
+                    $("#taxBody").css("display", "flex");
                 }).fail(function (xhr) {
                     if (xhr && xhr.status === 401) return;
                     showError((xhr && xhr.responseJSON && xhr.responseJSON.message) || "세액 계산 목록을 불러오지 못했습니다.");
@@ -493,8 +507,11 @@ $(function () {
     }
 
     $("#taxSnapshotBody").on("click", "tr[data-account-id]", function () {
+        selectedAccountId = Number($(this).data("account-id"));
+        renderPage();
         openDetail($(this).data("account-id"));
     });
+
 
     $("#detailCloseBtn, #detailPanelBackdrop").on("click", closeDetailPanel);
 

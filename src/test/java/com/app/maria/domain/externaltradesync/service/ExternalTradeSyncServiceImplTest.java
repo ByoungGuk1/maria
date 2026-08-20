@@ -60,6 +60,11 @@ class ExternalTradeSyncServiceImplTest {
         // 대부분의 테스트가 syncCustomer()를 거쳐 now()를 호출하지만,
         // 고객이 아예 없는 테스트(syncAllDoesNothingWhenNoCustomers)는 호출하지 않으므로 lenient 처리
         lenient().when(businessClockService.now()).thenReturn(TODAY.atStartOfDay());
+        // judge()가 신규 판정 시 judgementId를 꺼내 쓰므로, 실패를 검증하는 테스트가 개별
+        // thenThrow로 덮어쓰지 않는 한 기본적으로 성공 DTO를 반환하도록 lenient 처리
+        lenient()
+                .when(targetProductService.judge(any()))
+                .thenReturn(TargetProductJudgementDTO.builder().judgementId(1L).build());
     }
 
     private static CustomerCiHashDTO customer(Long customerId, String ciHash) {
@@ -145,6 +150,35 @@ class ExternalTradeSyncServiceImplTest {
 
         verify(targetProductService).judge(foreignStock);
         verify(targetProductService).judge(fund);
+    }
+
+    @Test
+    @DisplayName("syncAll()은 신규/스킵 건수와 신규 판정 ID 목록을 결과로 반환한다")
+    void syncAllReturnsCountsAndNewJudgementIds() {
+        MydataTradeResponseDTO alreadyJudged =
+                trade(100L, "FOREIGN_STOCK", null, LocalDate.of(2026, 3, 5));
+        MydataTradeResponseDTO newTrade1 = trade(101L, "ETF", null, LocalDate.of(2026, 3, 6));
+        MydataTradeResponseDTO newTrade2 = trade(102L, "ETN", null, LocalDate.of(2026, 3, 7));
+
+        when(customerMapper.selectActiveRiaCustomers()).thenReturn(List.of(customer(1L, "ci-1")));
+        when(cursorMapper.selectByCustomerId(1L)).thenReturn(Optional.empty());
+        when(mydataTradeClient.getTrades(any()))
+                .thenReturn(List.of(alreadyJudged, newTrade1, newTrade2));
+        when(targetProductMapper.existsByMydataTradeId(100L)).thenReturn(true);
+        when(targetProductMapper.existsByMydataTradeId(101L)).thenReturn(false);
+        when(targetProductMapper.existsByMydataTradeId(102L)).thenReturn(false);
+        when(targetProductService.judge(newTrade1))
+                .thenReturn(TargetProductJudgementDTO.builder().judgementId(201L).build());
+        when(targetProductService.judge(newTrade2))
+                .thenReturn(TargetProductJudgementDTO.builder().judgementId(202L).build());
+
+        var result = externalTradeSyncService.syncAll();
+
+        assertThat(result.getCustomerCount()).isEqualTo(1);
+        assertThat(result.getFailedCustomerCount()).isEqualTo(0);
+        assertThat(result.getNewJudgementCount()).isEqualTo(2);
+        assertThat(result.getSkippedJudgementCount()).isEqualTo(1);
+        assertThat(result.getNewJudgementIds()).containsExactlyInAnyOrder(201L, 202L);
     }
 
     @Test

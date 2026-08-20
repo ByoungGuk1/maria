@@ -95,7 +95,6 @@ $(function () {
 
     function renderList() {
         var $items = $("#diListItems").empty();
-        $("#diListCount").text(investments.length + "건 수신");
         if (investments.length === 0) {
             $items.append('<div class="dash-empty">국내투자 계좌가 없습니다.</div>');
             return;
@@ -282,7 +281,7 @@ $(function () {
                     $("#diDetail").empty().append('<div class="dash-empty">왼쪽에서 계좌를 선택하세요.</div>');
                 }
                 $("#diLoading").hide();
-                $("#diBody").show();
+                $("#diBody").css("display", "flex");
             })
             .fail(function (xhr) {
                 if (xhr.status === 401) {

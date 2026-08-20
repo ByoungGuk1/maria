@@ -7,6 +7,7 @@ $(function () {
 
     var accounts = [];
     var selectedAccountId = null;
+    var selectedInboundId = null;
     var accountKeyword = "";
     var ACCOUNT_PAGE_SIZE = 10;
 
@@ -182,7 +183,7 @@ $(function () {
                     $("#ibInboundPagination").empty();
                 }
                 $("#ibLoading").hide();
-                $("#ibBody").show();
+                $("#ibBody").css("display", "flex");
             })
             .fail(function (xhr) {
                 if (xhr.status === 401) {
@@ -211,7 +212,9 @@ $(function () {
 
         var rows = inbounds.map(function (item) {
             return (
-                '<tr class="ib-inbound-row" data-inbound-id="' + item.inboundId + '">' +
+                '<tr class="ib-inbound-row' +
+                (Number(item.inboundId) === Number(selectedInboundId) ? ' selected' : '') +
+                '" data-inbound-id="' + item.inboundId + '">' +
                 '<td>' + escapeHtml(item.ticker || "-") + '<br><span class="ib-cell-sub">' + escapeHtml(item.productName || "-") + '</span></td>' +
                 '<td>' + formatQty(item.requestedQty) + '</td>' +
                 '<td>' + formatQty(item.snapshotQty) + '</td>' +
@@ -241,6 +244,8 @@ $(function () {
             var inboundId = Number($(this).data("inbound-id"));
             var item = inbounds.filter(function (i) { return i.inboundId === inboundId; })[0];
             if (item) {
+                selectedInboundId = inboundId;
+                renderInboundList();
                 openDetailOverlay(item);
             }
         });
@@ -448,7 +453,7 @@ $(function () {
                 '<span>취득 정보</span>' +
                 '<span class="section-sub">lot ' + item.lots.length + '건</span>' +
                 '</div>' +
-                '<table class="dash-table">' +
+                '<table class="dash-table ib-lot-table">' +
                 '<thead><tr><th>출처</th><th>매수일</th><th>기록일</th><th>매수단가</th><th>보유 현황</th><th>매도 이력</th></tr></thead>' +
                 '<tbody>' + lotRows + '</tbody>' +
                 '</table>'
