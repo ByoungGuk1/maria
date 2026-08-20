@@ -453,7 +453,7 @@ $(function () {
                 if (accountIds.length === 0) {
                     renderSnapshots([]);
                     $("#taxLoading").hide();
-                    $("#taxBody").show();
+                    $("#taxBody").css("display", "flex");
                     return;
                 }
 
@@ -480,7 +480,7 @@ $(function () {
                     });
                     renderSnapshots(snapshots);
                     $("#taxLoading").hide();
-                    $("#taxBody").show();
+                    $("#taxBody").css("display", "flex");
                 }).fail(function (xhr) {
                     if (xhr && xhr.status === 401) return;
                     showError((xhr && xhr.responseJSON && xhr.responseJSON.message) || "세액 계산 목록을 불러오지 못했습니다.");

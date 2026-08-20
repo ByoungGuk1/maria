@@ -439,3 +439,34 @@
         grid-template-columns: 1fr;
     }
 }
+
+.content:has(#taxBody) {
+    overflow: hidden;
+}
+
+#taxBody {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    height: calc(100vh - 92px);
+    min-height: 0;
+    overflow: hidden;
+}
+
+#taxBody > .kpi-grid {
+    margin-bottom: 0;
+}
+
+.tax-list-card {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.tax-list-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
