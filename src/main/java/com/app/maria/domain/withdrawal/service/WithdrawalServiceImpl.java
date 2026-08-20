@@ -45,8 +45,8 @@ public class WithdrawalServiceImpl {
     private final GeneralAccountClient generalAccountClient;
 
     @Transactional
-    public List<WithdrawalAllocationDTO> withdraw(WithdrawalRequestDTO requestDTO) {
-        return processWithdrawal(requestDTO, Status.OPENED).getAllocations();
+    public WithdrawalResultDTO withdraw(WithdrawalRequestDTO requestDTO) {
+        return processWithdrawal(requestDTO, Status.OPENED);
     }
 
     private WithdrawalResultDTO processWithdrawal(

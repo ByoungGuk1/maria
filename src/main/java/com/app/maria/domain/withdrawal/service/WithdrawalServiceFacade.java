@@ -1,11 +1,9 @@
 package com.app.maria.domain.withdrawal.service;
 
-import com.app.maria.domain.withdrawal.dto.WithdrawalAllocationDTO;
 import com.app.maria.domain.withdrawal.dto.WithdrawalResultDTO;
 import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
 import com.app.maria.domain.withdrawal.exception.InsufficientWithdrawalAmountException;
 import java.math.BigDecimal;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -17,7 +15,7 @@ public class WithdrawalServiceFacade implements WithdrawalService {
     private final WithdrawalFailureService withdrawalFailureService;
 
     @Override
-    public List<WithdrawalAllocationDTO> withdraw(WithdrawalRequestDTO requestDTO) {
+    public WithdrawalResultDTO withdraw(WithdrawalRequestDTO requestDTO) {
         try {
             return withdrawalService.withdraw(requestDTO);
         } catch (InsufficientWithdrawalAmountException exception) {
