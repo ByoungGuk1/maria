@@ -80,6 +80,15 @@ $(function () {
         return !!businessToday && dateOnly(snap.calculatedAt) !== businessToday;
     }
 
+    function snapshotStatus(snap) {
+        if (!businessToday) {
+            return { label: "확인 중", className: "tax-row-pending" };
+        }
+        return isStaleSnapshot(snap)
+            ? { label: "오래된 값", className: "tax-row-flag" }
+            : { label: "최신값", className: "tax-row-current" };
+    }
+
     function showError(message) {
         $("#taxLoading").hide();
         $("#taxError").text(message).show();
@@ -184,7 +193,7 @@ $(function () {
         pageSnapshots.forEach(function (snap) {
             var account = accountMap[snap.accountId] || {};
             var benefitKey = (account.benefit || "").toLowerCase();
-            var stale = isStaleSnapshot(snap);
+            var calculationStatus = snapshotStatus(snap);
             var selectedClass = Number(snap.accountId) === Number(selectedAccountId) ? " is-selected" : "";
             var row =
                 "<tr class=\"tax-snapshot-row" + selectedClass + "\" data-account-id=\"" + snap.accountId + "\">" +
@@ -198,7 +207,7 @@ $(function () {
                 "<td>" + formatAmount(snap.finalDeduction) + "</td>" +
                 "<td>" + formatAmount(snap.finalTax) + "</td>" +
                 "<td>" + formatDateTime(snap.calculatedAt) + "</td>" +
-                "<td>" + (stale ? "<span class=\"tax-row-flag\" title=\"오늘 배치 기준이 아닙니다\">오래된 값</span>" : "") + "</td>" +
+                "<td><span class=\"" + calculationStatus.className + "\">" + calculationStatus.label + "</span></td>" +
                 "</tr>";
             $body.append(row);
         });
@@ -438,6 +447,9 @@ $(function () {
         return MARIA.auth.ajax({ url: "/api/admin/system-clock", method: "GET" })
             .done(function (res) {
                 businessToday = dateOnly(res.data);
+                if (allSnapshots.length) {
+                    renderPage();
+                }
             });
     }
 
@@ -499,6 +511,7 @@ $(function () {
         renderPage();
         openDetail($(this).data("account-id"));
     });
+
 
     $("#detailCloseBtn, #detailPanelBackdrop").on("click", closeDetailPanel);
 
