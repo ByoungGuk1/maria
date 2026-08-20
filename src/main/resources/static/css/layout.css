@@ -549,14 +549,81 @@ button[id*="Close"]:hover {
     color: var(--textPrimary);
 }
 
+/* 모든 상세 드로어의 닫기는 원형 X 버튼으로 통일한다. */
+.drawer-close-button,
+.tax-detail-close,
+.di-detail-close,
+.settlement-drawer-close,
+.sellorder-drawer-actions button,
+.withdrawal-drawer-actions button {
+    width: 30px !important;
+    height: 30px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--inputBorder) !important;
+    border-radius: 50% !important;
+    background: var(--inputBg) !important;
+    color: var(--textSecondary) !important;
+    font-size: 19px !important;
+    line-height: 1 !important;
+}
+
+.drawer-close-button:hover,
+.tax-detail-close:hover,
+.di-detail-close:hover,
+.settlement-drawer-close:hover,
+.sellorder-drawer-actions button:hover,
+.withdrawal-drawer-actions button:hover {
+    border-color: var(--accent) !important;
+    background: var(--accentBg) !important;
+    color: var(--accent) !important;
+}
+
 /* 세액계산 화면과 같은 호버 톤을 공통 목록에 적용하되 기존 테두리는 유지한다. */
 .data-table tbody tr:hover td,
 .table tbody tr:hover td,
 .list-row:hover,
 .account-list-item:hover,
 .withdrawal-account-item:hover,
-.kpi-card-clickable:hover {
+.kpi-card-clickable:hover,
+.settlement-trend-detail-grid > div:hover,
+.settlement-table tbody tr:hover,
+.target-products .kpi-filter-card:hover,
+.kpi-filter-card:hover,
+.kpi-clickable:hover {
     background: var(--hoverBg);
+}
+
+/* 선택된 목록은 인출관리와 동일하게 파란 배경과 좌측 강조선을 유지한다. */
+.account-table tbody tr.is-selected,
+.sellorder-table tbody tr.is-selected,
+.tax-table tbody tr.is-selected,
+.settlement-table tbody tr.is-selected {
+    position: relative;
+    background: var(--accentBg) !important;
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.account-table tbody tr.is-selected td,
+.sellorder-table tbody tr.is-selected td,
+.tax-table tbody tr.is-selected td,
+.settlement-table tbody tr.is-selected td {
+    background: transparent !important;
+}
+
+.sellorder-table tbody tr:hover td,
+.tax-table tbody tr:hover td,
+.settlement-table tbody tr:hover td {
+    background: var(--hoverBg);
+}
+
+.account-table tbody tr.is-selected:hover td,
+.sellorder-table tbody tr.is-selected:hover td,
+.tax-table tbody tr.is-selected:hover td,
+.settlement-table tbody tr.is-selected:hover td {
+    background: transparent !important;
 }
 
 body[data-admin-role="admin"] .sidebar-item,

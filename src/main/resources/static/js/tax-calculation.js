@@ -35,6 +35,7 @@ $(function () {
     var PAGE_SIZE = 10;
     var searchKeyword = "";
     var benefitFilter = "";
+    var selectedAccountId = null;
     var kpiFilter = null; // null | "taxable" | "reducedOrExcluded" - 상단 KPI 카드 클릭으로 설정됨
     var sortMode = "finalTaxDesc";
     var allBatchHistory = [];
@@ -184,8 +185,9 @@ $(function () {
             var account = accountMap[snap.accountId] || {};
             var benefitKey = (account.benefit || "").toLowerCase();
             var stale = isStaleSnapshot(snap);
+            var selectedClass = Number(snap.accountId) === Number(selectedAccountId) ? " is-selected" : "";
             var row =
-                "<tr data-account-id=\"" + snap.accountId + "\">" +
+                "<tr class=\"tax-snapshot-row" + selectedClass + "\" data-account-id=\"" + snap.accountId + "\">" +
                 "<td><div class=\"account-no\">" + MARIA.fmt.hyphenateAccountNo(account.accountNo) + "</div>" +
                 "<div class=\"account-name\">" + escapeHtml(account.customerName || "") + "</div></td>" +
                 "<td><span class=\"status-badge " + escapeHtml(benefitKey) + "\">" +
@@ -493,6 +495,8 @@ $(function () {
     }
 
     $("#taxSnapshotBody").on("click", "tr[data-account-id]", function () {
+        selectedAccountId = Number($(this).data("account-id"));
+        renderPage();
         openDetail($(this).data("account-id"));
     });
 
