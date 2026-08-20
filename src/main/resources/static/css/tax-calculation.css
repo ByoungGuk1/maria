@@ -256,6 +256,20 @@
     white-space: nowrap;
 }
 
+.tax-row-current,
+.tax-row-pending {
+    font: 600 10px 'Noto Sans KR', sans-serif;
+    white-space: nowrap;
+}
+
+.tax-row-current {
+    color: var(--success);
+}
+
+.tax-row-pending {
+    color: var(--textMuted);
+}
+
 .tax-detail-backdrop {
     position: fixed;
     inset: 0;
@@ -438,4 +452,35 @@
     .tax-detail-grid {
         grid-template-columns: 1fr;
     }
+}
+
+.content:has(#taxBody) {
+    overflow: hidden;
+}
+
+#taxBody {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    height: calc(100vh - 92px);
+    min-height: 0;
+    overflow: hidden;
+}
+
+#taxBody > .kpi-grid {
+    margin-bottom: 0;
+}
+
+.tax-list-card {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.tax-list-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
 }

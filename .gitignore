@@ -22,6 +22,9 @@ HELP.md
 .gradle/
 build/
 
+# Local scratch/log files
+scratchpad/
+
 ### STS ###
 .apt_generated
 .classpath

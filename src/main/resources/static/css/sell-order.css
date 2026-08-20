@@ -348,3 +348,6 @@
         grid-template-columns: 1fr;
     }
 }
+.sellorder-header {
+    display: none;
+}

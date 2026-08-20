@@ -41,6 +41,30 @@ $(function () {
         return;
     }
 
+    // 브랜드명은 특정 화면으로 이동하지 않는 고정 영역으로 둔다.
+    $(".sidebar-brand")
+        .removeAttr("href role tabindex")
+        .css("cursor", "default");
+
+    // 현재 경로명은 쿼리스트링을 제거한 현재 페이지의 첫 화면으로 이동한다.
+    $(".breadcrumb").each(function () {
+        // Thymeleaf fragment가 span 대신 div를 주입하는 페이지도 있으므로
+        // 마지막 breadcrumb 항목을 현재 페이지 링크로 정규화한다.
+        $(this).children().last().addClass("breadcrumb-current");
+    });
+    $(".breadcrumb").on("click keydown", ".breadcrumb-current", function (event) {
+        if (event.type === "click" || event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            window.location.href = window.location.pathname;
+        }
+    });
+    $(".breadcrumb-current").attr({ role: "link", tabindex: "0" });
+
+    var currentAdminRole = adminRole(MARIA.auth.currentAdmin());
+    if (currentAdminRole) {
+        document.body.dataset.adminRole = currentAdminRole;
+    }
+
     var currentBusinessTime = null;
     var admin = MARIA.auth.currentAdmin();
     if (admin) {
@@ -97,8 +121,10 @@ $(function () {
     });
 
     $(document).on("keydown", function (event) {
-        if (event.key === "Escape" && !$("#clockModal").prop("hidden")) {
-            closeClockModal();
+        if (event.key === "Escape") {
+            if (closeActiveOverlay()) {
+                event.preventDefault();
+            }
         }
     });
 
@@ -182,6 +208,81 @@ $(function () {
     function closeClockModal() {
         $("#clockModal").prop("hidden", true);
     }
+
+    function adminRole(currentAdmin) {
+        return currentAdmin && currentAdmin.role ? String(currentAdmin.role).toLowerCase() : "";
+    }
+
+    function closeActiveOverlay() {
+        if (!$("#clockModal").prop("hidden")) {
+            closeClockModal();
+            return true;
+        }
+
+        var $openOverlay = $("[role='dialog']:visible, .is-open, [class*='drawer'].is-open")
+            .filter(function () {
+                return $(this).is(":visible") && !$(this).is("[hidden]");
+            })
+            .last();
+        if (!$openOverlay.length) {
+            return false;
+        }
+
+        var $closeButton = $openOverlay
+            .find("[data-drawer-close], [aria-label*='닫'], [id*='close'], [class*='close']")
+            .filter(":visible")
+            .first();
+        if ($closeButton.length) {
+            $closeButton.trigger("click");
+            return true;
+        }
+
+        $openOverlay.removeClass("is-open").attr("aria-hidden", "true").prop("hidden", true);
+        return true;
+    }
+
+    // 검색어가 필요한 화면에서 빈 값으로 조회하는 실수를 공통으로 방지한다.
+    $(document).on("click", "button, input[type='submit']", function (event) {
+        var $button = $(this);
+        var label = ($button.attr("id") || "") + " " + ($button.attr("class") || "") + " " + $button.text();
+        if (!/(search|조회|검색)/i.test(label)) {
+            return;
+        }
+
+        var $scope = $button.closest("form, .search-bar, .search-panel, .filter-bar, .toolbar, .query-bar");
+        var $textInputs = $scope.find("input[type='text'], input[type='search']");
+        if (!$textInputs.length || $textInputs.filter(function () { return $.trim($(this).val()); }).length) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        MARIA.ui.showError("검색어를 입력해 주세요.");
+    });
+
+    // 페이지별 클릭 핸들러보다 먼저 검사해야 하므로 capture 단계에서도 동일한
+    // 방어 로직을 둔다. 텍스트 검색 입력이 있는 조회 버튼에만 적용된다.
+    document.addEventListener("click", function (event) {
+        var button = event.target.closest && event.target.closest("button, input[type='submit']");
+        if (!button) {
+            return;
+        }
+        var label = (button.id || "") + " " + (button.className || "") + " " + (button.textContent || "");
+        if (!/(search|조회|검색)/i.test(label)) {
+            return;
+        }
+        var scope = button.closest("form, .search-bar, .search-panel, .filter-bar, .toolbar, .query-bar");
+        if (!scope) {
+            return;
+        }
+        var inputs = Array.from(scope.querySelectorAll("input[type='text'], input[type='search']"));
+        if (!inputs.length || inputs.some(function (input) { return input.value.trim(); })) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        MARIA.ui.showError("검색어를 입력해 주세요.");
+    }, true);
 
     function toDateTimeLocalValue(value) {
         function pad(number) {
