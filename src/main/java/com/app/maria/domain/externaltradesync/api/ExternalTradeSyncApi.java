@@ -1,6 +1,7 @@
 package com.app.maria.domain.externaltradesync.api;
 
-import com.app.maria.domain.externaltradesync.launcher.ExternalTradeSyncLauncher;
+import com.app.maria.domain.externaltradesync.dto.response.ExternalTradeSyncResultDTO;
+import com.app.maria.domain.externaltradesync.service.ExternalTradeSyncService;
 import com.app.maria.global.response.ApiResponseDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -14,12 +15,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/external-trade-sync")
 public class ExternalTradeSyncApi {
 
-    private final ExternalTradeSyncLauncher externalTradeSyncLauncher;
+    private final ExternalTradeSyncService externalTradeSyncService;
 
     @PreAuthorize("hasAnyRole('SETTLEMENT', 'ADMIN')")
     @PostMapping("/jobs")
-    public ResponseEntity<ApiResponseDTO<Void>> executeSync() {
-        externalTradeSyncLauncher.launch();
-        return ResponseEntity.accepted().body(ApiResponseDTO.of("외부 순매수 동기화가 실행되었습니다."));
+    public ResponseEntity<ApiResponseDTO<ExternalTradeSyncResultDTO>> executeSync() {
+        ExternalTradeSyncResultDTO result = externalTradeSyncService.syncAll();
+        return ResponseEntity.ok(
+                ApiResponseDTO.of("동기화 완료 · 신규 " + result.getNewJudgementCount() + "건", result));
     }
 }
