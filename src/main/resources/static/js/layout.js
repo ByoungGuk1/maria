@@ -3,6 +3,23 @@
  * layout/main.html을 쓰는 모든 페이지에서 공통으로 로드된다.
  */
 MARIA.ui = MARIA.ui || {};
+MARIA.deeplink = MARIA.deeplink || {};
+MARIA.deeplink.accountNoFromUrl = function () {
+    return new URLSearchParams(window.location.search).get("accountNo");
+};
+
+// 계좌번호 = 회사코드(3자리) + 고유번호(7자리). DB/lookup용 값은 항상 순수 10자리 숫자 그대로 두고,
+// 화면 표시할 때만 하이픈을 넣는다 - 아무 731로 시작하는 10자리 숫자나 바꾸면 금액과 충돌할 수 있어서
+// 계좌번호를 렌더링하는 자리에서만 명시적으로 이 함수를 부른다(전역 DOM 스캔 방식은 쓰지 않음).
+MARIA.fmt = MARIA.fmt || {};
+MARIA.fmt.hyphenateAccountNo = function (accountNo) {
+    if (!accountNo) return "-";
+    var no = String(accountNo);
+    return /^\d{10}$/.test(no) ? no.slice(0, 3) + "-" + no.slice(3) : no;
+};
+MARIA.fmt.accountNoHtml = function (accountNo) {
+    return '<span class="account-no-fmt">' + MARIA.fmt.hyphenateAccountNo(accountNo) + '</span>';
+};
 
 MARIA.ui.showError = function (message) {
     var $container = $("#toastContainer");

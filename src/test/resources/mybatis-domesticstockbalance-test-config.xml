@@ -12,6 +12,12 @@
         <typeAlias alias="DomesticInvestmentSearchDTO" type="com.app.maria.domain.domestic.dto.DomesticInvestmentSearchDTO"/>
         <typeAlias alias="DomesticInvestmentListDTO" type="com.app.maria.domain.domestic.dto.DomesticInvestmentListDTO"/>
         <typeAlias alias="DomesticHoldingDTO" type="com.app.maria.domain.domestic.dto.DomesticHoldingDTO"/>
+        <typeAlias alias="DomesticInvestmentSummaryDTO" type="com.app.maria.domain.domestic.dto.DomesticInvestmentSummaryDTO"/>
+        <typeAlias alias="DomesticProductDTO" type="com.app.maria.domain.domestic.dto.DomesticProductDTO"/>
+        <typeAlias alias="DomesticRestrictedHoldingDTO" type="com.app.maria.domain.domestic.dto.DomesticRestrictedHoldingDTO"/>
+        <typeAlias alias="DomesticCashHeavyAccountDTO" type="com.app.maria.domain.domestic.dto.DomesticCashHeavyAccountDTO"/>
+        <typeAlias alias="DomesticFundHoldingDetailDTO" type="com.app.maria.domain.domestic.dto.DomesticFundHoldingDetailDTO"/>
+        <typeAlias alias="DomesticAccountLiteDTO" type="com.app.maria.domain.domestic.dto.DomesticAccountLiteDTO"/>
     </typeAliases>
 
     <environments default="domesticstockbalance-mapper-test">

@@ -1,13 +1,18 @@
 package com.app.maria.domain.withdrawal.api;
 
+import com.app.maria.domain.withdrawal.dto.WithdrawalResultDTO;
+import com.app.maria.domain.withdrawal.dto.request.WithdrawalRequestDTO;
 import com.app.maria.domain.withdrawal.dto.response.WithdrawalDetailResponseDTO;
 import com.app.maria.domain.withdrawal.dto.response.WithdrawalListResponseDTO;
 import com.app.maria.domain.withdrawal.service.WithdrawalQueryService;
+import com.app.maria.domain.withdrawal.service.WithdrawalService;
 import com.app.maria.domain.withdrawal.type.WithdrawalStatus;
 import com.app.maria.global.response.ApiResponseDTO;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -18,6 +23,14 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasAnyRole('ADMIN', 'SETTLEMENT', 'REVIEWER', 'VIEWER')")
 public class WithdrawalApi {
     private final WithdrawalQueryService withdrawalQueryService;
+    private final WithdrawalService withdrawalService;
+
+    @PostMapping
+    public ResponseEntity<ApiResponseDTO<WithdrawalResultDTO>> withdraw(
+            @Valid @RequestBody WithdrawalRequestDTO requestDTO) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponseDTO.of("인출 신청 처리 완료", withdrawalService.withdraw(requestDTO)));
+    }
 
     @GetMapping
     public ResponseEntity<ApiResponseDTO<List<WithdrawalListResponseDTO>>> getWithdrawals(

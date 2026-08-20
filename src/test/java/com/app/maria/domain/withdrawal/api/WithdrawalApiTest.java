@@ -2,15 +2,20 @@ package com.app.maria.domain.withdrawal.api;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.app.maria.domain.withdrawal.dto.response.WithdrawalAllocationResponseDTO;
 import com.app.maria.domain.withdrawal.dto.response.WithdrawalDetailResponseDTO;
 import com.app.maria.domain.withdrawal.dto.response.WithdrawalListResponseDTO;
+import com.app.maria.domain.withdrawal.dto.WithdrawalResultDTO;
 import com.app.maria.domain.withdrawal.exception.WithdrawalNotFoundException;
 import com.app.maria.domain.withdrawal.service.WithdrawalQueryService;
+import com.app.maria.domain.withdrawal.service.WithdrawalService;
 import com.app.maria.domain.withdrawal.type.WithdrawalStatus;
 import com.app.maria.domain.withdrawal.type.WithdrawalType;
 import com.app.maria.global.exception.GlobalExceptionHandler;
@@ -31,12 +36,14 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 @ExtendWith(MockitoExtension.class)
 class WithdrawalApiTest {
     @Mock private WithdrawalQueryService withdrawalQueryService;
+    @Mock private WithdrawalService withdrawalService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc =
-                MockMvcBuilders.standaloneSetup(new WithdrawalApi(withdrawalQueryService))
+                MockMvcBuilders.standaloneSetup(
+                                new WithdrawalApi(withdrawalQueryService, withdrawalService))
                         .setControllerAdvice(new GlobalExceptionHandler())
                         .setMessageConverters(
                                 new MappingJackson2HttpMessageConverter(
@@ -46,6 +53,52 @@ class WithdrawalApiTest {
                                                                 .WRITE_DATES_AS_TIMESTAMPS)
                                                 .build()))
                         .build();
+    }
+
+    @Test
+    void postWithdrawalReturnsCreatedResult() throws Exception {
+        when(withdrawalService.withdraw(any()))
+                .thenReturn(
+                        WithdrawalResultDTO.builder()
+                                .withdrawalId(10L)
+                                .allocations(List.of())
+                                .build());
+
+        mockMvc.perform(
+                        post("/api/withdrawals")
+                                .contentType(APPLICATION_JSON)
+                                .content(
+                                        """
+                                        {
+                                          "accountId": 1,
+                                          "requestedAmount": 800,
+                                          "earlyWithdrawalAgreed": false,
+                                          "destinationGeneralAccountId": 20
+                                        }
+                                        """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.withdrawalId").value(10));
+
+        verify(withdrawalService).withdraw(any());
+    }
+
+    @Test
+    void postWithdrawalRejectsNonPositiveAmount() throws Exception {
+        mockMvc.perform(
+                        post("/api/withdrawals")
+                                .contentType(APPLICATION_JSON)
+                                .content(
+                                        """
+                                        {
+                                          "accountId": 1,
+                                          "requestedAmount": 0,
+                                          "earlyWithdrawalAgreed": false,
+                                          "destinationGeneralAccountId": 20
+                                        }
+                                        """))
+                .andExpect(status().isBadRequest());
+
+        verify(withdrawalService, org.mockito.Mockito.never()).withdraw(any());
     }
 
     @Test

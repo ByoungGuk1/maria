@@ -189,7 +189,7 @@ $(function () {
         currentItemPage = page.current;
         if (!itemList.length) { renderEmptyTable($body, "#settlementItemPagination", "정산 항목이 없습니다."); return; }
         page.items.forEach(function (item) {
-            $body.append('<tr class="settlement-item-row' + (item.itemId === selectedItemId ? " is-selected" : "") + '" data-item-id="' + item.itemId + '"><td>#' + item.itemId + "</td><td>" + escapeHtml(item.accountNo) + "</td><td>" + escapeHtml(item.ticker) + "</td><td>" + formatAmount(item.provisionalAmount) + "</td><td>" + formatAmount(item.finalAmount) + "</td><td>" + statusBadge(item.result) + "</td><td>" + escapeHtml(item.failureCode || item.failureMessage) + "</td><td>" + formatDateTime(item.processedAt) + "</td></tr>");
+            $body.append('<tr class="settlement-item-row' + (item.itemId === selectedItemId ? " is-selected" : "") + '" data-item-id="' + item.itemId + '"><td>#' + item.itemId + "</td><td>" + MARIA.fmt.accountNoHtml(item.accountNo) + "</td><td>" + escapeHtml(item.ticker) + "</td><td>" + formatAmount(item.provisionalAmount) + "</td><td>" + formatAmount(item.finalAmount) + "</td><td>" + statusBadge(item.result) + "</td><td>" + escapeHtml(item.failureCode || item.failureMessage) + "</td><td>" + formatDateTime(item.processedAt) + "</td></tr>");
         });
         renderPagination("#settlementItemPagination", page, function (targetPage) {
             currentItemPage = targetPage;
@@ -305,7 +305,6 @@ $(function () {
                     "#detailItemFailure": item.failureMessage || "",
                     "#detailItemExchangeId": item.exchangeId || "-",
                     "#detailItemAccountId": item.accountId || "-",
-                    "#detailItemAccountNo": item.accountNo || "-",
                     "#detailItemOrderId": item.orderId || "-",
                     "#detailItemProduct": [item.ticker, item.productName].filter(Boolean).join(" · ") || "-",
                     "#detailItemExchangeStatus": item.settlementStatus || "-",
@@ -318,6 +317,7 @@ $(function () {
                     "#detailItemFinalRate": formatRate(item.finalRate),
                     "#detailItemDifference": difference == null ? "-" : (difference > 0 ? "+" : "") + formatAmount(difference)
                 });
+                $("#detailItemAccountNo").html(MARIA.fmt.accountNoHtml(item.accountNo));
                 renderRetryHistory(item.exchangeId);
                 $("#retrySettlementItem").toggle(canExecuteSettlement() && item.result === "FAILED");
             })

@@ -3,6 +3,7 @@ package com.app.maria.domain.accountclosure.service;
 import com.app.maria.domain.account.dto.AccountDTO;
 import com.app.maria.domain.account.exception.AccountNotFoundException;
 import com.app.maria.domain.account.mapper.AccountMapper;
+import com.app.maria.domain.account.service.AccountLogService;
 import com.app.maria.domain.account.type.Status;
 import com.app.maria.domain.accountclosure.dto.AccountClosureDTO;
 import com.app.maria.domain.accountclosure.dto.request.AccountClosureApplyRequestDTO;
@@ -39,6 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(rollbackFor = Exception.class)
 public class AccountClosureServiceImpl implements AccountClosureService {
     private final AccountMapper accountMapper;
+    private final AccountLogService accountLogService;
     private final AccountClosureMapper accountClosureMapper;
     private final BusinessClockService businessClockService;
     private final GeneralAccountClient generalAccountClient;
@@ -92,6 +94,12 @@ public class AccountClosureServiceImpl implements AccountClosureService {
         if (insertedClosureRows != 1) {
             throw new AccountClosureProcessingException("계좌 해지 신청 저장에 실패했습니다.");
         }
+        recordStatusChange(
+                account.getAccountId(),
+                Status.OPENED,
+                Status.CLOSURE_REQUESTED,
+                closure.getRequestedAt(),
+                "계좌 해지 신청");
         logAccountStatusChange(
                 auditActorProvider.getCurrentAdminId(),
                 account.getAccountId(),
@@ -126,6 +134,12 @@ public class AccountClosureServiceImpl implements AccountClosureService {
         if (reopenedRows != 1) {
             throw new AccountClosureProcessingException("해지 반려 후 계좌 상태 복구에 실패했습니다.");
         }
+        recordStatusChange(
+                closure.getAccountId(),
+                Status.CLOSURE_REQUESTED,
+                Status.OPENED,
+                closure.getProcessedAt(),
+                "계좌 해지 신청 반려: " + reason);
         logAccountStatusChange(
                 adminId,
                 closure.getAccountId(),
@@ -193,6 +207,12 @@ public class AccountClosureServiceImpl implements AccountClosureService {
         if (completedClosureRows != 1) {
             throw new AccountClosureProcessingException("계좌 해지 신청 완료 처리에 실패했습니다.");
         }
+        recordStatusChange(
+                closure.getAccountId(),
+                Status.CLOSURE_REQUESTED,
+                Status.CLOSED,
+                closure.getProcessedAt(),
+                "계좌 해지 완료");
         logAccountStatusChange(
                 adminId,
                 closure.getAccountId(),
@@ -248,5 +268,17 @@ public class AccountClosureServiceImpl implements AccountClosureService {
                         .reasonCode(reasonCode.name())
                         .processedAt(processedAt)
                         .build());
+    }
+
+    private void recordStatusChange(
+            Long accountId,
+            Status previousStatus,
+            Status newStatus,
+            LocalDateTime changedAt,
+            String reason) {
+        AccountDTO changedAccount =
+                AccountDTO.builder().accountId(accountId).status(newStatus).build();
+        accountLogService.recordStatusChange(
+                changedAccount, previousStatus, changedAt, reason);
     }
 }

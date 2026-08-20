@@ -11,10 +11,12 @@
             so.processed_at as sell_at,
             so.sell_qty,
             id.purchase_fx_rate,
-            id.purchase_price
+            id.purchase_price,
+            concat(fp.ticker, ' ', fp.name) as product_label
         from krw_exchange ke
         join sell_order so on so.order_id = ke.order_id
         join inbound_detail id on id.inbound_detail_id = so.inbound_detail_id
+        join foreign_product fp on fp.foreign_product_id = id.foreign_product_id
         where ke.account_id in
         <foreach collection="accountIds" item="accountId" open="(" close=")" separator=",">
             #{accountId}
@@ -39,7 +41,8 @@
         select
             a.account_id,
             tpj.trade_date,
-            tpj.net_buy_amount
+            tpj.net_buy_amount,
+            coalesce(tpj.fund_name, tpj.ticker) as product_label
         from target_product_judgement tpj
         join customer c on c.ci_hash = tpj.ci_hash
         join account a on a.customer_id = c.customer_id
@@ -68,6 +71,25 @@
             from tax_calculation
             where account_id = #{accountId} and basis_type = #{basisType}
         )
+    </select>
+
+    <select id="findLatestCalculation" resultType="TaxCalculationDTO">
+        select
+            calc_id,
+            account_id,
+            calculated_at,
+            basis_type,
+            weighted_sell,
+            original_gain_amount,
+            weighted_gain,
+            weighted_external_amount,
+            adjust_ratio,
+            final_deduction,
+            final_tax
+        from tax_calculation
+        where account_id = #{accountId}
+        order by calculated_at desc, calc_id desc
+        limit 1
     </select>
 
 </mapper>

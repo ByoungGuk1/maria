@@ -12,16 +12,26 @@ $(function () {
     });
     var TIME_FORMATTER = new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: true });
     var accounts = [];
+    var accountStatus = "";
     var selectedAccountId = null;
+    var selectedClosureRequestId = null;
     var currentPage = 1;
     var PAGE_SIZE = 10;
     var availableLimitRequestIds = {};
     var accountApplicationChart = null;
     var customerSearchTimer = null;
     var customerSearchRequest = null;
+    var businessToday = null; // "YYYY-MM-DD" - system_clock 기준(실제 브라우저 시간 아님)
 
     function escapeHtml(value) {
         return $("<div>").text(value == null ? "" : value).html();
+    }
+
+    function loadBusinessToday() {
+        return MARIA.auth.ajax({ url: "/api/admin/system-clock", method: "GET" })
+            .done(function (res) {
+                businessToday = res.data ? res.data.slice(0, 10) : null;
+            });
     }
 
     function formatAmount(amount) {
@@ -76,6 +86,11 @@ $(function () {
 
     function showError(message) {
         MARIA.ui.showError(message);
+    }
+
+    function canProcessClosure() {
+        var admin = MARIA.auth.currentAdmin();
+        return !!admin && (admin.role === "ADMIN" || admin.role === "REVIEWER");
     }
 
     function errorMessage(xhr, fallback) {
@@ -196,7 +211,7 @@ $(function () {
             var date = new Date(value);
             return date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
         }
-        var today = new Date();
+        var today = businessToday ? new Date(businessToday) : new Date();
         var yesterday = new Date(today);
         yesterday.setDate(today.getDate() - 1);
         var todayKey = dateKey(today);
@@ -205,14 +220,22 @@ $(function () {
             var scoped = status ? accounts.filter(function (account) { return account.status === status; }) : accounts;
             var todayCount = scoped.filter(function (account) { return dateKey(account.createdAt) === todayKey; }).length;
             var yesterdayCount = scoped.filter(function (account) { return dateKey(account.createdAt) === yesterdayKey; }).length;
-            var delta = todayCount - yesterdayCount;
-            return (delta >= 0 ? "+" : "") + delta + " 전날 대비";
+            if (yesterdayCount === 0) {
+                return { text: "—", cls: "" };
+            }
+            var rate = (todayCount - yesterdayCount) / yesterdayCount * 100;
+            var arrow = rate > 0 ? "▲" : rate < 0 ? "▼" : "-";
+            var cls = rate > 0 ? "up" : rate < 0 ? "down" : "";
+            return { text: arrow + Math.abs(rate).toFixed(1) + "%", cls: cls };
         }
-        $("#totalAccountDelta").text(deltaText(""));
+        function applyDelta(selector, status) {
+            var delta = deltaText(status);
+            $(selector).text(delta.text).attr("class", delta.cls);
+        }
+        applyDelta("#totalAccountDelta", "");
         STATUS_CONFIG.forEach(function (status) {
             $(status.summarySelector).text(accounts.filter(function (account) { return account.status === status.value; }).length);
-            var deltaSelector = status.summarySelector.replace("Count", "Delta");
-            $(deltaSelector).text(deltaText(status.value));
+            applyDelta(status.summarySelector.replace("Count", "Delta"), status.value);
         });
     }
 
@@ -278,7 +301,7 @@ $(function () {
         var customerId = ($("#accountCustomerIdSearch").val() || "").trim();
         var customerName = ($("#accountCustomerNameSearch").val() || "").trim().toLowerCase();
         var accountNo = ($("#accountNoSearch").val() || "").trim().toLowerCase();
-        var status = $("#accountStatusFilter").val();
+        var status = accountStatus;
         return accounts.filter(function (account) {
             var matchesStatus = !status || account.status === status;
             var matchesCustomerId = !customerId || String(account.customerId || "") === customerId;
@@ -309,7 +332,7 @@ $(function () {
             var selectedClass = account.accountId === selectedAccountId ? " is-selected" : "";
             $body.append(
                 '<tr class="account-row' + selectedClass + '" data-account-id="' + account.accountId + '">' +
-                '<td><div class="account-number">' + escapeHtml(account.accountNo || "-") + '</div>' +
+                '<td><div class="account-number">' + MARIA.fmt.hyphenateAccountNo(account.accountNo) + '</div>' +
                 '<div class="account-customer-id">' + escapeHtml(account.customerName || "고객 ID " + account.customerId) + ' · 고객 ID ' + escapeHtml(account.customerId) + '</div></td>' +
                 '<td><span class="account-status-badge ' + statusClass + '">' + escapeHtml(statusLabel(account.status)) + '</span></td>' +
                 '<td class="account-amount">' + formatAmount(account.limitAmount) + '</td>' +
@@ -326,9 +349,9 @@ $(function () {
         function addPageButton(label, page, disabled, active) {
             $("<button>", {
                 type: "button",
-                class: "account-page-button" + (active ? " is-active" : ""),
+                class: "page-btn" + (active ? " active" : ""),
                 text: label,
-                disabled: disabled
+                disabled: disabled || active
             }).data("page", page).appendTo($pagination);
         }
         addPageButton("이전", Math.max(1, blockStart - 1), blockStart === 1, false);
@@ -344,9 +367,11 @@ $(function () {
             $("#accountDetail").hide();
             return;
         }
-        $("#accountDetailModal").css("display", "flex");
+        $("#accountDetailModal").addClass("is-open").attr("aria-hidden", "false");
+        $("#accountDetailBackdrop").prop("hidden", false);
+        $("#accountDetail").show();
         $("body").addClass("account-modal-open");
-        $("#detailAccountNo").text(account.accountNo || "-");
+        $("#detailAccountNo").html(MARIA.fmt.accountNoHtml(account.accountNo));
         $("#detailCustomerId").text(account.customerId || "-");
         $("#detailStatus").text(statusLabel(account.status));
         $("#detailLimitAmount").text(formatAmount(account.limitAmount));
@@ -372,7 +397,59 @@ $(function () {
         items.forEach(function (item) { $list.append(renderer(item)); });
     }
 
+    function renderClosureDetail(closure) {
+        selectedClosureRequestId = closure.closureRequestId || null;
+        var closureStatusLabels = {
+            REQUESTED: "해지 신청",
+            COMPLETED: "해지 완료",
+            REJECTED: "반려"
+        };
+        var immatureLabel = closure.status === "COMPLETED" ? "실제 미경과 인출액" : "현재 미경과 원금";
+        var immatureValue = closure.hasImmaturePrincipal
+            ? formatAmount(closure.immaturePrincipalAmount) + (closure.status === "COMPLETED" ? "" : " 보유")
+            : "없음";
+        var taxImpactLabel = closure.status === "COMPLETED" ? "세제혜택 처리 결과" : "세제혜택 예상 영향";
+        var taxImpactValue = "영향 없음";
+        if (closure.status === "COMPLETED") {
+            taxImpactValue = closure.taxBenefitCancellationOccurred ? "전체 취소 발생" : "취소 없음";
+        } else if (closure.status === "REJECTED") {
+            taxImpactValue = "취소 없음";
+        } else if (closure.taxBenefitCancellationExpected) {
+            taxImpactValue = "승인 시 전체 취소";
+        }
+
+        var rows =
+            '<div class="account-related-item"><strong>처리 상태</strong><span>' + escapeHtml(closureStatusLabels[closure.status] || closure.status || "-") + '</span></div>' +
+            '<div class="account-related-item"><strong>인출 목적지 일반계좌</strong><span>' + escapeHtml(closure.destinationGeneralAccountId || "-") + '</span></div>' +
+            '<div class="account-related-item"><strong>신청 시각</strong><span>' + escapeHtml(formatDateTime(closure.requestedAt)) + '</span></div>' +
+            '<div class="account-related-item"><strong>조기인출 동의</strong><span>' + (closure.earlyWithdrawalAgreed ? "동의함" : "동의하지 않음") + '</span></div>' +
+            '<div class="account-related-item"><strong>' + immatureLabel + '</strong><span>' + escapeHtml(immatureValue) + '</span></div>' +
+            '<div class="account-related-item"><strong>' + taxImpactLabel + '</strong><span>' + escapeHtml(taxImpactValue) + '</span></div>';
+        if (closure.processedAt) {
+            rows += '<div class="account-related-item"><strong>처리 시각</strong><span>' + escapeHtml(formatDateTime(closure.processedAt)) + '</span></div>';
+        }
+        if (closure.rejectionReason) {
+            rows += '<div class="account-related-item"><strong>반려 사유</strong><span>' + escapeHtml(closure.rejectionReason) + '</span></div>';
+        }
+        $("#detailClosure").html(rows);
+        $("#closureReviewActions").prop(
+            "hidden",
+            !(closure.status === "REQUESTED" && canProcessClosure())
+        );
+    }
+
+    function loadClosureDetail(accountId, closureRequestId, closureSummary) {
+        MARIA.auth.ajax({ url: "/api/account-closures/" + closureRequestId, method: "GET" })
+            .done(function (res) {
+                if (selectedAccountId !== accountId) return;
+                renderClosureDetail($.extend({}, closureSummary, res.data || {}));
+            });
+    }
+
     function loadManagementDetail(accountId) {
+        selectedClosureRequestId = null;
+        $("#closureReviewActions").prop("hidden", true);
+        $("#closureRejectionReason").val("");
         $("#detailHoldings, #detailInbounds, #detailClosure, #detailWithdrawals").html('<div class="account-related-empty">불러오는 중...</div>');
         MARIA.auth.ajax({ url: "/api/account/" + accountId + "/management-detail", method: "GET" })
             .done(function (res) {
@@ -387,6 +464,9 @@ $(function () {
                 renderRelatedList("#detailClosure", detail.closure ? [detail.closure] : [], function (item) {
                     return '<div class="account-related-item"><strong>' + escapeHtml(item.status) + '</strong><span>신청 ' + formatDateTime(item.requestedAt) + (item.rejectionReason ? ' · ' + escapeHtml(item.rejectionReason) : '') + '</span></div>';
                 }, "해지 신청 이력이 없습니다.");
+                if (detail.closure && detail.closure.closureRequestId) {
+                    loadClosureDetail(accountId, detail.closure.closureRequestId, detail.closure);
+                }
                 renderRelatedList("#detailWithdrawals", detail.withdrawals, function (item) {
                     return '<div class="account-related-item"><strong>' + formatAmount(item.requestedAmount) + '</strong><span>' + escapeHtml(item.status) + ' · ' + formatDateTime(item.processedAt) + '</span></div>';
                 }, "인출 이력이 없습니다.");
@@ -397,7 +477,8 @@ $(function () {
     }
 
     function closeAccountDetail() {
-        $("#accountDetailModal").hide();
+        $("#accountDetailModal").removeClass("is-open").attr("aria-hidden", "true");
+        $("#accountDetailBackdrop").prop("hidden", true);
         $("body").removeClass("account-modal-open");
     }
 
@@ -541,6 +622,38 @@ $(function () {
             });
     }
 
+    function submitClosureReview(action) {
+        if (!selectedClosureRequestId || !canProcessClosure()) return;
+
+        var reason = $("#closureRejectionReason").val().trim();
+        if (action === "reject" && !reason) {
+            showError("반려 사유를 입력해 주세요.");
+            return;
+        }
+
+        var options = {
+            url: "/api/account-closures/" + selectedClosureRequestId + "/" + action,
+            method: "POST"
+        };
+        if (action === "reject") {
+            options.contentType = "application/json";
+            options.data = JSON.stringify({ reason: reason });
+        }
+
+        $("#approveClosure, #rejectClosure").prop("disabled", true);
+        MARIA.auth.ajax(options)
+            .done(function () {
+                $("#closureRejectionReason").val("");
+                reloadSelectedAccount();
+            })
+            .fail(function (xhr) {
+                handleRequestFailure(xhr, "계좌 해지 신청 처리에 실패했습니다.");
+            })
+            .always(function () {
+                $("#approveClosure, #rejectClosure").prop("disabled", false);
+            });
+    }
+
     function submitForm($form, options) {
         if (!$form[0].checkValidity()) {
             showError("입력값을 확인해 주세요.");
@@ -561,30 +674,38 @@ $(function () {
     }
 
     $(document).on("click", ".account-row", function () { selectAccount($(this).data("account-id")); });
-    $(document).on("click", ".account-page-button", function () {
+    $(document).on("click", "#accountPagination .page-btn", function () {
         if (this.disabled) return;
         currentPage = Number($(this).data("page"));
         renderAccounts();
     });
     $(document).on("click", ".account-summary-card", function () {
         var status = $(this).data("status") || "";
-        $("#accountStatusFilter").val(status);
+        accountStatus = status;
         $(".account-summary-card").removeClass("is-active");
         $(this).addClass("is-active");
         currentPage = 1;
         renderAccounts();
     });
+    $(document).on("click", ".account-detail-link-btn", function () {
+        var account = getSelectedAccount();
+        if (!account || !account.accountNo) return;
+        window.location.href = $(this).data("target") + "?accountNo=" + encodeURIComponent(account.accountNo);
+    });
     $(document).on("input", ".account-currency-input", function () { formatLimitInput(this); });
-    $("#accountCustomerIdSearch, #accountCustomerNameSearch, #accountNoSearch, #accountStatusFilter").on("input change", function () {
+    $("#accountCustomerIdSearch, #accountCustomerNameSearch, #accountNoSearch").on("input", function () {
         currentPage = 1;
-        var status = $("#accountStatusFilter").val();
-        $(".account-summary-card").removeClass("is-active").filter('[data-status="' + status + '"]').addClass("is-active");
         renderAccounts();
     });
     $("#accountTrendStatusFilter").on("change", function () {
         renderApplicationTrend();
     });
-    $("#closeAccountDetail, #accountDetailModal > .account-modal-backdrop").on("click", closeAccountDetail);
+    $("#closeAccountDetail, #accountDetailBackdrop").on("click", closeAccountDetail);
+    $(document).on("keydown", function (event) {
+        if (event.key === "Escape" && $("#accountDetailModal").hasClass("is-open")) {
+            closeAccountDetail();
+        }
+    });
     $("#createCustomerName").on("input", function () {
         var name = $(this).val().trim();
         clearSelectedCustomer();
@@ -620,6 +741,8 @@ $(function () {
     });
     $("#approveAccount").on("click", function () { submitReview("approve"); });
     $("#rejectAccount").on("click", function () { submitReview("reject"); });
+    $("#approveClosure").on("click", function () { submitClosureReview("approve"); });
+    $("#rejectClosure").on("click", function () { submitClosureReview("reject"); });
     $("#openReapplyModal").on("click", openReapplyModal);
     $("#closeReapplyModal, #cancelReapplyModal, #accountReapplyModal .account-modal-backdrop").on("click", function () { closeModal("#accountReapplyModal"); });
     $("#accountReapplyModalForm").on("submit", function (event) {
@@ -686,5 +809,8 @@ $(function () {
         });
     });
 
+    loadBusinessToday().done(function () {
+        renderSummary();
+    });
     loadAccounts();
 });
