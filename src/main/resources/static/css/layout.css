@@ -27,6 +27,9 @@
     --infoBg: #f1ebfb;
     --teal: #0f8b8d;
     --tealBg: #e0f5f5;
+    --hoverBg: #f5f4f2;
+    --scrollbarThumb: #8b98aa;
+    --scrollbarTrack: #e7ebf0;
 }
 
 :root[data-theme="dark"] {
@@ -55,6 +58,9 @@
     --infoBg: rgba(167, 139, 250, 0.16);
     --teal: #4fd1c5;
     --tealBg: rgba(79, 209, 197, 0.16);
+    --hoverBg: #262c39;
+    --scrollbarThumb: #56657a;
+    --scrollbarTrack: #202733;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -84,11 +90,40 @@
         --infoBg: rgba(167, 139, 250, 0.16);
         --teal: #4fd1c5;
         --tealBg: rgba(79, 209, 197, 0.16);
+        --hoverBg: #262c39;
+        --scrollbarThumb: #56657a;
+        --scrollbarTrack: #202733;
     }
 }
 
 * {
     box-sizing: border-box;
+}
+
+/* 모든 페이지에서 동일한 스크롤바를 사용한다. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbarThumb) var(--scrollbarTrack);
+}
+
+*::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+    background: var(--scrollbarTrack);
+    border-radius: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: var(--scrollbarThumb);
+    border: 2px solid var(--scrollbarTrack);
+    border-radius: 8px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
 }
 
 html, body {
@@ -199,6 +234,11 @@ a {
     padding: 0 18px 16px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.18);
     margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.sidebar-brand:hover .sidebar-brand-name {
+    color: #ffffff;
 }
 
 .sidebar-brand-mark {
@@ -258,6 +298,11 @@ a.sidebar-item:hover {
     background: rgba(255, 255, 255, 0.06);
 }
 
+/* 계좌 해지 자동 처리 전환으로 관리자 메뉴에서는 해지관리 화면을 노출하지 않는다. */
+a.sidebar-item[href="/admin/account-closures"] {
+    display: none;
+}
+
 .sidebar-item.active {
     background: #4a6690;
     color: #ffffff;
@@ -308,6 +353,22 @@ a.sidebar-item:hover {
 .breadcrumb-current {
     color: var(--textPrimary);
     font-weight: 600;
+    cursor: pointer;
+}
+
+.breadcrumb-home {
+    color: var(--textMuted);
+    cursor: pointer;
+}
+
+.breadcrumb-home:hover {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+.breadcrumb-current:hover {
+    color: var(--accent);
+    text-decoration: underline;
 }
 
 .topbar-actions {
@@ -452,6 +513,64 @@ a.sidebar-item:hover {
     cursor: pointer;
     font-size: 24px;
     line-height: 1;
+}
+
+/* 드로어/모달 닫기 버튼 공통 규격 */
+button[data-drawer-close],
+button[class*="drawer-close"],
+button[class*="detail-close"],
+button[id*="drawer-close"],
+button[id*="detail-close"],
+button[id^="close"],
+button[id*="Close"] {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--textMuted);
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+}
+
+button[data-drawer-close]:hover,
+button[class*="drawer-close"]:hover,
+button[class*="detail-close"]:hover,
+button[id*="drawer-close"]:hover,
+button[id*="detail-close"]:hover,
+button[id^="close"]:hover,
+button[id*="Close"]:hover {
+    border-color: var(--inputBorder);
+    background: var(--hoverBg);
+    color: var(--textPrimary);
+}
+
+/* 세액계산 화면과 같은 호버 톤을 공통 목록에 적용하되 기존 테두리는 유지한다. */
+.data-table tbody tr:hover td,
+.table tbody tr:hover td,
+.list-row:hover,
+.account-list-item:hover,
+.withdrawal-account-item:hover,
+.kpi-card-clickable:hover {
+    background: var(--hoverBg);
+}
+
+body[data-admin-role="admin"] .sidebar-item,
+body[data-admin-role="reviewer"] .sidebar-item,
+body[data-admin-role="settlement"] .sidebar-item,
+body[data-admin-role="viewer"] .sidebar-item {
+    font-size: 12.5px;
+}
+
+body[data-admin-role="admin"] .breadcrumb,
+body[data-admin-role="reviewer"] .breadcrumb,
+body[data-admin-role="settlement"] .breadcrumb,
+body[data-admin-role="viewer"] .breadcrumb {
+    font-size: 12.5px;
 }
 
 .clock-modal-body {

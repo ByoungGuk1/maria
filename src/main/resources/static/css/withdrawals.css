@@ -515,6 +515,13 @@
     margin-top: 12px;
 }
 
+.withdrawal-account-warning,
+.withdrawal-drawer-warning {
+    border: 1px solid var(--danger);
+    background: var(--dangerBg);
+    color: var(--danger);
+}
+
 .withdrawal-selected-allocation {
     margin-top: 2px;
     border-top: 1px solid var(--cardBorder);
