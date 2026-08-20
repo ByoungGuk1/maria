@@ -188,9 +188,9 @@ class WithdrawalServiceImplTest {
     void exactlyOneYearAfterFinalAt_isMatured() {
         prepareOpenedAccount(List.of(leftAmount(11L, "300", NOW.minusYears(1))));
 
-        List<WithdrawalAllocationDTO> result = withdrawalService.withdraw(request("200"));
+        WithdrawalResultDTO result = withdrawalService.withdraw(request("200"));
 
-        assertThat(result)
+        assertThat(result.getAllocations())
                 .singleElement()
                 .satisfies(
                         allocation -> {
@@ -225,16 +225,16 @@ class WithdrawalServiceImplTest {
         when(accountMapper.updateBenefitToImpossible(ACCOUNT_ID)).thenReturn(1);
         when(accountBenefitLogMapper.insertLog(org.mockito.ArgumentMatchers.any())).thenReturn(1);
 
-        List<WithdrawalAllocationDTO> result = withdrawalService.withdraw(request("800", true));
+        WithdrawalResultDTO result = withdrawalService.withdraw(request("800", true));
 
-        assertThat(result)
+        assertThat(result.getAllocations())
                 .extracting(WithdrawalAllocationDTO::getLeftAmountId)
                 .containsExactly(61L, 62L, 63L);
-        assertThat(result)
+        assertThat(result.getAllocations())
                 .extracting(WithdrawalAllocationDTO::getAllocatedAmount)
                 .containsExactly(
                         new BigDecimal("300"), new BigDecimal("400"), new BigDecimal("100"));
-        assertThat(result)
+        assertThat(result.getAllocations())
                 .extracting(WithdrawalAllocationDTO::getType)
                 .containsExactly(
                         WithdrawalType.MATURED_PRINCIPAL_INCLUDED,
@@ -263,9 +263,9 @@ class WithdrawalServiceImplTest {
                 "300", BenefitType.IMPOSSIBLE, List.of(leftAmount(71L, "300", NOW.minusMonths(3))));
         when(accountMapper.updateBenefitToImpossible(ACCOUNT_ID)).thenReturn(0);
 
-        List<WithdrawalAllocationDTO> result = withdrawalService.withdraw(request("200", true));
+        WithdrawalResultDTO result = withdrawalService.withdraw(request("200", true));
 
-        assertThat(result)
+        assertThat(result.getAllocations())
                 .singleElement()
                 .satisfies(
                         allocation -> {
@@ -296,12 +296,12 @@ class WithdrawalServiceImplTest {
                         leftAmount(21L, "300", NOW.minusYears(2)),
                         leftAmount(22L, "500", NOW.minusYears(1).minusDays(1))));
 
-        List<WithdrawalAllocationDTO> result = withdrawalService.withdraw(request("700"));
+        WithdrawalResultDTO result = withdrawalService.withdraw(request("700"));
 
-        assertThat(result)
+        assertThat(result.getAllocations())
                 .extracting(WithdrawalAllocationDTO::getLeftAmountId)
                 .containsExactly(21L, 22L);
-        assertThat(result)
+        assertThat(result.getAllocations())
                 .extracting(WithdrawalAllocationDTO::getAllocatedAmount)
                 .containsExactly(new BigDecimal("300"), new BigDecimal("400"));
 
@@ -323,9 +323,9 @@ class WithdrawalServiceImplTest {
     void requestWithinEarnings_isAllocatedWithoutAPrincipalSource() {
         prepareOpenedAccount("1000", List.of(leftAmount(31L, "700", NOW.minusYears(2))));
 
-        List<WithdrawalAllocationDTO> result = withdrawalService.withdraw(request("200"));
+        WithdrawalResultDTO result = withdrawalService.withdraw(request("200"));
 
-        assertThat(result)
+        assertThat(result.getAllocations())
                 .singleElement()
                 .satisfies(
                         allocation -> {
@@ -350,15 +350,15 @@ class WithdrawalServiceImplTest {
                         leftAmount(41L, "300", NOW.minusYears(2)),
                         leftAmount(42L, "500", NOW.minusYears(1).minusDays(1))));
 
-        List<WithdrawalAllocationDTO> result = withdrawalService.withdraw(request("450"));
+        WithdrawalResultDTO result = withdrawalService.withdraw(request("450"));
 
-        assertThat(result)
+        assertThat(result.getAllocations())
                 .extracting(WithdrawalAllocationDTO::getLeftAmountId)
                 .containsExactly(null, 41L);
-        assertThat(result)
+        assertThat(result.getAllocations())
                 .extracting(WithdrawalAllocationDTO::getAllocatedAmount)
                 .containsExactly(new BigDecimal("200"), new BigDecimal("250"));
-        assertThat(result)
+        assertThat(result.getAllocations())
                 .extracting(WithdrawalAllocationDTO::getType)
                 .containsExactly(
                         WithdrawalType.EARNINGS_ONLY, WithdrawalType.MATURED_PRINCIPAL_INCLUDED);
@@ -368,9 +368,9 @@ class WithdrawalServiceImplTest {
     void negativeCalculatedEarnings_isTreatedAsZero() {
         prepareOpenedAccount("500", List.of(leftAmount(51L, "600", NOW.minusYears(2))));
 
-        List<WithdrawalAllocationDTO> result = withdrawalService.withdraw(request("100"));
+        WithdrawalResultDTO result = withdrawalService.withdraw(request("100"));
 
-        assertThat(result)
+        assertThat(result.getAllocations())
                 .singleElement()
                 .satisfies(
                         allocation -> {
