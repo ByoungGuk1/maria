@@ -6,7 +6,6 @@ import com.app.maria.global.exception.MydataApiException;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
@@ -17,7 +16,6 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 @Component
-@Slf4j
 public class MydataProviderImpl implements MydataProvider {
     private static final String RIA_ACCOUNTS_PATH = "/api/mydata/ria-accounts";
     private static final String SYNC_RIA_ACCOUNT_PATH = RIA_ACCOUNTS_PATH + "/save";
@@ -56,7 +54,6 @@ public class MydataProviderImpl implements MydataProvider {
 
     @Override
     public MydataRiaAccountsResponseDTO getRiaAccounts(String ciHash) {
-        log.info("ciHash: {}", ciHash);
         Map<String, String> req = new HashMap<>();
         req.put("ciHash", ciHash);
         try {
@@ -74,7 +71,6 @@ public class MydataProviderImpl implements MydataProvider {
 
     @Override
     public HttpStatusCode syncRiaAccount(String ciHash, AccountDTO account) {
-        log.info("ciHash: {}", ciHash);
         Map<String, String> req = new HashMap<>();
         req.put("ciHash", ciHash);
         req.put("brokerName", ownBrokerName);
