@@ -30,6 +30,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.batch.core.JobExecution;
@@ -115,6 +116,63 @@ class SettlementBatchTaskletTest {
 
         assertThat(status).isEqualTo(RepeatStatus.FINISHED);
         verify(settlementBatchStatusUpdater).completeFromLatestItems(1L);
+    }
+
+    @Test
+    void resetsCorruptedLastItemIdAndRestartsFromInitialCursor() {
+        stepExecution.getExecutionContext().putString("settlement.lastItemId", "corrupted");
+        when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch()));
+        when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of());
+        when(settlementItemMapper.countPendingItems(1L)).thenReturn(0);
+
+        tasklet.execute(contribution, new ChunkContext(new StepContext(stepExecution)));
+
+        ArgumentCaptor<SettlementItemDTO> cursor = ArgumentCaptor.forClass(SettlementItemDTO.class);
+        verify(settlementItemMapper).selectPendingItems(cursor.capture());
+        assertThat(cursor.getValue().getItemId()).isZero();
+        assertThat(stepExecution.getExecutionContext().containsKey("settlement.lastItemId"))
+                .isFalse();
+    }
+
+    @Test
+    void removesMalformedRateCacheAndFetchesRateAgain() {
+        String valueKey = "settlement.rate.USD:2026-08-04.value";
+        stepExecution.getExecutionContext().putString(valueKey, "not-a-number");
+        SettlementItemDTO item = SettlementItemDTO.builder().itemId(10L).batchId(1L).build();
+        SettlementJoinDTO target = target(10L);
+        when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch()));
+        when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of(item));
+        when(settlementJoinMapper.selectTargetByItemId(any())).thenReturn(Optional.of(target));
+        when(exchangeRateProvider.getFinalRate("USD", target.getFinalAt().toLocalDate()))
+                .thenReturn(new BigDecimal("1400"));
+
+        tasklet.execute(contribution, new ChunkContext(new StepContext(stepExecution)));
+
+        verify(exchangeRateProvider).getFinalRate("USD", target.getFinalAt().toLocalDate());
+        verify(settlementTransactionExecutor).execute(target, new BigDecimal("1400"));
+        assertThat(stepExecution.getExecutionContext().getString(valueKey)).isEqualTo("1400");
+    }
+
+    @Test
+    void removesIncompleteFailureCacheAndFetchesRateAgain() {
+        String cacheKey = "settlement.rate.USD:2026-08-04";
+        stepExecution.getExecutionContext().putString(cacheKey + ".failureType", "NOT_FOUND");
+        SettlementItemDTO item = SettlementItemDTO.builder().itemId(10L).batchId(1L).build();
+        SettlementJoinDTO target = target(10L);
+        when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch()));
+        when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of(item));
+        when(settlementJoinMapper.selectTargetByItemId(any())).thenReturn(Optional.of(target));
+        when(exchangeRateProvider.getFinalRate("USD", target.getFinalAt().toLocalDate()))
+                .thenReturn(new BigDecimal("1400"));
+
+        tasklet.execute(contribution, new ChunkContext(new StepContext(stepExecution)));
+
+        verify(exchangeRateProvider).getFinalRate("USD", target.getFinalAt().toLocalDate());
+        verify(settlementTransactionExecutor).execute(target, new BigDecimal("1400"));
+        assertThat(stepExecution.getExecutionContext().containsKey(cacheKey + ".failureType"))
+                .isFalse();
+        assertThat(stepExecution.getExecutionContext().containsKey(cacheKey + ".failureMessage"))
+                .isFalse();
     }
 
     @Test
