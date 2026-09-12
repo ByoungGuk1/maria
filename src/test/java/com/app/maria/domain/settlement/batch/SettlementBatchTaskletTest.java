@@ -135,6 +135,22 @@ class SettlementBatchTaskletTest {
     }
 
     @Test
+    void resetsValidButStaleCursorWhenPendingItemsWereSkipped() {
+        stepExecution.getExecutionContext().putLong("settlement.lastItemId", 999L);
+        when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch()));
+        when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of());
+        when(settlementItemMapper.countPendingItems(1L)).thenReturn(1);
+
+        RepeatStatus status =
+                tasklet.execute(contribution, new ChunkContext(new StepContext(stepExecution)));
+
+        assertThat(status).isEqualTo(RepeatStatus.CONTINUABLE);
+        assertThat(stepExecution.getExecutionContext().containsKey("settlement.lastItemId"))
+                .isFalse();
+        verify(settlementBatchStatusUpdater, never()).completeFromLatestItems(any());
+    }
+
+    @Test
     void removesMalformedRateCacheAndFetchesRateAgain() {
         String valueKey = "settlement.rate.USD:2026-08-04.value";
         stepExecution.getExecutionContext().putString(valueKey, "not-a-number");

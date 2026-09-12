@@ -74,7 +74,12 @@ public class SettlementBatchTasklet implements Tasklet {
         List<SettlementItemDTO> items = settlementItemMapper.selectPendingItems(cursor);
 
         if (items.isEmpty()) {
-            finalizeBatch(batchId);
+            int pendingCount = settlementItemMapper.countPendingItems(batchId);
+            if (pendingCount > 0 && lastItemId > INITIAL_ITEM_ID) {
+                executionContext.remove(LAST_ITEM_ID);
+                return RepeatStatus.CONTINUABLE;
+            }
+            finalizeBatch(batchId, pendingCount);
             return RepeatStatus.FINISHED;
         }
 
@@ -234,8 +239,7 @@ public class SettlementBatchTasklet implements Tasklet {
         executionContext.remove(failureMessageKey);
     }
 
-    private void finalizeBatch(Long batchId) {
-        int pendingCount = settlementItemMapper.countPendingItems(batchId);
+    private void finalizeBatch(Long batchId, int pendingCount) {
         if (pendingCount > 0) {
             throw new SettlementStateConflictException(
                     "미처리 Item이 남아 있어 Batch를 종료할 수 없습니다. batchId="
