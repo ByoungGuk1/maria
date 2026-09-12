@@ -15,32 +15,28 @@ class SettlementBusinessDayCalculatorTest {
 
     @Test
     void addsTwoBusinessDaysFromWeekday() {
-        LocalDateTime finalAt =
-                calculator.calculateFinalAt(LocalDateTime.of(2026, 8, 10, 15, 30));
+        LocalDateTime finalAt = calculator.calculateFinalAt(LocalDateTime.of(2026, 8, 10, 15, 30));
 
         assertThat(finalAt).isEqualTo(LocalDateTime.of(2026, 8, 12, 0, 0));
     }
 
     @Test
     void skipsWeekendAndSubstituteHoliday() {
-        LocalDateTime finalAt =
-                calculator.calculateFinalAt(LocalDateTime.of(2026, 8, 14, 15, 30));
+        LocalDateTime finalAt = calculator.calculateFinalAt(LocalDateTime.of(2026, 8, 14, 15, 30));
 
         assertThat(finalAt).isEqualTo(LocalDateTime.of(2026, 8, 19, 0, 0));
     }
 
     @Test
     void skipsChuseokHolidays() {
-        LocalDateTime finalAt =
-                calculator.calculateFinalAt(LocalDateTime.of(2026, 9, 23, 15, 30));
+        LocalDateTime finalAt = calculator.calculateFinalAt(LocalDateTime.of(2026, 9, 23, 15, 30));
 
         assertThat(finalAt).isEqualTo(LocalDateTime.of(2026, 9, 29, 0, 0));
     }
 
     @Test
     void calculatesAcrossYearBoundary() {
-        LocalDateTime finalAt =
-                calculator.calculateFinalAt(LocalDateTime.of(2026, 12, 31, 15, 30));
+        LocalDateTime finalAt = calculator.calculateFinalAt(LocalDateTime.of(2026, 12, 31, 15, 30));
 
         assertThat(finalAt).isEqualTo(LocalDateTime.of(2027, 1, 5, 0, 0));
     }

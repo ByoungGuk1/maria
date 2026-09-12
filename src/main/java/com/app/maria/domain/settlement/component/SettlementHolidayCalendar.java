@@ -28,8 +28,7 @@ public class SettlementHolidayCalendar {
     public boolean isHoliday(LocalDate date) {
         Set<LocalDate> holidays = holidaysByYear.get(date.getYear());
         if (holidays == null) {
-            throw new SettlementHolidayCalendarException(
-                    "정산 휴일 정보가 없습니다. year=" + date.getYear());
+            throw new SettlementHolidayCalendarException("정산 휴일 정보가 없습니다. year=" + date.getYear());
         }
         return holidays.contains(date);
     }
