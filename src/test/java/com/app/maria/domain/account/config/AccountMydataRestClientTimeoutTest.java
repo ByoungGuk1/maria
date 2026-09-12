@@ -33,22 +33,33 @@ class AccountMydataRestClientTimeoutTest {
                         "custom.mydata.url=http://localhost",
                         "custom.mydata.own-broker-name=test-broker",
                         "custom.returns-security.url=http://localhost")
-                .run(context -> {
-                    assertThat(context).hasNotFailed();
-                    RestClient accountClient = context.getBean("accountMydataRestClient", RestClient.class);
-                    RestClient sharedClient = context.getBean("mydataRestClient", RestClient.class);
-                    assertThat(accountClient).isNotSameAs(sharedClient);
-                    assertThat(ReflectionTestUtils.getField(context.getBean(MydataProviderImpl.class), "restClient"))
-                            .isSameAs(accountClient);
-                    assertThat(ReflectionTestUtils.getField(accountClient, "clientRequestFactory"))
-                            .isNotSameAs(ReflectionTestUtils.getField(sharedClient, "clientRequestFactory"));
-                });
+                .run(
+                        context -> {
+                            assertThat(context).hasNotFailed();
+                            RestClient accountClient =
+                                    context.getBean("accountMydataRestClient", RestClient.class);
+                            RestClient sharedClient =
+                                    context.getBean("mydataRestClient", RestClient.class);
+                            assertThat(accountClient).isNotSameAs(sharedClient);
+                            assertThat(
+                                            ReflectionTestUtils.getField(
+                                                    context.getBean(MydataProviderImpl.class),
+                                                    "restClient"))
+                                    .isSameAs(accountClient);
+                            assertThat(
+                                            ReflectionTestUtils.getField(
+                                                    accountClient, "clientRequestFactory"))
+                                    .isNotSameAs(
+                                            ReflectionTestUtils.getField(
+                                                    sharedClient, "clientRequestFactory"));
+                        });
     }
 
     @Test
     void appliesConnectAndReadTimeouts() {
-        RestClient client = new AccountMydataRestClientConfig()
-                .accountMydataRestClient(RestClient.builder(), "http://localhost");
+        RestClient client =
+                new AccountMydataRestClientConfig()
+                        .accountMydataRestClient(RestClient.builder(), "http://localhost");
         Object factory = ReflectionTestUtils.getField(client, "clientRequestFactory");
         assertThat(factory).isInstanceOf(SimpleClientHttpRequestFactory.class);
         assertThat(ReflectionTestUtils.getField(factory, "connectTimeout")).isEqualTo(3000);
@@ -61,19 +72,23 @@ class AccountMydataRestClientTimeoutTest {
         ExecutorService executor = Executors.newCachedThreadPool();
         CountDownLatch release = new CountDownLatch(1);
         server.setExecutor(executor);
-        server.createContext("/api/mydata/ria-accounts", exchange -> {
-            try {
-                release.await();
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-            } finally {
-                exchange.close();
-            }
-        });
+        server.createContext(
+                "/api/mydata/ria-accounts",
+                exchange -> {
+                    try {
+                        release.await();
+                    } catch (InterruptedException exception) {
+                        Thread.currentThread().interrupt();
+                    } finally {
+                        exchange.close();
+                    }
+                });
         server.start();
         try {
             String url = "http://127.0.0.1:" + server.getAddress().getPort();
-            RestClient client = new AccountMydataRestClientConfig().accountMydataRestClient(RestClient.builder(), url);
+            RestClient client =
+                    new AccountMydataRestClientConfig()
+                            .accountMydataRestClient(RestClient.builder(), url);
             MydataProviderImpl provider = new MydataProviderImpl(client);
             ReflectionTestUtils.setField(provider, "myDataUrl", url);
             ReflectionTestUtils.setField(provider, "ownBrokerName", "test-broker");
