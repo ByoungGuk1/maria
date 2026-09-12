@@ -21,7 +21,7 @@ public class MydataProviderImpl implements MydataProvider {
     private static final String SYNC_RIA_ACCOUNT_PATH = RIA_ACCOUNTS_PATH + "/save";
     private final RestClient restClient;
 
-    public MydataProviderImpl(@Qualifier("mydataRestClient") RestClient restClient) {
+    public MydataProviderImpl(@Qualifier("accountMydataRestClient") RestClient restClient) {
         this.restClient = restClient;
     }
 
