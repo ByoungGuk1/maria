@@ -81,7 +81,12 @@ class SettlementBatchTaskletTest {
         SettlementBatchDTO batch = batch();
         SettlementItemDTO item = SettlementItemDTO.builder().itemId(10L).batchId(1L).build();
         SettlementJoinDTO target =
-                SettlementJoinDTO.builder().itemId(10L).batchId(1L).purchaseCurrency("USD").build();
+                SettlementJoinDTO.builder()
+                        .itemId(10L)
+                        .batchId(1L)
+                        .purchaseCurrency("USD")
+                        .finalAt(LocalDateTime.of(2026, 8, 4, 0, 0))
+                        .build();
         when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch));
         when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of(item));
         when(settlementJoinMapper.selectTargetByItemId(any())).thenReturn(Optional.of(target));
@@ -336,6 +341,7 @@ class SettlementBatchTaskletTest {
                 .itemId(itemId)
                 .batchId(1L)
                 .purchaseCurrency(currency)
+                .finalAt(LocalDateTime.of(2026, 8, 4, 0, 0))
                 .build();
     }
 }

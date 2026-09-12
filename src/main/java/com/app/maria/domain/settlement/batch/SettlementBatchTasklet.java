@@ -78,9 +78,8 @@ public class SettlementBatchTasklet implements Tasklet {
             return RepeatStatus.FINISHED;
         }
 
-        LocalDate rateDate = batch.getExecutedAt().toLocalDate();
         for (SettlementItemDTO item : items) {
-            processItem(batchId, item, rateDate, executionContext);
+            processItem(batchId, item, executionContext);
             executionContext.putLong(LAST_ITEM_ID, item.getItemId());
         }
 
@@ -90,7 +89,6 @@ public class SettlementBatchTasklet implements Tasklet {
     private void processItem(
             Long batchId,
             SettlementItemDTO item,
-            LocalDate rateDate,
             ExecutionContext executionContext) {
         try {
             SettlementJoinDTO query =
@@ -102,12 +100,21 @@ public class SettlementBatchTasklet implements Tasklet {
             }
 
             SettlementJoinDTO value = target.get();
+            LocalDate rateDate = requireFinalDate(value);
             BigDecimal finalRate =
                     resolveFinalRate(value.getPurchaseCurrency(), rateDate, executionContext);
             settlementTransactionExecutor.execute(value, finalRate);
         } catch (Exception e) {
             settlementFailureRecorder.markFailed(item.getItemId(), e);
         }
+    }
+
+    private LocalDate requireFinalDate(SettlementJoinDTO target) {
+        if (target.getFinalAt() == null) {
+            throw new SettlementStateConflictException(
+                    "확정산 기준일이 없습니다. exchangeId=" + target.getExchangeId());
+        }
+        return target.getFinalAt().toLocalDate();
     }
 
     private BigDecimal resolveFinalRate(
