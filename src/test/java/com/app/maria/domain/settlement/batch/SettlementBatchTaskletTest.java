@@ -170,9 +170,51 @@ class SettlementBatchTaskletTest {
     }
 
     @Test
+    void removesBlankRateCacheAndFetchesRateAgain() {
+        String valueKey = "settlement.rate.USD:2026-08-04.value";
+        stepExecution.getExecutionContext().putString(valueKey, "   ");
+        SettlementItemDTO item = SettlementItemDTO.builder().itemId(10L).batchId(1L).build();
+        SettlementJoinDTO target = target(10L);
+        when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch()));
+        when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of(item));
+        when(settlementJoinMapper.selectTargetByItemId(any())).thenReturn(Optional.of(target));
+        when(exchangeRateProvider.getFinalRate("USD", target.getFinalAt().toLocalDate()))
+                .thenReturn(new BigDecimal("1400"));
+
+        tasklet.execute(contribution, new ChunkContext(new StepContext(stepExecution)));
+
+        verify(exchangeRateProvider).getFinalRate("USD", target.getFinalAt().toLocalDate());
+        verify(settlementTransactionExecutor).execute(target, new BigDecimal("1400"));
+        assertThat(stepExecution.getExecutionContext().getString(valueKey)).isEqualTo("1400");
+    }
+
+    @Test
     void removesIncompleteFailureCacheAndFetchesRateAgain() {
         String cacheKey = "settlement.rate.USD:2026-08-04";
         stepExecution.getExecutionContext().putString(cacheKey + ".failureType", "NOT_FOUND");
+        SettlementItemDTO item = SettlementItemDTO.builder().itemId(10L).batchId(1L).build();
+        SettlementJoinDTO target = target(10L);
+        when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch()));
+        when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of(item));
+        when(settlementJoinMapper.selectTargetByItemId(any())).thenReturn(Optional.of(target));
+        when(exchangeRateProvider.getFinalRate("USD", target.getFinalAt().toLocalDate()))
+                .thenReturn(new BigDecimal("1400"));
+
+        tasklet.execute(contribution, new ChunkContext(new StepContext(stepExecution)));
+
+        verify(exchangeRateProvider).getFinalRate("USD", target.getFinalAt().toLocalDate());
+        verify(settlementTransactionExecutor).execute(target, new BigDecimal("1400"));
+        assertThat(stepExecution.getExecutionContext().containsKey(cacheKey + ".failureType"))
+                .isFalse();
+        assertThat(stepExecution.getExecutionContext().containsKey(cacheKey + ".failureMessage"))
+                .isFalse();
+    }
+
+    @Test
+    void removesUnknownFailureTypeAndFetchesRateAgain() {
+        String cacheKey = "settlement.rate.USD:2026-08-04";
+        stepExecution.getExecutionContext().putString(cacheKey + ".failureType", "UNKNOWN");
+        stepExecution.getExecutionContext().putString(cacheKey + ".failureMessage", "손상된 실패 타입");
         SettlementItemDTO item = SettlementItemDTO.builder().itemId(10L).batchId(1L).build();
         SettlementJoinDTO target = target(10L);
         when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch()));
@@ -262,6 +304,30 @@ class SettlementBatchTaskletTest {
                 .getFinalRate("JPY", batch.getExecutedAt().toLocalDate());
         verify(settlementTransactionExecutor).execute(usdTarget, new BigDecimal("1400"));
         verify(settlementTransactionExecutor).execute(jpyTarget, new BigDecimal("9.5"));
+    }
+
+    @Test
+    void queriesSameCurrencyRateForEachSettlementDate() {
+        SettlementItemDTO first = SettlementItemDTO.builder().itemId(10L).batchId(1L).build();
+        SettlementItemDTO second = SettlementItemDTO.builder().itemId(11L).batchId(1L).build();
+        SettlementJoinDTO firstTarget = target(10L);
+        SettlementJoinDTO secondTarget = target(11L);
+        secondTarget.setFinalAt(LocalDateTime.of(2026, 8, 5, 0, 0));
+        when(settlementBatchMapper.selectBatchById(1L)).thenReturn(Optional.of(batch()));
+        when(settlementItemMapper.selectPendingItems(any())).thenReturn(List.of(first, second));
+        when(settlementJoinMapper.selectTargetByItemId(any()))
+                .thenReturn(Optional.of(firstTarget), Optional.of(secondTarget));
+        when(exchangeRateProvider.getFinalRate("USD", firstTarget.getFinalAt().toLocalDate()))
+                .thenReturn(new BigDecimal("1400"));
+        when(exchangeRateProvider.getFinalRate("USD", secondTarget.getFinalAt().toLocalDate()))
+                .thenReturn(new BigDecimal("1410"));
+
+        tasklet.execute(contribution, new ChunkContext(new StepContext(stepExecution)));
+
+        verify(exchangeRateProvider).getFinalRate("USD", firstTarget.getFinalAt().toLocalDate());
+        verify(exchangeRateProvider).getFinalRate("USD", secondTarget.getFinalAt().toLocalDate());
+        verify(settlementTransactionExecutor).execute(firstTarget, new BigDecimal("1400"));
+        verify(settlementTransactionExecutor).execute(secondTarget, new BigDecimal("1410"));
     }
 
     @Test

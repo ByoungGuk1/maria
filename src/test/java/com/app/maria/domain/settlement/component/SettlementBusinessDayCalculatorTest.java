@@ -42,6 +42,20 @@ class SettlementBusinessDayCalculatorTest {
     }
 
     @Test
+    void calculatesAcrossMayMonthBoundary() {
+        LocalDateTime finalAt = calculator.calculateFinalAt(LocalDateTime.of(2026, 5, 31, 15, 30));
+
+        assertThat(finalAt).isEqualTo(LocalDateTime.of(2026, 6, 2, 0, 0));
+    }
+
+    @Test
+    void calculatesAcrossJulyMonthBoundary() {
+        LocalDateTime finalAt = calculator.calculateFinalAt(LocalDateTime.of(2026, 7, 31, 15, 30));
+
+        assertThat(finalAt).isEqualTo(LocalDateTime.of(2026, 8, 4, 0, 0));
+    }
+
+    @Test
     void rejectsDateWhenHolidayYearIsNotConfigured() {
         assertThatThrownBy(() -> holidayCalendar.isHoliday(LocalDate.of(2028, 1, 3)))
                 .isInstanceOf(SettlementHolidayCalendarException.class)
